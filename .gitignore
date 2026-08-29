@@ -1,0 +1,11 @@
+.DS_Store
+.derived
+DerivedData
+build
+dmgroot
+xcuserdata
+*.xcuserstate
+*.xccheckout
+*.moved-aside
+.swiftpm
+.idea

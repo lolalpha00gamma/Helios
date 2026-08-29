@@ -1,0 +1,103 @@
+name: Helios.dmg
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode 27
+        run: |
+          set +e
+          for p in \
+            /Applications/Xcode_27.app \
+            /Applications/Xcode_27.0.app \
+            /Applications/Xcode_27.0.0.app \
+            /Applications/Xcode.app
+          do
+            if [ -d "$p/Contents/Developer" ]; then
+              sudo xcode-select -s "$p/Contents/Developer"
+              echo "Using $p"
+              break
+            fi
+          done
+          xcodebuild -version
+          ls /Applications | grep -i xcode || true
+
+      - name: Read version
+        id: ver
+        run: |
+          MARKETING=$(awk -F' = ' '/MARKETING_VERSION/{gsub(/;/, "", $2); print $2; exit}' macos/Helios.xcodeproj/project.pbxproj)
+          TAG="v${MARKETING}"
+          TITLE="Helios ${MARKETING}"
+          echo "marketing=$MARKETING" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
+
+      - name: Build Helios.app
+        run: |
+          xcodebuild \
+            -project macos/Helios.xcodeproj \
+            -scheme Helios \
+            -configuration Release \
+            -derivedDataPath .derived \
+            -destination 'platform=macOS,arch=arm64' \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES \
+            EXCLUDED_ARCHS=x86_64 \
+            MACOSX_DEPLOYMENT_TARGET=27.0 \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGNING_ALLOWED=YES \
+            ENABLE_HARDENED_RUNTIME=YES \
+            build
+
+      - name: Sign and make DMG
+        run: |
+          APP=".derived/Build/Products/Release/Helios.app"
+          test -d "$APP"
+          rm -rf dmgroot
+          mkdir dmgroot
+          cp -R "$APP" dmgroot/Helios.app
+          codesign --force --deep --sign - \
+            --options runtime \
+            --timestamp=none \
+            --entitlements macos/Helios.entitlements \
+            dmgroot/Helios.app
+          codesign --verify --verbose=2 dmgroot/Helios.app || true
+          ln -s /Applications dmgroot/Applications
+          hdiutil create -volname Helios -srcfolder dmgroot -ov -format UDZO Helios.dmg
+          ls -lh Helios.dmg
+          codesign --force --sign - --timestamp=none Helios.dmg || true
+
+      - name: Publish Helios.dmg
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.ver.outputs.tag }}"
+          TITLE="${{ steps.ver.outputs.title }}"
+          NOTES="$(cat <<EOF
+          Helios ${{ steps.ver.outputs.marketing }} — native macOS-App (arm64, macOS 27).
+
+          1. Helios.dmg öffnen
+          2. Helios in Programme ziehen
+          3. Rechtsklick → Öffnen (Gatekeeper)
+          4. Kamera, Bedienungshilfen und Eingabeüberwachung erlauben
+
+          Ad-hoc signiert. Developer-ID / Notarisierung braucht ein Apple-Zertifikat in den Repo-Secrets.
+          EOF
+          )"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" Helios.dmg --clobber
+            gh release edit "$TAG" --title "$TITLE" --notes "$NOTES" --latest
+          else
+            gh release create "$TAG" Helios.dmg --title "$TITLE" --latest --notes "$NOTES"
+          fi

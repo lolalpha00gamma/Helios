@@ -114,8 +114,9 @@ struct TrackingOverlay: View {
     }
 
     private func drawHand(_ hand: TrackedHand, in ctx: inout GraphicsContext, size: CGSize) {
+        let joints = hand.overlayJoints
         let side = hand.chirality == .left ? HeliosTheme.amber : HeliosTheme.cyan
-        let pts = hand.joints.compactMap { $0.value.confidence > 0.2 ? vis($0.value.point, size) : nil }
+        let pts = joints.compactMap { $0.value.confidence > 0.18 ? vis($0.value.point, size) : nil }
         if pts.count >= 3 {
             let xs = pts.map(\.x)
             let ys = pts.map(\.y)
@@ -137,14 +138,14 @@ struct TrackingOverlay: View {
             var path = Path()
             var started = false
             for name in finger.chain {
-                guard let j = hand.joints[name], j.confidence > 0.22 else { continue }
+                guard let j = joints[name], j.confidence > 0.18 else { continue }
                 let p = vis(j.point, size)
                 if started { path.addLine(to: p) } else { path.move(to: p); started = true }
             }
             ctx.stroke(path, with: .color(finger.color.opacity(0.95)), lineWidth: compact ? 1.6 : 2.4)
         }
 
-        for (name, j) in hand.joints where j.confidence > 0.22 {
+        for (name, j) in joints where j.confidence > 0.18 {
             let p = vis(j.point, size)
             let isTip = FingerKind.allCases.contains { $0.tip == name }
             let r: CGFloat = isTip ? (compact ? 4 : 5.5) : (compact ? 2.2 : 3.2)
@@ -169,7 +170,7 @@ struct TrackingOverlay: View {
         for hand in hands {
             let sideColor = hand.chirality == .left ? HeliosTheme.amber : HeliosTheme.cyan
             let side = hand.chirality == .left ? "L" : "R"
-            if let w = hand.point(.wrist) {
+            if let w = hand.overlayPoint(.wrist) {
                 out.append(JointLabel(
                     id: "\(hand.id)-wrist",
                     text: compact ? "\(side) \(hand.pose.labelDE)" : "\(side == "L" ? "Links" : "Rechts") · \(hand.pose.labelDE)",
@@ -178,7 +179,7 @@ struct TrackingOverlay: View {
                 ))
             }
             for finger in FingerKind.allCases {
-                guard let j = hand.joints[finger.tip], j.confidence > 0.35 else { continue }
+                guard let j = hand.overlayJoints[finger.tip], j.confidence > 0.28 else { continue }
                 let mark = hand.isExtended(finger) ? "↑" : "·"
                 out.append(JointLabel(
                     id: "\(hand.id)-\(finger.rawValue)",

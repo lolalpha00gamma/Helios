@@ -23,18 +23,29 @@ final class GestureEngine {
     var cursor: CGPoint?
     var twoHandSpan: CGFloat?
     var testMode = true
+    var trashHot = false
+    var killFlash = false
+    var dragging = false
 
     private var fistSince: TimeInterval?
     private var palmSince: TimeInterval?
+    private var lastPalmSeen: TimeInterval = 0
     private var pointHold: TimeInterval?
+    private var palmMenuSince: TimeInterval?
+    private var thumbsSince: TimeInterval?
+    private var peaceSince: TimeInterval?
     private var pinchHeld = false
     private var pinchBecameDrag = false
+    private var pinchTrail: [(t: TimeInterval, x: CGFloat, y: CGFloat)] = []
+    private var pinchSpan0: CGFloat?
     private var swipeTrail: [(t: TimeInterval, x: CGFloat)] = []
     private var cooldownUntil: TimeInterval = 0
     private var lastArmToggle: TimeInterval = 0
     private var lastLoggedPose: String = ""
+    private var killLatched = false
     private let system = SystemControl()
     var onLog: ((String) -> Void)?
+    var focused: FocusedTarget?
 
     func reset() {
         mode = .idle
@@ -43,9 +54,12 @@ final class GestureEngine {
         pinchHeld = false
         pinchBecameDrag = false
         swipeTrail.removeAll()
+        pinchTrail.removeAll()
         system.endWindowDrag()
         cursor = nil
         twoHandSpan = nil
+        trashHot = false
+        dragging = false
         lastAction = "Reset"
     }
 
@@ -56,6 +70,8 @@ final class GestureEngine {
             if system.isDragging { system.endWindowDrag() }
             pinchHeld = false
             cursor = nil
+            trashHot = false
+            dragging = false
             return
         }
 
@@ -68,26 +84,26 @@ final class GestureEngine {
                 onLog?("Erkannt: \(text)")
             }
         }
-        handleArming(hands: hands, primary: primary, now: now)
+
+        if handleKillSwitch(hands: hands, now: now) {
+            return
+        }
+        handleArming(primary: primary, now: now)
         guard mode == .armed || testMode, now >= cooldownUntil else { return }
 
-        if hands.count >= 2,
-           hands.filter({ $0.pose == .openPalm || $0.pose == .pinch }).count == 2
-        {
-            let span = hypot(hands[0].palm.x - hands[1].palm.x, hands[0].palm.y - hands[1].palm.y)
-            if let old = twoHandSpan, abs(span - old) > 0.012 {
-                perform("Skalieren") { system.resizeFocused(scale: span > old ? 1.04 : 0.96) }
-            }
-            twoHandSpan = span
+        if handleTwoPinchScale(hands: hands) {
             return
-        } else {
-            twoHandSpan = nil
         }
 
         drivePointer(primary)
+        updateTrashHot()
         drivePinch(primary, now: now)
         driveSwipe(primary, now: now)
         drivePointHold(primary, now: now)
+        drivePeace(primary, now: now)
+        driveThumbs(primary, now: now)
+        drivePalmMenu(hands: hands, primary: primary, now: now)
+        dragging = pinchHeld
     }
 
     func forceIdle() {
@@ -110,20 +126,46 @@ final class GestureEngine {
         onLog?(name)
     }
 
-    private func handleArming(hands: [TrackedHand], primary: TrackedHand, now: TimeInterval) {
-        let palms = hands.filter { $0.pose == .openPalm }
-        if palms.count >= 2 {
-            if palmSince == nil { palmSince = now }
-            if now - (palmSince ?? now) > 0.45, mode != .idle {
-                mode = .idle
-                perform("Not-Aus") { system.endWindowDrag() }
-                if !testMode { onLog?("Beide Hände offen → Idle") }
-                cooldownUntil = now + 0.6
+    /// Zwei offene Hände = Not-Aus. Läuft immer, auch im Idle, mit Hysterese gegen Flackern.
+    @discardableResult
+    private func handleKillSwitch(hands: [TrackedHand], now: TimeInterval) -> Bool {
+        let open = hands.filter(\.isOpenEnough)
+        if open.count >= 2 {
+            if killLatched {
+                lastAction = testMode ? "Test: Not-Aus" : "Not-Aus"
+                return true
             }
-        } else {
-            palmSince = nil
+            if palmSince == nil { palmSince = now }
+            lastPalmSeen = now
+            let held = now - (palmSince ?? now)
+            if held >= 0.22 {
+                mode = .idle
+                killLatched = true
+                pinchHeld = false
+                pinchBecameDrag = false
+                system.endWindowDrag()
+                lastAction = testMode ? "Test: Not-Aus" : "Not-Aus"
+                onLog?(testMode ? "Test · Beide Hände offen → Not-Aus" : "Beide Hände offen → Idle")
+                killFlash = true
+                Task { [weak self] in
+                    try? await Task.sleep(nanoseconds: 350_000_000)
+                    await MainActor.run { self?.killFlash = false }
+                }
+                cooldownUntil = now + 0.7
+                return true
+            }
+            lastAction = testMode ? "Test: Not-Aus halten" : "Not-Aus halten"
+            return true
         }
+        if now - lastPalmSeen < 0.22, palmSince != nil {
+            return false
+        }
+        palmSince = nil
+        killLatched = false
+        return false
+    }
 
+    private func handleArming(primary: TrackedHand, now: TimeInterval) {
         if primary.pose == .fist {
             if fistSince == nil { fistSince = now }
             if now - (fistSince ?? now) >= 0.75, now - lastArmToggle > 1.0 {
@@ -146,10 +188,25 @@ final class GestureEngine {
         }
     }
 
+    @discardableResult
+    private func handleTwoPinchScale(hands: [TrackedHand]) -> Bool {
+        let pinches = hands.filter { $0.pose == .pinch }
+        guard pinches.count >= 2 else {
+            twoHandSpan = nil
+            return false
+        }
+        let span = hypot(pinches[0].palm.x - pinches[1].palm.x, pinches[0].palm.y - pinches[1].palm.y)
+        if let old = twoHandSpan, abs(span - old) > 0.012 {
+            perform("Skalieren") { system.resizeFocused(scale: span > old ? 1.04 : 0.96) }
+        }
+        twoHandSpan = span
+        return true
+    }
+
     private func drivePointer(_ hand: TrackedHand) {
         guard hand.pose == .point || hand.pose == .pinch || pinchHeld else { return }
         let tip = hand.point(.indexTip) ?? hand.palm
-        let mapped = mapToQuartz(tip)
+        let mapped = ScreenGeometry.mapNormalizedToQuartz(tip)
         cursor = mapped
         if !testMode { system.moveCursor(to: mapped) }
         if hand.pose == .point {
@@ -157,50 +214,117 @@ final class GestureEngine {
         }
     }
 
+    private func updateTrashHot() {
+        guard pinchHeld, let cursor else {
+            trashHot = false
+            return
+        }
+        trashHot = NSScreen.screens.contains { screen in
+            let local = ScreenGeometry.local(quartz: cursor, on: screen.frame)
+            return ScreenGeometry.trashLocal(screen: screen).insetBy(dx: -16, dy: -16).contains(local)
+        }
+    }
+
     private func drivePinch(_ hand: TrackedHand, now: TimeInterval) {
         let isPinch = hand.pose == .pinch
+        let span = hypot(
+            (hand.point(.middleTip) ?? hand.palm).x - hand.palm.x,
+            (hand.point(.middleTip) ?? hand.palm).y - hand.palm.y
+        )
         if isPinch && !pinchHeld {
             pinchHeld = true
             pinchBecameDrag = false
+            pinchTrail = [(now, hand.palm.x, hand.palm.y)]
+            pinchSpan0 = span
             if !testMode { system.beginWindowDrag() }
             lastAction = testMode ? "Test: Greifen" : "Greifen"
-            onLog?(testMode ? "Test · Pinzette" : "Pinzette — Fenster greifen")
+            onLog?(testMode ? "Test · Pinzette" : "Pinzette — greifen")
         } else if isPinch && pinchHeld {
+            pinchTrail.append((now, hand.palm.x, hand.palm.y))
+            pinchTrail.removeAll { now - $0.t > 0.45 }
+            if let first = pinchTrail.first {
+                let moved = hypot(hand.palm.x - first.x, hand.palm.y - first.y)
+                if moved > 0.035 { pinchBecameDrag = true }
+            }
             if !testMode, system.isDragging {
                 system.updateWindowDrag()
                 pinchBecameDrag = true
-                lastAction = "Ziehen"
+                lastAction = trashHot ? "Papierkorb" : "Ziehen"
             } else if testMode {
-                lastAction = "Test: Greifen"
+                lastAction = trashHot ? "Test: Papierkorb" : "Test: Greifen"
+            }
+            if let s0 = pinchSpan0, span > s0 + 0.09 {
+                perform("Heranziehen") { system.snapFocused(.fill) }
+                pinchSpan0 = span
+                cooldownUntil = now + 0.6
             }
         } else if !isPinch && pinchHeld {
-            if !pinchBecameDrag {
-                if !testMode {
-                    system.endWindowDrag()
-                    system.click()
-                }
-                lastAction = testMode ? "Test: Klick" : "Klick"
-                onLog?(testMode ? "Test · Klick" : "Klick")
-            } else {
-                if !testMode { system.endWindowDrag() }
-                lastAction = testMode ? "Test: Loslassen" : "Loslassen"
-            }
+            let flung = resolveFling(now: now)
+            let wasDrag = pinchBecameDrag
             pinchHeld = false
             pinchBecameDrag = false
+            pinchTrail.removeAll()
+            pinchSpan0 = nil
+            trashHot = false
+            if !testMode { system.endWindowDrag() }
+            if flung {
+                cooldownUntil = now + 0.5
+                return
+            }
+            if wasDrag {
+                lastAction = testMode ? "Test: Loslassen" : "Loslassen"
+            } else {
+                if !testMode { system.click() }
+                lastAction = testMode ? "Test: Klick" : "Klick"
+                onLog?(testMode ? "Test · Klick" : "Klick")
+            }
             cooldownUntil = now + 0.2
         }
     }
 
+    private func resolveFling(now: TimeInterval) -> Bool {
+        guard let last = pinchTrail.last, let first = pinchTrail.first, last.t > first.t + 0.05 else {
+            if trashHot {
+                perform("Wegwerfen") { system.throwAway(finder: focused?.isFinder == true) }
+                onLog?(testMode ? "Test · Papierkorb" : "Wegwerfen")
+                return true
+            }
+            return false
+        }
+        let dt = last.t - first.t
+        let vx = (last.x - first.x) / dt
+        let vy = (last.y - first.y) / dt
+        let speed = hypot(vx, vy)
+        if trashHot || (speed > 1.35 && vy < -0.7) {
+            perform("Wegwerfen") { system.throwAway(finder: focused?.isFinder == true) }
+            onLog?(testMode ? "Test · Wegwerfen" : "Wegwerfen")
+            return true
+        }
+        if speed > 1.2 && vx < -0.85 {
+            perform("Links andocken") { system.snapFocused(.left) }
+            return true
+        }
+        if speed > 1.2 && vx > 0.85 {
+            perform("Rechts andocken") { system.snapFocused(.right) }
+            return true
+        }
+        if speed > 1.3 && vy > 0.85 {
+            perform("Minimieren") { system.minimizeFocused() }
+            return true
+        }
+        return false
+    }
+
     private func driveSwipe(_ hand: TrackedHand, now: TimeInterval) {
-        guard hand.pose == .point || hand.pose == .openPalm else {
+        guard hand.pose == .point, !pinchHeld else {
             swipeTrail.removeAll()
             return
         }
         swipeTrail.append((now, hand.palm.x))
         swipeTrail.removeAll { now - $0.t > 0.38 }
-        guard let first = swipeTrail.first, swipeTrail.count >= 4 else { return }
+        guard let first = swipeTrail.first, swipeTrail.count >= 5 else { return }
         let dx = hand.palm.x - first.x
-        if abs(dx) > 0.22 {
+        if abs(dx) > 0.24 {
             let name = dx < 0 ? "Nächste App" : "Vorherige App"
             perform(name) { system.switchApp(forward: dx < 0) }
             if testMode { onLog?("Test · \(name)") }
@@ -215,24 +339,67 @@ final class GestureEngine {
             return
         }
         let up = tip.y - wrist.y
-        if up > 0.16 {
+        if up > 0.18 {
             if pointHold == nil { pointHold = now }
-            if now - (pointHold ?? now) > 0.55 {
+            if now - (pointHold ?? now) > 0.62 {
                 perform("Zoom") { system.zoomFocused() }
-                if testMode { onLog?("Test · Zoom") }
                 pointHold = nil
                 cooldownUntil = now + 0.8
             }
-        } else if up < -0.08 {
+        } else if up < -0.10 {
             if pointHold == nil { pointHold = now }
-            if now - (pointHold ?? now) > 0.55 {
+            if now - (pointHold ?? now) > 0.62 {
                 perform("Minimieren") { system.minimizeFocused() }
-                if testMode { onLog?("Test · Minimieren") }
                 pointHold = nil
                 cooldownUntil = now + 0.8
             }
         } else {
             pointHold = nil
+        }
+    }
+
+    private func drivePeace(_ hand: TrackedHand, now: TimeInterval) {
+        if hand.pose == .peace {
+            if peaceSince == nil { peaceSince = now }
+            if now - (peaceSince ?? now) > 0.45 {
+                let target = focused
+                perform("Aufnahme") {
+                    if let t = target, t.quartzBounds.width > 8 {
+                        system.screenshotFocused(windowID: t.windowID, bounds: t.quartzBounds)
+                    }
+                }
+                onLog?(testMode ? "Test · Aufnahme" : "Fensteraufnahme")
+                peaceSince = now + 10
+                cooldownUntil = now + 1.0
+            }
+        } else {
+            peaceSince = nil
+        }
+    }
+
+    private func driveThumbs(_ hand: TrackedHand, now: TimeInterval) {
+        if hand.pose == .thumbsUp {
+            if thumbsSince == nil { thumbsSince = now }
+            if now - (thumbsSince ?? now) > 0.4 {
+                perform("Hervorholen") { system.unhideFront() }
+                thumbsSince = now + 10
+                cooldownUntil = now + 0.8
+            }
+        } else {
+            thumbsSince = nil
+        }
+    }
+
+    private func drivePalmMenu(hands: [TrackedHand], primary: TrackedHand, now: TimeInterval) {
+        guard hands.count == 1, primary.isOpenEnough else {
+            palmMenuSince = nil
+            return
+        }
+        if palmMenuSince == nil { palmMenuSince = now }
+        if now - (palmMenuSince ?? now) > 0.7 {
+            perform("Mission Control") { system.missionControl() }
+            palmMenuSince = now + 10
+            cooldownUntil = now + 1.0
         }
     }
 
@@ -242,14 +409,5 @@ final class GestureEngine {
             let sb = b.joints.values.map(\.confidence).max() ?? 0
             return sa < sb
         } ?? hands[0]
-    }
-
-    /// Vision (Ursprung unten links, X gespiegelt) → Quartz (Ursprung oben links).
-    private func mapToQuartz(_ p: CGPoint) -> CGPoint {
-        let screen = NSScreen.main?.frame ?? CGRect(x: 0, y: 0, width: 1920, height: 1080)
-        let globalMaxY = NSScreen.screens.map(\.frame.maxY).max() ?? screen.maxY
-        let cocoaX = screen.minX + p.x * screen.width
-        let cocoaY = screen.minY + p.y * screen.height
-        return CGPoint(x: cocoaX, y: globalMaxY - cocoaY)
     }
 }

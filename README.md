@@ -21,19 +21,26 @@ Ziel: **macOS 27 Golden Gate**, **Apple Silicon M4 Pro**, **arm64**.
 | Geste | Wirkung |
 |---|---|
 | Faust 0,8 s halten | Scharf / Idle |
-| Zeigefinger | Cursor |
+| Zeigefinger | Cursor über alle Monitore |
 | Pinzette (kurz) | Klick |
 | Pinzette + ziehen | Fenster verschieben |
-| Zwei Hände auseinander | Fenster skalieren |
-| Wischen | App wechseln |
+| In Papierkorb werfen | Fenster zu / Finder-Auswahl in den Papierkorb |
+| Werfen nach links/rechts | Fenster andocken |
+| Werfen nach unten | Minimieren |
+| Pinzette + zu sich ziehen | Fenster füllen |
+| Zwei Pinzetten | Skalieren |
+| Wischen (zeigen) | App wechseln |
 | Zeigen oben / unten halten | Zoom / Minimieren |
+| Peace halten | Fensteraufnahme auf den Schreibtisch |
+| Daumen hoch | App hervorholen |
+| Eine offene Hand halten | Mission Control |
 | Beide Handflächen | Not-Aus → Idle |
 
 **Testmodus** (Standard, ⌘T): Hände, Finger und Gelenke werden live beschriftet. Es gibt **keine** Systemaktionen. Zum Steuern Testmodus aus.
 
-Ohne **Scharf** passiert am System nichts (außer im Test, dort sowieso nichts).
+Aktive App bekommt einen holografischen Umriss. HUD liegt auf jedem Monitor.
 
-Keine Stimme. Keine Dateiaktionen in v1.
+Keine Stimme.
 
 ## Bau
 

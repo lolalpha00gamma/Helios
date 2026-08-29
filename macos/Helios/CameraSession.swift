@@ -10,8 +10,10 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     @Published var errorMessage: String?
     @Published var preview: NSImage?
     @Published var deviceName = "—"
+    @Published var luma: CGFloat = 1
 
-    var onBuffer: ((CMSampleBuffer) -> Void)?
+    /// Vision-Buffer, optionales Preview (Original), Helligkeit 0…1
+    var onFrame: ((CVPixelBuffer, NSImage?, CGFloat) -> Void)?
 
     private let session = AVCaptureSession()
     private let output = AVCaptureVideoDataOutput()
@@ -19,6 +21,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     private var tap: FrameSink?
     private var lastPreview: TimeInterval = 0
     private let ci = CIContext(options: [.useSoftwareRenderer: false])
+    private let enhancer = FrameEnhancer()
 
     func start() {
         DispatchQueue.main.async { self.errorMessage = nil }
@@ -53,7 +56,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         do {
             let input = try AVCaptureDeviceInput(device: device)
             if session.canAddInput(input) { session.addInput(input) }
-            try lock60(device)
+            try lockDevice(device)
         } catch {
             DispatchQueue.main.async { self.errorMessage = error.localizedDescription }
             session.commitConfiguration()
@@ -70,8 +73,11 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         tap = sink
         output.setSampleBufferDelegate(sink, queue: queue)
         if session.canAddOutput(output) { session.addOutput(output) }
-        if let conn = output.connection(with: .video), conn.isVideoMirroringSupported {
-            conn.isVideoMirrored = true
+        if let conn = output.connection(with: .video) {
+            if conn.isVideoMirroringSupported {
+                let front = device.position == .front || device.deviceType == .builtInWideAngleCamera
+                conn.isVideoMirrored = front
+            }
         }
         session.commitConfiguration()
         session.startRunning()
@@ -102,38 +108,57 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         return discovered.first ?? AVCaptureDevice.default(for: .video)
     }
 
-    private func lock60(_ device: AVCaptureDevice) throws {
+    private func lockDevice(_ device: AVCaptureDevice) throws {
         try device.lockForConfiguration()
         defer { device.unlockForConfiguration() }
-        let target = CMTime(value: 1, timescale: 60)
-        if device.activeFormat.videoSupportedFrameRateRanges.contains(where: { $0.maxFrameRate >= 59 }) {
-            device.activeVideoMinFrameDuration = target
-            device.activeVideoMaxFrameDuration = target
-        } else {
-            let t30 = CMTime(value: 1, timescale: 30)
-            device.activeVideoMinFrameDuration = t30
-            device.activeVideoMaxFrameDuration = t30
+
+        let minDur = CMTime(value: 1, timescale: 60)
+        let maxDur = CMTime(value: 1, timescale: 15)
+        if device.activeFormat.videoSupportedFrameRateRanges.contains(where: { $0.maxFrameRate >= 29 }) {
+            device.activeVideoMinFrameDuration = minDur
+            device.activeVideoMaxFrameDuration = maxDur
         }
+
         if device.isFocusModeSupported(.continuousAutoFocus) {
             device.focusMode = .continuousAutoFocus
         }
         if device.isExposureModeSupported(.continuousAutoExposure) {
             device.exposureMode = .continuousAutoExposure
         }
+        if device.isWhiteBalanceModeSupported(.continuousAutoWhiteBalance) {
+            device.whiteBalanceMode = .continuousAutoWhiteBalance
+        }
+        if device.activeFormat.isVideoHDRSupported {
+            device.automaticallyAdjustsVideoHDREnabled = true
+        }
+        let lo = device.minExposureTargetBias
+        let hi = device.maxExposureTargetBias
+        let bias = min(max(0.35, lo), hi)
+        device.setExposureTargetBias(bias, completionHandler: nil)
     }
 
     private func handle(_ buffer: CMSampleBuffer) {
-        onBuffer?(buffer)
-        let now = CACurrentMediaTime()
-        if now - lastPreview < 0.08 { return }
-        lastPreview = now
         guard let pb = CMSampleBufferGetImageBuffer(buffer) else { return }
+        let luma = enhancer.luma(of: pb)
+        let vision = enhancer.enhance(pb, luma: luma)
+
+        var preview: NSImage?
+        let now = CACurrentMediaTime()
+        if now - lastPreview >= 0.033 {
+            lastPreview = now
+            preview = makePreview(pb)
+        }
+        onFrame?(vision, preview, luma)
+    }
+
+    private func makePreview(_ pb: CVPixelBuffer) -> NSImage? {
         let ciImage = CIImage(cvPixelBuffer: pb)
         let w = CVPixelBufferGetWidth(pb)
         let h = CVPixelBufferGetHeight(pb)
-        guard let cg = ci.createCGImage(ciImage, from: CGRect(x: 0, y: 0, width: w, height: h)) else { return }
-        let ns = NSImage(cgImage: cg, size: NSSize(width: w, height: h))
-        DispatchQueue.main.async { self.preview = ns }
+        guard let cg = ci.createCGImage(ciImage, from: CGRect(x: 0, y: 0, width: w, height: h)) else {
+            return nil
+        }
+        return NSImage(cgImage: cg, size: NSSize(width: w, height: h))
     }
 }
 

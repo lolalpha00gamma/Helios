@@ -75,6 +75,8 @@ struct ControlPanel: View {
                     Toggle("Kamera-Chip", isOn: $state.showPreviewChip)
                     Toggle("Gelenk-Beschriftung", isOn: $state.showJointLabels)
                     Toggle("Gestenhilfe", isOn: $state.showCheats)
+                    Toggle("App-Umriss", isOn: $state.showOutline)
+                    Toggle("Papierkorb-Zone", isOn: $state.showTrashZone)
                 }
             }
 
@@ -82,6 +84,11 @@ struct ControlPanel: View {
                 LabeledContent("Hände", value: "\(state.hands.count)")
                 LabeledContent("Aktion", value: state.lastAction)
                 LabeledContent("Latenz", value: String(format: "%.0f ms · %.0f fps", state.latencyMs, state.fps))
+                LabeledContent("Licht", value: state.luma < 0.28 ? "Dunkel — Verstärkung" : state.luma < 0.45 ? "Gedämpft" : "OK")
+                LabeledContent("Monitore", value: "\(state.screenCount)")
+                if let app = state.focused {
+                    LabeledContent("App", value: app.appName)
+                }
                 if state.hands.isEmpty {
                     Text("Keine Hand im Bild — Handfläche zur Kamera, guter Kontrast.")
                         .font(.system(size: 11))
@@ -91,8 +98,8 @@ struct ControlPanel: View {
 
             Spacer()
             Text(state.testMode
-                 ? "Testmodus: Faust, Zeigen, Pinzette usw. werden erkannt und beschriftet, das System bleibt unangetastet."
-                 : "Live: Faust 0,8 s hält Scharf. Beide Handflächen = Not-Aus.")
+                 ? "Testmodus: Gesten werden erkannt und beschriftet, das System bleibt unangetastet. Beide offene Hände = Not-Aus."
+                 : "Live: Faust 0,8 s hält Scharf. Beide Handflächen = Not-Aus. Werfen in den Papierkorb schließt das Fenster.")
                 .font(.system(size: 11))
                 .foregroundStyle(.tertiary)
         }
@@ -128,7 +135,7 @@ struct ControlPanel: View {
         ZStack {
             CameraPreview(
                 image: state.preview,
-                hands: state.hands,
+                hands: state.displayHands,
                 showLabels: state.showJointLabels,
                 compact: false,
                 placeholder: state.cameraError ?? "Kamera starten"

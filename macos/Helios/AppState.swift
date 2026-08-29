@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import CoreMedia
+import CoreVideo
 import Foundation
 import QuartzCore
 import SwiftUI
@@ -17,6 +18,7 @@ final class AppState: ObservableObject {
     private let tracker = HandTracker()
 
     @Published var hands: [TrackedHand] = []
+    @Published var displayHands: [TrackedHand] = []
     @Published var mode: EngineMode = .idle
     @Published var lastAction = "—"
     @Published var fps: Double = 0
@@ -34,8 +36,16 @@ final class AppState: ObservableObject {
     @Published var showCheats = true
     @Published var testMode = true
     @Published var showJointLabels = true
+    @Published var showOutline = true
+    @Published var showTrashZone = true
+    @Published var luma: CGFloat = 1
+    @Published var focused: FocusedTarget?
+    @Published var trashHot = false
+    @Published var killFlash = false
+    @Published var screenCount = 1
 
     private var cancellables: Set<AnyCancellable> = []
+    private var focusTick = 0
 
     func start() {
         overlay.attach(state: self)
@@ -46,7 +56,6 @@ final class AppState: ObservableObject {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 guard let self else { return }
-                self.preview = self.camera.preview
                 self.deviceName = self.camera.deviceName
                 self.cameraRunning = self.camera.isRunning
                 self.cameraError = self.camera.errorMessage
@@ -58,8 +67,15 @@ final class AppState: ObservableObject {
             .store(in: &cancellables)
 
         refreshPermissions()
-        permTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
-            Task { @MainActor in self?.refreshPermissions() }
+        pollFocus()
+        permTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                self?.pollFocus()
+                self?.focusTick += 1
+                if (self?.focusTick ?? 0) % 6 == 0 {
+                    self?.refreshPermissions()
+                }
+            }
         }
         log.record("Helios bereit. Testmodus an — Erkennung ohne Systemaktionen.")
         engine.testMode = true
@@ -69,6 +85,15 @@ final class AppState: ObservableObject {
     func refreshPermissions() {
         cameraOK = Permissions.cameraGranted()
         accessOK = Permissions.accessibilityGranted()
+        screenCount = NSScreen.screens.count
+    }
+
+    func pollFocus() {
+        focused = FocusTracker.poll()
+        engine.focused = focused
+        trashHot = engine.trashHot
+        killFlash = engine.killFlash
+        objectWillChange.send()
     }
 
     func startCamera() async {
@@ -83,12 +108,12 @@ final class AppState: ObservableObject {
             Permissions.promptAccessibility()
         }
         let tracker = self.tracker
-        camera.onBuffer = { [weak self] buffer in
+        camera.onFrame = { [weak self] vision, preview, luma in
             let t0 = CACurrentMediaTime()
-            guard let hands = tracker.analyze(sampleBuffer: buffer) else { return }
+            guard let hands = tracker.analyze(pixelBuffer: vision, now: t0) else { return }
             let dt = (CACurrentMediaTime() - t0) * 1000
             Task { @MainActor in
-                self?.apply(hands: hands, latency: dt, now: CACurrentMediaTime())
+                self?.apply(hands: hands, latency: dt, now: CACurrentMediaTime(), preview: preview, luma: luma)
             }
         }
         camera.start()
@@ -96,10 +121,11 @@ final class AppState: ObservableObject {
     }
 
     func stopCamera() {
-        camera.onBuffer = nil
+        camera.onFrame = nil
         camera.stop()
         cameraRunning = false
         hands = []
+        displayHands = []
         log.record("Kamera gestoppt.")
     }
 
@@ -114,8 +140,15 @@ final class AppState: ObservableObject {
         }
     }
 
-    fileprivate func apply(hands: [TrackedHand], latency: Double, now: TimeInterval) {
+    fileprivate func apply(
+        hands: [TrackedHand],
+        latency: Double,
+        now: TimeInterval,
+        preview: NSImage?,
+        luma: CGFloat
+    ) {
         self.hands = hands
+        self.luma = luma
         latencyMs = latency
         frames += 1
         if now - fpsStamp >= 0.5 {
@@ -123,10 +156,16 @@ final class AppState: ObservableObject {
             frames = 0
             fpsStamp = now
         }
+        if let preview {
+            self.preview = preview
+            displayHands = hands
+        }
         engine.tick(hands: hands, now: now)
         mode = engine.mode
         lastAction = engine.lastAction
         engineCursor = engine.cursor
+        trashHot = engine.trashHot
+        killFlash = engine.killFlash
         objectWillChange.send()
     }
 }

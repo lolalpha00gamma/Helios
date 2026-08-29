@@ -2,6 +2,12 @@ import ApplicationServices
 import AppKit
 import CoreGraphics
 import Foundation
+import ImageIO
+import UniformTypeIdentifiers
+
+enum SnapEdge {
+    case left, right, fill
+}
 
 @MainActor
 final class SystemControl {
@@ -9,12 +15,13 @@ final class SystemControl {
     private var dragOriginMouse: CGPoint = .zero
     private var dragOriginWindow: CGPoint = .zero
     private var lastClick: TimeInterval = 0
+    private var lastKey: TimeInterval = 0
 
     func moveCursor(to point: CGPoint) {
         let e = CGEvent(
             mouseEventSource: nil,
             mouseType: .mouseMoved,
-            mouseCursorPosition: clamped(point),
+            mouseCursorPosition: ScreenGeometry.clampQuartz(point),
             mouseButton: .left
         )
         e?.post(tap: .cghidEventTap)
@@ -73,40 +80,116 @@ final class SystemControl {
         pressButton(win, "AXMinimizeButton" as CFString)
     }
 
+    func closeFocused() {
+        guard let win = focusedWindow() ?? window(at: NSEvent.mouseLocation.screenFlipped) else { return }
+        pressButton(win, "AXCloseButton" as CFString)
+    }
+
+    func snapFocused(_ edge: SnapEdge) {
+        guard let win = focusedWindow() ?? window(at: NSEvent.mouseLocation.screenFlipped) else { return }
+        let loc = NSEvent.mouseLocation.screenFlipped
+        let screen = ScreenGeometry.screenContaining(quartz: loc) ?? NSScreen.main
+        guard let screen else { return }
+        let vis = ScreenGeometry.quartzRect(fromCocoa: screen.visibleFrame)
+        switch edge {
+        case .left:
+            setPosition(win, vis.origin)
+            setSize(win, CGSize(width: vis.width / 2, height: vis.height))
+        case .right:
+            setPosition(win, CGPoint(x: vis.midX, y: vis.minY))
+            setSize(win, CGSize(width: vis.width / 2, height: vis.height))
+        case .fill:
+            setPosition(win, vis.origin)
+            setSize(win, vis.size)
+        }
+    }
+
+    func throwAway(finder: Bool) {
+        if finder, trashFinderSelection() {
+            return
+        }
+        closeFocused()
+    }
+
+    func screenshotFocused(windowID: CGWindowID, bounds: CGRect) {
+        let img: CGImage?
+        if windowID != 0 {
+            img = CGWindowListCreateImage(bounds, .optionIncludingWindow, windowID, [.bestResolution, .boundsIgnoreFraming])
+        } else {
+            img = CGWindowListCreateImage(bounds, .optionOnScreenBelowWindow, kCGNullWindowID, [.bestResolution])
+        }
+        guard let img else { return }
+        let dir = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyyMMdd-HHmmss"
+        let url = dir.appendingPathComponent("Helios-\(fmt.string(from: Date())).png")
+        guard let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else {
+            return
+        }
+        CGImageDestinationAddImage(dest, img, nil)
+        CGImageDestinationFinalize(dest)
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+    }
+
+    func missionControl() {
+        chord(key: 0x7E, flags: .maskControl)
+    }
+
+    func desktopReveal() {
+        chord(key: 0x7D, flags: .maskControl)
+    }
+
+    func unhideFront() {
+        NSWorkspace.shared.frontmostApplication?.unhide()
+        NSWorkspace.shared.frontmostApplication?.activate()
+    }
+
     func switchApp(forward: Bool) {
-        let src = CGEventSource(stateID: .hidSystemState)
-        let flags: CGEventFlags = forward
-            ? .maskCommand
-            : [.maskCommand, .maskShift]
-        let down = CGEvent(keyboardEventSource: src, virtualKey: 0x30, keyDown: true)
-        down?.flags = flags
-        down?.post(tap: .cghidEventTap)
-        let up = CGEvent(keyboardEventSource: src, virtualKey: 0x30, keyDown: false)
-        up?.flags = flags
-        up?.post(tap: .cghidEventTap)
+        let flags: CGEventFlags = forward ? .maskCommand : [.maskCommand, .maskShift]
+        chord(key: 0x30, flags: flags)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
+            let src = CGEventSource(stateID: .hidSystemState)
             let cmdUp = CGEvent(keyboardEventSource: src, virtualKey: 0x37, keyDown: false)
             cmdUp?.post(tap: .cghidEventTap)
         }
+    }
+
+    private func trashFinderSelection() -> Bool {
+        let source = """
+        tell application "Finder"
+          if (count of selection) is 0 then return false
+          delete selection
+          return true
+        end tell
+        """
+        var err: NSDictionary?
+        guard let script = NSAppleScript(source: source) else { return false }
+        let result = script.executeAndReturnError(&err)
+        return err == nil && result.booleanValue
+    }
+
+    private func chord(key: CGKeyCode, flags: CGEventFlags) {
+        let now = CACurrentMediaTime()
+        guard now - lastKey > 0.45 else { return }
+        lastKey = now
+        let src = CGEventSource(stateID: .hidSystemState)
+        let down = CGEvent(keyboardEventSource: src, virtualKey: key, keyDown: true)
+        down?.flags = flags
+        down?.post(tap: .cghidEventTap)
+        let up = CGEvent(keyboardEventSource: src, virtualKey: key, keyDown: false)
+        up?.flags = flags
+        up?.post(tap: .cghidEventTap)
     }
 
     private func postMouse(_ type: CGEventType, at point: CGPoint) {
         let e = CGEvent(
             mouseEventSource: nil,
             mouseType: type,
-            mouseCursorPosition: clamped(point),
+            mouseCursorPosition: ScreenGeometry.clampQuartz(point),
             mouseButton: .left
         )
         e?.post(tap: .cghidEventTap)
-    }
-
-    private func clamped(_ p: CGPoint) -> CGPoint {
-        guard let screen = NSScreen.main else { return p }
-        let f = screen.frame
-        return CGPoint(
-            x: min(max(p.x, f.minX + 2), f.maxX - 2),
-            y: min(max(p.y, f.minY + 2), f.maxY - 2)
-        )
     }
 
     private func window(at point: CGPoint) -> AXUIElement? {
@@ -186,10 +269,6 @@ final class SystemControl {
 
 extension NSPoint {
     var screenFlipped: CGPoint {
-        guard let screen = NSScreen.screens.first(where: { NSMouseInRect(self, $0.frame, false) }) ?? NSScreen.main else {
-            return CGPoint(x: x, y: y)
-        }
-        let y = screen.frame.maxY - self.y
-        return CGPoint(x: x, y: y)
+        ScreenGeometry.quartz(fromCocoa: self)
     }
 }

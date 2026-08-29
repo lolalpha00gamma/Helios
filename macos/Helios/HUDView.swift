@@ -9,7 +9,7 @@ struct HUDView: View {
             ZStack(alignment: .topLeading) {
                 if state.showReticle, let c = state.engineCursor {
                     let local = quartzToLocal(c, in: geo.size)
-                    Reticle(armed: state.mode == .armed)
+                    Reticle(armed: state.mode == .armed && !state.testMode)
                         .position(x: local.x, y: local.y)
                 }
 
@@ -44,6 +44,14 @@ struct HUDView: View {
                 .foregroundStyle(HeliosTheme.cyan)
                 .shadow(color: HeliosTheme.cyan.opacity(0.8), radius: 8)
             statusPill
+            if state.testMode {
+                Text("TEST")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .foregroundStyle(HeliosTheme.void)
+                    .background(HeliosTheme.cyan)
+            }
             Text(state.lastAction.uppercased())
                 .font(HeliosTheme.mono)
                 .foregroundStyle(HeliosTheme.amber)
@@ -70,17 +78,17 @@ struct HUDView: View {
             .font(.system(size: 11, weight: .bold, design: .monospaced))
             .padding(.horizontal, 10)
             .padding(.vertical, 4)
-            .foregroundStyle(state.mode == .armed ? HeliosTheme.void : HeliosTheme.cyan)
-            .background(state.mode == .armed ? HeliosTheme.amber : HeliosTheme.cyan.opacity(0.15))
+            .foregroundStyle(state.mode == .armed && !state.testMode ? HeliosTheme.void : HeliosTheme.cyan)
+            .background(state.mode == .armed && !state.testMode ? HeliosTheme.amber : HeliosTheme.cyan.opacity(0.15))
             .overlay(
                 Rectangle()
-                    .stroke(state.mode == .armed ? HeliosTheme.amber : HeliosTheme.cyan, lineWidth: 1)
+                    .stroke(state.mode == .armed && !state.testMode ? HeliosTheme.amber : HeliosTheme.cyan, lineWidth: 1)
             )
     }
 
     private var cheatSheet: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("GESTEN")
+            Text(state.testMode ? "TEST · GESTEN" : "GESTEN")
                 .font(HeliosTheme.mono)
                 .foregroundStyle(HeliosTheme.cyan)
             Text("Faust halten   Scharf / Idle")
@@ -99,17 +107,13 @@ struct HUDView: View {
     }
 
     private var cameraChip: some View {
-        ZStack {
-            if let img = state.preview {
-                Image(nsImage: img)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                HeliosTheme.void
-            }
-            SkeletonOverlay(hands: state.hands)
-        }
-        .frame(width: 280, height: 158)
+        CameraPreview(
+            image: state.preview,
+            hands: state.hands,
+            showLabels: state.showJointLabels,
+            compact: true
+        )
+        .frame(width: 360, height: 202)
         .clipped()
         .overlay(Rectangle().stroke(HeliosTheme.cyan.opacity(0.5), lineWidth: 1))
         .overlay(alignment: .topLeading) {
@@ -143,40 +147,5 @@ struct Reticle: View {
             }
         }
         .shadow(color: (armed ? HeliosTheme.amber : HeliosTheme.cyan).opacity(0.7), radius: 6)
-    }
-}
-
-struct SkeletonOverlay: View {
-    var hands: [TrackedHand]
-    private let links: [(VNHumanHandPoseObservation.JointName, VNHumanHandPoseObservation.JointName)] = [
-        (.wrist, .thumbCMC), (.thumbCMC, .thumbMP), (.thumbMP, .thumbIP), (.thumbIP, .thumbTip),
-        (.wrist, .indexMCP), (.indexMCP, .indexPIP), (.indexPIP, .indexDIP), (.indexDIP, .indexTip),
-        (.wrist, .middleMCP), (.middleMCP, .middlePIP), (.middlePIP, .middleDIP), (.middleDIP, .middleTip),
-        (.wrist, .ringMCP), (.ringMCP, .ringPIP), (.ringPIP, .ringDIP), (.ringDIP, .ringTip),
-        (.wrist, .littleMCP), (.littleMCP, .littlePIP), (.littlePIP, .littleDIP), (.littleDIP, .littleTip)
-    ]
-
-    var body: some View {
-        Canvas { ctx, size in
-            for hand in hands {
-                let color: Color = hand.chirality == .left ? HeliosTheme.amber : HeliosTheme.cyan
-                var path = Path()
-                for (a, b) in links {
-                    guard let pa = hand.point(a), let pb = hand.point(b) else { continue }
-                    path.move(to: vis(pa, size))
-                    path.addLine(to: vis(pb, size))
-                }
-                ctx.stroke(path, with: .color(color), lineWidth: 1.4)
-                for j in hand.joints.values where j.confidence > 0.4 {
-                    let p = vis(j.point, size)
-                    ctx.fill(Path(ellipseIn: CGRect(x: p.x - 2, y: p.y - 2, width: 4, height: 4)), with: .color(color))
-                }
-            }
-        }
-        .allowsHitTesting(false)
-    }
-
-    private func vis(_ p: CGPoint, _ size: CGSize) -> CGPoint {
-        CGPoint(x: p.x * size.width, y: (1 - p.y) * size.height)
     }
 }

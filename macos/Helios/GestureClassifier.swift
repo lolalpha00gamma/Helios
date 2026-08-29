@@ -28,11 +28,11 @@ enum GestureClassifier {
         joints: [VNHumanHandPoseObservation.JointName: CGPoint],
         pinch: CGFloat
     ) -> HandPose {
-        let thumb = extended(joints, tip: .thumbTip, pip: .thumbIP, mcp: .thumbMP, wrist: .wrist)
-        let index = extended(joints, tip: .indexTip, pip: .indexPIP, mcp: .indexMCP, wrist: .wrist)
-        let middle = extended(joints, tip: .middleTip, pip: .middlePIP, mcp: .middleMCP, wrist: .wrist)
-        let ring = extended(joints, tip: .ringTip, pip: .ringPIP, mcp: .ringMCP, wrist: .wrist)
-        let little = extended(joints, tip: .littleTip, pip: .littlePIP, mcp: .littleMCP, wrist: .wrist)
+        let thumb = isExtended(joints, tip: .thumbTip, pip: .thumbIP, mcp: .thumbMP)
+        let index = isExtended(joints, tip: .indexTip, pip: .indexPIP, mcp: .indexMCP)
+        let middle = isExtended(joints, tip: .middleTip, pip: .middlePIP, mcp: .middleMCP)
+        let ring = isExtended(joints, tip: .ringTip, pip: .ringPIP, mcp: .ringMCP)
+        let little = isExtended(joints, tip: .littleTip, pip: .littlePIP, mcp: .littleMCP)
 
         let fingers = [index, middle, ring, little].filter { $0 }.count
 
@@ -57,14 +57,13 @@ enum GestureClassifier {
         return .unknown
     }
 
-    private static func extended(
+    static func isExtended(
         _ joints: [VNHumanHandPoseObservation.JointName: CGPoint],
         tip: VNHumanHandPoseObservation.JointName,
         pip: VNHumanHandPoseObservation.JointName,
-        mcp: VNHumanHandPoseObservation.JointName,
-        wrist: VNHumanHandPoseObservation.JointName
+        mcp: VNHumanHandPoseObservation.JointName
     ) -> Bool {
-        guard let t = joints[tip], let p = joints[pip], let m = joints[mcp], let w = joints[wrist] else {
+        guard let t = joints[tip], let p = joints[pip], let m = joints[mcp], let w = joints[.wrist] else {
             return false
         }
         let tipD = hypot(t.x - w.x, t.y - w.y)

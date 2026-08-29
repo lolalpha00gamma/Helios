@@ -20,6 +20,28 @@ struct TrackedHand: Identifiable {
         guard let j = joints[name], j.confidence > 0.35 else { return nil }
         return j.point
     }
+
+    var meanConfidence: Float {
+        guard !joints.isEmpty else { return 0 }
+        return joints.values.map(\.confidence).reduce(0, +) / Float(joints.count)
+    }
+
+    var sideDE: String {
+        switch chirality {
+        case .left: return "Links"
+        case .right: return "Rechts"
+        default: return "Unbekannt"
+        }
+    }
+
+    func isExtended(_ finger: FingerKind) -> Bool {
+        let map = Dictionary(uniqueKeysWithValues: joints.map { ($0.key, $0.value.point) })
+        return GestureClassifier.isExtended(map, tip: finger.tip, pip: finger.pip, mcp: finger.mcp)
+    }
+
+    func confidence(_ name: VNHumanHandPoseObservation.JointName) -> Float {
+        joints[name]?.confidence ?? 0
+    }
 }
 
 final class HandTracker: @unchecked Sendable {

@@ -29,7 +29,9 @@ Ziel: **macOS 27 Golden Gate**, **Apple Silicon M4 Pro**, **arm64**.
 | Zeigen oben / unten halten | Zoom / Minimieren |
 | Beide Handflächen | Not-Aus → Idle |
 
-Ohne **Scharf** passiert am System nichts (Midas-Touch-Schutz).
+**Testmodus** (Standard, ⌘T): Hände, Finger und Gelenke werden live beschriftet. Es gibt **keine** Systemaktionen. Zum Steuern Testmodus aus.
+
+Ohne **Scharf** passiert am System nichts (außer im Test, dort sowieso nichts).
 
 Keine Stimme. Keine Dateiaktionen in v1.
 

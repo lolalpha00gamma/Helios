@@ -6,18 +6,18 @@ struct ControlPanel: View {
     var body: some View {
         HSplitView {
             left
-                .frame(minWidth: 280, idealWidth: 300)
+                .frame(minWidth: 280, idealWidth: 310)
             preview
-                .frame(minWidth: 420)
-            log
-                .frame(minWidth: 240, idealWidth: 280)
+                .frame(minWidth: 440)
+            inspector
+                .frame(minWidth: 250, idealWidth: 300)
         }
         .background(HeliosTheme.void)
         .preferredColorScheme(.dark)
     }
 
     private var left: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text("HELIOS")
                     .font(.system(size: 20, weight: .bold, design: .monospaced))
@@ -27,12 +27,29 @@ struct ControlPanel: View {
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(state.mode == .armed ? HeliosTheme.amber : HeliosTheme.cyan.opacity(0.15))
-                    .foregroundStyle(state.mode == .armed ? HeliosTheme.void : HeliosTheme.cyan)
+                    .background(state.mode == .armed && !state.testMode ? HeliosTheme.amber : HeliosTheme.cyan.opacity(0.15))
+                    .foregroundStyle(state.mode == .armed && !state.testMode ? HeliosTheme.void : HeliosTheme.cyan)
             }
-            Text("Gestensteuerung über Kamera-Livestream. macOS 27 · Apple Silicon.")
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+
+            Toggle(isOn: Binding(
+                get: { state.testMode },
+                set: { state.setTestMode($0) }
+            )) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Testmodus")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("Erkennung anzeigen, keine Klicks und kein Fensterzugriff.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.switch)
+            .keyboardShortcut("t", modifiers: [.command])
+            .padding(10)
+            .background(state.testMode ? HeliosTheme.cyan.opacity(0.12) : Color.white.opacity(0.04))
+            .overlay(
+                Rectangle().stroke(state.testMode ? HeliosTheme.cyan.opacity(0.5) : Color.white.opacity(0.08), lineWidth: 1)
+            )
 
             GroupBox("Rechte") {
                 VStack(alignment: .leading, spacing: 8) {
@@ -44,7 +61,7 @@ struct ControlPanel: View {
             }
 
             GroupBox("Sitzung") {
-                VStack(spacing: 8) {
+                VStack(alignment: .leading, spacing: 8) {
                     Button(state.cameraRunning ? "Kamera stoppen" : "Kamera starten") {
                         if state.cameraRunning { state.stopCamera() } else { Task { await state.startCamera() } }
                     }
@@ -56,25 +73,26 @@ struct ControlPanel: View {
                     Toggle("HUD-Overlay", isOn: $state.hudVisible)
                     Toggle("Fadenkreuz", isOn: $state.showReticle)
                     Toggle("Kamera-Chip", isOn: $state.showPreviewChip)
+                    Toggle("Gelenk-Beschriftung", isOn: $state.showJointLabels)
                     Toggle("Gestenhilfe", isOn: $state.showCheats)
                 }
             }
 
-            GroupBox("Aktive Hand") {
-                if let h = state.hands.first {
-                    LabeledContent("Pose", value: h.pose.labelDE)
-                    LabeledContent("Seite", value: h.chirality == .left ? "Links" : "Rechts")
-                    LabeledContent("Pinzette", value: String(format: "%.3f", h.pinchDistance))
-                } else {
-                    Text("Keine Hand im Bild")
+            GroupBox("Erkennung") {
+                LabeledContent("Hände", value: "\(state.hands.count)")
+                LabeledContent("Aktion", value: state.lastAction)
+                LabeledContent("Latenz", value: String(format: "%.0f ms · %.0f fps", state.latencyMs, state.fps))
+                if state.hands.isEmpty {
+                    Text("Keine Hand im Bild — Handfläche zur Kamera, guter Kontrast.")
+                        .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
-                LabeledContent("Letzte Aktion", value: state.lastAction)
-                LabeledContent("Latenz", value: String(format: "%.0f ms", state.latencyMs))
             }
 
             Spacer()
-            Text("Faust 0,8 s halten schaltet Scharf. Beide Handflächen = Not-Aus. Keine Dateiaktionen in dieser Version.")
+            Text(state.testMode
+                 ? "Testmodus: Faust, Zeigen, Pinzette usw. werden erkannt und beschriftet, das System bleibt unangetastet."
+                 : "Live: Faust 0,8 s hält Scharf. Beide Handflächen = Not-Aus.")
                 .font(.system(size: 11))
                 .foregroundStyle(.tertiary)
         }
@@ -108,13 +126,14 @@ struct ControlPanel: View {
 
     private var preview: some View {
         ZStack {
-            HeliosTheme.void
-            if let img = state.preview {
-                Image(nsImage: img)
-                    .resizable()
-                    .scaledToFit()
-                    .overlay(SkeletonOverlay(hands: state.hands))
-            } else {
+            CameraPreview(
+                image: state.preview,
+                hands: state.hands,
+                showLabels: state.showJointLabels,
+                compact: false,
+                placeholder: state.cameraError ?? "Kamera starten"
+            )
+            if state.preview == nil {
                 VStack(spacing: 8) {
                     Image(systemName: "sun.max")
                         .font(.system(size: 36))
@@ -124,22 +143,45 @@ struct ControlPanel: View {
                 }
             }
         }
+        .overlay(alignment: .topLeading) {
+            if state.testMode {
+                Text("TESTMODUS")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .foregroundStyle(HeliosTheme.void)
+                    .background(HeliosTheme.cyan)
+                    .padding(10)
+            }
+        }
         .overlay(alignment: .topTrailing) {
             Text(state.deviceName)
                 .font(HeliosTheme.mono)
-                .padding(8)
+                .padding(10)
                 .foregroundStyle(HeliosTheme.cyan)
         }
         .padding(8)
     }
 
-    private var log: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("PROTOKOLL")
+    private var inspector: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("HÄNDE · FINGER")
                 .font(HeliosTheme.mono)
                 .foregroundStyle(HeliosTheme.cyan)
+            if state.hands.isEmpty {
+                Text("Warte auf Erkennung…")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.secondary)
+            }
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(state.hands) { hand in
+                        handCard(hand)
+                    }
+                    Divider()
+                    Text("PROTOKOLL")
+                        .font(HeliosTheme.mono)
+                        .foregroundStyle(HeliosTheme.cyan)
                     ForEach(state.log.entries) { e in
                         HStack(alignment: .top) {
                             Text(e.at, style: .time)
@@ -154,5 +196,51 @@ struct ControlPanel: View {
             }
         }
         .padding(12)
+    }
+
+    private func handCard(_ hand: TrackedHand) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Text(hand.sideDE)
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .foregroundStyle(hand.chirality == .left ? HeliosTheme.amber : HeliosTheme.cyan)
+                Spacer()
+                Text(hand.pose.labelDE)
+                    .font(.system(size: 12, weight: .semibold))
+            }
+            ProgressView(value: Double(hand.meanConfidence))
+                .tint(hand.chirality == .left ? HeliosTheme.amber : HeliosTheme.cyan)
+            Text(String(format: "Konfidenz %.0f %%  ·  Pinzette %.3f", hand.meanConfidence * 100, hand.pinchDistance))
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(.secondary)
+            ForEach(FingerKind.allCases) { finger in
+                let conf = hand.confidence(finger.tip)
+                HStack(spacing: 6) {
+                    Circle().fill(finger.color).frame(width: 7, height: 7)
+                    Text(finger.labelDE)
+                        .font(.system(size: 11, weight: .medium))
+                        .frame(width: 52, alignment: .leading)
+                    Text(hand.isExtended(finger) ? "offen" : "zu")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(hand.isExtended(finger) ? HeliosTheme.ok : .secondary)
+                        .frame(width: 40, alignment: .leading)
+                    GeometryReader { g in
+                        ZStack(alignment: .leading) {
+                            Rectangle().fill(Color.white.opacity(0.08))
+                            Rectangle()
+                                .fill(finger.color.opacity(0.85))
+                                .frame(width: g.size.width * CGFloat(conf))
+                        }
+                    }
+                    .frame(height: 6)
+                    Text("\(Int(conf * 100))%")
+                        .font(.system(size: 10, design: .monospaced))
+                        .frame(width: 36, alignment: .trailing)
+                }
+            }
+        }
+        .padding(8)
+        .background(Color.white.opacity(0.04))
+        .overlay(Rectangle().stroke(Color.white.opacity(0.08), lineWidth: 1))
     }
 }

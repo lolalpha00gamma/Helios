@@ -32,6 +32,8 @@ final class AppState: ObservableObject {
     @Published var showReticle = true
     @Published var showPreviewChip = true
     @Published var showCheats = true
+    @Published var testMode = true
+    @Published var showJointLabels = true
 
     private var cancellables: Set<AnyCancellable> = []
 
@@ -59,7 +61,8 @@ final class AppState: ObservableObject {
         permTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.refreshPermissions() }
         }
-        log.record("Helios bereit.")
+        log.record("Helios bereit. Testmodus an — Erkennung ohne Systemaktionen.")
+        engine.testMode = true
         Task { await startCamera() }
     }
 
@@ -98,6 +101,17 @@ final class AppState: ObservableObject {
         cameraRunning = false
         hands = []
         log.record("Kamera gestoppt.")
+    }
+
+    func setTestMode(_ on: Bool) {
+        testMode = on
+        engine.testMode = on
+        if on {
+            engine.forceIdle()
+            log.record("Testmodus an — nur Erkennung, keine Aktionen.")
+        } else {
+            log.record("Testmodus aus — Gesten steuern das System.")
+        }
     }
 
     fileprivate func apply(hands: [TrackedHand], latency: Double, now: TimeInterval) {

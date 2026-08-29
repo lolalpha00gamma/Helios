@@ -22,6 +22,7 @@ final class GestureEngine {
     var lastAction = "—"
     var cursor: CGPoint?
     var twoHandSpan: CGFloat?
+    var testMode = true
 
     private var fistSince: TimeInterval?
     private var palmSince: TimeInterval?
@@ -31,6 +32,7 @@ final class GestureEngine {
     private var swipeTrail: [(t: TimeInterval, x: CGFloat)] = []
     private var cooldownUntil: TimeInterval = 0
     private var lastArmToggle: TimeInterval = 0
+    private var lastLoggedPose: String = ""
     private let system = SystemControl()
     var onLog: ((String) -> Void)?
 
@@ -58,16 +60,23 @@ final class GestureEngine {
         }
 
         let primary = preferred(hands)
+        if testMode {
+            let key = hands.map { "\($0.sideDE):\($0.pose.rawValue)" }.joined(separator: ",")
+            if key != lastLoggedPose, hands.contains(where: { $0.pose != .unknown }) {
+                lastLoggedPose = key
+                let text = hands.map { "\($0.sideDE) \($0.pose.labelDE)" }.joined(separator: " · ")
+                onLog?("Erkannt: \(text)")
+            }
+        }
         handleArming(hands: hands, primary: primary, now: now)
-        guard mode == .armed, now >= cooldownUntil else { return }
+        guard mode == .armed || testMode, now >= cooldownUntil else { return }
 
         if hands.count >= 2,
            hands.filter({ $0.pose == .openPalm || $0.pose == .pinch }).count == 2
         {
             let span = hypot(hands[0].palm.x - hands[1].palm.x, hands[0].palm.y - hands[1].palm.y)
             if let old = twoHandSpan, abs(span - old) > 0.012 {
-                system.resizeFocused(scale: span > old ? 1.04 : 0.96)
-                lastAction = "Skalieren"
+                perform("Skalieren") { system.resizeFocused(scale: span > old ? 1.04 : 0.96) }
             }
             twoHandSpan = span
             return
@@ -84,14 +93,21 @@ final class GestureEngine {
     func forceIdle() {
         mode = .idle
         system.endWindowDrag()
-        lastAction = "Idle"
-        onLog?("Manuell: Idle")
+        lastAction = testMode ? "Test: Idle" : "Idle"
+        onLog?(testMode ? "Test · Idle" : "Manuell: Idle")
     }
 
     func forceArm() {
         mode = .armed
-        lastAction = "Scharf"
-        onLog?("Manuell: Scharf")
+        lastAction = testMode ? "Test: Scharf" : "Scharf"
+        onLog?(testMode ? "Test · Scharf" : "Manuell: Scharf")
+    }
+
+    private func perform(_ name: String, _ body: () -> Void) {
+        lastAction = testMode ? "Test: \(name)" : name
+        if testMode { return }
+        body()
+        onLog?(name)
     }
 
     private func handleArming(hands: [TrackedHand], primary: TrackedHand, now: TimeInterval) {
@@ -100,9 +116,8 @@ final class GestureEngine {
             if palmSince == nil { palmSince = now }
             if now - (palmSince ?? now) > 0.45, mode != .idle {
                 mode = .idle
-                lastAction = "Not-Aus"
-                onLog?("Beide Hände offen → Idle")
-                system.endWindowDrag()
+                perform("Not-Aus") { system.endWindowDrag() }
+                if !testMode { onLog?("Beide Hände offen → Idle") }
                 cooldownUntil = now + 0.6
             }
         } else {
@@ -116,13 +131,13 @@ final class GestureEngine {
                 fistSince = nil
                 if mode == .idle {
                     mode = .armed
-                    lastAction = "Scharf"
-                    onLog?("Faust → Scharf")
+                    lastAction = testMode ? "Test: Scharf" : "Scharf"
+                    onLog?(testMode ? "Test · Faust → Scharf" : "Faust → Scharf")
                 } else {
                     mode = .idle
-                    lastAction = "Idle"
-                    onLog?("Faust → Idle")
-                    system.endWindowDrag()
+                    lastAction = testMode ? "Test: Idle" : "Idle"
+                    onLog?(testMode ? "Test · Faust → Idle" : "Faust → Idle")
+                    if !testMode { system.endWindowDrag() }
                 }
                 cooldownUntil = now + 0.4
             }
@@ -136,9 +151,9 @@ final class GestureEngine {
         let tip = hand.point(.indexTip) ?? hand.palm
         let mapped = mapToQuartz(tip)
         cursor = mapped
-        system.moveCursor(to: mapped)
+        if !testMode { system.moveCursor(to: mapped) }
         if hand.pose == .point {
-            lastAction = "Zeiger"
+            lastAction = testMode ? "Test: Zeiger" : "Zeiger"
         }
     }
 
@@ -147,24 +162,28 @@ final class GestureEngine {
         if isPinch && !pinchHeld {
             pinchHeld = true
             pinchBecameDrag = false
-            system.beginWindowDrag()
-            lastAction = "Greifen"
-            onLog?("Pinzette — Fenster greifen")
+            if !testMode { system.beginWindowDrag() }
+            lastAction = testMode ? "Test: Greifen" : "Greifen"
+            onLog?(testMode ? "Test · Pinzette" : "Pinzette — Fenster greifen")
         } else if isPinch && pinchHeld {
-            if system.isDragging {
+            if !testMode, system.isDragging {
                 system.updateWindowDrag()
                 pinchBecameDrag = true
                 lastAction = "Ziehen"
+            } else if testMode {
+                lastAction = "Test: Greifen"
             }
         } else if !isPinch && pinchHeld {
             if !pinchBecameDrag {
-                system.endWindowDrag()
-                system.click()
-                lastAction = "Klick"
-                onLog?("Klick")
+                if !testMode {
+                    system.endWindowDrag()
+                    system.click()
+                }
+                lastAction = testMode ? "Test: Klick" : "Klick"
+                onLog?(testMode ? "Test · Klick" : "Klick")
             } else {
-                system.endWindowDrag()
-                lastAction = "Loslassen"
+                if !testMode { system.endWindowDrag() }
+                lastAction = testMode ? "Test: Loslassen" : "Loslassen"
             }
             pinchHeld = false
             pinchBecameDrag = false
@@ -182,9 +201,9 @@ final class GestureEngine {
         guard let first = swipeTrail.first, swipeTrail.count >= 4 else { return }
         let dx = hand.palm.x - first.x
         if abs(dx) > 0.22 {
-            system.switchApp(forward: dx < 0)
-            lastAction = dx < 0 ? "Nächste App" : "Vorherige App"
-            onLog?(lastAction)
+            let name = dx < 0 ? "Nächste App" : "Vorherige App"
+            perform(name) { system.switchApp(forward: dx < 0) }
+            if testMode { onLog?("Test · \(name)") }
             swipeTrail.removeAll()
             cooldownUntil = now + 0.7
         }
@@ -199,18 +218,16 @@ final class GestureEngine {
         if up > 0.16 {
             if pointHold == nil { pointHold = now }
             if now - (pointHold ?? now) > 0.55 {
-                system.zoomFocused()
-                lastAction = "Zoom"
-                onLog?("Zeigen oben → Zoom")
+                perform("Zoom") { system.zoomFocused() }
+                if testMode { onLog?("Test · Zoom") }
                 pointHold = nil
                 cooldownUntil = now + 0.8
             }
         } else if up < -0.08 {
             if pointHold == nil { pointHold = now }
             if now - (pointHold ?? now) > 0.55 {
-                system.minimizeFocused()
-                lastAction = "Minimieren"
-                onLog?("Zeigen unten → Minimieren")
+                perform("Minimieren") { system.minimizeFocused() }
+                if testMode { onLog?("Test · Minimieren") }
                 pointHold = nil
                 cooldownUntil = now + 0.8
             }

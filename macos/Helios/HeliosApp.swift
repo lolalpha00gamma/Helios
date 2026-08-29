@@ -23,6 +23,10 @@ struct HeliosApp: App {
                     .keyboardShortcut("s", modifiers: [.command, .shift])
                 Button("Idle") { state.engine.forceIdle() }
                     .keyboardShortcut("i", modifiers: [.command, .shift])
+                Button(state.testMode ? "Testmodus aus" : "Testmodus an") {
+                    state.setTestMode(!state.testMode)
+                }
+                .keyboardShortcut("t", modifiers: [.command])
             }
         }
 
@@ -41,6 +45,9 @@ struct HeliosApp: App {
             }
             Button("Scharf") { state.engine.forceArm() }
             Button("Idle") { state.engine.forceIdle() }
+            Button(state.testMode ? "Testmodus aus" : "Testmodus an") {
+                state.setTestMode(!state.testMode)
+            }
             Divider()
             Button("Beenden") { NSApp.terminate(nil) }
         }

@@ -40,7 +40,7 @@ enum Permissions {
     }
 
     static func promptAccessibility() {
-        let opts = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
+        let opts = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(opts)
     }
 

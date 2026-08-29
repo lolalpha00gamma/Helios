@@ -14,23 +14,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Select Xcode 27
+      - name: Select newest Xcode
         run: |
+          echo "Installed:"
+          ls /Applications | grep -i xcode || true
           set +e
+          PICK=""
           for p in \
             /Applications/Xcode_27.app \
             /Applications/Xcode_27.0.app \
             /Applications/Xcode_27.0.0.app \
+            /Applications/Xcode_26.6.app \
+            /Applications/Xcode_26.5.app \
+            /Applications/Xcode_26.app \
             /Applications/Xcode.app
           do
             if [ -d "$p/Contents/Developer" ]; then
-              sudo xcode-select -s "$p/Contents/Developer"
-              echo "Using $p"
+              PICK="$p"
               break
             fi
           done
+          if [ -n "$PICK" ]; then
+            sudo xcode-select -s "$PICK/Contents/Developer"
+            echo "Using $PICK"
+          fi
           xcodebuild -version
-          ls /Applications | grep -i xcode || true
+          xcrun --show-sdk-version
 
       - name: Read version
         id: ver
@@ -53,7 +62,6 @@ jobs:
             ARCHS=arm64 \
             ONLY_ACTIVE_ARCH=YES \
             EXCLUDED_ARCHS=x86_64 \
-            MACOSX_DEPLOYMENT_TARGET=27.0 \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=YES \
             CODE_SIGNING_ALLOWED=YES \

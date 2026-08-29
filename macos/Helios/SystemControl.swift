@@ -65,12 +65,12 @@ final class SystemControl {
 
     func zoomFocused() {
         guard let win = focusedWindow() ?? window(at: NSEvent.mouseLocation.screenFlipped) else { return }
-        pressButton(win, kAXZoomButtonAttribute as CFString)
+        pressButton(win, "AXZoomButton" as CFString)
     }
 
     func minimizeFocused() {
         guard let win = focusedWindow() ?? window(at: NSEvent.mouseLocation.screenFlipped) else { return }
-        pressButton(win, kAXMinimizeButtonAttribute as CFString)
+        pressButton(win, "AXMinimizeButton" as CFString)
     }
 
     func switchApp(forward: Bool) {
@@ -120,11 +120,11 @@ final class SystemControl {
     private func focusedWindow() -> AXUIElement? {
         let sys = AXUIElementCreateSystemWide()
         var app: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(sys, kAXFocusedApplicationAttribute as CFString, &app) == .success,
+        guard AXUIElementCopyAttributeValue(sys, "AXFocusedApplication" as CFString, &app) == .success,
               let appEl = app
         else { return nil }
         var win: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(appEl as! AXUIElement, kAXFocusedWindowAttribute as CFString, &win) == .success else {
+        guard AXUIElementCopyAttributeValue(appEl as! AXUIElement, "AXFocusedWindow" as CFString, &win) == .success else {
             return nil
         }
         return (win as! AXUIElement)
@@ -135,12 +135,12 @@ final class SystemControl {
         for _ in 0..<12 {
             guard let c = current else { return nil }
             var role: CFTypeRef?
-            AXUIElementCopyAttributeValue(c, kAXRoleAttribute as CFString, &role)
-            if let r = role as? String, r == (kAXWindowRole as String) {
+            AXUIElementCopyAttributeValue(c, "AXRole" as CFString, &role)
+            if let r = role as? String, r == "AXWindow" {
                 return c
             }
             var parent: CFTypeRef?
-            let err = AXUIElementCopyAttributeValue(c, kAXParentAttribute as CFString, &parent)
+            let err = AXUIElementCopyAttributeValue(c, "AXParent" as CFString, &parent)
             if err != .success { return c }
             current = parent.map { $0 as! AXUIElement }
         }
@@ -149,7 +149,7 @@ final class SystemControl {
 
     private func position(of el: AXUIElement) -> CGPoint? {
         var v: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(el, kAXPositionAttribute as CFString, &v) == .success else { return nil }
+        guard AXUIElementCopyAttributeValue(el, "AXPosition" as CFString, &v) == .success else { return nil }
         var p = CGPoint.zero
         AXValueGetValue(v as! AXValue, .cgPoint, &p)
         return p
@@ -157,7 +157,7 @@ final class SystemControl {
 
     private func size(of el: AXUIElement) -> CGSize? {
         var v: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(el, kAXSizeAttribute as CFString, &v) == .success else { return nil }
+        guard AXUIElementCopyAttributeValue(el, "AXSize" as CFString, &v) == .success else { return nil }
         var s = CGSize.zero
         AXValueGetValue(v as! AXValue, .cgSize, &s)
         return s
@@ -166,21 +166,21 @@ final class SystemControl {
     private func setPosition(_ el: AXUIElement, _ p: CGPoint) {
         var point = p
         if let val = AXValueCreate(.cgPoint, &point) {
-            AXUIElementSetAttributeValue(el, kAXPositionAttribute as CFString, val)
+            AXUIElementSetAttributeValue(el, "AXPosition" as CFString, val)
         }
     }
 
     private func setSize(_ el: AXUIElement, _ s: CGSize) {
         var size = s
         if let val = AXValueCreate(.cgSize, &size) {
-            AXUIElementSetAttributeValue(el, kAXSizeAttribute as CFString, val)
+            AXUIElementSetAttributeValue(el, "AXSize" as CFString, val)
         }
     }
 
     private func pressButton(_ win: AXUIElement, _ attr: CFString) {
         var btn: CFTypeRef?
         guard AXUIElementCopyAttributeValue(win, attr, &btn) == .success else { return }
-        AXUIElementPerformAction(btn as! AXUIElement, kAXPressAction as CFString)
+        AXUIElementPerformAction(btn as! AXUIElement, "AXPress" as CFString)
     }
 }
 

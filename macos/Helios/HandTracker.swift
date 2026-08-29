@@ -22,7 +22,7 @@ struct TrackedHand: Identifiable {
     }
 }
 
-final class HandTracker {
+final class HandTracker: @unchecked Sendable {
     private let request: VNDetectHumanHandPoseRequest = {
         let r = VNDetectHumanHandPoseRequest()
         r.maximumHandCount = 2

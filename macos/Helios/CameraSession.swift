@@ -5,7 +5,7 @@ import CoreMedia
 import Foundation
 import QuartzCore
 
-final class CameraSession: NSObject, ObservableObject {
+final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     @Published var isRunning = false
     @Published var errorMessage: String?
     @Published var preview: NSImage?

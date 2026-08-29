@@ -7,7 +7,9 @@
 	<key>NSCameraUsageDescription</key>
 	<string>Helios liest den Kamera-Livestream, um Handgesten zu erkennen und das System zu steuern.</string>
 	<key>NSAppleEventsUsageDescription</key>
-	<string>Helios steuert Fenster und Apps über Bedienungshilfen.</string>
+	<string>Helios legt Finder-Auswahl in den Papierkorb, wenn du ein Objekt wirfst.</string>
+	<key>NSScreenCaptureUsageDescription</key>
+	<string>Helios speichert eine Aufnahme des aktuellen Fensters, wenn du die Peace-Geste hältst.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
 </dict>

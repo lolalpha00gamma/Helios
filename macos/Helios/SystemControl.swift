@@ -3,6 +3,7 @@ import AppKit
 import CoreGraphics
 import Foundation
 import ImageIO
+import ScreenCaptureKit
 import UniformTypeIdentifiers
 
 enum SnapEdge {
@@ -112,24 +113,9 @@ final class SystemControl {
     }
 
     func screenshotFocused(windowID: CGWindowID, bounds: CGRect) {
-        let img: CGImage?
-        if windowID != 0 {
-            img = CGWindowListCreateImage(bounds, .optionIncludingWindow, windowID, [.bestResolution, .boundsIgnoreFraming])
-        } else {
-            img = CGWindowListCreateImage(bounds, .optionOnScreenBelowWindow, kCGNullWindowID, [.bestResolution])
+        Task.detached {
+            await WindowCapture.run(windowID: windowID, bounds: bounds)
         }
-        guard let img else { return }
-        let dir = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first
-            ?? FileManager.default.temporaryDirectory
-        let fmt = DateFormatter()
-        fmt.dateFormat = "yyyyMMdd-HHmmss"
-        let url = dir.appendingPathComponent("Helios-\(fmt.string(from: Date())).png")
-        guard let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else {
-            return
-        }
-        CGImageDestinationAddImage(dest, img, nil)
-        CGImageDestinationFinalize(dest)
-        NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 
     func missionControl() {
@@ -264,6 +250,52 @@ final class SystemControl {
         var btn: CFTypeRef?
         guard AXUIElementCopyAttributeValue(win, attr, &btn) == .success else { return }
         AXUIElementPerformAction(btn as! AXUIElement, "AXPress" as CFString)
+    }
+}
+
+enum WindowCapture {
+    static func run(windowID: CGWindowID, bounds: CGRect) async {
+        let dir = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyyMMdd-HHmmss"
+        let url = dir.appendingPathComponent("Helios-\(fmt.string(from: Date())).png")
+        if windowID != 0 {
+            let proc = Process()
+            proc.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+            proc.arguments = ["-l\(windowID)", "-x", url.path]
+            do {
+                try proc.run()
+                proc.waitUntilExit()
+                if proc.terminationStatus == 0, FileManager.default.fileExists(atPath: url.path) {
+                    await MainActor.run { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+                    return
+                }
+            } catch {}
+        }
+        do {
+            let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+            let filter: SCContentFilter
+            if let window = content.windows.first(where: { $0.windowID == windowID }) {
+                filter = SCContentFilter(desktopIndependentWindow: window)
+            } else if let display = content.displays.first {
+                filter = SCContentFilter(display: display, excludingWindows: [])
+            } else {
+                return
+            }
+            let cfg = SCStreamConfiguration()
+            cfg.showsCursor = false
+            let scale: CGFloat = 2
+            cfg.width = max(2, Int(bounds.width * scale))
+            cfg.height = max(2, Int(bounds.height * scale))
+            let img = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: cfg)
+            guard let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else {
+                return
+            }
+            CGImageDestinationAddImage(dest, img, nil)
+            CGImageDestinationFinalize(dest)
+            await MainActor.run { NSWorkspace.shared.activateFileViewerSelecting([url]) }
+        } catch {}
     }
 }
 

@@ -128,13 +128,6 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         if device.isWhiteBalanceModeSupported(.continuousAutoWhiteBalance) {
             device.whiteBalanceMode = .continuousAutoWhiteBalance
         }
-        if device.activeFormat.isVideoHDRSupported {
-            device.automaticallyAdjustsVideoHDREnabled = true
-        }
-        let lo = device.minExposureTargetBias
-        let hi = device.maxExposureTargetBias
-        let bias = min(max(0.35, lo), hi)
-        device.setExposureTargetBias(bias, completionHandler: nil)
     }
 
     private func handle(_ buffer: CMSampleBuffer) {

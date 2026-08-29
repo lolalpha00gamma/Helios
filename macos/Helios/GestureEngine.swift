@@ -67,8 +67,13 @@ final class GestureEngine {
         if hands.isEmpty {
             fistSince = nil
             palmSince = nil
+            killLatched = false
+            lastPalmSeen = 0
+            palmMenuSince = nil
+            pinchTrail.removeAll()
             if system.isDragging { system.endWindowDrag() }
             pinchHeld = false
+            pinchBecameDrag = false
             cursor = nil
             trashHot = false
             dragging = false
@@ -143,6 +148,7 @@ final class GestureEngine {
                 killLatched = true
                 pinchHeld = false
                 pinchBecameDrag = false
+                palmMenuSince = nil
                 system.endWindowDrag()
                 lastAction = testMode ? "Test: Not-Aus" : "Not-Aus"
                 onLog?(testMode ? "Test · Beide Hände offen → Not-Aus" : "Beide Hände offen → Idle")
@@ -157,8 +163,8 @@ final class GestureEngine {
             lastAction = testMode ? "Test: Not-Aus halten" : "Not-Aus halten"
             return true
         }
-        if now - lastPalmSeen < 0.22, palmSince != nil {
-            return false
+        if now - lastPalmSeen < 0.28, palmSince != nil {
+            return true
         }
         palmSince = nil
         killLatched = false
@@ -396,7 +402,7 @@ final class GestureEngine {
             return
         }
         if palmMenuSince == nil { palmMenuSince = now }
-        if now - (palmMenuSince ?? now) > 0.7 {
+        if now - (palmMenuSince ?? now) > 0.95 {
             perform("Mission Control") { system.missionControl() }
             palmMenuSince = now + 10
             cooldownUntil = now + 1.0

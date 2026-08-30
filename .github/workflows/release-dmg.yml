@@ -1,3 +1,73 @@
+name: Helios.dmg
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select newest Xcode
+        run: |
+          echo "Installed:"
+          ls /Applications | grep -i xcode || true
+          set +e
+          PICK=""
+          for p in \
+            /Applications/Xcode_27.app \
+            /Applications/Xcode_27.0.app \
+            /Applications/Xcode_27.0.0.app \
+            /Applications/Xcode_26.6.app \
+            /Applications/Xcode_26.5.app \
+            /Applications/Xcode_26.app \
+            /Applications/Xcode.app
+          do
+            if [ -d "$p/Contents/Developer" ]; then
+              PICK="$p"
+              break
+            fi
+          done
+          if [ -n "$PICK" ]; then
+            sudo xcode-select -s "$PICK/Contents/Developer"
+            echo "Using $PICK"
+          fi
+          xcodebuild -version
+          xcrun --show-sdk-version
+
+      - name: Read version
+        id: ver
+        run: |
+          MARKETING=$(awk -F' = ' '/MARKETING_VERSION/{gsub(/;/, "", $2); print $2; exit}' macos/Helios.xcodeproj/project.pbxproj)
+          TAG="v${MARKETING}"
+          TITLE="Helios ${MARKETING}"
+          echo "marketing=$MARKETING" >> "$GITHUB_OUTPUT"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
+
+      - name: Build Helios.app
+        run: |
+          xcodebuild \
+            -project macos/Helios.xcodeproj \
+            -scheme Helios \
+            -configuration Release \
+            -derivedDataPath .derived \
+            -destination 'platform=macOS,arch=arm64' \
+            ARCHS=arm64 \
+            ONLY_ACTIVE_ARCH=YES \
+            EXCLUDED_ARCHS=x86_64 \
+            CODE_SIGN_IDENTITY="-" \
+            CODE_SIGNING_REQUIRED=YES \
+            CODE_SIGNING_ALLOWED=YES \
+            ENABLE_HARDENED_RUNTIME=YES \
+            build
+
       - name: Sign and make DMG
         run: |
           set -euo pipefail
@@ -13,14 +83,12 @@
             dmgroot/Helios.app
           codesign --verify --verbose=2 dmgroot/Helios.app || true
           ln -s /Applications dmgroot/Applications
-          # Eine echte UDIF-Disk-Image-Datei, kein Zip, kein Ordner.
           hdiutil create \
             -volname Helios \
             -srcfolder dmgroot \
             -ov \
             -format UDZO \
             -fs HFS+ \
-            -layout NONE \
             Helios.dmg
           test -f Helios.dmg
           test ! -d Helios.dmg

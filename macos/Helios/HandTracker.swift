@@ -68,28 +68,13 @@ final class HandTracker: @unchecked Sendable {
 
     private var leftSmooth = LandmarkSmoothing()
     private var rightSmooth = LandmarkSmoothing()
-    private var busy = false
-    private let lock = NSLock()
 
     func reset() {
         leftSmooth.reset()
         rightSmooth.reset()
     }
 
-    func analyze(pixelBuffer: CVPixelBuffer, now: TimeInterval) -> [TrackedHand]? {
-        lock.lock()
-        if busy {
-            lock.unlock()
-            return nil
-        }
-        busy = true
-        lock.unlock()
-        defer {
-            lock.lock()
-            busy = false
-            lock.unlock()
-        }
-
+    func analyze(pixelBuffer: CVPixelBuffer, now: TimeInterval) -> [TrackedHand] {
         let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
         do {
             try handler.perform([request])

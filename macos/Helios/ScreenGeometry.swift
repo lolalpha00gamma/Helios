@@ -28,8 +28,8 @@ enum ScreenGeometry {
     }
 
     static func localRect(quartz: CGRect, on screen: CGRect) -> CGRect {
-        let origin = local(quartz: quartz.origin, on: screen)
-        return CGRect(x: origin.x, y: origin.y, width: quartz.width, height: quartz.height)
+        let topLeft = local(quartz: CGPoint(x: quartz.minX, y: quartz.maxY), on: screen)
+        return CGRect(x: topLeft.x, y: topLeft.y, width: quartz.width, height: quartz.height)
     }
 
     static func contains(quartz: CGPoint, screen: CGRect, pad: CGFloat = 24) -> Bool {

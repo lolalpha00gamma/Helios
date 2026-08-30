@@ -212,7 +212,7 @@ struct CameraPreview: View {
                     let rect = fitted(image.size, in: geo.size)
                     Image(nsImage: image)
                         .resizable()
-                        .interpolation(.high)
+                        .interpolation(.medium)
                         .frame(width: rect.width, height: rect.height)
                         .position(x: rect.midX, y: rect.midY)
                     TrackingOverlay(hands: hands, showLabels: showLabels, compact: compact)

@@ -35,7 +35,7 @@ struct HeliosApp: App {
                 .disabled(true)
             Divider()
             Button("Konsole") {
-                NSApp.activate(ignoringOtherApps: true)
+                NSApp.activate()
                 if let win = NSApp.windows.first(where: { $0.title == "Helios" }) {
                     win.makeKeyAndOrderFront(nil)
                 }

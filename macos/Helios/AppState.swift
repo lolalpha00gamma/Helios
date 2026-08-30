@@ -68,11 +68,11 @@ final class AppState: ObservableObject {
 
         refreshPermissions()
         pollFocus()
-        permTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+        permTimer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.pollFocus()
                 self?.focusTick += 1
-                if (self?.focusTick ?? 0) % 6 == 0 {
+                if (self?.focusTick ?? 0) % 5 == 0 {
                     self?.refreshPermissions()
                 }
             }
@@ -93,7 +93,6 @@ final class AppState: ObservableObject {
         engine.focused = focused
         trashHot = engine.trashHot
         killFlash = engine.killFlash
-        objectWillChange.send()
     }
 
     func startCamera() async {
@@ -108,12 +107,19 @@ final class AppState: ObservableObject {
             Permissions.promptAccessibility()
         }
         let tracker = self.tracker
-        camera.onFrame = { [weak self] vision, preview, luma in
+        camera.onFrame = { [weak self] vision, preview, luma, arrived in
             let t0 = CACurrentMediaTime()
-            guard let hands = tracker.analyze(pixelBuffer: vision, now: t0) else { return }
-            let dt = (CACurrentMediaTime() - t0) * 1000
-            Task { @MainActor in
-                self?.apply(hands: hands, latency: dt, now: CACurrentMediaTime(), preview: preview, luma: luma)
+            let hands = tracker.analyze(pixelBuffer: vision, now: t0)
+            let visMs = (CACurrentMediaTime() - t0) * 1000
+            let endToEnd = (CACurrentMediaTime() - arrived) * 1000
+            DispatchQueue.main.async {
+                self?.apply(
+                    hands: hands,
+                    latency: max(visMs, endToEnd),
+                    now: CACurrentMediaTime(),
+                    preview: preview,
+                    luma: luma
+                )
             }
         }
         camera.start()
@@ -148,6 +154,7 @@ final class AppState: ObservableObject {
         luma: CGFloat
     ) {
         self.hands = hands
+        self.displayHands = hands
         self.luma = luma
         latencyMs = latency
         frames += 1
@@ -158,7 +165,6 @@ final class AppState: ObservableObject {
         }
         if let preview {
             self.preview = preview
-            displayHands = hands
         }
         engine.tick(hands: hands, now: now)
         mode = engine.mode
@@ -166,6 +172,5 @@ final class AppState: ObservableObject {
         engineCursor = engine.cursor
         trashHot = engine.trashHot
         killFlash = engine.killFlash
-        objectWillChange.send()
     }
 }

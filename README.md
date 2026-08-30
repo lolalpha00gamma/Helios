@@ -10,7 +10,7 @@ Ziel: **macOS 27 Golden Gate**, **Apple Silicon M4 Pro**, **arm64**.
 
 **Nur die DMG-Datei laden, nicht Source code (zip):**
 
-[Helios.dmg](https://github.com/lolalpha00gamma/Helios/releases/download/v1.2.0/Helios.dmg)
+[Helios.dmg](https://github.com/lolalpha00gamma/Helios/releases/latest/download/Helios.dmg)
 
 1. Datei `Helios.dmg` doppelklicken (kein Entpacken)
 2. Helios nach **Programme** ziehen

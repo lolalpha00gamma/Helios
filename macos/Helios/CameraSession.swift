@@ -56,12 +56,12 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         do {
             let input = try AVCaptureDeviceInput(device: device)
             if session.canAddInput(input) { session.addInput(input) }
-            try lockDevice(device)
         } catch {
             DispatchQueue.main.async { self.errorMessage = error.localizedDescription }
             session.commitConfiguration()
             return
         }
+        lockDevice(device)
 
         output.alwaysDiscardsLateVideoFrames = true
         output.videoSettings = [
@@ -73,14 +73,20 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         tap = sink
         output.setSampleBufferDelegate(sink, queue: queue)
         if session.canAddOutput(output) { session.addOutput(output) }
-        if let conn = output.connection(with: .video) {
-            if conn.isVideoMirroringSupported {
+        HeliosCatch({
+            if let conn = self.output.connection(with: .video), conn.isVideoMirroringSupported {
                 let front = device.position == .front || device.deviceType == .builtInWideAngleCamera
                 conn.isVideoMirrored = front
             }
-        }
+        }, nil)
         session.commitConfiguration()
-        session.startRunning()
+        var startErr: NSError?
+        _ = HeliosCatch({
+            self.session.startRunning()
+        }, &startErr)
+        if let startErr {
+            DispatchQueue.main.async { self.errorMessage = startErr.localizedDescription }
+        }
         let name = device.localizedName
         DispatchQueue.main.async {
             self.deviceName = name
@@ -108,25 +114,28 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         return discovered.first ?? AVCaptureDevice.default(for: .video)
     }
 
-    private func lockDevice(_ device: AVCaptureDevice) throws {
-        try device.lockForConfiguration()
-        defer { device.unlockForConfiguration() }
-
-        let minDur = CMTime(value: 1, timescale: 60)
-        let maxDur = CMTime(value: 1, timescale: 15)
-        if device.activeFormat.videoSupportedFrameRateRanges.contains(where: { $0.maxFrameRate >= 29 }) {
-            device.activeVideoMinFrameDuration = minDur
-            device.activeVideoMaxFrameDuration = maxDur
-        }
-
-        if device.isFocusModeSupported(.continuousAutoFocus) {
-            device.focusMode = .continuousAutoFocus
-        }
-        if device.isExposureModeSupported(.continuousAutoExposure) {
-            device.exposureMode = .continuousAutoExposure
-        }
-        if device.isWhiteBalanceModeSupported(.continuousAutoWhiteBalance) {
-            device.whiteBalanceMode = .continuousAutoWhiteBalance
+    /// macOS 27 DAL wirft NSException bei ungültiger Framerate — nicht setzen, Default nutzen.
+    private func lockDevice(_ device: AVCaptureDevice) {
+        var err: NSError?
+        _ = HeliosCatch({
+            do {
+                try device.lockForConfiguration()
+            } catch {
+                return
+            }
+            defer { device.unlockForConfiguration() }
+            if device.isFocusModeSupported(.continuousAutoFocus) {
+                device.focusMode = .continuousAutoFocus
+            }
+            if device.isExposureModeSupported(.continuousAutoExposure) {
+                device.exposureMode = .continuousAutoExposure
+            }
+            if device.isWhiteBalanceModeSupported(.continuousAutoWhiteBalance) {
+                device.whiteBalanceMode = .continuousAutoWhiteBalance
+            }
+        }, &err)
+        if let err {
+            DispatchQueue.main.async { self.errorMessage = err.localizedDescription }
         }
     }
 

@@ -25,6 +25,7 @@
 		AA0000000000000000000060 /* FrameEnhancer.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000052 /* FrameEnhancer.swift */; };
 		AA0000000000000000000061 /* ScreenGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000053 /* ScreenGeometry.swift */; };
 		AA0000000000000000000062 /* FocusTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000054 /* FocusTracker.swift */; };
+		AA0000000000000000000063 /* HeliosTry.m in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000055 /* HeliosTry.m */; };
 		AA000000000000000000003E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000004E /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -51,6 +52,9 @@
 		AA0000000000000000000052 /* FrameEnhancer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FrameEnhancer.swift; sourceTree = "<group>"; };
 		AA0000000000000000000053 /* ScreenGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScreenGeometry.swift; sourceTree = "<group>"; };
 		AA0000000000000000000054 /* FocusTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusTracker.swift; sourceTree = "<group>"; };
+		AA0000000000000000000055 /* HeliosTry.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = HeliosTry.m; sourceTree = "<group>"; };
+		AA0000000000000000000056 /* HeliosTry.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = HeliosTry.h; sourceTree = "<group>"; };
+		AA0000000000000000000057 /* Helios-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Helios-Bridging-Header.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -97,6 +101,9 @@
 				AA0000000000000000000052 /* FrameEnhancer.swift */,
 				AA0000000000000000000053 /* ScreenGeometry.swift */,
 				AA0000000000000000000054 /* FocusTracker.swift */,
+				AA0000000000000000000055 /* HeliosTry.m */,
+				AA0000000000000000000056 /* HeliosTry.h */,
+				AA0000000000000000000057 /* Helios-Bridging-Header.h */,
 				AA0000000000000000000029 /* ControlPanel.swift */,
 				AA000000000000000000004A /* Permissions.swift */,
 				AA000000000000000000004B /* LandmarkSmoothing.swift */,
@@ -196,6 +203,7 @@
 				AA0000000000000000000060 /* FrameEnhancer.swift in Sources */,
 				AA0000000000000000000061 /* ScreenGeometry.swift in Sources */,
 				AA0000000000000000000062 /* FocusTracker.swift in Sources */,
+				AA0000000000000000000063 /* HeliosTry.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -246,7 +254,7 @@
 				CODE_SIGN_ENTITLEMENTS = Helios.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -258,13 +266,14 @@
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.2.1;
+				MARKETING_VERSION = 1.2.2;
 				PRODUCT_BUNDLE_IDENTIFIER = app.helios.control;
 				PRODUCT_NAME = Helios;
 				SDKROOT = macosx;
 				SUPPORTED_PLATFORMS = macosx;
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "Helios/Helios-Bridging-Header.h";
 				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
@@ -277,7 +286,7 @@
 				CODE_SIGN_ENTITLEMENTS = Helios.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 4;
+				CURRENT_PROJECT_VERSION = 5;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
@@ -290,7 +299,7 @@
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.2.1;
+				MARKETING_VERSION = 1.2.2;
 				ONLY_ACTIVE_ARCH = YES;
 				PRODUCT_BUNDLE_IDENTIFIER = app.helios.control;
 				PRODUCT_NAME = Helios;
@@ -298,6 +307,7 @@
 				SUPPORTED_PLATFORMS = macosx;
 				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "Helios/Helios-Bridging-Header.h";
 				SWIFT_VERSION = 6.0;
 			};
 			name = Release;

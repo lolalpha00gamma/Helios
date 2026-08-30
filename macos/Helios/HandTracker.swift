@@ -15,6 +15,7 @@ struct TrackedHand: Identifiable {
     var displayJoints: [VNHumanHandPoseObservation.JointName: TrackedJoint]
     var pose: HandPose
     var pinchDistance: CGFloat
+    var pinchRatio: CGFloat
     var palm: CGPoint
     var openScore: Int
 
@@ -117,10 +118,13 @@ final class HandTracker: @unchecked Sendable {
             for (name, point) in raw {
                 display[name] = TrackedJoint(point: point, confidence: conf[name] ?? 0)
             }
-            let pinch = Self.distance(smoothed[.thumbTip], smoothed[.indexTip])
-            let palm = smoothed[.wrist] ?? smoothed[.indexMCP] ?? .zero
+            let pinchRaw = Self.distance(raw[.thumbTip], raw[.indexTip])
+            let pinchSm = Self.distance(smoothed[.thumbTip], smoothed[.indexTip])
+            let pinch = min(pinchRaw, pinchSm)
+            let palm = smoothed[.wrist] ?? smoothed[.indexMCP] ?? raw[.wrist] ?? .zero
             let pose = GestureClassifier.classify(joints: smoothed, pinch: pinch)
             let openScore = GestureClassifier.openScore(joints: smoothed)
+            let ratio = GestureClassifier.pinchRatio(joints: smoothed, pinch: pinch)
             hands.append(
                 TrackedHand(
                     id: "\(chirality.rawValue)-\(idx)",
@@ -129,6 +133,7 @@ final class HandTracker: @unchecked Sendable {
                     displayJoints: display,
                     pose: pose,
                     pinchDistance: pinch,
+                    pinchRatio: ratio,
                     palm: palm,
                     openScore: openScore
                 )

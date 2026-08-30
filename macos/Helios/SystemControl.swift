@@ -30,7 +30,7 @@ final class SystemControl {
 
     func click() {
         let now = CACurrentMediaTime()
-        guard now - lastClick > 0.28 else { return }
+        guard now - lastClick > 0.16 else { return }
         lastClick = now
         let loc = NSEvent.mouseLocation.screenFlipped
         postMouse(.leftMouseDown, at: loc)
@@ -39,7 +39,8 @@ final class SystemControl {
 
     func beginWindowDrag() {
         let loc = NSEvent.mouseLocation.screenFlipped
-        guard let win = window(at: loc), let pos = position(of: win) else { return }
+        let win = window(at: loc) ?? focusedWindow()
+        guard let win, let pos = position(of: win) else { return }
         dragElement = win
         dragOriginMouse = loc
         dragOriginWindow = pos

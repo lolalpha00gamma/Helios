@@ -120,6 +120,10 @@ struct HUDView: View {
                     .padding(.vertical, 4)
                     .foregroundStyle(HeliosTheme.void)
                     .background(HeliosTheme.cyan)
+            } else if state.mode == .idle {
+                Text("FAUST HALTEN → SCHARF")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(HeliosTheme.amber)
             }
             if let app = state.focused {
                 Text(app.appName.uppercased())

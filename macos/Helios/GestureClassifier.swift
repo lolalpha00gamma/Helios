@@ -24,31 +24,58 @@ enum HandPose: String, Equatable {
 }
 
 enum GestureClassifier {
+    static func palmScale(_ joints: [VNHumanHandPoseObservation.JointName: CGPoint]) -> CGFloat {
+        if let w = joints[.wrist], let m = joints[.middleMCP] {
+            return max(0.05, hypot(w.x - m.x, w.y - m.y))
+        }
+        if let a = joints[.indexMCP], let b = joints[.littleMCP] {
+            return max(0.04, hypot(a.x - b.x, a.y - b.y))
+        }
+        return 0.12
+    }
+
+    static func pinchRatio(
+        joints: [VNHumanHandPoseObservation.JointName: CGPoint],
+        pinch: CGFloat
+    ) -> CGFloat {
+        pinch / palmScale(joints)
+    }
+
     static func classify(
         joints: [VNHumanHandPoseObservation.JointName: CGPoint],
         pinch: CGFloat
     ) -> HandPose {
-        let thumb = isExtended(joints, tip: .thumbTip, pip: .thumbIP, mcp: .thumbMP)
-        let index = isExtended(joints, tip: .indexTip, pip: .indexPIP, mcp: .indexMCP)
-        let middle = isExtended(joints, tip: .middleTip, pip: .middlePIP, mcp: .middleMCP)
-        let ring = isExtended(joints, tip: .ringTip, pip: .ringPIP, mcp: .ringMCP)
-        let little = isExtended(joints, tip: .littleTip, pip: .littlePIP, mcp: .littleMCP)
+        let thumb = isExtended(joints, tip: .thumbTip, pip: .thumbIP, mcp: .thumbMP, slack: 0.012)
+        let index = isExtended(joints, tip: .indexTip, pip: .indexPIP, mcp: .indexMCP, slack: 0.016)
+        let middle = isExtended(joints, tip: .middleTip, pip: .middlePIP, mcp: .middleMCP, slack: 0.016)
+        let ring = isExtended(joints, tip: .ringTip, pip: .ringPIP, mcp: .ringMCP, slack: 0.016)
+        let little = isExtended(joints, tip: .littleTip, pip: .littlePIP, mcp: .littleMCP, slack: 0.016)
 
         let fingers = [index, middle, ring, little].filter { $0 }.count
+        let scale = palmScale(joints)
+        let ratio = pinch / scale
+        let indexReach: CGFloat = {
+            guard let t = joints[.indexTip], let w = joints[.wrist] else { return 0 }
+            return hypot(t.x - w.x, t.y - w.y) / scale
+        }()
 
-        if pinch < 0.062 && index {
+        // Pinzette: Spitzen nah UND Zeigefinger noch raus (sonst ist es eine Faust).
+        if ratio < 0.45, pinch < 0.13, fingers <= 2, indexReach > 0.95 {
             return .pinch
-        }
-        if index && !middle && !ring && !little {
-            return .point
         }
         if index && middle && !ring && !little {
             return .peace
         }
-        if thumb && fingers == 0, let tip = joints[.thumbTip], let wrist = joints[.wrist], tip.y > wrist.y + 0.05 {
+        if index && !middle && !ring && !little {
+            return .point
+        }
+        if fingers == 0, thumb, let tip = joints[.thumbTip], let wrist = joints[.wrist],
+           tip.y > wrist.y + 0.08, ratio > 0.35
+        {
             return .thumbsUp
         }
-        if fingers == 0 && !thumb {
+        // Faust: keine klaren Finger. Daumen darf „falsch offen“ sein.
+        if fingers == 0 {
             return .fist
         }
         if fingers >= 3 {
@@ -59,10 +86,10 @@ enum GestureClassifier {
 
     static func openScore(joints: [VNHumanHandPoseObservation.JointName: CGPoint]) -> Int {
         var n = 0
-        if isExtended(joints, tip: .indexTip, pip: .indexPIP, mcp: .indexMCP) { n += 1 }
-        if isExtended(joints, tip: .middleTip, pip: .middlePIP, mcp: .middleMCP) { n += 1 }
-        if isExtended(joints, tip: .ringTip, pip: .ringPIP, mcp: .ringMCP) { n += 1 }
-        if isExtended(joints, tip: .littleTip, pip: .littlePIP, mcp: .littleMCP) { n += 1 }
+        if isExtended(joints, tip: .indexTip, pip: .indexPIP, mcp: .indexMCP, slack: 0.012) { n += 1 }
+        if isExtended(joints, tip: .middleTip, pip: .middlePIP, mcp: .middleMCP, slack: 0.012) { n += 1 }
+        if isExtended(joints, tip: .ringTip, pip: .ringPIP, mcp: .ringMCP, slack: 0.012) { n += 1 }
+        if isExtended(joints, tip: .littleTip, pip: .littlePIP, mcp: .littleMCP, slack: 0.012) { n += 1 }
         return n
     }
 
@@ -70,7 +97,8 @@ enum GestureClassifier {
         _ joints: [VNHumanHandPoseObservation.JointName: CGPoint],
         tip: VNHumanHandPoseObservation.JointName,
         pip: VNHumanHandPoseObservation.JointName,
-        mcp: VNHumanHandPoseObservation.JointName
+        mcp: VNHumanHandPoseObservation.JointName,
+        slack: CGFloat = 0.008
     ) -> Bool {
         guard let t = joints[tip], let p = joints[pip], let m = joints[mcp], let w = joints[.wrist] else {
             return false
@@ -78,6 +106,6 @@ enum GestureClassifier {
         let tipD = hypot(t.x - w.x, t.y - w.y)
         let pipD = hypot(p.x - w.x, p.y - w.y)
         let mcpD = hypot(m.x - w.x, m.y - w.y)
-        return tipD > pipD + 0.008 && pipD > mcpD * 0.88
+        return tipD > pipD + slack && pipD > mcpD * 0.86
     }
 }

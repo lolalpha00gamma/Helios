@@ -1,78 +1,9 @@
-name: Helios.dmg
-
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-
-permissions:
-  contents: write
-
-jobs:
-  package:
-    runs-on: macos-26
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Select newest Xcode
-        run: |
-          echo "Installed:"
-          ls /Applications | grep -i xcode || true
-          set +e
-          PICK=""
-          for p in \
-            /Applications/Xcode_27.app \
-            /Applications/Xcode_27.0.app \
-            /Applications/Xcode_27.0.0.app \
-            /Applications/Xcode_26.6.app \
-            /Applications/Xcode_26.5.app \
-            /Applications/Xcode_26.app \
-            /Applications/Xcode.app
-          do
-            if [ -d "$p/Contents/Developer" ]; then
-              PICK="$p"
-              break
-            fi
-          done
-          if [ -n "$PICK" ]; then
-            sudo xcode-select -s "$PICK/Contents/Developer"
-            echo "Using $PICK"
-          fi
-          xcodebuild -version
-          xcrun --show-sdk-version
-
-      - name: Read version
-        id: ver
-        run: |
-          MARKETING=$(awk -F' = ' '/MARKETING_VERSION/{gsub(/;/, "", $2); print $2; exit}' macos/Helios.xcodeproj/project.pbxproj)
-          TAG="v${MARKETING}"
-          TITLE="Helios ${MARKETING}"
-          echo "marketing=$MARKETING" >> "$GITHUB_OUTPUT"
-          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "title=$TITLE" >> "$GITHUB_OUTPUT"
-
-      - name: Build Helios.app
-        run: |
-          xcodebuild \
-            -project macos/Helios.xcodeproj \
-            -scheme Helios \
-            -configuration Release \
-            -derivedDataPath .derived \
-            -destination 'platform=macOS,arch=arm64' \
-            ARCHS=arm64 \
-            ONLY_ACTIVE_ARCH=YES \
-            EXCLUDED_ARCHS=x86_64 \
-            CODE_SIGN_IDENTITY="-" \
-            CODE_SIGNING_REQUIRED=YES \
-            CODE_SIGNING_ALLOWED=YES \
-            ENABLE_HARDENED_RUNTIME=YES \
-            build
-
       - name: Sign and make DMG
         run: |
+          set -euo pipefail
           APP=".derived/Build/Products/Release/Helios.app"
           test -d "$APP"
-          rm -rf dmgroot
+          rm -rf dmgroot Helios.dmg
           mkdir dmgroot
           cp -R "$APP" dmgroot/Helios.app
           codesign --force --deep --sign - \
@@ -82,21 +13,42 @@ jobs:
             dmgroot/Helios.app
           codesign --verify --verbose=2 dmgroot/Helios.app || true
           ln -s /Applications dmgroot/Applications
-          hdiutil create -volname Helios -srcfolder dmgroot -ov -format UDZO Helios.dmg
-          ls -lh Helios.dmg
+          # Eine echte UDIF-Disk-Image-Datei, kein Zip, kein Ordner.
+          hdiutil create \
+            -volname Helios \
+            -srcfolder dmgroot \
+            -ov \
+            -format UDZO \
+            -fs HFS+ \
+            -layout NONE \
+            Helios.dmg
+          test -f Helios.dmg
+          test ! -d Helios.dmg
+          file Helios.dmg
+          hdiutil imageinfo Helios.dmg | head -n 20
           codesign --force --sign - --timestamp=none Helios.dmg || true
+          ls -lh Helios.dmg
 
       - name: Publish Helios.dmg
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -euo pipefail
           TAG="${{ steps.ver.outputs.tag }}"
           TITLE="${{ steps.ver.outputs.title }}"
+          if [ ! -f Helios.dmg ] || [ -d Helios.dmg ]; then
+            echo "Helios.dmg ist keine Datei" >&2
+            exit 1
+          fi
           NOTES="$(cat <<EOF
-          Helios ${{ steps.ver.outputs.marketing }} — native macOS-App (arm64, macOS 27).
+          ## Download
 
-          1. Helios.dmg öffnen
-          2. Helios in Programme ziehen
+          Nur **Helios.dmg** herunterladen (Disk-Image).
+
+          Nicht anfassen: *Source code (zip)* und *Source code (tar.gz)* — das ist Quelltext, nicht die App.
+
+          1. Helios.dmg öffnen (Doppelklick)
+          2. Helios nach Programme ziehen
           3. Rechtsklick → Öffnen (Gatekeeper)
           4. Kamera, Bedienungshilfen und Eingabeüberwachung erlauben
 
@@ -104,8 +56,15 @@ jobs:
           EOF
           )"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" Helios.dmg --clobber
             gh release edit "$TAG" --title "$TITLE" --notes "$NOTES" --latest
           else
-            gh release create "$TAG" Helios.dmg --title "$TITLE" --latest --notes "$NOTES"
+            gh release create "$TAG" --title "$TITLE" --latest --notes "$NOTES"
           fi
+          gh release delete-asset "$TAG" Helios.dmg --yes || true
+          RID=$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" --jq .id)
+          gh api --method POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/x-apple-diskimage" \
+            "/repos/${GITHUB_REPOSITORY}/releases/${RID}/assets?name=Helios.dmg&label=Helios.dmg" \
+            --input Helios.dmg \
+            --jq '{name,content_type,size,browser_download_url}'

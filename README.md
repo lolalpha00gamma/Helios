@@ -8,13 +8,16 @@ Ziel: **macOS 27 Golden Gate**, **Apple Silicon M4 Pro**, **arm64**.
 
 ## Start
 
-1. [Releases](https://github.com/lolalpha00gamma/Helios/releases) → `Helios.dmg`
-2. Image öffnen, Helios nach **Programme** ziehen
+**Nur die DMG-Datei laden, nicht Source code (zip):**
+
+[Helios.dmg](https://github.com/lolalpha00gamma/Helios/releases/download/v1.2.0/Helios.dmg)
+
+1. Datei `Helios.dmg` doppelklicken (kein Entpacken)
+2. Helios nach **Programme** ziehen
 3. Erster Start: Rechtsklick auf Helios → **Öffnen**
-4. Rechte erlauben:
-   - Kamera
-   - Bedienungshilfen
-   - Eingabeüberwachung
+4. Rechte erlauben: Kamera, Bedienungshilfen, Eingabeüberwachung
+
+Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
 
 ## Gesten
 

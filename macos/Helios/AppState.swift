@@ -264,49 +264,47 @@ final class AppState: ObservableObject {
 }
 
 enum Prefs {
-    private static let d = UserDefaults.standard
-
     static var leftHanded: Bool {
-        get { d.object(forKey: "helios.leftHanded") as? Bool ?? true }
-        set { d.set(newValue, forKey: "helios.leftHanded") }
+        get { UserDefaults.standard.object(forKey: "helios.leftHanded") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.leftHanded") }
     }
     static var pointerGain: Double {
         get {
-            let v = d.double(forKey: "helios.pointerGain")
+            let v = UserDefaults.standard.double(forKey: "helios.pointerGain")
             return v == 0 ? 1.6 : min(3.2, max(0.6, v))
         }
-        set { d.set(newValue, forKey: "helios.pointerGain") }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.pointerGain") }
     }
     static var protocolMode: Bool {
-        get { d.object(forKey: "helios.protocolMode") as? Bool ?? true }
-        set { d.set(newValue, forKey: "helios.protocolMode") }
+        get { UserDefaults.standard.object(forKey: "helios.protocolMode") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.protocolMode") }
     }
     static var testMode: Bool {
-        get { d.bool(forKey: "helios.testMode") }
-        set { d.set(newValue, forKey: "helios.testMode") }
+        get { UserDefaults.standard.bool(forKey: "helios.testMode") }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.testMode") }
     }
     static var hudVisible: Bool {
-        get { d.object(forKey: "helios.hud") as? Bool ?? true }
-        set { d.set(newValue, forKey: "helios.hud") }
+        get { UserDefaults.standard.object(forKey: "helios.hud") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.hud") }
     }
     static var showReticle: Bool {
-        get { d.object(forKey: "helios.reticle") as? Bool ?? true }
-        set { d.set(newValue, forKey: "helios.reticle") }
+        get { UserDefaults.standard.object(forKey: "helios.reticle") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.reticle") }
     }
     static var showJointLabels: Bool {
-        get { d.object(forKey: "helios.joints") as? Bool ?? true }
-        set { d.set(newValue, forKey: "helios.joints") }
+        get { UserDefaults.standard.object(forKey: "helios.joints") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.joints") }
     }
     static var showCheats: Bool {
-        get { d.object(forKey: "helios.cheats") as? Bool ?? true }
-        set { d.set(newValue, forKey: "helios.cheats") }
+        get { UserDefaults.standard.object(forKey: "helios.cheats") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.cheats") }
     }
     static var showOutline: Bool {
-        get { d.object(forKey: "helios.outline") as? Bool ?? true }
-        set { d.set(newValue, forKey: "helios.outline") }
+        get { UserDefaults.standard.object(forKey: "helios.outline") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.outline") }
     }
     static var showTrashZone: Bool {
-        get { d.object(forKey: "helios.trash") as? Bool ?? true }
-        set { d.set(newValue, forKey: "helios.trash") }
+        get { UserDefaults.standard.object(forKey: "helios.trash") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.trash") }
     }
 }

@@ -136,9 +136,10 @@ final class AppState: ObservableObject {
             Permissions.requestInputMonitoring()
         }
         let tracker = self.tracker
+        let cam = self.camera
         camera.onFrame = { [weak self] vision, preview, luma, arrived in
             let t0 = CACurrentMediaTime()
-            let hands = tracker.analyze(pixelBuffer: vision, now: t0, mirrored: self.camera.isMirrored)
+            let hands = tracker.analyze(pixelBuffer: vision, now: t0, mirrored: cam.isMirrored)
             let visMs = (CACurrentMediaTime() - t0) * 1000
             let endToEnd = (CACurrentMediaTime() - arrived) * 1000
             DispatchQueue.main.async {

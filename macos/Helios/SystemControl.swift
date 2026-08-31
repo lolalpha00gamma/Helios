@@ -379,33 +379,24 @@ enum WindowCapture {
         let fmt = DateFormatter()
         fmt.dateFormat = "yyyyMMdd-HHmmss"
         let url = dir.appendingPathComponent("Helios-\(fmt.string(from: Date())).png")
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
         if windowID != 0 {
-            let proc = Process()
-            proc.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
             proc.arguments = ["-l\(windowID)", "-x", url.path]
-            do {
-                try proc.run()
-                proc.waitUntilExit()
-                if proc.terminationStatus == 0, FileManager.default.fileExists(atPath: url.path) {
-                    NSWorkspace.shared.activateFileViewerSelecting([url])
-                    return .ok(url.lastPathComponent)
-                }
-            } catch {
-                return .fail("screencapture: \(error.localizedDescription)")
+        } else {
+            proc.arguments = ["-x", url.path]
+        }
+        do {
+            try proc.run()
+            proc.waitUntilExit()
+            if proc.terminationStatus == 0, FileManager.default.fileExists(atPath: url.path) {
+                NSWorkspace.shared.activateFileViewerSelecting([url])
+                return .ok(url.lastPathComponent)
             }
+            return .fail("screencapture \(proc.terminationStatus)")
+        } catch {
+            return .fail("screencapture: \(error.localizedDescription)")
         }
-        let opt: CGWindowListOption = windowID == 0 ? .optionOnScreenOnly : .optionIncludingWindow
-        let wid = windowID == 0 ? CGWindowID(0) : windowID
-        guard let img = CGWindowListCreateImage(bounds, opt, wid, [.bestResolution, .boundsIgnoreFraming]) else {
-            return .fail("Aufnahme fehlgeschlagen")
-        }
-        guard let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else {
-            return .fail("PNG schreiben")
-        }
-        CGImageDestinationAddImage(dest, img, nil)
-        guard CGImageDestinationFinalize(dest) else { return .fail("PNG schreiben") }
-        NSWorkspace.shared.activateFileViewerSelecting([url])
-        return .ok(url.lastPathComponent)
     }
 }
 

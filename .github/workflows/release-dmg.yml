@@ -131,15 +131,9 @@ jobs:
           EOF
           )"
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release edit "$TAG" --title "$TITLE" --notes "$NOTES" --latest
+            gh release edit "$TAG" --title "$TITLE" --notes "$NOTES" --latest || true
           else
             gh release create "$TAG" --title "$TITLE" --latest --notes "$NOTES"
           fi
-          gh release delete-asset "$TAG" Helios.dmg --yes || true
-          RID=$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" --jq .id)
-          gh api --method POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Content-Type: application/x-apple-diskimage" \
-            "/repos/${GITHUB_REPOSITORY}/releases/${RID}/assets?name=Helios.dmg&label=Helios.dmg" \
-            --input Helios.dmg \
-            --jq '{name,content_type,size,browser_download_url}'
+          gh release upload "$TAG" Helios.dmg --clobber
+          gh release view "$TAG"

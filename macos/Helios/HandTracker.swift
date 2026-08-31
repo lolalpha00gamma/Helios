@@ -75,7 +75,7 @@ final class HandTracker: @unchecked Sendable {
         rightSmooth.reset()
     }
 
-    func analyze(pixelBuffer: CVPixelBuffer, now: TimeInterval) -> [TrackedHand] {
+    func analyze(pixelBuffer: CVPixelBuffer, now: TimeInterval, mirrored: Bool = true) -> [TrackedHand] {
         let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
         do {
             try handler.perform([request])
@@ -105,6 +105,10 @@ final class HandTracker: @unchecked Sendable {
             if chirality == .unknown {
                 let wx = raw[.wrist]?.x ?? 0.5
                 chirality = wx < 0.5 ? .left : .right
+            }
+            if mirrored {
+                if chirality == .left { chirality = .right }
+                else if chirality == .right { chirality = .left }
             }
             var smoother = chirality == .left ? leftSmooth : rightSmooth
             let smoothed = smoother.apply(raw, now: now)

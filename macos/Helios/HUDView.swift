@@ -24,8 +24,16 @@ struct HUDView: View {
                    ScreenGeometry.contains(quartz: c, screen: screenFrame)
                 {
                     let local = ScreenGeometry.local(quartz: c, on: screenFrame)
-                    Reticle(armed: state.mode == .armed && !state.testMode)
-                        .position(x: local.x, y: local.y)
+                    VStack(spacing: 6) {
+                        Reticle(armed: state.mode == .armed && !state.testMode)
+                        Text(state.cursorHand.uppercased())
+                            .font(.system(size: 10, weight: .bold, design: .monospaced))
+                            .foregroundStyle(state.mode == .armed && !state.testMode ? HeliosTheme.amber : HeliosTheme.cyan)
+                        Text(String(format: "%.0f  %.0f", local.x, local.y))
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundStyle(HeliosTheme.cyan.opacity(0.8))
+                    }
+                    .position(x: local.x, y: local.y)
                 }
 
                 trashZone
@@ -172,11 +180,11 @@ struct HUDView: View {
             Text(state.testMode ? "TEST · GESTEN" : "GESTEN")
                 .font(HeliosTheme.mono)
                 .foregroundStyle(HeliosTheme.cyan)
-            Text("Faust halten     Scharf / Idle")
-            Text("Zeigen           Cursor")
-            Text("Offene Hand wischen  App wechseln")
-            Text("Pinzette         Klick / greifen")
+            Text("Faust halten     Scharf")
+            Text("Handfläche       Position / ziehen")
+            Text("Pinzette / Faust Greifen · Klick")
             Text("Werfen           Papierkorb / zu")
+            Text("Offene Hand wischen  App wechseln")
             Text("Werfen L/R       Andocken")
             Text("Zwei Pinzetten   Skalieren")
             Text("Peace halten     Aufnahme")
@@ -216,21 +224,24 @@ struct Reticle: View {
     var body: some View {
         ZStack {
             Circle()
-                .stroke(armed ? HeliosTheme.amber : HeliosTheme.cyan, lineWidth: 1.2)
-                .frame(width: 28, height: 28)
+                .stroke(armed ? HeliosTheme.amber : HeliosTheme.cyan, lineWidth: 2)
+                .frame(width: 56, height: 56)
+            Circle()
+                .stroke((armed ? HeliosTheme.amber : HeliosTheme.cyan).opacity(0.35), lineWidth: 1)
+                .frame(width: 88, height: 88)
             Circle()
                 .fill(armed ? HeliosTheme.amber : HeliosTheme.cyan)
-                .frame(width: 4, height: 4)
+                .frame(width: 7, height: 7)
             ForEach(0..<4, id: \.self) { i in
                 Rectangle()
                     .fill(armed ? HeliosTheme.amber : HeliosTheme.cyan)
-                    .frame(width: i % 2 == 0 ? 10 : 1, height: i % 2 == 0 ? 1 : 10)
+                    .frame(width: i % 2 == 0 ? 16 : 2, height: i % 2 == 0 ? 2 : 16)
                     .offset(
-                        x: i == 0 ? -22 : i == 1 ? 22 : 0,
-                        y: i == 2 ? -22 : i == 3 ? 22 : 0
+                        x: i == 0 ? -40 : i == 1 ? 40 : 0,
+                        y: i == 2 ? -40 : i == 3 ? 40 : 0
                     )
             }
         }
-        .shadow(color: (armed ? HeliosTheme.amber : HeliosTheme.cyan).opacity(0.7), radius: 6)
+        .shadow(color: (armed ? HeliosTheme.amber : HeliosTheme.cyan).opacity(0.85), radius: 10)
     }
 }

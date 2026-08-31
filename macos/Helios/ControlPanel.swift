@@ -32,6 +32,34 @@ struct ControlPanel: View {
             }
 
             Toggle(isOn: Binding(
+                get: { state.leftHanded },
+                set: { state.setLeftHanded($0) }
+            )) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Linkshänder")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("Linke Hand steuert Position und Greifen.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.switch)
+
+            Toggle(isOn: Binding(
+                get: { state.protocolMode },
+                set: { state.setProtocolMode($0) }
+            )) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Protokollmodus")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("Zeigt Erkennung und ob das System die Aktion wirklich ausgeführt hat.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.switch)
+
+            Toggle(isOn: Binding(
                 get: { state.testMode },
                 set: { state.setTestMode($0) }
             )) {
@@ -55,7 +83,7 @@ struct ControlPanel: View {
                 VStack(alignment: .leading, spacing: 8) {
                     permRow(.camera, ok: state.cameraOK)
                     permRow(.accessibility, ok: state.accessOK)
-                    permRow(.inputMonitoring, ok: true)
+                    permRow(.inputMonitoring, ok: state.inputOK)
                 }
                 .padding(.top, 4)
             }
@@ -98,8 +126,8 @@ struct ControlPanel: View {
 
             Spacer()
             Text(state.testMode
-                 ? "Testmodus: Gesten werden erkannt und beschriftet, das System bleibt unangetastet. Beide offene Hände = Not-Aus."
-                 : "Live: Faust 0,4 s → Scharf. Offene Hand wischen wechselt Apps (nicht der Zeigefinger). Zeigen + Pinzette steuert das Fenster unter der Hand, nicht Helios.")
+                 ? "Testmodus: Gesten werden erkannt, das System bleibt unangetastet."
+                 : "Live · Linke Handfläche = Position. Pinzette/Faust greift das Fenster unter der Markierung. Offene Hand wischen = App. Beide offen = Not-Aus (bleibt Idle).")
                 .font(.system(size: 11))
                 .foregroundStyle(.tertiary)
         }
@@ -189,20 +217,47 @@ struct ControlPanel: View {
                     Text("PROTOKOLL")
                         .font(HeliosTheme.mono)
                         .foregroundStyle(HeliosTheme.cyan)
+                    HStack {
+                        Button("Leeren") { state.log.clear() }
+                            .buttonStyle(.borderless)
+                            .font(.system(size: 11))
+                        Spacer()
+                    }
                     ForEach(state.log.entries) { e in
-                        HStack(alignment: .top) {
+                        HStack(alignment: .top, spacing: 6) {
                             Text(e.at, style: .time)
                                 .font(.system(size: 10, design: .monospaced))
-                                .foregroundStyle(HeliosTheme.amber)
-                            Text(e.text)
-                                .font(.system(size: 11))
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(.secondary)
+                                .frame(width: 54, alignment: .leading)
+                            Text(e.kind.labelDE)
+                                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                .foregroundStyle(protocolColor(e.kind))
+                                .frame(width: 88, alignment: .leading)
+                            VStack(alignment: .leading, spacing: 1) {
+                                Text(e.text)
+                                    .font(.system(size: 11))
+                                if let c = e.confidence {
+                                    Text("Konfidenz \(c)%")
+                                        .font(.system(size: 10, design: .monospaced))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
                         }
                     }
                 }
             }
         }
         .padding(12)
+    }
+
+    private func protocolColor(_ kind: ProtocolKind) -> Color {
+        switch kind {
+        case .executed: return HeliosTheme.ok
+        case .failed: return HeliosTheme.danger
+        case .blocked: return HeliosTheme.amber
+        case .recognized: return HeliosTheme.cyan
+        case .info: return HeliosTheme.cyan.opacity(0.7)
+        }
     }
 
     private func handCard(_ hand: TrackedHand) -> some View {

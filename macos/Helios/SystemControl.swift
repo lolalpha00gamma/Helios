@@ -10,6 +10,13 @@ enum SnapEdge {
     case left, right, fill
 }
 
+struct ActionResult {
+    var ok: Bool
+    var detail: String
+    static func ok(_ detail: String = "OK") -> ActionResult { ActionResult(ok: true, detail: detail) }
+    static func fail(_ detail: String) -> ActionResult { ActionResult(ok: false, detail: detail) }
+}
+
 @MainActor
 final class SystemControl {
     private var dragElement: AXUIElement?
@@ -19,30 +26,37 @@ final class SystemControl {
     private var lastKey: TimeInterval = 0
 
     func moveCursor(to point: CGPoint) {
-        let e = CGEvent(
-            mouseEventSource: nil,
-            mouseType: .mouseMoved,
-            mouseCursorPosition: ScreenGeometry.clampQuartz(point),
-            mouseButton: .left
-        )
+        let p = ScreenGeometry.clampQuartz(point)
+        let src = CGEventSource(stateID: .hidSystemState)
+        let e = CGEvent(mouseEventSource: src, mouseType: .mouseMoved, mouseCursorPosition: p, mouseButton: .left)
         e?.post(tap: .cghidEventTap)
+        e?.post(tap: .cgSessionEventTap)
     }
 
-    func click() {
+    @discardableResult
+    func click() -> ActionResult {
         let now = CACurrentMediaTime()
-        guard now - lastClick > 0.16 else { return }
+        guard now - lastClick > 0.12 else { return .fail("Klick-Pause") }
         lastClick = now
         let loc = NSEvent.mouseLocation.screenFlipped
-        postMouse(.leftMouseDown, at: loc)
-        postMouse(.leftMouseUp, at: loc)
+        guard postMouse(.leftMouseDown, at: loc), postMouse(.leftMouseUp, at: loc) else {
+            return .fail("CGEvent Klick")
+        }
+        return .ok("Klick")
     }
 
-    func beginWindowDrag() {
+    @discardableResult
+    func beginWindowDrag() -> ActionResult {
         let loc = NSEvent.mouseLocation.screenFlipped
-        guard let win = targetWindow(at: loc), let pos = position(of: win) else { return }
+        guard AXIsProcessTrusted() else { return .fail("Bedienungshilfen") }
+        guard let win = targetWindow(at: loc) else {
+            return .fail("Kein Fenster unter der Hand")
+        }
+        guard let pos = position(of: win) else { return .fail("AXPosition") }
         dragElement = win
         dragOriginMouse = loc
         dragOriginWindow = pos
+        return .ok("Greifen")
     }
 
     func updateWindowDrag() {
@@ -50,7 +64,7 @@ final class SystemControl {
         let loc = NSEvent.mouseLocation.screenFlipped
         let dx = loc.x - dragOriginMouse.x
         let dy = loc.y - dragOriginMouse.y
-        setPosition(win, CGPoint(x: dragOriginWindow.x + dx, y: dragOriginWindow.y + dy))
+        _ = setPosition(win, CGPoint(x: dragOriginWindow.x + dx, y: dragOriginWindow.y + dy))
     }
 
     func endWindowDrag() {
@@ -59,93 +73,148 @@ final class SystemControl {
 
     var isDragging: Bool { dragElement != nil }
 
-    func resizeFocused(scale: CGFloat) {
-        guard let win = targetWindow(), let size = size(of: win), let pos = position(of: win) else { return }
-        let s = max(0.85, min(1.18, scale))
+    @discardableResult
+    func resizeFocused(scale: CGFloat) -> ActionResult {
+        guard let win = targetWindow(), let size = size(of: win), let pos = position(of: win) else {
+            return .fail("Kein Fenster zum Skalieren")
+        }
+        let s = max(0.82, min(1.22, scale))
         let nw = max(280, size.width * s)
         let nh = max(180, size.height * s)
         let nx = pos.x - (nw - size.width) / 2
         let ny = pos.y - (nh - size.height) / 2
-        setPosition(win, CGPoint(x: nx, y: ny))
-        setSize(win, CGSize(width: nw, height: nh))
+        guard setPosition(win, CGPoint(x: nx, y: ny)), setSize(win, CGSize(width: nw, height: nh)) else {
+            return .fail("AX Größe")
+        }
+        return .ok(String(format: "×%.2f", s))
     }
 
-    func zoomFocused() {
-        guard let win = targetWindow() else { return }
-        pressButton(win, "AXZoomButton" as CFString)
+    @discardableResult
+    func zoomFocused() -> ActionResult {
+        guard let win = targetWindow() else { return .fail("Kein Fenster") }
+        return pressButton(win, "AXZoomButton" as CFString)
     }
 
-    func minimizeFocused() {
-        guard let win = targetWindow() else { return }
-        pressButton(win, "AXMinimizeButton" as CFString)
+    @discardableResult
+    func minimizeFocused() -> ActionResult {
+        guard let win = targetWindow() else { return .fail("Kein Fenster") }
+        return pressButton(win, "AXMinimizeButton" as CFString)
     }
 
-    func closeFocused() {
-        guard let win = targetWindow() else { return }
-        pressButton(win, "AXCloseButton" as CFString)
+    @discardableResult
+    func closeFocused() -> ActionResult {
+        guard let win = targetWindow() else { return .fail("Kein Fenster") }
+        return pressButton(win, "AXCloseButton" as CFString)
     }
 
-    func snapFocused(_ edge: SnapEdge) {
-        guard let win = targetWindow() else { return }
+    @discardableResult
+    func snapFocused(_ edge: SnapEdge) -> ActionResult {
+        guard let win = targetWindow() else { return .fail("Kein Fenster") }
         let loc = NSEvent.mouseLocation.screenFlipped
         let screen = ScreenGeometry.screenContaining(quartz: loc) ?? NSScreen.main
-        guard let screen else { return }
+        guard let screen else { return .fail("Kein Bildschirm") }
         let vis = ScreenGeometry.quartzRect(fromCocoa: screen.visibleFrame)
         switch edge {
         case .left:
-            setPosition(win, vis.origin)
-            setSize(win, CGSize(width: vis.width / 2, height: vis.height))
+            _ = setPosition(win, vis.origin)
+            _ = setSize(win, CGSize(width: vis.width / 2, height: vis.height))
+            return .ok("Links")
         case .right:
-            setPosition(win, CGPoint(x: vis.midX, y: vis.minY))
-            setSize(win, CGSize(width: vis.width / 2, height: vis.height))
+            _ = setPosition(win, CGPoint(x: vis.midX, y: vis.minY))
+            _ = setSize(win, CGSize(width: vis.width / 2, height: vis.height))
+            return .ok("Rechts")
         case .fill:
-            setPosition(win, vis.origin)
-            setSize(win, vis.size)
+            _ = setPosition(win, vis.origin)
+            _ = setSize(win, vis.size)
+            return .ok("Füllen")
         }
     }
 
-    func throwAway(finder: Bool) {
+    @discardableResult
+    func throwAway(finder: Bool) -> ActionResult {
         if finder, trashFinderSelection() {
-            return
+            return .ok("Finder → Papierkorb")
         }
-        closeFocused()
+        return closeFocused()
     }
 
-    func screenshotFocused(windowID: CGWindowID, bounds: CGRect) {
+    @discardableResult
+    func screenshotFocused(windowID: CGWindowID, bounds: CGRect) -> ActionResult {
+        let wid = windowID
+        let b = bounds
         Task.detached {
-            await WindowCapture.run(windowID: windowID, bounds: bounds)
+            await WindowCapture.run(windowID: wid, bounds: b)
         }
+        if windowID == 0 && bounds.width < 8 {
+            return .fail("Kein Zielfenster")
+        }
+        return .ok("Aufnahme")
     }
 
-    func missionControl() {
-        chord(key: 0x7E, flags: .maskControl)
+    @discardableResult
+    func missionControl() -> ActionResult {
+        let paths = [
+            "/System/Applications/Mission Control.app",
+            "/System/Library/CoreServices/Mission Control.app",
+            "/Applications/Mission Control.app"
+        ]
+        for p in paths where FileManager.default.fileExists(atPath: p) {
+            if NSWorkspace.shared.open(URL(fileURLWithPath: p)) {
+                return .ok("Mission Control.app")
+            }
+        }
+        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.apple.exposelauncher") {
+            if NSWorkspace.shared.open(url) { return .ok("exposelauncher") }
+        }
+        guard chord(key: 0x7E, flags: .maskControl) else { return .fail("Control-Auf") }
+        return .ok("Control-Auf")
     }
 
-    func desktopReveal() {
-        chord(key: 0x7D, flags: .maskControl)
-    }
-
-    func unhideFront() {
+    @discardableResult
+    func unhideFront() -> ActionResult {
         if let t = TargetProbe.windowUnderCursor(skipSelf: true),
            let app = NSRunningApplication(processIdentifier: t.pid)
         {
             app.unhide()
-            app.activate()
-            return
+            return activate(app)
         }
-        NSWorkspace.shared.runningApplications
-            .first { $0.processIdentifier != TargetProbe.selfPID && !$0.isHidden }
-            .map { $0.activate() }
+        return .fail("Keine App unter der Hand")
     }
 
-    func switchApp(forward: Bool) {
-        let flags: CGEventFlags = forward ? .maskCommand : [.maskCommand, .maskShift]
-        chord(key: 0x30, flags: flags)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.12) {
-            let src = CGEventSource(stateID: .hidSystemState)
-            let cmdUp = CGEvent(keyboardEventSource: src, virtualKey: 0x37, keyDown: false)
-            cmdUp?.post(tap: .cghidEventTap)
+    @discardableResult
+    func switchApp(forward: Bool) -> ActionResult {
+        let selfPID = TargetProbe.selfPID
+        var seen = Set<pid_t>()
+        var ordered: [NSRunningApplication] = []
+        if let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] {
+            for item in list {
+                let pid = (item[kCGWindowOwnerPID as String] as? pid_t) ?? 0
+                if pid == 0 || pid == selfPID || seen.contains(pid) { continue }
+                let layer = item[kCGWindowLayer as String] as? Int ?? 0
+                guard layer == 0 else { continue }
+                guard let app = NSRunningApplication(processIdentifier: pid),
+                      app.activationPolicy == .regular,
+                      !app.isTerminated
+                else { continue }
+                seen.insert(pid)
+                ordered.append(app)
+            }
         }
+        guard ordered.count >= 2 else {
+            _ = chord(key: 0x30, flags: forward ? .maskCommand : [.maskCommand, .maskShift])
+            return ordered.isEmpty ? .fail("Keine andere App") : activate(ordered[0])
+        }
+        let idx = forward ? 1 : ordered.count - 1
+        return activate(ordered[idx])
+    }
+
+    private func activate(_ app: NSRunningApplication) -> ActionResult {
+        let name = app.localizedName ?? "App"
+        let ok = app.activate()
+        if ok { return .ok(name) }
+        app.unhide()
+        let ok2 = app.activate()
+        return ok2 ? .ok(name) : .fail("activate() \(name)")
     }
 
     private func trashFinderSelection() -> Bool {
@@ -162,27 +231,34 @@ final class SystemControl {
         return err == nil && result.booleanValue
     }
 
-    private func chord(key: CGKeyCode, flags: CGEventFlags) {
+    @discardableResult
+    private func chord(key: CGKeyCode, flags: CGEventFlags) -> Bool {
         let now = CACurrentMediaTime()
-        guard now - lastKey > 0.45 else { return }
+        guard now - lastKey > 0.28 else { return false }
         lastKey = now
         let src = CGEventSource(stateID: .hidSystemState)
-        let down = CGEvent(keyboardEventSource: src, virtualKey: key, keyDown: true)
-        down?.flags = flags
-        down?.post(tap: .cghidEventTap)
-        let up = CGEvent(keyboardEventSource: src, virtualKey: key, keyDown: false)
-        up?.flags = flags
-        up?.post(tap: .cghidEventTap)
+        guard let down = CGEvent(keyboardEventSource: src, virtualKey: key, keyDown: true),
+              let up = CGEvent(keyboardEventSource: src, virtualKey: key, keyDown: false)
+        else { return false }
+        down.flags = flags
+        up.flags = flags
+        down.post(tap: .cghidEventTap)
+        up.post(tap: .cghidEventTap)
+        return true
     }
 
-    private func postMouse(_ type: CGEventType, at point: CGPoint) {
-        let e = CGEvent(
-            mouseEventSource: nil,
+    @discardableResult
+    private func postMouse(_ type: CGEventType, at point: CGPoint) -> Bool {
+        let src = CGEventSource(stateID: .hidSystemState)
+        guard let e = CGEvent(
+            mouseEventSource: src,
             mouseType: type,
             mouseCursorPosition: ScreenGeometry.clampQuartz(point),
             mouseButton: .left
-        )
-        e?.post(tap: .cghidEventTap)
+        ) else { return false }
+        e.post(tap: .cghidEventTap)
+        e.post(tap: .cgSessionEventTap)
+        return true
     }
 
     private func targetWindow(at point: CGPoint? = nil) -> AXUIElement? {
@@ -271,24 +347,27 @@ final class SystemControl {
         return s
     }
 
-    private func setPosition(_ el: AXUIElement, _ p: CGPoint) {
+    @discardableResult
+    private func setPosition(_ el: AXUIElement, _ p: CGPoint) -> Bool {
         var point = p
-        if let val = AXValueCreate(.cgPoint, &point) {
-            AXUIElementSetAttributeValue(el, "AXPosition" as CFString, val)
-        }
+        guard let val = AXValueCreate(.cgPoint, &point) else { return false }
+        return AXUIElementSetAttributeValue(el, "AXPosition" as CFString, val) == .success
     }
 
-    private func setSize(_ el: AXUIElement, _ s: CGSize) {
+    @discardableResult
+    private func setSize(_ el: AXUIElement, _ s: CGSize) -> Bool {
         var size = s
-        if let val = AXValueCreate(.cgSize, &size) {
-            AXUIElementSetAttributeValue(el, "AXSize" as CFString, val)
-        }
+        guard let val = AXValueCreate(.cgSize, &size) else { return false }
+        return AXUIElementSetAttributeValue(el, "AXSize" as CFString, val) == .success
     }
 
-    private func pressButton(_ win: AXUIElement, _ attr: CFString) {
+    @discardableResult
+    private func pressButton(_ win: AXUIElement, _ attr: CFString) -> ActionResult {
         var btn: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(win, attr, &btn) == .success else { return }
-        AXUIElementPerformAction(btn as! AXUIElement, "AXPress" as CFString)
+        let copy = AXUIElementCopyAttributeValue(win, attr, &btn)
+        guard copy == .success, let btn else { return .fail("Kein Knopf \(attr)") }
+        let act = AXUIElementPerformAction(btn as! AXUIElement, "AXPress" as CFString)
+        return act == .success ? .ok(attr as String) : .fail("AXPress \(act.rawValue)")
     }
 }
 
@@ -325,8 +404,8 @@ enum WindowCapture {
             let cfg = SCStreamConfiguration()
             cfg.showsCursor = false
             let scale: CGFloat = 2
-            cfg.width = max(2, Int(bounds.width * scale))
-            cfg.height = max(2, Int(bounds.height * scale))
+            cfg.width = max(2, Int((bounds.width > 8 ? bounds.width : 1920) * scale))
+            cfg.height = max(2, Int((bounds.height > 8 ? bounds.height : 1080) * scale))
             let img = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: cfg)
             guard let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else {
                 return

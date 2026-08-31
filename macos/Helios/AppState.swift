@@ -34,7 +34,9 @@ final class AppState: ObservableObject {
     @Published var showReticle = true
     @Published var showPreviewChip = true
     @Published var showCheats = true
-    @Published var testMode = true
+    @Published var testMode = false
+    @Published var protocolMode = true
+    @Published var leftHanded = true
     @Published var showJointLabels = true
     @Published var showOutline = true
     @Published var showTrashZone = true
@@ -43,15 +45,21 @@ final class AppState: ObservableObject {
     @Published var trashHot = false
     @Published var killFlash = false
     @Published var screenCount = 1
+    @Published var inputOK = false
+    @Published var cursorHand = "—"
 
     private var cancellables: Set<AnyCancellable> = []
     private var focusTick = 0
 
     func start() {
         overlay.attach(state: self)
-        engine.onLog = { [weak self] text in
-            self?.log.record(text)
+        engine.onLog = { [weak self] text, kind, conf in
+            self?.log.record(text, kind: kind, confidence: conf)
+            self?.objectWillChange.send()
         }
+        engine.testMode = false
+        engine.protocolMode = true
+        engine.leftHanded = true
         camera.objectWillChange
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
@@ -77,14 +85,15 @@ final class AppState: ObservableObject {
                 }
             }
         }
-        log.record("Helios bereit. Testmodus an — Erkennung ohne Systemaktionen.")
-        engine.testMode = true
+        log.record("Helios bereit. Linkshänder. Aktionen gehen an das System.")
+        engine.testMode = false
         Task { await startCamera() }
     }
 
     func refreshPermissions() {
         cameraOK = Permissions.cameraGranted()
         accessOK = Permissions.accessibilityGranted()
+        inputOK = Permissions.inputMonitoringGranted()
         screenCount = NSScreen.screens.count
     }
 
@@ -106,10 +115,13 @@ final class AppState: ObservableObject {
         if !accessOK {
             Permissions.promptAccessibility()
         }
+        if !Permissions.inputMonitoringGranted() {
+            Permissions.requestInputMonitoring()
+        }
         let tracker = self.tracker
         camera.onFrame = { [weak self] vision, preview, luma, arrived in
             let t0 = CACurrentMediaTime()
-            let hands = tracker.analyze(pixelBuffer: vision, now: t0)
+            let hands = tracker.analyze(pixelBuffer: vision, now: t0, mirrored: true)
             let visMs = (CACurrentMediaTime() - t0) * 1000
             let endToEnd = (CACurrentMediaTime() - arrived) * 1000
             DispatchQueue.main.async {
@@ -140,10 +152,22 @@ final class AppState: ObservableObject {
         engine.testMode = on
         if on {
             engine.forceIdle()
-            log.record("Testmodus an — nur Erkennung, keine Aktionen.")
+            log.record("Testmodus an — nur Erkennung, keine Aktionen.", kind: .blocked)
         } else {
-            log.record("Testmodus aus — Gesten steuern das System.")
+            log.record("Testmodus aus — Gesten steuern das System.", kind: .info)
         }
+    }
+
+    func setProtocolMode(_ on: Bool) {
+        protocolMode = on
+        engine.protocolMode = on
+        log.record(on ? "Protokoll an" : "Protokoll aus", kind: .info)
+    }
+
+    func setLeftHanded(_ on: Bool) {
+        leftHanded = on
+        engine.leftHanded = on
+        log.record(on ? "Linkshänder" : "Rechtshänder", kind: .info)
     }
 
     fileprivate func apply(
@@ -170,6 +194,7 @@ final class AppState: ObservableObject {
         mode = engine.mode
         lastAction = engine.lastAction
         engineCursor = engine.cursor
+        cursorHand = engine.cursorHand
         trashHot = engine.trashHot
         killFlash = engine.killFlash
     }

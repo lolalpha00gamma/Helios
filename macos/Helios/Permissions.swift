@@ -39,6 +39,14 @@ enum Permissions {
         AXIsProcessTrusted()
     }
 
+    static func inputMonitoringGranted() -> Bool {
+        CGPreflightListenEventAccess()
+    }
+
+    static func requestInputMonitoring() {
+        _ = CGRequestListenEventAccess()
+    }
+
     static func promptAccessibility() {
         let opts = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(opts)
@@ -52,6 +60,7 @@ enum Permissions {
             case .accessibility:
                 return URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
             case .inputMonitoring:
+                requestInputMonitoring()
                 return URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent")
             }
         }()

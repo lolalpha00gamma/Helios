@@ -36,7 +36,6 @@ final class GestureEngine {
     private var lastHandSeen: TimeInterval = 0
     private var palmSince: TimeInterval?
     private var lastPalmSeen: TimeInterval = 0
-    private var palmMenuSince: TimeInterval?
     private var thumbsSince: TimeInterval?
     private var peaceSince: TimeInterval?
     private var pinchHeld = false
@@ -95,7 +94,6 @@ final class GestureEngine {
             palmSince = nil
             killLatched = false
             lastPalmSeen = 0
-            palmMenuSince = nil
             pinchTrail.removeAll()
             swipeTrail.removeAll()
             if system.isDragging { system.endWindowDrag() }
@@ -153,8 +151,8 @@ final class GestureEngine {
         let freezePointer = pinchHeld && !pinchBecameDrag
         if !freezePointer {
             placeCursor(actor)
-            if !testMode, cursorDidMove, actor.pose != .fist {
-                system.moveCursor(to: cursor ?? actorMapped(actor))
+            if !testMode, cursorDidMove, actor.pose != .fist, let p = cursor {
+                system.moveCursor(to: p)
             }
         }
         updateTrashHot()
@@ -162,7 +160,6 @@ final class GestureEngine {
         driveSwipe(hands: hands, now: now)
         drivePeace(actor, now: now)
         driveThumbs(actor, now: now)
-        drivePalmMenu(hands: hands, primary: primary, now: now)
         dragging = pinchHeld
     }
 
@@ -246,7 +243,6 @@ final class GestureEngine {
                 armLockUntil = now + 1.6
                 pinchHeld = false
                 pinchBecameDrag = false
-                palmMenuSince = nil
                 fistSince = nil
                 system.endWindowDrag()
                 lastAction = "Not-Aus"
@@ -539,7 +535,6 @@ final class GestureEngine {
         let name = forward ? "Nächste App" : "Vorherige App"
         perform(name, need: .none, confidence: hand.meanConfidence) { system.switchApp(forward: forward) }
         swipeTrail.removeAll()
-        palmMenuSince = nil
         cooldownUntil = now + 0.4
     }
 
@@ -573,26 +568,6 @@ final class GestureEngine {
             }
         } else {
             thumbsSince = nil
-        }
-    }
-
-    private func drivePalmMenu(hands: [TrackedHand], primary: TrackedHand, now: TimeInterval) {
-        guard hands.count == 1, primary.openScore >= 4 else {
-            palmMenuSince = nil
-            return
-        }
-        if let first = swipeTrail.first {
-            let moved = hypot(primary.palm.x - first.x, primary.palm.y - first.y)
-            if moved > 0.07 {
-                palmMenuSince = nil
-                return
-            }
-        }
-        if palmMenuSince == nil { palmMenuSince = now }
-        if now - (palmMenuSince ?? now) > 2.2 {
-            perform("Mission Control", need: .none, confidence: primary.meanConfidence) { system.missionControl() }
-            palmMenuSince = nil
-            cooldownUntil = now + 1.4
         }
     }
 }

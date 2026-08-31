@@ -1,4 +1,7 @@
 import Foundation
+import os
+
+private let heliosLog = Logger(subsystem: "app.helios.control", category: "audit")
 
 enum ProtocolKind: String {
     case recognized
@@ -36,6 +39,7 @@ final class AuditLog: ObservableObject {
         if entries.count > limit {
             entries.removeFirst(entries.count - limit)
         }
+        heliosLog.info("\(kind.rawValue, privacy: .public) \(text, privacy: .public)")
     }
 
     func clear() { entries.removeAll() }

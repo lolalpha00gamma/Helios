@@ -33,12 +33,13 @@ struct GestureFrame: Codable {
 @MainActor
 final class SessionRecorder {
     private var frames: [GestureFrame] = []
-    private var thumbs: [(image: NSImage, hands: [HandSnap], t: Double)] = []
+    private var thumbs: [(hands: [HandSnap], t: Double)] = []
     private var lastFrameAt: TimeInterval = 0
     private var lastThumbAt: TimeInterval = 0
     private let t0 = CACurrentMediaTime()
     private let maxFrames = 2400
     private let maxThumbs = 16
+    private let iso = ISO8601DateFormatter()
 
     var frameCount: Int { frames.count }
 
@@ -55,7 +56,7 @@ final class SessionRecorder {
         let snaps = hands.map(Self.snap)
         let frame = GestureFrame(
             t: now - t0,
-            iso: ISO8601DateFormatter().string(from: Date()),
+            iso: iso.string(from: Date()),
             luma: Double(luma),
             mode: mode.labelDE,
             action: action,
@@ -65,9 +66,9 @@ final class SessionRecorder {
         if frames.count > maxFrames {
             frames.removeFirst(frames.count - maxFrames)
         }
-        if let preview, now - lastThumbAt >= 0.55 {
+        if now - lastThumbAt >= 0.55 {
             lastThumbAt = now
-            thumbs.append((preview, snaps, now - t0))
+            thumbs.append((snaps, now - t0))
             if thumbs.count > maxThumbs {
                 thumbs.removeFirst(thumbs.count - maxThumbs)
             }
@@ -162,7 +163,7 @@ final class SessionRecorder {
                     width: cell.width,
                     height: cell.height
                 )
-                GestureDraw.composite(image: thumb.image, hands: thumb.hands, in: box)
+                GestureDraw.composite(image: nil, hands: thumb.hands, in: box)
                 let label = String(format: "%.1fs  %@", thumb.t, thumb.hands.map(\.pose).joined(separator: " · "))
                 (label as NSString).draw(
                     at: CGPoint(x: box.minX + 6, y: box.minY + 4),
@@ -246,9 +247,14 @@ enum GestureDraw {
         ["wrist", "littleMCP", "littlePIP", "littleDIP", "littleTip"]
     ]
 
-    static func composite(image: NSImage, hands: [HandSnap], in box: CGRect) {
-        let fitted = fit(image.size, in: box)
-        image.draw(in: fitted, from: .zero, operation: .copy, fraction: 1)
+    static func composite(image: NSImage?, hands: [HandSnap], in box: CGRect) {
+        if let image {
+            let fitted = fit(image.size, in: box)
+            image.draw(in: fitted, from: .zero, operation: .copy, fraction: 1)
+        } else {
+            NSColor(white: 0.08, alpha: 1).setFill()
+            box.fill()
+        }
         NSColor.black.withAlphaComponent(0.15).setFill()
         box.fill()
         guard let ctx = NSGraphicsContext.current?.cgContext else { return }
@@ -262,6 +268,7 @@ enum GestureDraw {
                 : CGColor(red: 0.3, green: 0.9, blue: 1, alpha: 0.95)
             ctx.setStrokeColor(col)
             ctx.setFillColor(col)
+            let fitted = box
             for chain in chains {
                 var started = false
                 let path = CGMutablePath()

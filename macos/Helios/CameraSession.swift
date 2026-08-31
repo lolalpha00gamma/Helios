@@ -11,7 +11,18 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     @Published var deviceName = "—"
 
     /// Vision-Buffer, optionales Preview, Helligkeit 0…1, Ankunftszeit
-    var onFrame: ((CVPixelBuffer, NSImage?, CGFloat, TimeInterval) -> Void)?
+    var onFrame: ((CVPixelBuffer, NSImage?, CGFloat, TimeInterval) -> Void)? {
+        get {
+            handlerLock.lock()
+            defer { handlerLock.unlock() }
+            return frameHandler
+        }
+        set {
+            handlerLock.lock()
+            frameHandler = newValue
+            handlerLock.unlock()
+        }
+    }
 
     private let session = AVCaptureSession()
     private let output = AVCaptureVideoDataOutput()
@@ -23,6 +34,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     private let ring = GPUFrameRing()
     private var mirroredFlag = false
     var isMirrored: Bool { mirroredFlag }
+    private let handlerLock = NSLock()
+    private var frameHandler: ((CVPixelBuffer, NSImage?, CGFloat, TimeInterval) -> Void)?
 
     func start() {
         DispatchQueue.main.async { self.errorMessage = nil }
@@ -188,9 +201,12 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
 
     private func accept(_ buffer: CMSampleBuffer) {
         guard let pb = CMSampleBufferGetImageBuffer(buffer) else { return }
-        let owned = ring.copy(pb)
-        pump.push(owned, arrived: CACurrentMediaTime()) { [weak self] latest, arrived in
+        let (owned, slot) = ring.copy(pb)
+        pump.push(owned, slot: slot, arrived: CACurrentMediaTime(), drop: { [weak self] s in
+            self?.ring.release(s)
+        }) { [weak self] latest, arrived, doneSlot in
             self?.process(latest, arrived: arrived)
+            self?.ring.release(doneSlot)
         }
     }
 
@@ -203,7 +219,10 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             lastPreview = now
             preview = makePreview(pb)
         }
-        onFrame?(vision, preview, luma, arrived)
+        handlerLock.lock()
+        let handler = frameHandler
+        handlerLock.unlock()
+        handler?(vision, preview, luma, arrived)
     }
 
     private func makePreview(_ pb: CVPixelBuffer) -> NSImage? {
@@ -226,24 +245,30 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
 private final class FramePump: @unchecked Sendable {
     private let queue = DispatchQueue(label: "helios.vision", qos: .userInteractive)
     private let lock = NSLock()
-    private var latest: (CVPixelBuffer, TimeInterval)?
+    private var latest: (CVPixelBuffer, TimeInterval, Int)?
     private var scheduled = false
     private var cancelled = false
 
     func push(
         _ pb: CVPixelBuffer,
+        slot: Int,
         arrived: TimeInterval,
-        process: @escaping (CVPixelBuffer, TimeInterval) -> Void
+        drop: @escaping (Int) -> Void,
+        process: @escaping (CVPixelBuffer, TimeInterval, Int) -> Void
     ) {
+        var dropped: Int?
         lock.lock()
         if cancelled {
             lock.unlock()
+            drop(slot)
             return
         }
-        latest = (pb, arrived)
+        if let prev = latest { dropped = prev.2 }
+        latest = (pb, arrived, slot)
         let need = !scheduled
         if need { scheduled = true }
         lock.unlock()
+        if let dropped { drop(dropped) }
         if need {
             queue.async { self.drain(process) }
         }
@@ -265,7 +290,7 @@ private final class FramePump: @unchecked Sendable {
         lock.unlock()
     }
 
-    private func drain(_ process: @escaping (CVPixelBuffer, TimeInterval) -> Void) {
+    private func drain(_ process: @escaping (CVPixelBuffer, TimeInterval, Int) -> Void) {
         while true {
             lock.lock()
             if cancelled {
@@ -278,7 +303,7 @@ private final class FramePump: @unchecked Sendable {
             if item == nil { scheduled = false }
             lock.unlock()
             guard let item else { return }
-            process(item.0, item.1)
+            process(item.0, item.1, item.2)
         }
     }
 }

@@ -64,32 +64,49 @@ enum MetalHub {
     }
 }
 
-/// Acht GPU-Buffer im Kreis — Vision liest, während die Kamera schreibt.
+/// GPU-Buffer mit In-Flight-Markierung — Vision und Kamera teilen keinen Slot.
 final class GPUFrameRing: @unchecked Sendable {
     private var slots: [CVPixelBuffer] = []
-    private var index = 0
+    private var busy: [Bool] = []
     private var width = 0
     private var height = 0
     private let lock = NSLock()
 
-    func copy(_ src: CVPixelBuffer) -> CVPixelBuffer {
+    func copy(_ src: CVPixelBuffer) -> (CVPixelBuffer, Int) {
         let w = CVPixelBufferGetWidth(src)
         let h = CVPixelBufferGetHeight(src)
         lock.lock()
-        if slots.count != 8 || width != w || height != h {
+        if slots.count < 4 || width != w || height != h {
             slots = (0..<8).compactMap { _ in MetalHub.makeBuffer(width: w, height: h) }
+            busy = Array(repeating: false, count: slots.count)
             width = w
             height = h
-            index = 0
         }
-        guard !slots.isEmpty else {
+        var idx: Int?
+        for i in 0..<busy.count where !busy[i] {
+            idx = i
+            break
+        }
+        if idx == nil, let extra = MetalHub.makeBuffer(width: w, height: h) {
+            slots.append(extra)
+            busy.append(false)
+            idx = slots.count - 1
+        }
+        guard let i = idx, i < slots.count else {
             lock.unlock()
-            return src
+            return (src, -1)
         }
-        let dst = slots[index]
-        index = (index + 1) % slots.count
+        busy[i] = true
+        let dst = slots[i]
         lock.unlock()
         MetalHub.copy(src, into: dst)
-        return dst
+        return (dst, i)
+    }
+
+    func release(_ slot: Int) {
+        guard slot >= 0 else { return }
+        lock.lock()
+        if slot < busy.count { busy[slot] = false }
+        lock.unlock()
     }
 }

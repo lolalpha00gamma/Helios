@@ -196,7 +196,6 @@ struct HUDView: View {
             Text("Werfen L/R       Andocken")
             Text("Zwei Pinzetten   Skalieren")
             Text("Peace halten     Aufnahme")
-            Text("Eine Hand offen  Mission Control")
             Text("Beide offen      Not-Aus")
         }
         .font(.system(size: 10, weight: .medium, design: .monospaced))

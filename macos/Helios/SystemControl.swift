@@ -24,6 +24,7 @@ final class SystemControl {
     private var lastClick: TimeInterval = 0
     private var lastKey: TimeInterval = 0
     private var lastPosted: CGPoint?
+    private let axQ = DispatchQueue(label: "helios.ax", qos: .userInteractive)
 
     func moveCursor(to point: CGPoint) {
         let p = ScreenGeometry.clampQuartz(point)
@@ -66,7 +67,11 @@ final class SystemControl {
         let loc = lastPosted ?? NSEvent.mouseLocation.screenFlipped
         let dx = loc.x - dragOriginMouse.x
         let dy = loc.y - dragOriginMouse.y
-        _ = setPosition(win, CGPoint(x: dragOriginWindow.x + dx, y: dragOriginWindow.y + dy))
+        let dest = CGPoint(x: dragOriginWindow.x + dx, y: dragOriginWindow.y + dy)
+        let captured = win
+        axQ.async {
+            _ = SystemControl.setPositionRaw(captured, dest)
+        }
     }
 
     func endWindowDrag() {
@@ -89,12 +94,6 @@ final class SystemControl {
             return .fail("AX Größe")
         }
         return .ok(String(format: "×%.2f", s))
-    }
-
-    @discardableResult
-    func zoomFocused() -> ActionResult {
-        guard let win = targetWindow() else { return .fail("Kein Fenster") }
-        return pressButton(win, "AXZoomButton" as CFString)
     }
 
     @discardableResult
@@ -350,6 +349,10 @@ final class SystemControl {
 
     @discardableResult
     private func setPosition(_ el: AXUIElement, _ p: CGPoint) -> Bool {
+        Self.setPositionRaw(el, p)
+    }
+
+    nonisolated private static func setPositionRaw(_ el: AXUIElement, _ p: CGPoint) -> Bool {
         var point = p
         guard let val = AXValueCreate(.cgPoint, &point) else { return false }
         return AXUIElementSetAttributeValue(el, "AXPosition" as CFString, val) == .success

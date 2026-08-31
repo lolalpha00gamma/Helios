@@ -36,7 +36,6 @@ Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Da
 | Offene Hand waagerecht wischen | App wechseln |
 | Peace halten | Fensteraufnahme auf den Schreibtisch |
 | Daumen hoch | App hervorholen |
-| Eine ganz offene Hand ~2 s still | Mission Control |
 | Beide Handflächen | Not-Aus → Idle (erst Faust macht wieder scharf) |
 
 **Testmodus** (⌘T): Erkennung anzeigen, keine Systemaktionen.

@@ -38,7 +38,10 @@ enum PermissionNeed {
 }
 
 enum Permissions {
-    private static var lastDemand: TimeInterval = 0
+    private final class Gate: @unchecked Sendable {
+        var lastDemand: TimeInterval = 0
+    }
+    private static let gate = Gate()
 
     static func cameraGranted() -> Bool {
         AVCaptureDevice.authorizationStatus(for: .video) == .authorized
@@ -58,7 +61,7 @@ enum Permissions {
     }
 
     static func promptAccessibility() {
-        let opts = [kAXTrustedCheckOptionPrompt: true] as CFDictionary
+        let opts = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(opts)
     }
 
@@ -90,8 +93,8 @@ enum Permissions {
     @MainActor
     static func demand(_ kind: PermissionKind) {
         let now = CACurrentMediaTime()
-        if now - lastDemand < 6 { return }
-        lastDemand = now
+        if now - gate.lastDemand < 6 { return }
+        gate.lastDemand = now
         switch kind {
         case .camera:
             Task { _ = await requestCamera() }

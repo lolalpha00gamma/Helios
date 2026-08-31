@@ -47,6 +47,7 @@ final class AppState: ObservableObject {
     @Published var screenCount = 1
     @Published var inputOK = false
     @Published var cursorHand = "—"
+    @Published var pointerGain: Double = 2.8
 
     private var cancellables: Set<AnyCancellable> = []
     private var focusTick = 0
@@ -60,6 +61,7 @@ final class AppState: ObservableObject {
         engine.testMode = false
         engine.protocolMode = true
         engine.leftHanded = true
+        engine.pointerGain = 2.8
         camera.objectWillChange
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
@@ -168,6 +170,12 @@ final class AppState: ObservableObject {
         leftHanded = on
         engine.leftHanded = on
         log.record(on ? "Linkshänder" : "Rechtshänder", kind: .info)
+    }
+
+    func setPointerGain(_ g: Double) {
+        pointerGain = g
+        engine.pointerGain = CGFloat(g)
+        engine.recenterPointer()
     }
 
     fileprivate func apply(

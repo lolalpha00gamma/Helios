@@ -105,6 +105,30 @@ struct ControlPanel: View {
                     Toggle("Gestenhilfe", isOn: $state.showCheats)
                     Toggle("App-Umriss", isOn: $state.showOutline)
                     Toggle("Papierkorb-Zone", isOn: $state.showTrashZone)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Zeiger-Empfindlichkeit")
+                            Spacer()
+                            Text(String(format: "%.1f×", state.pointerGain))
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(HeliosTheme.cyan)
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { state.pointerGain },
+                                set: { state.setPointerGain($0) }
+                            ),
+                            in: 1.4...4.5,
+                            step: 0.1
+                        )
+                        Text("Kleiner Handweg deckt den ganzen Bildschirm. Hand in der Mitte halten, dann bewegen.")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                        Button("Mitte neu setzen") {
+                            state.engine.recenterPointer()
+                        }
+                        .buttonStyle(.borderless)
+                    }
                 }
             }
 

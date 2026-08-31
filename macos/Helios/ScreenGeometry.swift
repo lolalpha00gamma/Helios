@@ -80,6 +80,14 @@ enum ScreenGeometry {
         return quartz(fromCocoa: cocoa)
     }
 
+    /// Kleiner Bereich vor der Kamera → ganzer Bildschirm. `origin` ist die Ruhe-Hand.
+    static func mapHand(_ p: CGPoint, origin: CGPoint, gain: CGFloat) -> CGPoint {
+        let g = max(1.0, gain)
+        let nx = min(1, max(0, 0.5 + (p.x - origin.x) * g))
+        let ny = min(1, max(0, 0.5 + (p.y - origin.y) * g))
+        return clampQuartz(mapNormalizedToQuartz(CGPoint(x: nx, y: ny)))
+    }
+
     static func clampQuartz(_ p: CGPoint) -> CGPoint {
         let screens = NSScreen.screens
         if screens.contains(where: { contains(quartz: p, screen: $0.frame, pad: 0) }) {

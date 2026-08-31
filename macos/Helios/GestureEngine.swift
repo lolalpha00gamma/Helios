@@ -25,6 +25,7 @@ final class GestureEngine {
     var testMode = false
     var protocolMode = true
     var leftHanded = true
+    var pointerGain: CGFloat = 2.8
     var trashHot = false
     var killFlash = false
     var dragging = false
@@ -51,6 +52,7 @@ final class GestureEngine {
     private var killLatched = false
     private var mustRearm = false
     private var armLockUntil: TimeInterval = 0
+    private var pointerOrigin: CGPoint?
     private let system = SystemControl()
     var onLog: ((String, ProtocolKind, Int?) -> Void)?
     var focused: FocusedTarget?
@@ -71,6 +73,7 @@ final class GestureEngine {
         trashHot = false
         dragging = false
         mustRearm = false
+        pointerOrigin = nil
         lastAction = "Reset"
     }
 
@@ -92,6 +95,7 @@ final class GestureEngine {
             pinchBecameDrag = false
             twoPinchSince = nil
             cursor = nil
+            pointerOrigin = nil
             trashHot = false
             dragging = false
             if mustRearm {
@@ -162,6 +166,10 @@ final class GestureEngine {
         mustRearm = false
         lastAction = "Scharf"
         onLog?(testMode ? "Scharf (Test)" : "Manuell Scharf", .info, nil)
+    }
+
+    func recenterPointer() {
+        pointerOrigin = nil
     }
 
     private func perform(_ name: String, confidence: Float = 1, _ body: () -> ActionResult) {
@@ -291,7 +299,10 @@ final class GestureEngine {
 
     private func actorMapped(_ hand: TrackedHand) -> CGPoint {
         let src = hand.palm
-        return ScreenGeometry.mapNormalizedToQuartz(src)
+        if pointerOrigin == nil {
+            pointerOrigin = src
+        }
+        return ScreenGeometry.mapHand(src, origin: pointerOrigin ?? src, gain: pointerGain)
     }
 
     private func placeCursor(_ hand: TrackedHand) {

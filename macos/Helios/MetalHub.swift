@@ -16,13 +16,12 @@ enum MetalHub {
 
     static let ci: CIContext = {
         if let queue {
-            var opts: [CIContextOption: Any] = [
+            let opts: [CIContextOption: Any] = [
                 .useSoftwareRenderer: false,
                 .cacheIntermediates: false,
                 .name: "HeliosGPU",
                 .priorityRequestLow: false
             ]
-            opts[CIContextOption(rawValue: kCIContextAllowLowPower as String)] = false
             return CIContext(mtlCommandQueue: queue, options: opts)
         }
         return CIContext(options: [

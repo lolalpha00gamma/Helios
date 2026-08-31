@@ -41,6 +41,17 @@ enum GestureClassifier {
         pinch / palmScale(joints)
     }
 
+    static func palmCenter(_ joints: [VNHumanHandPoseObservation.JointName: CGPoint]) -> CGPoint {
+        let mcp: [VNHumanHandPoseObservation.JointName] = [.indexMCP, .middleMCP, .ringMCP, .littleMCP]
+        let pts = mcp.compactMap { joints[$0] }
+        if pts.count >= 2 {
+            let x = pts.map(\.x).reduce(0, +) / CGFloat(pts.count)
+            let y = pts.map(\.y).reduce(0, +) / CGFloat(pts.count)
+            return CGPoint(x: x, y: y)
+        }
+        return joints[.wrist] ?? joints[.indexMCP] ?? .zero
+    }
+
     static func classify(
         joints: [VNHumanHandPoseObservation.JointName: CGPoint],
         pinch: CGFloat

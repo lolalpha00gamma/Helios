@@ -84,6 +84,13 @@ struct ControlPanel: View {
                     permRow(.camera, ok: state.cameraOK)
                     permRow(.accessibility, ok: state.accessOK)
                     permRow(.inputMonitoring, ok: state.inputOK)
+                    if !state.accessOK || !state.inputOK {
+                        Button("Rechte jetzt anfordern…") {
+                            Task { await Permissions.bootstrap() }
+                            state.refreshPermissions()
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
                 }
                 .padding(.top, 4)
             }

@@ -131,7 +131,7 @@ final class HandTracker: @unchecked Sendable {
             let pinchRaw = Self.distance(raw[.thumbTip], raw[.indexTip])
             let pinchSm = Self.distance(smoothed[.thumbTip], smoothed[.indexTip])
             let pinch = min(pinchRaw, pinchSm)
-            let palm = smoothed[.wrist] ?? smoothed[.indexMCP] ?? raw[.wrist] ?? .zero
+            let palm = GestureClassifier.palmCenter(smoothed)
             let pose = GestureClassifier.classify(joints: smoothed, pinch: pinch)
             let openScore = GestureClassifier.openScore(joints: smoothed)
             let ratio = GestureClassifier.pinchRatio(joints: smoothed, pinch: pinch)

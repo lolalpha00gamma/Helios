@@ -89,7 +89,11 @@ final class AppState: ObservableObject {
         }
         log.record("Helios bereit. Linkshänder. Aktionen gehen an das System.")
         engine.testMode = false
-        Task { await startCamera() }
+        Task {
+            await Permissions.bootstrap()
+            refreshPermissions()
+            await startCamera()
+        }
     }
 
     func refreshPermissions() {

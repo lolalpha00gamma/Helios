@@ -84,12 +84,26 @@ struct ControlPanel: View {
                     permRow(.camera, ok: state.cameraOK)
                     permRow(.accessibility, ok: state.accessOK)
                     permRow(.inputMonitoring, ok: state.inputOK)
-                    if !state.accessOK || !state.inputOK {
-                        Button("Rechte jetzt anfordern…") {
-                            Task { await Permissions.bootstrap() }
-                            state.refreshPermissions()
+                    Text("Diese Kopie: \(state.installPath)")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(state.fromDiskImage ? HeliosTheme.danger : .secondary)
+                        .textSelection(.enabled)
+                    if state.fromDiskImage {
+                        Text("Du startest aus dem DMG. Die Schalter in den Systemeinstellungen gelten dann nicht für diese Datei.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(HeliosTheme.amber)
+                        Button("Nach Programme kopieren und neu starten") {
+                            AppInstall.installAndRelaunch()
                         }
                         .buttonStyle(.borderedProminent)
+                    } else {
+                        Text("Nach einem Update den Schalter Bedienungshilfen einmal aus- und wieder einschalten.")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                        Button("Systemeinstellungen öffnen") {
+                            Permissions.openPrivacyPane(.accessibility)
+                            Permissions.openPrivacyPane(.inputMonitoring)
+                        }
                     }
                 }
                 .padding(.top, 4)

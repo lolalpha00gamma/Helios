@@ -46,6 +46,8 @@ final class AppState: ObservableObject {
     @Published var killFlash = false
     @Published var screenCount = 1
     @Published var inputOK = false
+    @Published var fromDiskImage = false
+    @Published var installPath = "—"
     @Published var cursorHand = "—"
     @Published var pointerGain: Double = 2.8
 
@@ -100,6 +102,8 @@ final class AppState: ObservableObject {
         cameraOK = Permissions.cameraGranted()
         accessOK = Permissions.accessibilityGranted()
         inputOK = Permissions.inputMonitoringGranted()
+        fromDiskImage = AppInstall.isFromDiskImage || !AppInstall.isInApplications
+        installPath = AppInstall.locationHint
         screenCount = NSScreen.screens.count
     }
 

@@ -128,8 +128,8 @@ struct HUDView: View {
                     .padding(.vertical, 4)
                     .foregroundStyle(HeliosTheme.void)
                     .background(HeliosTheme.cyan)
-            } else if !state.accessOK || !state.inputOK {
-                Text("RECHTE FEHLEN — IN DER KONSOLE ERLAUBEN")
+            } else if state.fromDiskImage {
+                Text("DMG — NACH PROGRAMME KOPIEREN")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(HeliosTheme.danger)
             } else if state.mode == .idle {

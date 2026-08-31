@@ -47,8 +47,10 @@ final class SystemControl {
     @discardableResult
     func beginWindowDrag() -> ActionResult {
         let loc = NSEvent.mouseLocation.screenFlipped
-        guard AXIsProcessTrusted() else { return .fail("Bedienungshilfen") }
         guard let win = targetWindow(at: loc) else {
+            if AppInstall.isFromDiskImage {
+                return .fail("Läuft aus dem DMG — nach Programme kopieren")
+            }
             return .fail("Kein Fenster unter der Hand")
         }
         guard let pos = position(of: win) else { return .fail("AXPosition") }

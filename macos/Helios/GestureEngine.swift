@@ -188,36 +188,22 @@ final class GestureEngine {
             onLog?("\(name) — Testmodus, System unberührt", .blocked, conf)
             return
         }
-        switch need {
-        case .ax:
-            if !AXIsProcessTrusted() {
-                lastAction = "Rechte fehlen"
-                onLog?("\(name) erkannt — warte auf Bedienungshilfen", .failed, conf)
-                Permissions.demand(.accessibility)
-                return
-            }
-        case .input:
-            if !CGPreflightPostEventAccess() && !CGPreflightListenEventAccess() {
-                lastAction = "Rechte fehlen"
-                onLog?("\(name) erkannt — warte auf Eingabeüberwachung", .failed, conf)
-                Permissions.demand(.inputMonitoring)
-                return
-            }
-        case .capture:
-            break
-        case .none:
-            break
-        }
         let r = body()
         if r.ok {
             lastAction = name
             onLog?("\(name) · \(r.detail)", .executed, conf)
-        } else {
-            lastAction = "\(name) fehlgeschlagen"
-            onLog?("\(name) — NICHT AUSGEFÜHRT: \(r.detail)", .failed, conf)
-            if need == .ax, r.detail.contains("Bedienung") {
-                Permissions.demand(.accessibility)
-            }
+            return
+        }
+        lastAction = "\(name) fehlgeschlagen"
+        onLog?("\(name) — NICHT AUSGEFÜHRT: \(r.detail)", .failed, conf)
+        if AppInstall.isFromDiskImage {
+            AppInstall.installAndRelaunch()
+            return
+        }
+        if need == .ax, r.detail.localizedCaseInsensitiveContains("Bedienung") {
+            Permissions.demand(.accessibility)
+        } else if need == .input {
+            Permissions.demand(.inputMonitoring)
         }
     }
 
@@ -405,7 +391,9 @@ final class GestureEngine {
                 } else {
                     lastAction = "Greifen fehlgeschlagen"
                     onLog?("Greifen — NICHT AUSGEFÜHRT: \(r.detail)", .failed, Int(hand.meanConfidence * 100))
-                    if r.detail.contains("Bedienung") || !AXIsProcessTrusted() {
+                    if AppInstall.isFromDiskImage {
+                        AppInstall.installAndRelaunch()
+                    } else if r.detail.contains("Bedienung") || !AXIsProcessTrusted() {
                         Permissions.demand(.accessibility)
                     }
                 }

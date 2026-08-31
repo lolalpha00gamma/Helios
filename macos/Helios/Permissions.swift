@@ -72,6 +72,10 @@ enum Permissions {
     @MainActor
     static func bootstrap() async {
         _ = await requestCamera()
+        if AppInstall.isFromDiskImage || !AppInstall.isInApplications {
+            AppInstall.installAndRelaunch()
+            return
+        }
         if !accessibilityGranted() {
             promptAccessibility()
         }
@@ -79,14 +83,6 @@ enum Permissions {
             requestInputMonitoring()
         }
         requestScreenCapture()
-        try? await Task.sleep(nanoseconds: 400_000_000)
-        var missing: [PermissionKind] = []
-        if !cameraGranted() { missing.append(.camera) }
-        if !accessibilityGranted() { missing.append(.accessibility) }
-        if !inputMonitoringGranted() { missing.append(.inputMonitoring) }
-        if !missing.isEmpty {
-            showAlert(missing: missing)
-        }
     }
 
     /// Systemdialog + Einstellungen. Nicht öfter als alle 6 s.

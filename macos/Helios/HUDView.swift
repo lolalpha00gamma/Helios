@@ -132,6 +132,10 @@ struct HUDView: View {
                 Text("DMG — NACH PROGRAMME KOPIEREN")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(HeliosTheme.danger)
+            } else if state.mode == .armed && state.engineCursor == nil {
+                Text("MAUS FREI — HAND IN DIE KAMERA")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(HeliosTheme.cyan)
             } else if state.mode == .idle {
                 Text("FAUST HALTEN → SCHARF")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))

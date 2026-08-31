@@ -61,10 +61,13 @@ final class AppState: ObservableObject {
             self?.log.record(text, kind: kind, confidence: conf)
             self?.objectWillChange.send()
         }
-        engine.testMode = false
-        engine.protocolMode = true
-        engine.leftHanded = true
-        engine.pointerGain = 1.6
+        loadPrefs()
+        $hudVisible.sink { Prefs.hudVisible = $0 }.store(in: &cancellables)
+        $showReticle.sink { Prefs.showReticle = $0 }.store(in: &cancellables)
+        $showJointLabels.sink { Prefs.showJointLabels = $0 }.store(in: &cancellables)
+        $showCheats.sink { Prefs.showCheats = $0 }.store(in: &cancellables)
+        $showOutline.sink { Prefs.showOutline = $0 }.store(in: &cancellables)
+        $showTrashZone.sink { Prefs.showTrashZone = $0 }.store(in: &cancellables)
         camera.objectWillChange
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
@@ -90,8 +93,7 @@ final class AppState: ObservableObject {
                 }
             }
         }
-        log.record("Helios bereit. Linkshänder. Aktionen gehen an das System.")
-        engine.testMode = false
+        log.record(leftHanded ? "Helios bereit. Linkshänder." : "Helios bereit. Rechtshänder.")
         Task {
             await Permissions.bootstrap()
             refreshPermissions()
@@ -161,6 +163,7 @@ final class AppState: ObservableObject {
     func setTestMode(_ on: Bool) {
         testMode = on
         engine.testMode = on
+        Prefs.testMode = on
         if on {
             engine.forceIdle()
             log.record("Testmodus an — nur Erkennung, keine Aktionen.", kind: .blocked)
@@ -172,12 +175,14 @@ final class AppState: ObservableObject {
     func setProtocolMode(_ on: Bool) {
         protocolMode = on
         engine.protocolMode = on
+        Prefs.protocolMode = on
         log.record(on ? "Protokoll an" : "Protokoll aus", kind: .info)
     }
 
     func setLeftHanded(_ on: Bool) {
         leftHanded = on
         engine.leftHanded = on
+        Prefs.leftHanded = on
         log.record(on ? "Linkshänder" : "Rechtshänder", kind: .info)
     }
 
@@ -185,6 +190,24 @@ final class AppState: ObservableObject {
         pointerGain = g
         engine.pointerGain = CGFloat(g)
         engine.recenterPointer()
+        Prefs.pointerGain = g
+    }
+
+    private func loadPrefs() {
+        leftHanded = Prefs.leftHanded
+        pointerGain = Prefs.pointerGain
+        protocolMode = Prefs.protocolMode
+        testMode = Prefs.testMode
+        hudVisible = Prefs.hudVisible
+        showReticle = Prefs.showReticle
+        showJointLabels = Prefs.showJointLabels
+        showCheats = Prefs.showCheats
+        showOutline = Prefs.showOutline
+        showTrashZone = Prefs.showTrashZone
+        engine.leftHanded = leftHanded
+        engine.pointerGain = CGFloat(pointerGain)
+        engine.protocolMode = protocolMode
+        engine.testMode = testMode
     }
 
     func exportSession() {
@@ -237,5 +260,53 @@ final class AppState: ObservableObject {
             action: engine.lastAction,
             now: now
         )
+    }
+}
+
+enum Prefs {
+    private static let d = UserDefaults.standard
+
+    static var leftHanded: Bool {
+        get { d.object(forKey: "helios.leftHanded") as? Bool ?? true }
+        set { d.set(newValue, forKey: "helios.leftHanded") }
+    }
+    static var pointerGain: Double {
+        get {
+            let v = d.double(forKey: "helios.pointerGain")
+            return v == 0 ? 1.6 : min(3.2, max(0.6, v))
+        }
+        set { d.set(newValue, forKey: "helios.pointerGain") }
+    }
+    static var protocolMode: Bool {
+        get { d.object(forKey: "helios.protocolMode") as? Bool ?? true }
+        set { d.set(newValue, forKey: "helios.protocolMode") }
+    }
+    static var testMode: Bool {
+        get { d.bool(forKey: "helios.testMode") }
+        set { d.set(newValue, forKey: "helios.testMode") }
+    }
+    static var hudVisible: Bool {
+        get { d.object(forKey: "helios.hud") as? Bool ?? true }
+        set { d.set(newValue, forKey: "helios.hud") }
+    }
+    static var showReticle: Bool {
+        get { d.object(forKey: "helios.reticle") as? Bool ?? true }
+        set { d.set(newValue, forKey: "helios.reticle") }
+    }
+    static var showJointLabels: Bool {
+        get { d.object(forKey: "helios.joints") as? Bool ?? true }
+        set { d.set(newValue, forKey: "helios.joints") }
+    }
+    static var showCheats: Bool {
+        get { d.object(forKey: "helios.cheats") as? Bool ?? true }
+        set { d.set(newValue, forKey: "helios.cheats") }
+    }
+    static var showOutline: Bool {
+        get { d.object(forKey: "helios.outline") as? Bool ?? true }
+        set { d.set(newValue, forKey: "helios.outline") }
+    }
+    static var showTrashZone: Bool {
+        get { d.object(forKey: "helios.trash") as? Bool ?? true }
+        set { d.set(newValue, forKey: "helios.trash") }
     }
 }

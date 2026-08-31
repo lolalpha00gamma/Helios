@@ -71,10 +71,12 @@ final class HandTracker: @unchecked Sendable {
 
     private var leftSmooth = LandmarkSmoothing()
     private var rightSmooth = LandmarkSmoothing()
+    private var poseHold: [Int: (pose: HandPose, n: Int)] = [:]
 
     func reset() {
         leftSmooth.reset()
         rightSmooth.reset()
+        poseHold.removeAll()
     }
 
     func analyze(pixelBuffer: CVPixelBuffer, now: TimeInterval, mirrored: Bool = true) -> [TrackedHand] {
@@ -133,7 +135,7 @@ final class HandTracker: @unchecked Sendable {
             let pinchSm = Self.distance(smoothed[.thumbTip], smoothed[.indexTip])
             let pinch = min(pinchRaw, pinchSm)
             let palm = GestureClassifier.palmCenter(smoothed)
-            let pose = GestureClassifier.classify(joints: smoothed, pinch: pinch)
+            let pose = stabilize(GestureClassifier.classify(joints: smoothed, pinch: pinch), chirality: chirality)
             let openScore = GestureClassifier.openScore(joints: smoothed)
             let ratio = GestureClassifier.pinchRatio(joints: smoothed, pinch: pinch)
             hands.append(
@@ -150,9 +152,31 @@ final class HandTracker: @unchecked Sendable {
                 )
             )
         }
-        if !hands.contains(where: { $0.chirality == .left }) { leftSmooth.reset() }
-        if !hands.contains(where: { $0.chirality == .right }) { rightSmooth.reset() }
+        if !hands.contains(where: { $0.chirality == .left }) { leftSmooth.reset(); poseHold[VNChirality.left.rawValue] = nil }
+        if !hands.contains(where: { $0.chirality == .right }) { rightSmooth.reset(); poseHold[VNChirality.right.rawValue] = nil }
         return hands
+    }
+
+    /// Pose muss 2 Frames halten, sonst flackert Faust/Pinzette/Offen.
+    private func stabilize(_ pose: HandPose, chirality: VNChirality) -> HandPose {
+        let k = chirality.rawValue
+        if pose == .unknown, let old = poseHold[k] { return old.pose }
+        if var h = poseHold[k] {
+            if h.pose == pose {
+                h.n = min(8, h.n + 1)
+                poseHold[k] = h
+                return pose
+            }
+            h.n -= 1
+            if h.n <= 0 {
+                poseHold[k] = (pose, 2)
+                return pose
+            }
+            poseHold[k] = h
+            return h.pose
+        }
+        poseHold[k] = (pose, 2)
+        return pose
     }
 
     private static func distance(_ a: CGPoint?, _ b: CGPoint?) -> CGFloat {

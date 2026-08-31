@@ -41,6 +41,7 @@ final class GestureEngine {
     private var peaceSince: TimeInterval?
     private var pinchHeld = false
     private var pinchBecameDrag = false
+    private var pinchBeganAt: TimeInterval = 0
     private var pinchTrail: [(t: TimeInterval, x: CGFloat, y: CGFloat)] = []
     private var pinchSpan0: CGFloat?
     private var twoPinchSince: TimeInterval?
@@ -112,7 +113,12 @@ final class GestureEngine {
         lastHandSeen = now
 
         let primary = preferred(hands)
-        placeCursor(primary)
+        let live = mode == .armed || testMode
+        if live {
+            placeCursor(primary)
+        } else {
+            releasePointer()
+        }
 
         if protocolMode, now - lastPoseLog > 0.28 {
             let key = hands.map { "\($0.sideDE):\($0.pose.rawValue)" }.joined(separator: ",")
@@ -132,7 +138,6 @@ final class GestureEngine {
         }
         handleArming(hands: hands, now: now)
 
-        let live = mode == .armed || testMode
         if !live {
             if hands.contains(where: { $0.pose == .pinch || $0.pose == .fist }) {
                 lastAction = mustRearm ? "Nach Not-Aus: Faust halten" : "Faust halten → Scharf"
@@ -147,9 +152,12 @@ final class GestureEngine {
         }
 
         let actor = pinchActor(hands, primary: primary)
-        placeCursor(actor)
-        if !testMode, cursorDidMove {
-            system.moveCursor(to: cursor ?? actorMapped(actor))
+        let freezePointer = pinchHeld && !pinchBecameDrag
+        if !freezePointer {
+            placeCursor(actor)
+            if !testMode, cursorDidMove, actor.pose != .fist {
+                system.moveCursor(to: cursor ?? actorMapped(actor))
+            }
         }
         updateTrashHot()
         driveGrab(actor, now: now)
@@ -402,15 +410,21 @@ final class GestureEngine {
         if isGrab && !pinchHeld {
             pinchHeld = true
             pinchBecameDrag = false
+            pinchBeganAt = now
             pinchTrail = [(now, hand.palm.x, hand.palm.y)]
             pinchSpan0 = hypot(
                 (hand.point(.middleTip) ?? hand.palm).x - hand.palm.x,
                 (hand.point(.middleTip) ?? hand.palm).y - hand.palm.y
             )
-            if testMode {
-                lastAction = "Test: Greifen"
-                onLog?("Greifen — Testmodus", .blocked, Int(hand.meanConfidence * 100))
-            } else {
+            lastAction = testMode ? "Test: Halten" : "Halten"
+        } else if isGrab && pinchHeld {
+            pinchTrail.append((now, hand.palm.x, hand.palm.y))
+            pinchTrail.removeAll { now - $0.t > 0.5 }
+            if let first = pinchTrail.first {
+                let moved = hypot(hand.palm.x - first.x, hand.palm.y - first.y)
+                if moved > 0.025 { pinchBecameDrag = true }
+            }
+            if pinchBecameDrag, !system.isDragging, !testMode {
                 let r = system.beginWindowDrag()
                 if r.ok {
                     lastAction = "Greifen"
@@ -425,18 +439,10 @@ final class GestureEngine {
                     }
                 }
             }
-        } else if isGrab && pinchHeld {
-            pinchTrail.append((now, hand.palm.x, hand.palm.y))
-            pinchTrail.removeAll { now - $0.t > 0.5 }
-            if let first = pinchTrail.first {
-                let moved = hypot(hand.palm.x - first.x, hand.palm.y - first.y)
-                if moved > 0.02 { pinchBecameDrag = true }
-            }
             if !testMode, system.isDragging {
                 system.updateWindowDrag()
-                pinchBecameDrag = true
                 lastAction = trashHot ? "Papierkorb" : "Ziehen"
-            } else if testMode {
+            } else if testMode, pinchBecameDrag {
                 lastAction = trashHot ? "Test: Papierkorb" : "Test: Ziehen"
             }
             let span = hypot(
@@ -451,6 +457,7 @@ final class GestureEngine {
         } else if !isGrab && pinchHeld {
             let flung = resolveFling(now: now, confidence: hand.meanConfidence)
             let wasDrag = pinchBecameDrag
+            let held = now - pinchBeganAt
             pinchHeld = false
             pinchBecameDrag = false
             pinchTrail.removeAll()
@@ -464,10 +471,12 @@ final class GestureEngine {
             if wasDrag {
                 lastAction = testMode ? "Test: Loslassen" : "Loslassen"
                 onLog?("Loslassen", testMode ? .blocked : .executed, Int(hand.meanConfidence * 100))
-            } else {
+            } else if held >= 0.07, held < 0.55 {
                 perform("Klick", need: .input, confidence: hand.meanConfidence) { system.click() }
+            } else if held < 0.07 {
+                lastAction = "zu kurz"
             }
-            cooldownUntil = now + 0.1
+            cooldownUntil = now + 0.12
         }
     }
 

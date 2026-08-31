@@ -185,7 +185,7 @@ struct HUDView: View {
                 .font(HeliosTheme.mono)
                 .foregroundStyle(HeliosTheme.cyan)
             Text("Faust halten     Scharf")
-            Text("Handfläche       Position / ziehen")
+            Text("Handfläche       Ziehen (heben = neu ansetzen)")
             Text("Pinzette / Faust Greifen · Klick")
             Text("Werfen           Papierkorb / zu")
             Text("Offene Hand wischen  App wechseln")

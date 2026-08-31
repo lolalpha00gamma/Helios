@@ -25,7 +25,7 @@ final class GestureEngine {
     var testMode = false
     var protocolMode = true
     var leftHanded = true
-    var pointerGain: CGFloat = 2.8
+    var pointerGain: CGFloat = 1.6
     var trashHot = false
     var killFlash = false
     var dragging = false
@@ -54,7 +54,10 @@ final class GestureEngine {
     private var armLockUntil: TimeInterval = 0
     private var pointerOrigin: CGPoint?
     private var cursorSmooth: CGPoint?
+    private var lastPalm: CGPoint?
+    private var pointerHandID: String?
     private var swipeGraceUntil: TimeInterval = 0
+    private var cursorDidMove = false
     private let system = SystemControl()
     var onLog: ((String, ProtocolKind, Int?) -> Void)?
     var focused: FocusedTarget?
@@ -76,14 +79,16 @@ final class GestureEngine {
         dragging = false
         mustRearm = false
         pointerOrigin = nil
+        cursorSmooth = nil
+        lastPalm = nil
+        pointerHandID = nil
         lastAction = "Reset"
     }
 
-    func tick(hands: [TrackedHand], now: TimeInterval) {
+    func tick(hands incoming: [TrackedHand], now: TimeInterval) {
+        let hands = incoming.filter { $0.joints.count >= 8 && $0.meanConfidence >= 0.18 }
         if hands.isEmpty {
-            if pinchHeld, now - lastHandSeen < 0.18 {
-                return
-            }
+            releasePointer()
             fistSince = nil
             fistLostAt = nil
             palmSince = nil
@@ -96,9 +101,6 @@ final class GestureEngine {
             pinchHeld = false
             pinchBecameDrag = false
             twoPinchSince = nil
-            cursor = nil
-            pointerOrigin = nil
-            cursorSmooth = nil
             trashHot = false
             dragging = false
             if mustRearm {
@@ -146,7 +148,9 @@ final class GestureEngine {
 
         let actor = pinchActor(hands, primary: primary)
         placeCursor(actor)
-        if !testMode { system.moveCursor(to: actorMapped(actor)) }
+        if !testMode, cursorDidMove {
+            system.moveCursor(to: cursor ?? actorMapped(actor))
+        }
         updateTrashHot()
         driveGrab(actor, now: now)
         driveSwipe(hands: hands, now: now)
@@ -172,8 +176,18 @@ final class GestureEngine {
     }
 
     func recenterPointer() {
-        pointerOrigin = nil
+        lastPalm = nil
+        pointerHandID = nil
         cursorSmooth = nil
+    }
+
+    private func releasePointer() {
+        cursor = nil
+        lastPalm = nil
+        pointerHandID = nil
+        cursorSmooth = nil
+        pointerOrigin = nil
+        cursorDidMove = false
     }
 
     private func perform(
@@ -263,15 +277,15 @@ final class GestureEngine {
         if fisting {
             fistLostAt = nil
             if fistSince == nil { fistSince = now }
-            let need: TimeInterval = mustRearm ? 0.7 : 0.4
+            let need: TimeInterval = mustRearm ? 0.85 : 0.55
             let held = now - (fistSince ?? now)
-            if held >= need, now - lastArmToggle > 0.5 {
+            if held >= need, now - lastArmToggle > 0.6 {
                 lastArmToggle = now
                 fistSince = nil
                 mustRearm = false
                 mode = .armed
                 lastAction = "Scharf"
-                cooldownUntil = now + 0.28
+                cooldownUntil = now + 0.4
                 onLog?("Faust → Scharf", .executed, Int((hands.map(\.meanConfidence).max() ?? 0) * 100))
             } else if held >= 0.08 {
                 lastAction = "Faust …"
@@ -311,19 +325,32 @@ final class GestureEngine {
     }
 
     private func actorMapped(_ hand: TrackedHand) -> CGPoint {
-        let src = hand.palm
-        if pointerOrigin == nil {
-            pointerOrigin = src
+        cursorDidMove = false
+        let palm = hand.palm
+        if pointerHandID != hand.id {
+            pointerHandID = hand.id
+            lastPalm = palm
+            let start = ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
+            cursorSmooth = start
+            return start
         }
-        let raw = ScreenGeometry.mapHand(src, origin: pointerOrigin ?? src, gain: pointerGain)
-        if let prev = cursorSmooth {
-            let a: CGFloat = 0.55
-            let s = CGPoint(x: a * raw.x + (1 - a) * prev.x, y: a * raw.y + (1 - a) * prev.y)
-            cursorSmooth = s
-            return s
+        let prevPalm = lastPalm ?? palm
+        lastPalm = palm
+        var dx = palm.x - prevPalm.x
+        var dy = palm.y - prevPalm.y
+        let dead: CGFloat = 0.006
+        if abs(dx) < dead { dx = 0 }
+        if abs(dy) < dead { dy = 0 }
+        if dx == 0 && dy == 0 {
+            return cursorSmooth ?? ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
         }
-        cursorSmooth = raw
-        return raw
+        cursorDidMove = true
+        let from = cursorSmooth ?? ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
+        let stepped = ScreenGeometry.stepCursor(from: from, dPalm: CGPoint(x: dx, y: dy), gain: pointerGain)
+        let a: CGFloat = 0.62
+        let s = CGPoint(x: a * stepped.x + (1 - a) * from.x, y: a * stepped.y + (1 - a) * from.y)
+        cursorSmooth = s
+        return s
     }
 
     private func placeCursor(_ hand: TrackedHand) {
@@ -500,7 +527,7 @@ final class GestureEngine {
         let dx = hand.palm.x - first.x
         let dy = hand.palm.y - first.y
         let dt = now - first.t
-        guard dt > 0.04, abs(dx) > 0.08, abs(dx) > abs(dy) * 0.8 else { return }
+        guard dt > 0.12, abs(dx) > 0.12, abs(dx) > abs(dy) * 1.05 else { return }
         onLog?("Wischen erkannt", .recognized, Int(hand.meanConfidence * 100))
         let forward = dx < 0
         let name = forward ? "Nächste App" : "Vorherige App"
@@ -513,7 +540,7 @@ final class GestureEngine {
     private func drivePeace(_ hand: TrackedHand, now: TimeInterval) {
         if hand.pose == .peace {
             if peaceSince == nil { peaceSince = now }
-            if now - (peaceSince ?? now) > 0.4 {
+            if now - (peaceSince ?? now) > 0.55 {
                 let target = focused
                 perform("Aufnahme", need: .capture, confidence: hand.meanConfidence) {
                     if let t = target, t.quartzBounds.width > 8 {
@@ -533,7 +560,7 @@ final class GestureEngine {
     private func driveThumbs(_ hand: TrackedHand, now: TimeInterval) {
         if hand.pose == .thumbsUp {
             if thumbsSince == nil { thumbsSince = now }
-            if now - (thumbsSince ?? now) > 0.35 {
+            if now - (thumbsSince ?? now) > 0.5 {
                 perform("Hervorholen", need: .none, confidence: hand.meanConfidence) { system.unhideFront() }
                 thumbsSince = now + 10
                 cooldownUntil = now + 0.7
@@ -556,7 +583,7 @@ final class GestureEngine {
             }
         }
         if palmMenuSince == nil { palmMenuSince = now }
-        if now - (palmMenuSince ?? now) > 0.75 {
+        if now - (palmMenuSince ?? now) > 1.0 {
             perform("Mission Control", need: .none, confidence: primary.meanConfidence) { system.missionControl() }
             palmMenuSince = now + 10
             cooldownUntil = now + 0.9

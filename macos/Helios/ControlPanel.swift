@@ -139,13 +139,13 @@ struct ControlPanel: View {
                                 get: { state.pointerGain },
                                 set: { state.setPointerGain($0) }
                             ),
-                            in: 1.4...4.5,
+                            in: 0.6...3.2,
                             step: 0.1
                         )
-                        Text("Kleiner Handweg deckt den ganzen Bildschirm. Hand in der Mitte halten, dann bewegen.")
+                        Text("Wie ein Trackpad: Hand heben, in der Kamera neu ansetzen, weiterziehen — so erreichst du jeden Bildschirmrand, ohne aus dem Bild zu gehen.")
                             .font(.system(size: 10))
                             .foregroundStyle(.secondary)
-                        Button("Mitte neu setzen") {
+                        Button("Zeiger neu ansetzen") {
                             state.engine.recenterPointer()
                         }
                         .buttonStyle(.borderless)

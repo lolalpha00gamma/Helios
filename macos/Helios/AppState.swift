@@ -49,7 +49,7 @@ final class AppState: ObservableObject {
     @Published var fromDiskImage = false
     @Published var installPath = "—"
     @Published var cursorHand = "—"
-    @Published var pointerGain: Double = 2.8
+    @Published var pointerGain: Double = 1.6
 
     private var cancellables: Set<AnyCancellable> = []
     private var focusTick = 0
@@ -63,7 +63,7 @@ final class AppState: ObservableObject {
         engine.testMode = false
         engine.protocolMode = true
         engine.leftHanded = true
-        engine.pointerGain = 2.8
+        engine.pointerGain = 1.6
         camera.objectWillChange
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in

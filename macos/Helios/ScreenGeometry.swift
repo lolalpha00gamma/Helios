@@ -80,12 +80,14 @@ enum ScreenGeometry {
         return quartz(fromCocoa: cocoa)
     }
 
-    /// Kleiner Bereich vor der Kamera → ganzer Bildschirm. `origin` ist die Ruhe-Hand.
-    static func mapHand(_ p: CGPoint, origin: CGPoint, gain: CGFloat) -> CGPoint {
-        let g = max(1.0, gain)
-        let nx = min(1, max(0, 0.5 + (p.x - origin.x) * g))
-        let ny = min(1, max(0, 0.5 + (p.y - origin.y) * g))
-        return clampQuartz(mapNormalizedToQuartz(CGPoint(x: nx, y: ny)))
+    /// Relativ: Handbewegung → Cursor. Hand heben = neu ansetzen (Trackpad).
+    static func stepCursor(from quartz: CGPoint, dPalm: CGPoint, gain: CGFloat) -> CGPoint {
+        let u = cocoaUnion
+        let g = max(0.4, gain)
+        var p = quartz
+        p.x += dPalm.x * u.width * g
+        p.y -= dPalm.y * u.height * g
+        return clampQuartz(p)
     }
 
     static func clampQuartz(_ p: CGPoint) -> CGPoint {

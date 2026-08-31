@@ -99,13 +99,14 @@ final class HandTracker: @unchecked Sendable {
         hands.reserveCapacity(observations.count)
         for (idx, obs) in observations.enumerated() {
             guard let pts = try? obs.recognizedPoints(.all) else { continue }
+            if obs.confidence < 0.22 { continue }
             var raw: [VNHumanHandPoseObservation.JointName: CGPoint] = [:]
             var conf: [VNHumanHandPoseObservation.JointName: Float] = [:]
-            for (name, p) in pts where p.confidence > 0.12 {
+            for (name, p) in pts where p.confidence > 0.18 {
                 raw[name] = CGPoint(x: p.location.x, y: p.location.y)
                 conf[name] = p.confidence
             }
-            guard raw.count >= 6 else { continue }
+            guard raw.count >= 8 else { continue }
 
             var chirality = obs.chirality
             if chirality == .unknown {

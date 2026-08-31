@@ -2,60 +2,38 @@ import CoreImage
 import CoreVideo
 import Foundation
 
-/// Kontrast/Belichtung nur für Vision — Geometrie bleibt 1:1 zum Preview.
+/// Belichtung/Kontrast auf der GPU. Geometrie bleibt 1:1 zum Preview.
 final class FrameEnhancer: @unchecked Sendable {
-    private let ci = CIContext(options: [.useSoftwareRenderer: false, .cacheIntermediates: false])
-    private var pool: CVPixelBuffer?
+    private var ping: CVPixelBuffer?
+    private var pong: CVPixelBuffer?
+    private var usePing = true
     private let lock = NSLock()
+    private var lumaScratch: CVPixelBuffer?
 
-    /// Raster-Stichprobe, kein CI-Filter — unter 0,2 ms.
     func luma(of pb: CVPixelBuffer) -> CGFloat {
-        CVPixelBufferLockBaseAddress(pb, .readOnly)
-        defer { CVPixelBufferUnlockBaseAddress(pb, .readOnly) }
-        let w = CVPixelBufferGetWidth(pb)
-        let h = CVPixelBufferGetHeight(pb)
-        guard w > 8, h > 8 else { return 0.5 }
-        let stepX = max(1, w / 16)
-        let stepY = max(1, h / 16)
-        var sum: UInt64 = 0
-        var n: UInt64 = 0
-        if CVPixelBufferGetPlaneCount(pb) >= 1,
-           let base = CVPixelBufferGetBaseAddressOfPlane(pb, 0)
-        {
-            let stride = CVPixelBufferGetBytesPerRowOfPlane(pb, 0)
-            let ptr = base.assumingMemoryBound(to: UInt8.self)
-            var y = 0
-            while y < h {
-                let row = ptr + y * stride
-                var x = 0
-                while x < w {
-                    sum += UInt64(row[x])
-                    n += 1
-                    x += stepX
-                }
-                y += stepY
-            }
-        } else if let base = CVPixelBufferGetBaseAddress(pb) {
-            let stride = CVPixelBufferGetBytesPerRow(pb)
-            let ptr = base.assumingMemoryBound(to: UInt8.self)
-            var y = 0
-            while y < h {
-                let row = ptr + y * stride
-                var x = 0
-                while x < w {
-                    let i = x * 4
-                    let b = UInt64(row[i])
-                    let g = UInt64(row[i + 1])
-                    let r = UInt64(row[i + 2])
-                    sum += (r + g * 2 + b) / 4
-                    n += 1
-                    x += stepX
-                }
-                y += stepY
-            }
+        let img = CIImage(cvPixelBuffer: pb)
+        let extent = img.extent
+        guard extent.width > 8, extent.height > 8 else { return 0.5 }
+        guard let avg = CIFilter(name: "CIAreaAverage") else { return cpuLuma(pb) }
+        avg.setValue(img, forKey: kCIInputImageKey)
+        avg.setValue(CIVector(cgRect: extent), forKey: kCIInputExtentKey)
+        guard let out = avg.outputImage else { return cpuLuma(pb) }
+        lock.lock()
+        if lumaScratch == nil {
+            lumaScratch = MetalHub.makeBuffer(width: 1, height: 1)
         }
-        guard n > 0 else { return 0.5 }
-        return CGFloat(sum) / CGFloat(n * 255)
+        let dest = lumaScratch
+        lock.unlock()
+        guard let dest else { return cpuLuma(pb) }
+        MetalHub.ci.render(out, to: dest, bounds: CGRect(x: 0, y: 0, width: 1, height: 1), colorSpace: nil)
+        CVPixelBufferLockBaseAddress(dest, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(dest, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddress(dest) else { return 0.5 }
+        let p = base.assumingMemoryBound(to: UInt8.self)
+        let b = CGFloat(p[0])
+        let g = CGFloat(p[1])
+        let r = CGFloat(p[2])
+        return (r + g * 2 + b) / (4 * 255)
     }
 
     func enhance(_ pb: CVPixelBuffer, luma: CGFloat) -> CVPixelBuffer {
@@ -92,24 +70,44 @@ final class FrameEnhancer: @unchecked Sendable {
         let w = CVPixelBufferGetWidth(src)
         let h = CVPixelBufferGetHeight(src)
         lock.lock()
-        defer { lock.unlock() }
-        if let pool,
-           CVPixelBufferGetWidth(pool) == w,
-           CVPixelBufferGetHeight(pool) == h
-        {
-            ci.render(image, to: pool)
-            return pool
+        if ping == nil || CVPixelBufferGetWidth(ping!) != w || CVPixelBufferGetHeight(ping!) != h {
+            ping = MetalHub.makeBuffer(width: w, height: h)
+            pong = MetalHub.makeBuffer(width: w, height: h)
         }
-        var out: CVPixelBuffer?
-        let attrs: [String: Any] = [
-            kCVPixelBufferIOSurfacePropertiesKey as String: [:] as CFDictionary,
-            kCVPixelBufferCGImageCompatibilityKey as String: true,
-            kCVPixelBufferCGBitmapContextCompatibilityKey as String: true
-        ]
-        CVPixelBufferCreate(kCFAllocatorDefault, w, h, kCVPixelFormatType_32BGRA, attrs as CFDictionary, &out)
-        guard let out else { return nil }
-        ci.render(image, to: out)
-        pool = out
-        return out
+        usePing.toggle()
+        let dest = usePing ? ping : pong
+        lock.unlock()
+        guard let dest else { return nil }
+        MetalHub.ci.render(image, to: dest)
+        return dest
+    }
+
+    private func cpuLuma(_ pb: CVPixelBuffer) -> CGFloat {
+        CVPixelBufferLockBaseAddress(pb, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(pb, .readOnly) }
+        let w = CVPixelBufferGetWidth(pb)
+        let h = CVPixelBufferGetHeight(pb)
+        guard w > 8, h > 8, CVPixelBufferGetPlaneCount(pb) >= 1,
+              let base = CVPixelBufferGetBaseAddressOfPlane(pb, 0)
+        else { return 0.5 }
+        let stride = CVPixelBufferGetBytesPerRowOfPlane(pb, 0)
+        let ptr = base.assumingMemoryBound(to: UInt8.self)
+        let stepX = max(1, w / 16)
+        let stepY = max(1, h / 16)
+        var sum: UInt64 = 0
+        var n: UInt64 = 0
+        var y = 0
+        while y < h {
+            let row = ptr + y * stride
+            var x = 0
+            while x < w {
+                sum += UInt64(row[x])
+                n += 1
+                x += stepX
+            }
+            y += stepY
+        }
+        guard n > 0 else { return 0.5 }
+        return CGFloat(sum) / CGFloat(n * 255)
     }
 }

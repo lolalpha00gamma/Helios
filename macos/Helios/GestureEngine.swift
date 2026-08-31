@@ -315,9 +315,11 @@ final class GestureEngine {
             perform("Skalieren", confidence: conf) {
                 system.resizeFocused(scale: span > old ? 1.05 : 0.95)
             }
+            twoHandSpan = span
+            return true
         }
         twoHandSpan = span
-        return true
+        return false
     }
 
     private func updateTrashHot() {

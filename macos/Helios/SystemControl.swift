@@ -30,7 +30,6 @@ final class SystemControl {
         let src = CGEventSource(stateID: .hidSystemState)
         let e = CGEvent(mouseEventSource: src, mouseType: .mouseMoved, mouseCursorPosition: p, mouseButton: .left)
         e?.post(tap: .cghidEventTap)
-        e?.post(tap: .cgSessionEventTap)
     }
 
     @discardableResult
@@ -210,11 +209,9 @@ final class SystemControl {
 
     private func activate(_ app: NSRunningApplication) -> ActionResult {
         let name = app.localizedName ?? "App"
-        let ok = app.activate()
-        if ok { return .ok(name) }
         app.unhide()
-        let ok2 = app.activate()
-        return ok2 ? .ok(name) : .fail("activate() \(name)")
+        app.activate()
+        return .ok(name)
     }
 
     private func trashFinderSelection() -> Bool {
@@ -257,7 +254,6 @@ final class SystemControl {
             mouseButton: .left
         ) else { return false }
         e.post(tap: .cghidEventTap)
-        e.post(tap: .cgSessionEventTap)
         return true
     }
 

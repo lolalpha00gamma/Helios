@@ -1,4 +1,5 @@
 import CoreMedia
+import CoreML
 import CoreVideo
 import Foundation
 import Vision
@@ -64,6 +65,7 @@ final class HandTracker: @unchecked Sendable {
     private let request: VNDetectHumanHandPoseRequest = {
         let r = VNDetectHumanHandPoseRequest()
         r.maximumHandCount = 2
+        MetalHub.bindVision(r)
         return r
     }()
 
@@ -76,7 +78,11 @@ final class HandTracker: @unchecked Sendable {
     }
 
     func analyze(pixelBuffer: CVPixelBuffer, now: TimeInterval, mirrored: Bool = true) -> [TrackedHand] {
-        let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: .up, options: [:])
+        let handler = VNImageRequestHandler(
+            cvPixelBuffer: pixelBuffer,
+            orientation: .up,
+            options: [.ciContext: MetalHub.ci]
+        )
         do {
             try handler.perform([request])
         } catch {

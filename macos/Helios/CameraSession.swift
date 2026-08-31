@@ -19,11 +19,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     private let pump = FramePump()
     private var tap: FrameSink?
     private var lastPreview: TimeInterval = 0
-    private let ci = CIContext(options: [
-        .useSoftwareRenderer: false,
-        .cacheIntermediates: false
-    ])
     private let enhancer = FrameEnhancer()
+    private let ring = GPUFrameRing()
 
     func start() {
         DispatchQueue.main.async { self.errorMessage = nil }
@@ -70,6 +67,11 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         }
 
         output.alwaysDiscardsLateVideoFrames = true
+        output.videoSettings = [
+            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
+            kCVPixelBufferMetalCompatibilityKey as String: true,
+            kCVPixelBufferIOSurfacePropertiesKey as String: [:] as CFDictionary
+        ]
         let sink = FrameSink { [weak self] buffer in
             self?.accept(buffer)
         }
@@ -181,7 +183,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
 
     private func accept(_ buffer: CMSampleBuffer) {
         guard let pb = CMSampleBufferGetImageBuffer(buffer) else { return }
-        pump.push(pb, arrived: CACurrentMediaTime()) { [weak self] latest, arrived in
+        let owned = ring.copy(pb)
+        pump.push(owned, arrived: CACurrentMediaTime()) { [weak self] latest, arrived in
             self?.process(latest, arrived: arrived)
         }
     }
@@ -207,7 +210,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         let th = max(2, Int((CGFloat(h) * scale).rounded()))
         let src = CIImage(cvPixelBuffer: pb)
         let scaled = src.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
-        guard let cg = ci.createCGImage(scaled, from: CGRect(x: 0, y: 0, width: tw, height: th)) else {
+        guard let cg = MetalHub.ci.createCGImage(scaled, from: CGRect(x: 0, y: 0, width: tw, height: th)) else {
             return nil
         }
         return NSImage(cgImage: cg, size: NSSize(width: tw, height: th))

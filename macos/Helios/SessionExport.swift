@@ -221,7 +221,7 @@ final class SessionRecorder {
         case .littlePIP: return "littlePIP"
         case .littleDIP: return "littleDIP"
         case .littleTip: return "littleTip"
-        default: return n.rawValue
+        default: return String(describing: n)
         }
     }
 

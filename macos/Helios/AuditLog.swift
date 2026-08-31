@@ -29,7 +29,7 @@ struct AuditEntry: Identifiable {
 @MainActor
 final class AuditLog {
     private(set) var entries: [AuditEntry] = []
-    private let limit = 200
+    private let limit = 2500
 
     func record(_ text: String, kind: ProtocolKind = .info, confidence: Int? = nil) {
         entries.insert(AuditEntry(at: Date(), kind: kind, text: text, confidence: confidence), at: 0)
@@ -39,4 +39,34 @@ final class AuditLog {
     }
 
     func clear() { entries.removeAll() }
+
+    func plainText() -> String {
+        let f = DateFormatter()
+        f.dateFormat = "HH:mm:ss"
+        var lines: [String] = [
+            "Helios Protokoll  \(ISO8601DateFormatter().string(from: Date()))",
+            String(repeating: "-", count: 72)
+        ]
+        for e in entries.reversed() {
+            let conf = e.confidence.map { "  \($0)%" } ?? ""
+            let kind = e.kind.labelDE.padding(toLength: 16, withPad: " ", startingAt: 0)
+            lines.append("\(f.string(from: e.at))  \(kind)  \(e.text)\(conf)")
+        }
+        return lines.joined(separator: "\n") + "\n"
+    }
+
+    func jsonData() throws -> Data {
+        let f = ISO8601DateFormatter()
+        let rows: [[String: Any]] = entries.reversed().map { e in
+            var row: [String: Any] = [
+                "at": f.string(from: e.at),
+                "kind": e.kind.rawValue,
+                "kindDE": e.kind.labelDE,
+                "text": e.text
+            ]
+            if let c = e.confidence { row["confidence"] = c }
+            return row
+        }
+        return try JSONSerialization.data(withJSONObject: rows, options: [.prettyPrinted, .sortedKeys])
+    }
 }

@@ -268,6 +268,15 @@ struct ControlPanel: View {
                             .font(.system(size: 11))
                         Spacer()
                     }
+                    VStack(alignment: .leading, spacing: 6) {
+                        Button("Sitzung exportieren…") { state.exportSession() }
+                            .keyboardShortcut("e", modifiers: [.command])
+                        Button("Protokoll kopieren") { state.copyProtocol() }
+                        Button("Filmstreifen kopieren") { state.copyFilmstrip() }
+                        Text("Ein PNG mit der Geste + JSONL/TXT. In Grok einfügen, keine Screenshots.")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
                     ForEach(state.log.entries) { e in
                         HStack(alignment: .top, spacing: 6) {
                             Text(e.at, style: .time)

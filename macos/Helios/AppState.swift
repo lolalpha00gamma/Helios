@@ -11,6 +11,7 @@ final class AppState: ObservableObject {
     let camera = CameraSession()
     let engine = GestureEngine()
     let log = AuditLog()
+    let recorder = SessionRecorder()
     private let overlay = OverlayController()
     private var permTimer: Timer?
     private var frames: Int = 0
@@ -186,6 +187,21 @@ final class AppState: ObservableObject {
         engine.recenterPointer()
     }
 
+    func exportSession() {
+        recorder.export(log: log)
+        log.record("Sitzung exportiert", kind: .info)
+    }
+
+    func copyProtocol() {
+        recorder.copyProtocol(log)
+        log.record("Protokoll in die Zwischenablage", kind: .info)
+    }
+
+    func copyFilmstrip() {
+        recorder.copyFilmstrip()
+        log.record("Gesten-Filmstreifen in die Zwischenablage", kind: .info)
+    }
+
     fileprivate func apply(
         hands: [TrackedHand],
         latency: Double,
@@ -213,5 +229,13 @@ final class AppState: ObservableObject {
         cursorHand = engine.cursorHand
         trashHot = engine.trashHot
         killFlash = engine.killFlash
+        recorder.push(
+            hands: hands,
+            preview: preview,
+            luma: luma,
+            mode: engine.mode,
+            action: engine.lastAction,
+            now: now
+        )
     }
 }

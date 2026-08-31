@@ -51,6 +51,7 @@ final class AppState: ObservableObject {
     @Published var installPath = "—"
     @Published var cursorHand = "—"
     @Published var pointerGain: Double = 1.6
+    private var lastPanel: TimeInterval = 0
 
     private var cancellables: Set<AnyCancellable> = []
     private var focusTick = 0
@@ -62,6 +63,9 @@ final class AppState: ObservableObject {
             self?.objectWillChange.send()
         }
         loadPrefs()
+        log.objectWillChange
+            .sink { [weak self] in self?.objectWillChange.send() }
+            .store(in: &cancellables)
         $hudVisible.sink { Prefs.hudVisible = $0 }.store(in: &cancellables)
         $showReticle.sink { Prefs.showReticle = $0 }.store(in: &cancellables)
         $showJointLabels.sink { Prefs.showJointLabels = $0 }.store(in: &cancellables)
@@ -134,7 +138,7 @@ final class AppState: ObservableObject {
         let tracker = self.tracker
         camera.onFrame = { [weak self] vision, preview, luma, arrived in
             let t0 = CACurrentMediaTime()
-            let hands = tracker.analyze(pixelBuffer: vision, now: t0, mirrored: true)
+            let hands = tracker.analyze(pixelBuffer: vision, now: t0, mirrored: self.camera.isMirrored)
             let visMs = (CACurrentMediaTime() - t0) * 1000
             let endToEnd = (CACurrentMediaTime() - arrived) * 1000
             DispatchQueue.main.async {
@@ -154,6 +158,7 @@ final class AppState: ObservableObject {
     func stopCamera() {
         camera.onFrame = nil
         camera.stop()
+        tracker.reset()
         cameraRunning = false
         hands = []
         displayHands = []
@@ -232,8 +237,6 @@ final class AppState: ObservableObject {
         preview: NSImage?,
         luma: CGFloat
     ) {
-        self.hands = hands
-        self.displayHands = hands
         self.luma = luma
         latencyMs = latency
         frames += 1
@@ -242,9 +245,6 @@ final class AppState: ObservableObject {
             frames = 0
             fpsStamp = now
         }
-        if let preview {
-            self.preview = preview
-        }
         engine.tick(hands: hands, now: now)
         mode = engine.mode
         lastAction = engine.lastAction
@@ -252,14 +252,22 @@ final class AppState: ObservableObject {
         cursorHand = engine.cursorHand
         trashHot = engine.trashHot
         killFlash = engine.killFlash
-        recorder.push(
-            hands: hands,
-            preview: preview,
-            luma: luma,
-            mode: engine.mode,
-            action: engine.lastAction,
-            now: now
-        )
+        if now - lastPanel >= 0.07 {
+            lastPanel = now
+            self.hands = hands
+            self.displayHands = hands
+            if let preview { self.preview = preview }
+        }
+        if protocolMode {
+            recorder.push(
+                hands: hands,
+                preview: preview,
+                luma: luma,
+                mode: engine.mode,
+                action: engine.lastAction,
+                now: now
+            )
+        }
     }
 }
 

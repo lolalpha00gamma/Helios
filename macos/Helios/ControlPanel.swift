@@ -254,7 +254,7 @@ struct ControlPanel: View {
                     .foregroundStyle(.secondary)
             }
             ScrollView {
-                VStack(alignment: .leading, spacing: 12) {
+                LazyVStack(alignment: .leading, spacing: 12) {
                     ForEach(state.hands) { hand in
                         handCard(hand)
                     }
@@ -277,7 +277,7 @@ struct ControlPanel: View {
                             .font(.system(size: 10))
                             .foregroundStyle(.secondary)
                     }
-                    ForEach(state.log.entries) { e in
+                    ForEach(Array(state.log.entries.suffix(120).reversed())) { e in
                         HStack(alignment: .top, spacing: 6) {
                             Text(e.at, style: .time)
                                 .font(.system(size: 10, design: .monospaced))

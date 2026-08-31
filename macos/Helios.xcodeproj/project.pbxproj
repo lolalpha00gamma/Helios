@@ -29,6 +29,7 @@
 		AA0000000000000000000064 /* MetalHub.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000058 /* MetalHub.swift */; };
 		AA0000000000000000000065 /* AppInstall.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000059 /* AppInstall.swift */; };
 		AA0000000000000000000066 /* SessionExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000005A /* SessionExport.swift */; };
+		AA0000000000000000000067 /* CoordMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000005B /* CoordMath.swift */; };
 		AA000000000000000000003E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000004E /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -61,6 +62,7 @@
 		AA0000000000000000000058 /* MetalHub.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetalHub.swift; sourceTree = "<group>"; };
 		AA0000000000000000000059 /* AppInstall.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppInstall.swift; sourceTree = "<group>"; };
 		AA000000000000000000005A /* SessionExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionExport.swift; sourceTree = "<group>"; };
+		AA000000000000000000005B /* CoordMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoordMath.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -108,6 +110,7 @@
 				AA0000000000000000000058 /* MetalHub.swift */,
 				AA0000000000000000000059 /* AppInstall.swift */,
 				AA000000000000000000005A /* SessionExport.swift */,
+				AA000000000000000000005B /* CoordMath.swift */,
 				AA0000000000000000000053 /* ScreenGeometry.swift */,
 				AA0000000000000000000054 /* FocusTracker.swift */,
 				AA0000000000000000000055 /* HeliosTry.m */,
@@ -216,6 +219,7 @@
 				AA0000000000000000000064 /* MetalHub.swift in Sources */,
 				AA0000000000000000000065 /* AppInstall.swift in Sources */,
 				AA0000000000000000000066 /* SessionExport.swift in Sources */,
+				AA0000000000000000000067 /* CoordMath.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -266,7 +270,7 @@
 				CODE_SIGN_ENTITLEMENTS = Helios.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 16;
+				CURRENT_PROJECT_VERSION = 17;
 				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
 				GENERATE_INFOPLIST_FILE = YES;
@@ -278,7 +282,7 @@
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.4.7;
+				MARKETING_VERSION = 1.4.8;
 				PRODUCT_BUNDLE_IDENTIFIER = app.helios.control;
 				PRODUCT_NAME = Helios;
 				SDKROOT = macosx;
@@ -298,7 +302,7 @@
 				CODE_SIGN_ENTITLEMENTS = Helios.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 16;
+				CURRENT_PROJECT_VERSION = 17;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
@@ -311,8 +315,8 @@
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.4.7;
-				ONLY_ACTIVE_ARCH = YES;
+				MARKETING_VERSION = 1.4.8;
+				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_BUNDLE_IDENTIFIER = app.helios.control;
 				PRODUCT_NAME = Helios;
 				SDKROOT = macosx;

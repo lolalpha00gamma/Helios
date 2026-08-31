@@ -27,14 +27,14 @@ struct AuditEntry: Identifiable {
 }
 
 @MainActor
-final class AuditLog {
-    private(set) var entries: [AuditEntry] = []
+final class AuditLog: ObservableObject {
+    @Published private(set) var entries: [AuditEntry] = []
     private let limit = 2500
 
     func record(_ text: String, kind: ProtocolKind = .info, confidence: Int? = nil) {
-        entries.insert(AuditEntry(at: Date(), kind: kind, text: text, confidence: confidence), at: 0)
+        entries.append(AuditEntry(at: Date(), kind: kind, text: text, confidence: confidence))
         if entries.count > limit {
-            entries.removeLast(entries.count - limit)
+            entries.removeFirst(entries.count - limit)
         }
     }
 
@@ -47,7 +47,7 @@ final class AuditLog {
             "Helios Protokoll  \(ISO8601DateFormatter().string(from: Date()))",
             String(repeating: "-", count: 72)
         ]
-        for e in entries.reversed() {
+        for e in entries {
             let conf = e.confidence.map { "  \($0)%" } ?? ""
             let kind = e.kind.labelDE.padding(toLength: 16, withPad: " ", startingAt: 0)
             lines.append("\(f.string(from: e.at))  \(kind)  \(e.text)\(conf)")
@@ -57,7 +57,7 @@ final class AuditLog {
 
     func jsonData() throws -> Data {
         let f = ISO8601DateFormatter()
-        let rows: [[String: Any]] = entries.reversed().map { e in
+        let rows: [[String: Any]] = entries.map { e in
             var row: [String: Any] = [
                 "at": f.string(from: e.at),
                 "kind": e.kind.rawValue,

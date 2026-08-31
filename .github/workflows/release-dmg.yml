@@ -51,6 +51,9 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "title=$TITLE" >> "$GITHUB_OUTPUT"
 
+      - name: Coord tests
+        run: swift macos/HeliosTests/CoordTests.swift
+
       - name: Build Helios.app
         run: |
           xcodebuild \
@@ -60,7 +63,7 @@ jobs:
             -derivedDataPath .derived \
             -destination 'platform=macOS,arch=arm64' \
             ARCHS=arm64 \
-            ONLY_ACTIVE_ARCH=YES \
+            ONLY_ACTIVE_ARCH=NO \
             EXCLUDED_ARCHS=x86_64 \
             CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=YES \
@@ -76,7 +79,7 @@ jobs:
           rm -rf dmgroot Helios.dmg
           mkdir dmgroot
           cp -R "$APP" dmgroot/Helios.app
-          codesign --force --deep --sign - \
+          codesign --force --sign - \
             --options runtime \
             --timestamp=none \
             --entitlements macos/Helios.entitlements \

@@ -46,10 +46,18 @@ enum AppInstall {
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         do {
             let fm = FileManager.default
-            if fm.fileExists(atPath: dest.path) {
-                try fm.removeItem(at: dest)
+            let tmp = dest.deletingLastPathComponent().appendingPathComponent("Helios.app.incoming")
+            if fm.fileExists(atPath: tmp.path) {
+                try fm.removeItem(at: tmp)
             }
-            try fm.copyItem(at: src, to: dest)
+            try fm.copyItem(at: src, to: tmp)
+            if fm.fileExists(atPath: dest.path) {
+                _ = try fm.replaceItemAt(dest, withItemAt: tmp, backupItemName: "Helios.app.bak", options: [])
+                let bak = dest.deletingLastPathComponent().appendingPathComponent("Helios.app.bak")
+                try? fm.removeItem(at: bak)
+            } else {
+                try fm.moveItem(at: tmp, to: dest)
+            }
             let cfg = NSWorkspace.OpenConfiguration()
             cfg.activates = true
             NSWorkspace.shared.openApplication(at: dest, configuration: cfg) { _, err in

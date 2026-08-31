@@ -64,7 +64,7 @@ enum MetalHub {
     }
 }
 
-/// Drei GPU-Buffer im Kreis — Kamera darf den Original-Frame sofort recyceln.
+/// Acht GPU-Buffer im Kreis — Vision liest, während die Kamera schreibt.
 final class GPUFrameRing: @unchecked Sendable {
     private var slots: [CVPixelBuffer] = []
     private var index = 0
@@ -76,8 +76,8 @@ final class GPUFrameRing: @unchecked Sendable {
         let w = CVPixelBufferGetWidth(src)
         let h = CVPixelBufferGetHeight(src)
         lock.lock()
-        if slots.count != 3 || width != w || height != h {
-            slots = (0..<3).compactMap { _ in MetalHub.makeBuffer(width: w, height: h) }
+        if slots.count != 8 || width != w || height != h {
+            slots = (0..<8).compactMap { _ in MetalHub.makeBuffer(width: w, height: h) }
             width = w
             height = h
             index = 0

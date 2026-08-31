@@ -114,9 +114,7 @@ final class GestureEngine {
 
         let primary = preferred(hands)
         let live = mode == .armed || testMode
-        if live {
-            placeCursor(primary)
-        } else {
+        if !live {
             releasePointer()
         }
 
@@ -495,26 +493,25 @@ final class GestureEngine {
         let dx = last.x - first.x
         let dy = last.y - first.y
         let dist = hypot(dx, dy)
-        guard speed > 0.28 && dist > 0.05 else { return false }
+        guard speed > 0.38 && dist > 0.08 else { return false }
         onLog?("Werfen erkannt", .recognized, Int(confidence * 100))
-        if abs(dy) >= abs(dx) && dy < -0.04 {
+        if abs(dy) >= abs(dx) && dy < -0.05 {
             perform("Wegwerfen", confidence: confidence) { system.throwAway(finder: focused?.isFinder == true) }
             return true
         }
-        if abs(dy) >= abs(dx) && dy > 0.06 {
+        if abs(dy) >= abs(dx) && dy > 0.08 {
             perform("Minimieren", confidence: confidence) { system.minimizeFocused() }
             return true
         }
-        if dx < -0.05 {
+        if dx < -0.07 {
             perform("Links andocken", confidence: confidence) { system.snapFocused(.left) }
             return true
         }
-        if dx > 0.05 {
+        if dx > 0.07 {
             perform("Rechts andocken", confidence: confidence) { system.snapFocused(.right) }
             return true
         }
-        perform("Wegwerfen", confidence: confidence) { system.throwAway(finder: focused?.isFinder == true) }
-        return true
+        return false
     }
 
     private func driveSwipe(hands: [TrackedHand], now: TimeInterval) {
@@ -558,8 +555,8 @@ final class GestureEngine {
                     let b = NSScreen.main.map { ScreenGeometry.quartzRect(fromCocoa: $0.frame) } ?? .zero
                     return system.screenshotFocused(windowID: 0, bounds: b)
                 }
-                peaceSince = now + 10
-                cooldownUntil = now + 0.9
+                peaceSince = nil
+                cooldownUntil = now + 4
             }
         } else {
             peaceSince = nil
@@ -571,8 +568,8 @@ final class GestureEngine {
             if thumbsSince == nil { thumbsSince = now }
             if now - (thumbsSince ?? now) > 0.5 {
                 perform("Hervorholen", need: .none, confidence: hand.meanConfidence) { system.unhideFront() }
-                thumbsSince = now + 10
-                cooldownUntil = now + 0.7
+                thumbsSince = nil
+                cooldownUntil = now + 3
             }
         } else {
             thumbsSince = nil
@@ -580,7 +577,7 @@ final class GestureEngine {
     }
 
     private func drivePalmMenu(hands: [TrackedHand], primary: TrackedHand, now: TimeInterval) {
-        guard hands.count == 1, primary.isOpenEnough else {
+        guard hands.count == 1, primary.openScore >= 4 else {
             palmMenuSince = nil
             return
         }
@@ -592,10 +589,10 @@ final class GestureEngine {
             }
         }
         if palmMenuSince == nil { palmMenuSince = now }
-        if now - (palmMenuSince ?? now) > 1.0 {
+        if now - (palmMenuSince ?? now) > 2.2 {
             perform("Mission Control", need: .none, confidence: primary.meanConfidence) { system.missionControl() }
-            palmMenuSince = now + 10
-            cooldownUntil = now + 0.9
+            palmMenuSince = nil
+            cooldownUntil = now + 1.4
         }
     }
 }

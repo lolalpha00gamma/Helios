@@ -6,20 +6,27 @@ enum ScreenGeometry {
         NSScreen.screens.map(\.frame).reduce(.null) { $0.union($1) }
     }
 
-    static var globalMaxY: CGFloat {
-        NSScreen.screens.map(\.frame.maxY).max() ?? 0
+    /// Cocoa-Y des oberen Rands am Hauptbildschirm (Ursprung 0,0). Nicht die Union.
+    static var primaryCocoaMaxY: CGFloat {
+        NSScreen.screens.first {
+            abs($0.frame.minX) < 0.5 && abs($0.frame.minY) < 0.5
+        }?.frame.maxY ?? NSScreen.main?.frame.maxY ?? 0
     }
 
     static func quartz(fromCocoa p: CGPoint) -> CGPoint {
-        CGPoint(x: p.x, y: globalMaxY - p.y)
+        CoordMath.quartz(fromCocoa: p, primaryMaxY: primaryCocoaMaxY)
     }
 
     static func cocoa(fromQuartz p: CGPoint) -> CGPoint {
-        CGPoint(x: p.x, y: globalMaxY - p.y)
+        CoordMath.cocoa(fromQuartz: p, primaryMaxY: primaryCocoaMaxY)
     }
 
     static func quartzRect(fromCocoa r: CGRect) -> CGRect {
-        CGRect(x: r.origin.x, y: globalMaxY - r.origin.y - r.height, width: r.width, height: r.height)
+        CoordMath.quartzRect(fromCocoa: r, primaryMaxY: primaryCocoaMaxY)
+    }
+
+    static func cocoaRect(fromQuartz r: CGRect) -> CGRect {
+        CoordMath.cocoaRect(fromQuartz: r, primaryMaxY: primaryCocoaMaxY)
     }
 
     static func local(quartz: CGPoint, on screen: CGRect) -> CGPoint {
@@ -71,15 +78,6 @@ enum ScreenGeometry {
         }
     }
 
-    static func mapNormalizedToQuartz(_ p: CGPoint) -> CGPoint {
-        let u = cocoaUnion
-        guard u.width > 1, u.height > 1 else {
-            return CGPoint(x: p.x * 1920, y: (1 - p.y) * 1080)
-        }
-        let cocoa = CGPoint(x: u.minX + p.x * u.width, y: u.minY + p.y * u.height)
-        return quartz(fromCocoa: cocoa)
-    }
-
     /// Relativ: Handbewegung → Cursor. Hand heben = neu ansetzen (Trackpad).
     static func stepCursor(from quartz: CGPoint, dPalm: CGPoint, gain: CGFloat) -> CGPoint {
         let u = cocoaUnion
@@ -116,23 +114,8 @@ enum ScreenGeometry {
         NSScreen.screens.first { contains(quartz: quartz, screen: $0.frame, pad: 4) } ?? NSScreen.main
     }
 
-    static func fromWindowList(_ r: CGRect) -> CGRect {
-        let originH = NSScreen.screens.first {
-            abs($0.frame.minX) < 0.5 && abs($0.frame.minY) < 0.5
-        }?.frame.maxY ?? NSScreen.main?.frame.maxY ?? 0
-        let cocoa = CGRect(
-            x: r.origin.x,
-            y: originH - r.origin.y - r.height,
-            width: r.width,
-            height: r.height
-        )
-        return quartzRect(fromCocoa: cocoa)
-    }
-
-    static func cocoaRect(fromQuartz r: CGRect) -> CGRect {
-        let origin = cocoa(fromQuartz: CGPoint(x: r.minX, y: r.maxY))
-        return CGRect(x: origin.x, y: origin.y - r.height, width: r.width, height: r.height)
-    }
+    /// CGWindowList liefert bereits Quartz (Ursprung oben links am Hauptbildschirm).
+    static func fromWindowList(_ r: CGRect) -> CGRect { r }
 
     static func displayID(of screen: NSScreen) -> CGDirectDisplayID {
         let key = NSDeviceDescriptionKey("NSScreenNumber")

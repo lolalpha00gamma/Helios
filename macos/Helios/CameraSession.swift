@@ -21,6 +21,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     private var lastPreview: TimeInterval = 0
     private let enhancer = FrameEnhancer()
     private let ring = GPUFrameRing()
+    private var mirroredFlag = false
+    var isMirrored: Bool { mirroredFlag }
 
     func start() {
         DispatchQueue.main.async { self.errorMessage = nil }
@@ -82,6 +84,9 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             if let conn = self.output.connection(with: .video), conn.isVideoMirroringSupported {
                 let front = device.position == .front || device.deviceType == .builtInWideAngleCamera
                 conn.isVideoMirrored = front
+                self.mirroredFlag = conn.isVideoMirrored
+            } else {
+                self.mirroredFlag = false
             }
         }, nil)
         session.commitConfiguration()

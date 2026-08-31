@@ -4,18 +4,18 @@ Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HU
 
 Privates Repo. Keine Open-Source-Lizenzdatei.
 
-Ziel: **macOS 27 Golden Gate**, **Apple Silicon M4 Pro**, **arm64**.
+Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 
 ## Start
 
 **Nur die DMG-Datei laden, nicht Source code (zip):**
 
-[Helios.dmg](https://github.com/lolalpha00gamma/Helios/releases/latest/download/Helios.dmg)
+[Helios.dmg](https://github.com/bpms9cmnxc-debug/Helios/releases/latest/download/Helios.dmg)
 
-1. Datei `Helios.dmg` doppelklicken (kein Entpacken)
-2. Helios nach **Programme** ziehen
-3. Erster Start: Rechtsklick auf Helios → **Öffnen**
-4. Rechte erlauben: Kamera, Bedienungshilfen, Eingabeüberwachung
+1. `Helios.dmg` doppelklicken (kein Entpacken)
+2. Helios nach **Programme** ziehen — nicht aus dem Image starten
+3. Erster Start (nicht notarisierte Ad-hoc-Signatur): **Systemeinstellungen → Datenschutz & Sicherheit → Trotzdem öffnen**
+4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
 
@@ -23,36 +23,35 @@ Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Da
 
 | Geste | Wirkung |
 |---|---|
-| Faust 0,8 s halten | Scharf / Idle |
-| Zeigefinger | Cursor über alle Monitore |
-| Pinzette (kurz) | Klick |
-| Pinzette + ziehen | Fenster verschieben |
-| In Papierkorb werfen | Fenster zu / Finder-Auswahl in den Papierkorb |
-| Werfen nach links/rechts | Fenster andocken |
+| Faust halten | Scharf schalten |
+| Offene Hand bewegen | Cursor (Trackpad: heben = neu ansetzen) |
+| Pinzette kurz | Klick |
+| Pinzette oder Faust + ziehen | Fenster verschieben |
+| In die Papierkorb-Ecke ziehen und loslassen | Fenster zu / Finder-Auswahl in den Papierkorb |
+| Werfen nach oben | Wegwerfen |
 | Werfen nach unten | Minimieren |
+| Werfen nach links/rechts | Andocken |
 | Pinzette + zu sich ziehen | Fenster füllen |
 | Zwei Pinzetten | Skalieren |
-| Wischen (zeigen) | App wechseln |
-| Zeigen oben / unten halten | Zoom / Minimieren |
+| Offene Hand waagerecht wischen | App wechseln |
 | Peace halten | Fensteraufnahme auf den Schreibtisch |
 | Daumen hoch | App hervorholen |
-| Eine offene Hand halten | Mission Control |
-| Beide Handflächen | Not-Aus → Idle |
+| Eine ganz offene Hand ~2 s still | Mission Control |
+| Beide Handflächen | Not-Aus → Idle (erst Faust macht wieder scharf) |
 
-**Testmodus** (Standard, ⌘T): Hände, Finger und Gelenke werden live beschriftet. Es gibt **keine** Systemaktionen. Zum Steuern Testmodus aus.
+**Testmodus** (⌘T): Erkennung anzeigen, keine Systemaktionen.
 
-Aktive App bekommt einen holografischen Umriss. HUD liegt auf jedem Monitor.
-
-Keine Stimme.
+Aktive App bekommt einen Umriss. HUD liegt auf jedem Monitor. Keine Stimme.
 
 ## Bau
 
-Xcode 27, macOS 27 SDK:
+Xcode 26/27, macOS 26 SDK:
 
 ```
 xcodebuild -project macos/Helios.xcodeproj -scheme Helios -configuration Release ARCHS=arm64
+swift macos/HeliosTests/CoordTests.swift
 ```
 
-GitHub Actions (`macos-26` + Xcode 27) legt bei jedem Push auf `main` eine signierte `Helios.dmg` als Release ab.
+GitHub Actions legt bei jedem Push auf `main` eine `Helios.dmg` als Release ab.
 
-Ad-hoc-Signatur ist Standard. Gatekeeper-sauber (Developer ID + Notar) erst mit Apple-Zertifikat in den Secrets.
+Ad-hoc-Signatur. Developer ID + Notarisierung braucht ein Apple-Zertifikat — ohne das muss der Nutzer nach jedem Update die TCC-Schalter neu setzen.

@@ -19,6 +19,7 @@ struct TrackedHand: Identifiable {
     var pinchRatio: CGFloat
     var palm: CGPoint
     var openScore: Int
+    var extended: Set<String>
 
     func point(_ name: VNHumanHandPoseObservation.JointName) -> CGPoint? {
         guard let j = joints[name], j.confidence > 0.22 else { return nil }
@@ -52,8 +53,7 @@ struct TrackedHand: Identifiable {
     var isOpenEnough: Bool { openScore >= 3 }
 
     func isExtended(_ finger: FingerKind) -> Bool {
-        let map = Dictionary(uniqueKeysWithValues: joints.map { ($0.key, $0.value.point) })
-        return GestureClassifier.isExtended(map, tip: finger.tip, pip: finger.pip, mcp: finger.mcp)
+        extended.contains(finger.rawValue)
     }
 
     func confidence(_ name: VNHumanHandPoseObservation.JointName) -> Float {
@@ -138,9 +138,15 @@ final class HandTracker: @unchecked Sendable {
             let pose = stabilize(GestureClassifier.classify(joints: smoothed, pinch: pinch), chirality: chirality)
             let openScore = GestureClassifier.openScore(joints: smoothed)
             let ratio = GestureClassifier.pinchRatio(joints: smoothed, pinch: pinch)
+            var ext: Set<String> = []
+            for f in FingerKind.allCases {
+                if GestureClassifier.isExtended(smoothed, tip: f.tip, pip: f.pip, mcp: f.mcp) {
+                    ext.insert(f.rawValue)
+                }
+            }
             hands.append(
                 TrackedHand(
-                    id: "\(chirality.rawValue)-\(idx)",
+                    id: chirality == .left ? "L" : (chirality == .right ? "R" : "U-\(idx)"),
                     chirality: chirality,
                     joints: joints,
                     displayJoints: display,
@@ -148,7 +154,8 @@ final class HandTracker: @unchecked Sendable {
                     pinchDistance: pinch,
                     pinchRatio: ratio,
                     palm: palm,
-                    openScore: openScore
+                    openScore: openScore,
+                    extended: ext
                 )
             )
         }

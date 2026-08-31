@@ -87,10 +87,8 @@ final class FrameEnhancer: @unchecked Sendable {
         defer { CVPixelBufferUnlockBaseAddress(pb, .readOnly) }
         let w = CVPixelBufferGetWidth(pb)
         let h = CVPixelBufferGetHeight(pb)
-        guard w > 8, h > 8, CVPixelBufferGetPlaneCount(pb) >= 1,
-              let base = CVPixelBufferGetBaseAddressOfPlane(pb, 0)
-        else { return 0.5 }
-        let stride = CVPixelBufferGetBytesPerRowOfPlane(pb, 0)
+        guard w > 8, h > 8, let base = CVPixelBufferGetBaseAddress(pb) else { return 0.5 }
+        let stride = CVPixelBufferGetBytesPerRow(pb)
         let ptr = base.assumingMemoryBound(to: UInt8.self)
         let stepX = max(1, w / 16)
         let stepY = max(1, h / 16)
@@ -101,13 +99,17 @@ final class FrameEnhancer: @unchecked Sendable {
             let row = ptr + y * stride
             var x = 0
             while x < w {
-                sum += UInt64(row[x])
+                let i = x * 4
+                let b = UInt64(row[i])
+                let g = UInt64(row[i + 1])
+                let r = UInt64(row[i + 2])
+                sum += 30 * r + 59 * g + 11 * b
                 n += 1
                 x += stepX
             }
             y += stepY
         }
         guard n > 0 else { return 0.5 }
-        return CGFloat(sum) / CGFloat(n * 255)
+        return CGFloat(sum) / CGFloat(n * 100 * 255)
     }
 }

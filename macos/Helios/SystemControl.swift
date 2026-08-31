@@ -3,7 +3,6 @@ import AppKit
 import CoreGraphics
 import Foundation
 import ImageIO
-import ScreenCaptureKit
 import UniformTypeIdentifiers
 
 enum SnapEdge {
@@ -24,9 +23,11 @@ final class SystemControl {
     private var dragOriginWindow: CGPoint = .zero
     private var lastClick: TimeInterval = 0
     private var lastKey: TimeInterval = 0
+    private var lastPosted: CGPoint?
 
     func moveCursor(to point: CGPoint) {
         let p = ScreenGeometry.clampQuartz(point)
+        lastPosted = p
         let src = CGEventSource(stateID: .hidSystemState)
         let e = CGEvent(mouseEventSource: src, mouseType: .mouseMoved, mouseCursorPosition: p, mouseButton: .left)
         e?.post(tap: .cghidEventTap)
@@ -37,7 +38,7 @@ final class SystemControl {
         let now = CACurrentMediaTime()
         guard now - lastClick > 0.12 else { return .fail("Klick-Pause") }
         lastClick = now
-        let loc = NSEvent.mouseLocation.screenFlipped
+        let loc = lastPosted ?? NSEvent.mouseLocation.screenFlipped
         guard postMouse(.leftMouseDown, at: loc), postMouse(.leftMouseUp, at: loc) else {
             return .fail("CGEvent Klick")
         }
@@ -46,7 +47,7 @@ final class SystemControl {
 
     @discardableResult
     func beginWindowDrag() -> ActionResult {
-        let loc = NSEvent.mouseLocation.screenFlipped
+        let loc = lastPosted ?? NSEvent.mouseLocation.screenFlipped
         guard let win = targetWindow(at: loc) else {
             if AppInstall.isFromDiskImage {
                 return .fail("Läuft aus dem DMG — nach Programme kopieren")
@@ -62,7 +63,7 @@ final class SystemControl {
 
     func updateWindowDrag() {
         guard let win = dragElement else { return }
-        let loc = NSEvent.mouseLocation.screenFlipped
+        let loc = lastPosted ?? NSEvent.mouseLocation.screenFlipped
         let dx = loc.x - dragOriginMouse.x
         let dy = loc.y - dragOriginMouse.y
         _ = setPosition(win, CGPoint(x: dragOriginWindow.x + dx, y: dragOriginWindow.y + dy))
@@ -141,15 +142,11 @@ final class SystemControl {
 
     @discardableResult
     func screenshotFocused(windowID: CGWindowID, bounds: CGRect) -> ActionResult {
-        let wid = windowID
-        let b = bounds
-        Task.detached {
-            await WindowCapture.run(windowID: wid, bounds: b)
-        }
         if windowID == 0 && bounds.width < 8 {
             return .fail("Kein Zielfenster")
         }
-        return .ok("Aufnahme")
+        let r = WindowCapture.captureSync(windowID: windowID, bounds: bounds)
+        return r
     }
 
     @discardableResult
@@ -260,7 +257,7 @@ final class SystemControl {
     }
 
     private func targetWindow(at point: CGPoint? = nil) -> AXUIElement? {
-        let loc = point ?? NSEvent.mouseLocation.screenFlipped
+        let loc = point ?? lastPosted ?? NSEvent.mouseLocation.screenFlipped
         if let win = window(at: loc), pid(of: win) != TargetProbe.selfPID {
             return win
         }
@@ -275,12 +272,13 @@ final class SystemControl {
     }
 
     private func axWindow(pid: pid_t, bounds: CGRect) -> AXUIElement? {
-        let app = AXUIElementCreateApplication(pid)
+        let app = ax(AXUIElementCreateApplication(pid))
         var ref: CFTypeRef?
         if AXUIElementCopyAttributeValue(app, "AXWindows" as CFString, &ref) == .success,
            let any = ref as? [AnyObject]
         {
             let windows = any.map { $0 as! AXUIElement }
+            // AXPosition ist Cocoa (unten links am Hauptbildschirm).
             let cocoa = ScreenGeometry.cocoaRect(fromQuartz: bounds)
             var best: AXUIElement?
             var bestArea: CGFloat = 0
@@ -305,7 +303,7 @@ final class SystemControl {
     }
 
     private func window(at point: CGPoint) -> AXUIElement? {
-        let sys = AXUIElementCreateSystemWide()
+        let sys = ax(AXUIElementCreateSystemWide())
         var ref: AXUIElement?
         let err = AXUIElementCopyElementAtPosition(sys, Float(point.x), Float(point.y), &ref)
         guard err == .success, let start = ref else { return nil }
@@ -327,6 +325,11 @@ final class SystemControl {
             current = parent.map { $0 as! AXUIElement }
         }
         return current
+    }
+
+    private func ax(_ el: AXUIElement) -> AXUIElement {
+        AXUIElementSetMessagingTimeout(el, 0.25)
+        return el
     }
 
     private func position(of el: AXUIElement) -> CGPoint? {
@@ -370,7 +373,7 @@ final class SystemControl {
 }
 
 enum WindowCapture {
-    static func run(windowID: CGWindowID, bounds: CGRect) async {
+    static func captureSync(windowID: CGWindowID, bounds: CGRect) -> ActionResult {
         let dir = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
         let fmt = DateFormatter()
@@ -384,34 +387,25 @@ enum WindowCapture {
                 try proc.run()
                 proc.waitUntilExit()
                 if proc.terminationStatus == 0, FileManager.default.fileExists(atPath: url.path) {
-                    await MainActor.run { NSWorkspace.shared.activateFileViewerSelecting([url]) }
-                    return
+                    NSWorkspace.shared.activateFileViewerSelecting([url])
+                    return .ok(url.lastPathComponent)
                 }
-            } catch {}
+            } catch {
+                return .fail("screencapture: \(error.localizedDescription)")
+            }
         }
-        do {
-            let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
-            let filter: SCContentFilter
-            if let window = content.windows.first(where: { $0.windowID == windowID }) {
-                filter = SCContentFilter(desktopIndependentWindow: window)
-            } else if let display = content.displays.first {
-                filter = SCContentFilter(display: display, excludingWindows: [])
-            } else {
-                return
-            }
-            let cfg = SCStreamConfiguration()
-            cfg.showsCursor = false
-            let scale: CGFloat = 2
-            cfg.width = max(2, Int((bounds.width > 8 ? bounds.width : 1920) * scale))
-            cfg.height = max(2, Int((bounds.height > 8 ? bounds.height : 1080) * scale))
-            let img = try await SCScreenshotManager.captureImage(contentFilter: filter, configuration: cfg)
-            guard let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else {
-                return
-            }
-            CGImageDestinationAddImage(dest, img, nil)
-            CGImageDestinationFinalize(dest)
-            await MainActor.run { NSWorkspace.shared.activateFileViewerSelecting([url]) }
-        } catch {}
+        let opt: CGWindowListOption = windowID == 0 ? .optionOnScreenOnly : .optionIncludingWindow
+        let wid = windowID == 0 ? CGWindowID(0) : windowID
+        guard let img = CGWindowListCreateImage(bounds, opt, wid, [.bestResolution, .boundsIgnoreFraming]) else {
+            return .fail("Aufnahme fehlgeschlagen")
+        }
+        guard let dest = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else {
+            return .fail("PNG schreiben")
+        }
+        CGImageDestinationAddImage(dest, img, nil)
+        guard CGImageDestinationFinalize(dest) else { return .fail("PNG schreiben") }
+        NSWorkspace.shared.activateFileViewerSelecting([url])
+        return .ok(url.lastPathComponent)
     }
 }
 

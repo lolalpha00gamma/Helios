@@ -27,7 +27,7 @@ let wrist = CGPoint(x: 0.5, y: 0.2)
 let mcp = CGPoint(x: 0.5, y: 0.35)
 
 // Faust: Spitzen nah am MCP
-let fistTip = CGPoint(x: 0.5, y: 0.38)
+let fistTip = CGPoint(x: 0.5, y: 0.33)
 ok(!isExtended(tip: fistTip, pip: CGPoint(x: 0.5, y: 0.36), mcp: mcp, wrist: wrist), "Faust nicht gestreckt")
 
 // Offen: Spitze weit vom Handgelenk

@@ -99,7 +99,7 @@ struct ControlPanel: View {
             Spacer()
             Text(state.testMode
                  ? "Testmodus: Gesten werden erkannt und beschriftet, das System bleibt unangetastet. Beide offene Hände = Not-Aus."
-                 : "Live: Faust 0,4 s hält Scharf. Testmodus aus, sonst keine Klicks. Pinzette = Klick/greifen. Beide Handflächen = Not-Aus.")
+                 : "Live: Faust 0,4 s → Scharf. Offene Hand wischen wechselt Apps (nicht der Zeigefinger). Zeigen + Pinzette steuert das Fenster unter der Hand, nicht Helios.")
                 .font(.system(size: 11))
                 .foregroundStyle(.tertiary)
         }

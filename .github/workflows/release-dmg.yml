@@ -97,6 +97,13 @@ jobs:
           codesign --force --sign - --timestamp=none Helios.dmg || true
           ls -lh Helios.dmg
 
+      - name: Upload Helios.dmg artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Helios.dmg
+          path: Helios.dmg
+          if-no-files-found: error
+
       - name: Publish Helios.dmg
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

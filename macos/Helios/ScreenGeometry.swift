@@ -106,6 +106,24 @@ enum ScreenGeometry {
         NSScreen.screens.first { contains(quartz: quartz, screen: $0.frame, pad: 4) } ?? NSScreen.main
     }
 
+    static func fromWindowList(_ r: CGRect) -> CGRect {
+        let originH = NSScreen.screens.first {
+            abs($0.frame.minX) < 0.5 && abs($0.frame.minY) < 0.5
+        }?.frame.maxY ?? NSScreen.main?.frame.maxY ?? 0
+        let cocoa = CGRect(
+            x: r.origin.x,
+            y: originH - r.origin.y - r.height,
+            width: r.width,
+            height: r.height
+        )
+        return quartzRect(fromCocoa: cocoa)
+    }
+
+    static func cocoaRect(fromQuartz r: CGRect) -> CGRect {
+        let origin = cocoa(fromQuartz: CGPoint(x: r.minX, y: r.maxY))
+        return CGRect(x: origin.x, y: origin.y - r.height, width: r.width, height: r.height)
+    }
+
     static func displayID(of screen: NSScreen) -> CGDirectDisplayID {
         let key = NSDeviceDescriptionKey("NSScreenNumber")
         return (screen.deviceDescription[key] as? CGDirectDisplayID) ?? 0

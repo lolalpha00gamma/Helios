@@ -41,7 +41,7 @@ final class GestureEngine {
     private var pinchTrail: [(t: TimeInterval, x: CGFloat, y: CGFloat)] = []
     private var pinchSpan0: CGFloat?
     private var twoPinchSince: TimeInterval?
-    private var swipeTrail: [(t: TimeInterval, x: CGFloat)] = []
+    private var swipeTrail: [(t: TimeInterval, x: CGFloat, y: CGFloat)] = []
     private var cooldownUntil: TimeInterval = 0
     private var lastArmToggle: TimeInterval = 0
     private var lastLoggedPose: String = ""
@@ -124,7 +124,7 @@ final class GestureEngine {
         drivePointer(actor)
         updateTrashHot()
         drivePinch(actor, now: now)
-        driveSwipe(primary, now: now)
+        driveSwipe(hands: hands, now: now)
         drivePointHold(primary, now: now)
         drivePeace(primary, now: now)
         driveThumbs(primary, now: now)
@@ -374,22 +374,26 @@ final class GestureEngine {
         return false
     }
 
-    private func driveSwipe(_ hand: TrackedHand, now: TimeInterval) {
-        guard hand.pose == .point, !pinchHeld else {
+    private func driveSwipe(hands: [TrackedHand], now: TimeInterval) {
+        guard !pinchHeld, hands.count == 1,
+              let hand = hands.first(where: { $0.pose == .openPalm || $0.openScore >= 3 })
+        else {
             swipeTrail.removeAll()
             return
         }
-        swipeTrail.append((now, hand.palm.x))
-        swipeTrail.removeAll { now - $0.t > 0.38 }
-        guard let first = swipeTrail.first, swipeTrail.count >= 5 else { return }
+        swipeTrail.append((now, hand.palm.x, hand.palm.y))
+        swipeTrail.removeAll { now - $0.t > 0.45 }
+        guard let first = swipeTrail.first, swipeTrail.count >= 4 else { return }
         let dx = hand.palm.x - first.x
-        if abs(dx) > 0.24 {
-            let name = dx < 0 ? "Nächste App" : "Vorherige App"
-            perform(name) { system.switchApp(forward: dx < 0) }
-            if testMode { onLog?("Test · \(name)") }
-            swipeTrail.removeAll()
-            cooldownUntil = now + 0.7
-        }
+        let dy = hand.palm.y - first.y
+        let dt = now - first.t
+        guard dt > 0.07, abs(dx) > 0.18, abs(dx) > abs(dy) * 1.1 else { return }
+        let name = dx < 0 ? "Nächste App" : "Vorherige App"
+        perform(name) { system.switchApp(forward: dx < 0) }
+        if testMode { onLog?("Test · \(name)") }
+        swipeTrail.removeAll()
+        palmMenuSince = nil
+        cooldownUntil = now + 0.55
     }
 
     private func drivePointHold(_ hand: TrackedHand, now: TimeInterval) {
@@ -453,6 +457,13 @@ final class GestureEngine {
         guard hands.count == 1, primary.isOpenEnough else {
             palmMenuSince = nil
             return
+        }
+        if let first = swipeTrail.first {
+            let moved = hypot(primary.palm.x - first.x, primary.palm.y - first.y)
+            if moved > 0.08 {
+                palmMenuSince = nil
+                return
+            }
         }
         if palmMenuSince == nil { palmMenuSince = now }
         if now - (palmMenuSince ?? now) > 0.95 {

@@ -46,10 +46,12 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         session.beginConfiguration()
         session.inputs.forEach { session.removeInput($0) }
         session.outputs.forEach { session.removeOutput($0) }
-        if session.canSetSessionPreset(.inputPriority) {
-            session.sessionPreset = .inputPriority
+        if session.canSetSessionPreset(.hd1920x1080) {
+            session.sessionPreset = .hd1920x1080
         } else if session.canSetSessionPreset(.hd1280x720) {
             session.sessionPreset = .hd1280x720
+        } else if session.canSetSessionPreset(.high) {
+            session.sessionPreset = .high
         }
 
         guard let device = preferredDevice() else {

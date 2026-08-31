@@ -39,8 +39,7 @@ final class SystemControl {
 
     func beginWindowDrag() {
         let loc = NSEvent.mouseLocation.screenFlipped
-        let win = window(at: loc) ?? focusedWindow()
-        guard let win, let pos = position(of: win) else { return }
+        guard let win = targetWindow(at: loc), let pos = position(of: win) else { return }
         dragElement = win
         dragOriginMouse = loc
         dragOriginWindow = pos
@@ -61,8 +60,7 @@ final class SystemControl {
     var isDragging: Bool { dragElement != nil }
 
     func resizeFocused(scale: CGFloat) {
-        guard let win = focusedWindow() ?? window(at: NSEvent.mouseLocation.screenFlipped) else { return }
-        guard let size = size(of: win), let pos = position(of: win) else { return }
+        guard let win = targetWindow(), let size = size(of: win), let pos = position(of: win) else { return }
         let s = max(0.85, min(1.18, scale))
         let nw = max(280, size.width * s)
         let nh = max(180, size.height * s)
@@ -73,22 +71,22 @@ final class SystemControl {
     }
 
     func zoomFocused() {
-        guard let win = focusedWindow() ?? window(at: NSEvent.mouseLocation.screenFlipped) else { return }
+        guard let win = targetWindow() else { return }
         pressButton(win, "AXZoomButton" as CFString)
     }
 
     func minimizeFocused() {
-        guard let win = focusedWindow() ?? window(at: NSEvent.mouseLocation.screenFlipped) else { return }
+        guard let win = targetWindow() else { return }
         pressButton(win, "AXMinimizeButton" as CFString)
     }
 
     func closeFocused() {
-        guard let win = focusedWindow() ?? window(at: NSEvent.mouseLocation.screenFlipped) else { return }
+        guard let win = targetWindow() else { return }
         pressButton(win, "AXCloseButton" as CFString)
     }
 
     func snapFocused(_ edge: SnapEdge) {
-        guard let win = focusedWindow() ?? window(at: NSEvent.mouseLocation.screenFlipped) else { return }
+        guard let win = targetWindow() else { return }
         let loc = NSEvent.mouseLocation.screenFlipped
         let screen = ScreenGeometry.screenContaining(quartz: loc) ?? NSScreen.main
         guard let screen else { return }
@@ -128,8 +126,16 @@ final class SystemControl {
     }
 
     func unhideFront() {
-        NSWorkspace.shared.frontmostApplication?.unhide()
-        NSWorkspace.shared.frontmostApplication?.activate()
+        if let t = TargetProbe.windowUnderCursor(skipSelf: true),
+           let app = NSRunningApplication(processIdentifier: t.pid)
+        {
+            app.unhide()
+            app.activate()
+            return
+        }
+        NSWorkspace.shared.runningApplications
+            .first { $0.processIdentifier != TargetProbe.selfPID && !$0.isHidden }
+            .map { $0.activate() }
     }
 
     func switchApp(forward: Bool) {
@@ -179,25 +185,57 @@ final class SystemControl {
         e?.post(tap: .cghidEventTap)
     }
 
+    private func targetWindow(at point: CGPoint? = nil) -> AXUIElement? {
+        let loc = point ?? NSEvent.mouseLocation.screenFlipped
+        if let win = window(at: loc), pid(of: win) != TargetProbe.selfPID {
+            return win
+        }
+        guard let t = TargetProbe.windowUnderCursor(skipSelf: true) else { return nil }
+        return axWindow(pid: t.pid, bounds: t.quartzBounds)
+    }
+
+    private func pid(of el: AXUIElement) -> pid_t {
+        var pid: pid_t = 0
+        AXUIElementGetPid(el, &pid)
+        return pid
+    }
+
+    private func axWindow(pid: pid_t, bounds: CGRect) -> AXUIElement? {
+        let app = AXUIElementCreateApplication(pid)
+        var ref: CFTypeRef?
+        if AXUIElementCopyAttributeValue(app, "AXWindows" as CFString, &ref) == .success,
+           let any = ref as? [AnyObject]
+        {
+            let windows = any.map { $0 as! AXUIElement }
+            let cocoa = ScreenGeometry.cocoaRect(fromQuartz: bounds)
+            var best: AXUIElement?
+            var bestArea: CGFloat = 0
+            for w in windows {
+                guard let pos = position(of: w), let size = size(of: w) else { continue }
+                let r = CGRect(origin: pos, size: size)
+                let inter = r.intersection(cocoa)
+                let area = inter.width * inter.height
+                if area > bestArea, area > 40 {
+                    bestArea = area
+                    best = w
+                }
+            }
+            if let best { return best }
+            return windows.first
+        }
+        var focused: CFTypeRef?
+        if AXUIElementCopyAttributeValue(app, "AXFocusedWindow" as CFString, &focused) == .success {
+            return focused.map { $0 as! AXUIElement }
+        }
+        return nil
+    }
+
     private func window(at point: CGPoint) -> AXUIElement? {
         let sys = AXUIElementCreateSystemWide()
         var ref: AXUIElement?
         let err = AXUIElementCopyElementAtPosition(sys, Float(point.x), Float(point.y), &ref)
         guard err == .success, let start = ref else { return nil }
         return ancestorWindow(start)
-    }
-
-    private func focusedWindow() -> AXUIElement? {
-        let sys = AXUIElementCreateSystemWide()
-        var app: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(sys, "AXFocusedApplication" as CFString, &app) == .success,
-              let appEl = app
-        else { return nil }
-        var win: CFTypeRef?
-        guard AXUIElementCopyAttributeValue(appEl as! AXUIElement, "AXFocusedWindow" as CFString, &win) == .success else {
-            return nil
-        }
-        return (win as! AXUIElement)
     }
 
     private func ancestorWindow(_ el: AXUIElement) -> AXUIElement? {

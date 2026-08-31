@@ -174,6 +174,7 @@ struct HUDView: View {
                 .foregroundStyle(HeliosTheme.cyan)
             Text("Faust halten     Scharf / Idle")
             Text("Zeigen           Cursor")
+            Text("Offene Hand wischen  App wechseln")
             Text("Pinzette         Klick / greifen")
             Text("Werfen           Papierkorb / zu")
             Text("Werfen L/R       Andocken")

@@ -21,7 +21,6 @@ enum CoordMath {
     }
 
     static func cocoaRect(fromQuartz r: CGRect, primaryMaxY: CGFloat) -> CGRect {
-        let origin = cocoa(fromQuartz: CGPoint(x: r.minX, y: r.maxY), primaryMaxY: primaryMaxY)
-        return CGRect(x: origin.x, y: origin.y - r.height, width: r.width, height: r.height)
+        quartzRect(fromCocoa: r, primaryMaxY: primaryMaxY)
     }
 }

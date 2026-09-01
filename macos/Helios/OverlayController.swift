@@ -18,11 +18,15 @@ final class OverlayController {
     private var panels: [CGDirectDisplayID: NSPanel] = [:]
     private var hostings: [CGDirectDisplayID: NSHostingView<HUDRoot>] = [:]
     private weak var state: AppState?
+    private var screenObs: NSObjectProtocol?
+    private var attached = false
 
     func attach(state: AppState) {
         self.state = state
         rebuild()
-        NotificationCenter.default.addObserver(
+        guard !attached else { return }
+        attached = true
+        screenObs = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,
             queue: .main

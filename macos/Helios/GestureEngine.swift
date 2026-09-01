@@ -45,6 +45,7 @@ final class GestureEngine {
     private var pinchSpan0: CGFloat?
     private var twoPinchSince: TimeInterval?
     private var swipeTrail: [(t: TimeInterval, x: CGFloat, y: CGFloat)] = []
+    private var swipeHandID: String?
     private var cooldownUntil: TimeInterval = 0
     private var lastArmToggle: TimeInterval = 0
     private var lastLoggedPose: String = ""
@@ -71,6 +72,7 @@ final class GestureEngine {
         pinchBecameDrag = false
         twoPinchSince = nil
         swipeTrail.removeAll()
+        swipeHandID = nil
         pinchTrail.removeAll()
         system.endWindowDrag()
         cursor = nil
@@ -96,6 +98,7 @@ final class GestureEngine {
             lastPalmSeen = 0
             pinchTrail.removeAll()
             swipeTrail.removeAll()
+            swipeHandID = nil
             if system.isDragging { system.endWindowDrag() }
             pinchHeld = false
             pinchBecameDrag = false
@@ -371,12 +374,13 @@ final class GestureEngine {
         if twoPinchSince == nil { twoPinchSince = now }
         guard now - (twoPinchSince ?? now) >= 0.12 else { return false }
         let span = hypot(pinches[0].palm.x - pinches[1].palm.x, pinches[0].palm.y - pinches[1].palm.y)
-        if let old = twoHandSpan, abs(span - old) > 0.010 {
+        if let old = twoHandSpan, abs(span - old) > 0.010, now >= cooldownUntil {
             let conf = pinches.map(\.meanConfidence).min() ?? 0
             perform("Skalieren", confidence: conf) {
                 system.resizeFocused(scale: span > old ? 1.05 : 0.95)
             }
             twoHandSpan = span
+            cooldownUntil = now + 0.12
             return true
         }
         twoHandSpan = span
@@ -491,11 +495,11 @@ final class GestureEngine {
         let dist = hypot(dx, dy)
         guard speed > 0.38 && dist > 0.08 else { return false }
         onLog?("Werfen erkannt", .recognized, Int(confidence * 100))
-        if abs(dy) >= abs(dx) && dy < -0.05 {
+        if abs(dy) >= abs(dx) && dy > 0.08 {
             perform("Wegwerfen", confidence: confidence) { system.throwAway(finder: focused?.isFinder == true) }
             return true
         }
-        if abs(dy) >= abs(dx) && dy > 0.08 {
+        if abs(dy) >= abs(dx) && dy < -0.05 {
             perform("Minimieren", confidence: confidence) { system.minimizeFocused() }
             return true
         }
@@ -513,6 +517,7 @@ final class GestureEngine {
     private func driveSwipe(hands: [TrackedHand], now: TimeInterval) {
         guard !pinchHeld else {
             swipeTrail.removeAll()
+            swipeHandID = nil
             return
         }
         let open = hands.filter { $0.pose == .openPalm || $0.openScore >= 2 }
@@ -520,7 +525,12 @@ final class GestureEngine {
             ?? (now < swipeGraceUntil ? hands.first : nil)
         guard let hand else {
             swipeTrail.removeAll()
+            swipeHandID = nil
             return
+        }
+        if swipeHandID != hand.id {
+            swipeTrail.removeAll()
+            swipeHandID = hand.id
         }
         swipeGraceUntil = now + 0.32
         swipeTrail.append((now, hand.palm.x, hand.palm.y))
@@ -535,6 +545,7 @@ final class GestureEngine {
         let name = forward ? "Nächste App" : "Vorherige App"
         perform(name, need: .none, confidence: hand.meanConfidence) { system.switchApp(forward: forward) }
         swipeTrail.removeAll()
+        swipeHandID = nil
         cooldownUntil = now + 0.4
     }
 

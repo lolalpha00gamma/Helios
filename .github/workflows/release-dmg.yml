@@ -54,8 +54,10 @@ jobs:
 
       - name: Coord tests
         run: |
-          swift macos/HeliosTests/CoordTests.swift
-          swift macos/HeliosTests/GestureTests.swift
+          swiftc macos/Helios/CoordMath.swift macos/HeliosTests/CoordTests.swift -o /tmp/coordtests
+          /tmp/coordtests
+          swiftc -framework Vision macos/Helios/GestureClassifier.swift macos/HeliosTests/GestureTests.swift -o /tmp/gesturetests
+          /tmp/gesturetests
 
       - name: Build Helios.app
         run: |

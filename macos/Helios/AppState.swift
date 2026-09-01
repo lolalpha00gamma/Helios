@@ -19,7 +19,6 @@ final class AppState: ObservableObject {
     private let tracker = HandTracker()
 
     @Published var hands: [TrackedHand] = []
-    @Published var displayHands: [TrackedHand] = []
     @Published var mode: EngineMode = .idle
     @Published var lastAction = "—"
     @Published var fps: Double = 0
@@ -52,11 +51,14 @@ final class AppState: ObservableObject {
     @Published var cursorHand = "—"
     @Published var pointerGain: Double = 1.6
     private var lastPanel: TimeInterval = 0
+    private var didStart = false
 
     private var cancellables: Set<AnyCancellable> = []
     private var focusTick = 0
 
     func start() {
+        if didStart { return }
+        didStart = true
         overlay.attach(state: self)
         engine.onLog = { [weak self] text, kind, conf in
             self?.log.record(text, kind: kind, confidence: conf)
@@ -72,6 +74,7 @@ final class AppState: ObservableObject {
         $showCheats.sink { Prefs.showCheats = $0 }.store(in: &cancellables)
         $showOutline.sink { Prefs.showOutline = $0 }.store(in: &cancellables)
         $showTrashZone.sink { Prefs.showTrashZone = $0 }.store(in: &cancellables)
+        $showPreviewChip.sink { Prefs.showPreviewChip = $0 }.store(in: &cancellables)
         camera.objectWillChange
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
@@ -162,7 +165,6 @@ final class AppState: ObservableObject {
         tracker.reset()
         cameraRunning = false
         hands = []
-        displayHands = []
         log.record("Kamera gestoppt.")
     }
 
@@ -210,6 +212,7 @@ final class AppState: ObservableObject {
         showCheats = Prefs.showCheats
         showOutline = Prefs.showOutline
         showTrashZone = Prefs.showTrashZone
+        showPreviewChip = Prefs.showPreviewChip
         engine.leftHanded = leftHanded
         engine.pointerGain = CGFloat(pointerGain)
         engine.protocolMode = protocolMode
@@ -256,7 +259,6 @@ final class AppState: ObservableObject {
         if now - lastPanel >= 0.07 {
             lastPanel = now
             self.hands = hands
-            self.displayHands = hands
             if let preview { self.preview = preview }
         }
         if protocolMode {
@@ -315,5 +317,9 @@ enum Prefs {
     static var showTrashZone: Bool {
         get { UserDefaults.standard.object(forKey: "helios.trash") as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "helios.trash") }
+    }
+    static var showPreviewChip: Bool {
+        get { UserDefaults.standard.object(forKey: "helios.preview") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.preview") }
     }
 }

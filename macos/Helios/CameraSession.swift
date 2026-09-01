@@ -248,6 +248,7 @@ private final class FramePump: @unchecked Sendable {
     private var latest: (CVPixelBuffer, TimeInterval, Int)?
     private var scheduled = false
     private var cancelled = false
+    private var dropFn: ((Int) -> Void)?
 
     func push(
         _ pb: CVPixelBuffer,
@@ -265,6 +266,7 @@ private final class FramePump: @unchecked Sendable {
         }
         if let prev = latest { dropped = prev.2 }
         latest = (pb, arrived, slot)
+        dropFn = drop
         let need = !scheduled
         if need { scheduled = true }
         lock.unlock()
@@ -277,17 +279,23 @@ private final class FramePump: @unchecked Sendable {
     func cancel() {
         lock.lock()
         cancelled = true
+        let slot = latest?.2
         latest = nil
         scheduled = false
+        let drop = dropFn
         lock.unlock()
+        if let slot { drop?(slot) }
     }
 
     func reset() {
         lock.lock()
         cancelled = false
+        let slot = latest?.2
         latest = nil
         scheduled = false
+        let drop = dropFn
         lock.unlock()
+        if let slot { drop?(slot) }
     }
 
     private func drain(_ process: @escaping (CVPixelBuffer, TimeInterval, Int) -> Void) {
@@ -295,7 +303,11 @@ private final class FramePump: @unchecked Sendable {
             lock.lock()
             if cancelled {
                 scheduled = false
+                let slot = latest?.2
+                latest = nil
+                let drop = dropFn
                 lock.unlock()
+                if let slot { drop?(slot) }
                 return
             }
             let item = latest

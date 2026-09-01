@@ -191,7 +191,8 @@ struct HUDView: View {
             Text("Faust halten     Scharf")
             Text("Handfläche       Ziehen (heben = neu ansetzen)")
             Text("Pinzette / Faust Greifen · Klick")
-            Text("Werfen           Papierkorb / zu")
+            Text("Werfen oben      Wegwerfen")
+            Text("Werfen unten     Minimieren")
             Text("Offene Hand wischen  App wechseln")
             Text("Werfen L/R       Andocken")
             Text("Zwei Pinzetten   Skalieren")
@@ -209,7 +210,7 @@ struct HUDView: View {
     private var cameraChip: some View {
         CameraPreview(
             image: state.preview,
-            hands: state.displayHands,
+            hands: state.hands,
             showLabels: state.showJointLabels,
             compact: true
         )

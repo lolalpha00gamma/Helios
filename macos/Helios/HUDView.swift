@@ -175,9 +175,13 @@ struct HUDView: View {
                     .foregroundStyle(HeliosTheme.void)
                     .background(HeliosTheme.cyan)
             } else if state.fromDiskImage {
-                Text("NACH PROGRAMME KOPIEREN")
+                Text("CURSOR FREI — NACH PROGRAMME ZIEHEN")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(HeliosTheme.danger)
+                    .foregroundStyle(HeliosTheme.amber)
+            } else if state.mousePaused {
+                Text("MAUS HAT VORRANG")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(HeliosTheme.amber)
             } else if state.mode == .armed && state.engineCursor == nil {
                 Text("MAUS FREI — HAND IN DIE KAMERA")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))

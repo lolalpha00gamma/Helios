@@ -95,7 +95,7 @@ struct ControlPanel: View {
                             .font(.system(size: 10, design: .monospaced))
                             .textSelection(.enabled)
                     } else if state.fromDiskImage {
-                        Text("Du startest nicht aus Programme. Die Schalter in den Systemeinstellungen gelten dann nicht für diese Datei.")
+                        Text("Cursor-Steuerung ist aus, damit du Helios.app mit der Maus nach Programme ziehen kannst. Starte danach nur die Kopie in Programme.")
                             .font(.system(size: 11))
                             .foregroundStyle(HeliosTheme.amber)
                         Button("Nach Programme kopieren und öffnen") {

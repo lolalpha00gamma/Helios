@@ -32,6 +32,7 @@ final class GestureEngine {
     var killFlash = false
     var dragging = false
     var cursorHand: String = "—"
+    var mousePaused = false
 
     private var fistSince: TimeInterval?
     private var fistLostAt: TimeInterval?
@@ -114,6 +115,25 @@ final class GestureEngine {
             return
         }
         lastHandSeen = now
+        mousePaused = !system.allowsInjection
+
+        if system.fromInstallMedia {
+            lastAction = "Cursor frei — Helios nach Programme ziehen"
+            mode = .idle
+            if let cal = calibration, cal.active { cal.cancel() }
+            releasePointer()
+            if system.isDragging { system.endWindowDrag() }
+            return
+        }
+
+        if mousePaused {
+            if system.isDragging { system.endWindowDrag() }
+            pinchHeld = false
+            pinchBecameDrag = false
+            lastAction = "Maus hat Vorrang"
+            releasePointer()
+            return
+        }
 
         if let cal = calibration, cal.active {
             let actor = preferred(hands)
@@ -200,6 +220,10 @@ final class GestureEngine {
         mustRearm = false
         lastAction = "Scharf"
         onLog?(testMode ? "Scharf (Test)" : "Manuell Scharf", .info, nil)
+    }
+
+    func startInputClutch() {
+        system.startClutch()
     }
 
     func recenterPointer() {

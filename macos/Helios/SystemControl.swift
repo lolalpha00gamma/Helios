@@ -23,11 +23,73 @@ final class SystemControl {
     private var lastClick: TimeInterval = 0
     private var lastKey: TimeInterval = 0
     private var lastPosted: CGPoint?
+    private var lastPostAt: TimeInterval = 0
+    private var pauseUntil: TimeInterval = 0
+    private var monitors: [Any] = []
+    private(set) var mouseHasControl = false
     private let axQ = DispatchQueue(label: "helios.ax", qos: .userInteractive)
 
+    var fromInstallMedia: Bool {
+        AppInstall.isFromDiskImage || AppInstall.isTranslocated
+    }
+
+    var allowsInjection: Bool {
+        if fromInstallMedia { return false }
+        if CACurrentMediaTime() < pauseUntil {
+            mouseHasControl = true
+            return false
+        }
+        mouseHasControl = false
+        return true
+    }
+
+    func startClutch() {
+        guard monitors.isEmpty else { return }
+        let mask: NSEvent.EventTypeMask = [
+            .mouseMoved, .leftMouseDragged, .leftMouseDown, .leftMouseUp, .rightMouseDown
+        ]
+        let note: (NSEvent) -> Void = { [weak self] e in
+            Task { @MainActor in self?.noteHardware(e) }
+        }
+        if let g = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: note) {
+            monitors.append(g)
+        }
+        if let l = NSEvent.addLocalMonitorForEvents(matching: mask, handler: { e in
+            note(e)
+            return e
+        }) {
+            monitors.append(l)
+        }
+    }
+
+    private func noteHardware(_ e: NSEvent) {
+        let now = CACurrentMediaTime()
+        if e.type == .leftMouseDragged || e.type == .leftMouseDown || e.type == .leftMouseUp {
+            if now - lastPostAt > 0.045 {
+                seize(now)
+            }
+            return
+        }
+        let loc = ScreenGeometry.quartz(fromCocoa: NSEvent.mouseLocation)
+        if let posted = lastPosted, now - lastPostAt < 0.05, hypot(loc.x - posted.x, loc.y - posted.y) < 14 {
+            return
+        }
+        if now - lastPostAt > 0.07 {
+            seize(now)
+        }
+    }
+
+    private func seize(_ now: TimeInterval) {
+        pauseUntil = now + 2.6
+        mouseHasControl = true
+        endWindowDrag()
+    }
+
     func moveCursor(to point: CGPoint) {
+        guard allowsInjection else { return }
         let p = ScreenGeometry.clampQuartz(point)
         lastPosted = p
+        lastPostAt = CACurrentMediaTime()
         let src = CGEventSource(stateID: .hidSystemState)
         let e = CGEvent(mouseEventSource: src, mouseType: .mouseMoved, mouseCursorPosition: p, mouseButton: .left)
         e?.post(tap: .cghidEventTap)
@@ -38,6 +100,7 @@ final class SystemControl {
         let now = CACurrentMediaTime()
         guard now - lastClick > 0.12 else { return .fail("Klick-Pause") }
         lastClick = now
+        guard allowsInjection else { return .fail("Maus hat Vorrang") }
         let loc = lastPosted ?? NSEvent.mouseLocation.screenFlipped
         guard postMouse(.leftMouseDown, at: loc), postMouse(.leftMouseUp, at: loc) else {
             return .fail("CGEvent Klick")
@@ -47,6 +110,7 @@ final class SystemControl {
 
     @discardableResult
     func beginWindowDrag(at quartz: CGPoint? = nil) -> ActionResult {
+        guard allowsInjection else { return .fail("Maus hat Vorrang — Steuerung pausiert") }
         let loc = quartz ?? lastPosted ?? NSEvent.mouseLocation.screenFlipped
         guard let win = targetWindow(at: loc) else {
             if AppInstall.needsCopy {
@@ -63,6 +127,10 @@ final class SystemControl {
     }
 
     func updateWindowDrag(to quartz: CGPoint? = nil) {
+        guard allowsInjection else {
+            endWindowDrag()
+            return
+        }
         guard let win = dragElement else { return }
         let loc = quartz ?? lastPosted ?? NSEvent.mouseLocation.screenFlipped
         lastPosted = loc

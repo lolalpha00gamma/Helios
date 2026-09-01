@@ -55,6 +55,7 @@ final class AppState: ObservableObject {
     @Published var calibHold: CGFloat = 0
     @Published var calibCursorGap: CGFloat = 0
     @Published var mapReady = false
+    @Published var mousePaused = false
     let calibSession = CalibrationSession()
     private var lastPanel: TimeInterval = 0
     private var didStart = false
@@ -66,6 +67,7 @@ final class AppState: ObservableObject {
         if didStart { return }
         didStart = true
         overlay.attach(state: self)
+        engine.startInputClutch()
         engine.calibration = calibSession
         engine.spaceMap = SpaceMap.load()
         mapReady = engine.spaceMap?.isReady == true
@@ -294,6 +296,7 @@ final class AppState: ObservableObject {
         calibHold = calibSession.progress
         calibCursorGap = calibSession.cursorGap
         mapReady = engine.spaceMap?.isReady == true
+        mousePaused = engine.mousePaused
         if now - lastPanel >= 0.07 {
             lastPanel = now
             self.hands = hands

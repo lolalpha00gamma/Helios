@@ -50,6 +50,12 @@ final class AppState: ObservableObject {
     @Published var installPath = "—"
     @Published var cursorHand = "—"
     @Published var pointerGain: Double = 1.6
+    @Published var calibActive = false
+    @Published var calibCorner = ""
+    @Published var calibHold: CGFloat = 0
+    @Published var calibCursorGap: CGFloat = 0
+    @Published var mapReady = false
+    let calibSession = CalibrationSession()
     private var lastPanel: TimeInterval = 0
     private var didStart = false
 
@@ -60,6 +66,9 @@ final class AppState: ObservableObject {
         if didStart { return }
         didStart = true
         overlay.attach(state: self)
+        engine.calibration = calibSession
+        engine.spaceMap = SpaceMap.load()
+        mapReady = engine.spaceMap?.isReady == true
         engine.onLog = { [weak self] text, kind, conf in
             self?.log.record(text, kind: kind, confidence: conf)
             self?.objectWillChange.send()
@@ -118,7 +127,7 @@ final class AppState: ObservableObject {
     }
 
     func pollFocus() {
-        focused = FocusTracker.poll()
+        focused = engine.cursor.flatMap { TargetProbe.windowAt(quartz: $0) } ?? FocusTracker.poll()
         engine.focused = focused
         trashHot = engine.trashHot
         killFlash = engine.killFlash
@@ -219,6 +228,30 @@ final class AppState: ObservableObject {
         engine.testMode = testMode
     }
 
+    func startCalibration() {
+        hudVisible = true
+        overlayVisible()
+        calibSession.start()
+        engine.calibration = calibSession
+        log.record("Kalibrierung: Ecke oben links", kind: .info)
+    }
+
+    func cancelCalibration() {
+        calibSession.cancel()
+        log.record("Kalibrierung abgebrochen", kind: .info)
+    }
+
+    func clearCalibration() {
+        SpaceMap.clear()
+        engine.spaceMap = nil
+        mapReady = false
+        log.record("Kalibrierung gelöscht — Relativ-Zeiger", kind: .info)
+    }
+
+    private func overlayVisible() {
+        hudVisible = true
+    }
+
     func exportSession() {
         recorder.export(log: log)
         log.record("Sitzung exportiert", kind: .info)
@@ -256,6 +289,11 @@ final class AppState: ObservableObject {
         cursorHand = engine.cursorHand
         trashHot = engine.trashHot
         killFlash = engine.killFlash
+        calibActive = calibSession.active
+        calibCorner = calibSession.corner.titleDE
+        calibHold = calibSession.progress
+        calibCursorGap = calibSession.cursorGap
+        mapReady = engine.spaceMap?.isReady == true
         if now - lastPanel >= 0.07 {
             lastPanel = now
             self.hands = hands

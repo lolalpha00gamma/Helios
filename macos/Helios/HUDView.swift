@@ -36,6 +36,10 @@ struct HUDView: View {
                     .position(x: local.x, y: local.y)
                 }
 
+                if state.calibActive {
+                    calibOverlay
+                }
+
                 trashZone
 
                 if isPrimary {
@@ -55,6 +59,48 @@ struct HUDView: View {
             .frame(width: geo.size.width, height: geo.size.height)
         }
         .allowsHitTesting(false)
+    }
+
+    private var calibOverlay: some View {
+        let target = state.calibSession.targetQuartz()
+        let localRaw = ScreenGeometry.local(quartz: target, on: screenFrame)
+        let local = CGPoint(
+            x: min(max(localRaw.x, 70), screenFrame.width - 70),
+            y: min(max(localRaw.y, 70), screenFrame.height - 70)
+        )
+        let onScreen = ScreenGeometry.contains(quartz: target, screen: screenFrame, pad: 40)
+        return ZStack {
+            HeliosTheme.void.opacity(0.28)
+            if onScreen {
+                CornerMark()
+                    .stroke(HeliosTheme.cyan, lineWidth: 5)
+                    .frame(width: 110, height: 110)
+                    .position(x: local.x, y: local.y)
+                Circle()
+                    .trim(from: 0, to: max(0.02, state.calibHold))
+                    .stroke(HeliosTheme.amber, style: StrokeStyle(lineWidth: 7, lineCap: .round))
+                    .frame(width: 86, height: 86)
+                    .rotationEffect(.degrees(-90))
+                    .position(x: local.x, y: local.y)
+            }
+            if isPrimary {
+                VStack(spacing: 8) {
+                    Text("KALIBRIERUNG")
+                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        .foregroundStyle(HeliosTheme.amber)
+                    Text("Ecke \(state.calibCorner)")
+                        .font(.system(size: 22, weight: .bold, design: .monospaced))
+                        .foregroundStyle(HeliosTheme.cyan)
+                    Text("Hand ruhig halten oder Pinzette. Cursor-Abstand zur Ecke: \(Int(state.calibCursorGap)) px")
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.85))
+                }
+                .padding(16)
+                .background(HeliosTheme.void.opacity(0.72))
+                .padding(.top, 72)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+            }
+        }
     }
 
     private func windowOutline(_ target: FocusedTarget) -> some View {
@@ -189,7 +235,7 @@ struct HUDView: View {
                 .font(HeliosTheme.mono)
                 .foregroundStyle(HeliosTheme.cyan)
             Text("Faust halten     Scharf")
-            Text("Handfläche       Ziehen (heben = neu ansetzen)")
+            Text("Pinzette halten  Fenster unter der Hand ziehen")
             Text("Pinzette / Faust Greifen · Klick")
             Text("Werfen oben      Wegwerfen")
             Text("Werfen unten     Minimieren")
@@ -251,5 +297,25 @@ struct Reticle: View {
             }
         }
         .shadow(color: (armed ? HeliosTheme.amber : HeliosTheme.cyan).opacity(0.85), radius: 10)
+    }
+}
+
+struct CornerMark: Shape {
+    func path(in rect: CGRect) -> Path {
+        var p = Path()
+        let l: CGFloat = min(rect.width, rect.height)
+        p.move(to: CGPoint(x: 0, y: l * 0.45))
+        p.addLine(to: CGPoint(x: 0, y: 0))
+        p.addLine(to: CGPoint(x: l * 0.45, y: 0))
+        p.move(to: CGPoint(x: l * 0.55, y: 0))
+        p.addLine(to: CGPoint(x: l, y: 0))
+        p.addLine(to: CGPoint(x: l, y: l * 0.45))
+        p.move(to: CGPoint(x: l, y: l * 0.55))
+        p.addLine(to: CGPoint(x: l, y: l))
+        p.addLine(to: CGPoint(x: l * 0.55, y: l))
+        p.move(to: CGPoint(x: l * 0.45, y: l))
+        p.addLine(to: CGPoint(x: 0, y: l))
+        p.addLine(to: CGPoint(x: 0, y: l * 0.55))
+        return p
     }
 }

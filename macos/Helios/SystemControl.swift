@@ -19,8 +19,7 @@ struct ActionResult {
 @MainActor
 final class SystemControl {
     private var dragElement: AXUIElement?
-    private var dragOriginMouse: CGPoint = .zero
-    private var dragOriginWindow: CGPoint = .zero
+    private var dragGrabOffset: CGPoint = .zero
     private var lastClick: TimeInterval = 0
     private var lastKey: TimeInterval = 0
     private var lastPosted: CGPoint?
@@ -47,8 +46,8 @@ final class SystemControl {
     }
 
     @discardableResult
-    func beginWindowDrag() -> ActionResult {
-        let loc = lastPosted ?? NSEvent.mouseLocation.screenFlipped
+    func beginWindowDrag(at quartz: CGPoint? = nil) -> ActionResult {
+        let loc = quartz ?? lastPosted ?? NSEvent.mouseLocation.screenFlipped
         guard let win = targetWindow(at: loc) else {
             if AppInstall.needsCopy {
                 return .fail("Läuft nicht aus Programme")
@@ -57,17 +56,18 @@ final class SystemControl {
         }
         guard let pos = position(of: win) else { return .fail("AXPosition") }
         dragElement = win
-        dragOriginMouse = loc
-        dragOriginWindow = pos
+        let cocoa = ScreenGeometry.cocoa(fromQuartz: loc)
+        dragGrabOffset = CGPoint(x: cocoa.x - pos.x, y: cocoa.y - pos.y)
+        lastPosted = loc
         return .ok("Greifen")
     }
 
-    func updateWindowDrag() {
+    func updateWindowDrag(to quartz: CGPoint? = nil) {
         guard let win = dragElement else { return }
-        let loc = lastPosted ?? NSEvent.mouseLocation.screenFlipped
-        let dx = loc.x - dragOriginMouse.x
-        let dy = loc.y - dragOriginMouse.y
-        let dest = CGPoint(x: dragOriginWindow.x + dx, y: dragOriginWindow.y + dy)
+        let loc = quartz ?? lastPosted ?? NSEvent.mouseLocation.screenFlipped
+        lastPosted = loc
+        let cocoa = ScreenGeometry.cocoa(fromQuartz: loc)
+        let dest = CGPoint(x: cocoa.x - dragGrabOffset.x, y: cocoa.y - dragGrabOffset.y)
         let captured = win
         axQ.async {
             _ = SystemControl.setPositionRaw(captured, dest)

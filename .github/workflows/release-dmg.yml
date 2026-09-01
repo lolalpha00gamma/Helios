@@ -58,6 +58,8 @@ jobs:
           /tmp/coordtests
           swiftc -framework Vision macos/Helios/GestureClassifier.swift macos/HeliosTests/GestureTests.swift -o /tmp/gesturetests
           /tmp/gesturetests
+          swiftc -framework AppKit macos/Helios/CoordMath.swift macos/Helios/ScreenGeometry.swift macos/Helios/SpaceMap.swift macos/HeliosTests/SpaceMapTests.swift -o /tmp/spacemaptests
+          /tmp/spacemaptests
 
       - name: Build Helios.app
         run: |

@@ -158,6 +158,30 @@ struct ControlPanel: View {
                 }
             }
 
+            GroupBox("Kalibrierung") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text(state.mapReady ? "Ecken gespeichert — Handfläche = Bildschirm." : "Noch nicht kalibriert — Zeiger relativ.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(state.mapReady ? HeliosTheme.cyan : .secondary)
+                    if state.calibActive {
+                        Text("Jetzt: \(state.calibCorner). Hand ruhig oder Pinzette.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(HeliosTheme.amber)
+                        Button("Abbrechen") { state.cancelCalibration() }
+                    } else {
+                        Button("Vier Ecken kalibrieren") { state.startCalibration() }
+                            .buttonStyle(.borderedProminent)
+                    }
+                    if state.mapReady {
+                        Button("Kalibrierung löschen") { state.clearCalibration() }
+                            .buttonStyle(.borderless)
+                    }
+                    Text("Je Ecke die Hand dorthin halten, wo für dich die Bildschirmecke ist. Der Cursor wird mit der Ecke verglichen. Danach greifst du Fenster dort, wo sie liegen — ohne zum Rand zu navigieren.")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
             GroupBox("Erkennung") {
                 LabeledContent("Hände", value: "\(state.hands.count)")
                 LabeledContent("Aktion", value: state.lastAction)

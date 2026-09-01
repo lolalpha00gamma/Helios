@@ -26,7 +26,11 @@ enum TargetProbe {
     }
 
     static func windowUnderCursor(skipSelf: Bool = true) -> FocusedTarget? {
-        let p = cursorInWindowList()
+        windowAt(quartz: cursorInWindowList(), skipSelf: skipSelf)
+    }
+
+    static func windowAt(quartz: CGPoint, skipSelf: Bool = true) -> FocusedTarget? {
+        let p = quartz
         guard let list = CGWindowListCopyWindowInfo(
             [.optionOnScreenOnly, .excludeDesktopElements],
             kCGNullWindowID

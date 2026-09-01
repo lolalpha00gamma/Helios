@@ -26,6 +26,8 @@ final class GestureEngine {
     var protocolMode = true
     var leftHanded = true
     var pointerGain: CGFloat = 1.6
+    var spaceMap: SpaceMap?
+    var calibration: CalibrationSession?
     var trashHot = false
     var killFlash = false
     var dragging = false
@@ -113,6 +115,25 @@ final class GestureEngine {
         }
         lastHandSeen = now
 
+        if let cal = calibration, cal.active {
+            let actor = preferred(hands)
+            let confirm = actor.pose == .pinch
+            if let done = cal.feed(palm: actor.palm, now: now, confirm: confirm) {
+                spaceMap = done
+                lastAction = "Kalibrierung fertig"
+                onLog?("Kalibrierung · 4 Ecken", .executed, 100)
+            } else {
+                lastAction = "Kalibrierung \(cal.corner.titleDE)"
+            }
+            let mapped = (spaceMap ?? SpaceMap(palms: [])).isReady
+                ? (spaceMap?.apply(actor.palm) ?? SpaceMap.linear(actor.palm))
+                : SpaceMap.linear(actor.palm)
+            cursor = mapped
+            cursorHand = actor.sideDE
+            if !testMode { system.moveCursor(to: mapped) }
+            return
+        }
+
         let primary = preferred(hands)
         let live = mode == .armed || testMode
         if !live {
@@ -154,7 +175,7 @@ final class GestureEngine {
         let freezePointer = pinchHeld && !pinchBecameDrag
         if !freezePointer {
             placeCursor(actor)
-            if !testMode, cursorDidMove, actor.pose != .fist, let p = cursor {
+            if !testMode, !system.isDragging, cursorDidMove, actor.pose != .fist, let p = cursor {
                 system.moveCursor(to: p)
             }
         }
@@ -326,6 +347,22 @@ final class GestureEngine {
     }
 
     private func actorMapped(_ hand: TrackedHand) -> CGPoint {
+        if let map = spaceMap, map.isReady {
+            cursorDidMove = true
+            let q = map.apply(hand.palm)
+            if pointerHandID != hand.id {
+                pointerHandID = hand.id
+                lastPalm = hand.palm
+                cursorSmooth = q
+                return q
+            }
+            lastPalm = hand.palm
+            let from = cursorSmooth ?? q
+            let a: CGFloat = 0.55
+            let s = CGPoint(x: a * q.x + (1 - a) * from.x, y: a * q.y + (1 - a) * from.y)
+            cursorSmooth = s
+            return s
+        }
         cursorDidMove = false
         let palm = hand.palm
         if pointerHandID != hand.id {
@@ -419,7 +456,8 @@ final class GestureEngine {
                 if moved > 0.025 { pinchBecameDrag = true }
             }
             if pinchBecameDrag, !system.isDragging, !testMode {
-                let r = system.beginWindowDrag()
+                let at = cursor ?? SpaceMap.linear(hand.palm)
+                let r = system.beginWindowDrag(at: at)
                 if r.ok {
                     lastAction = "Greifen"
                     onLog?("Greifen · \(r.detail)", .executed, Int(hand.meanConfidence * 100))
@@ -432,7 +470,8 @@ final class GestureEngine {
                 }
             }
             if !testMode, system.isDragging {
-                system.updateWindowDrag()
+                let at = cursor ?? SpaceMap.linear(hand.palm)
+                system.updateWindowDrag(to: at)
                 lastAction = trashHot ? "Papierkorb" : "Ziehen"
             } else if testMode, pinchBecameDrag {
                 lastAction = trashHot ? "Test: Papierkorb" : "Test: Ziehen"

@@ -87,14 +87,13 @@ struct ControlPanel: View {
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundStyle(state.fromDiskImage ? HeliosTheme.danger : .secondary)
                         .textSelection(.enabled)
-                    if AppInstall.shouldOpenInstalled {
-                        Text("macOS hat eine Quarantäne-Kopie gestartet. Die Rechte gelten nur für /Applications/Helios.app.")
+                    if AppInstall.isTranslocated && AppInstall.originalIsInApplications {
+                        Text("macOS startet eine Quarantäne-Kopie. Rechte gelten erst nach Entfernen der Quarantäne. Helios versucht das selbst; sonst im Terminal:")
                             .font(.system(size: 11))
                             .foregroundStyle(HeliosTheme.amber)
-                        Button("Kopie in Programme öffnen") {
-                            AppInstall.installAndRelaunch()
-                        }
-                        .buttonStyle(.borderedProminent)
+                        Text("xattr -dr com.apple.quarantine /Applications/Helios.app")
+                            .font(.system(size: 10, design: .monospaced))
+                            .textSelection(.enabled)
                     } else if state.fromDiskImage {
                         Text("Du startest nicht aus Programme. Die Schalter in den Systemeinstellungen gelten dann nicht für diese Datei.")
                             .font(.system(size: 11))

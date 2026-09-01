@@ -1,14 +1,8 @@
 import AppKit
 import Darwin
 import Foundation
-import QuartzCore
 
 enum AppInstall {
-    private final class Gate: @unchecked Sendable {
-        var lastOffer: TimeInterval = 0
-    }
-    private static let gate = Gate()
-
     static var bundleURL: URL {
         Bundle.main.bundleURL.resolvingSymlinksInPath()
     }
@@ -23,125 +17,114 @@ enum AppInstall {
         FileManager.default.fileExists(atPath: installedURL.path)
     }
 
-    /// Läuft wirklich aus /Applications oder ~/Applications, nicht transloziert.
+    static var originalURL: URL {
+        translocatedOriginal(of: Bundle.main.bundleURL) ?? bundleURL
+    }
+
+    static var isTranslocated: Bool {
+        secIsTranslocated(Bundle.main.bundleURL) || bundlePath.contains("AppTranslocation")
+    }
+
+    static var isFromDiskImage: Bool {
+        let p = originalURL.path
+        return p.hasPrefix("/Volumes/") || p.contains("/.Trash/")
+    }
+
     static var isInstalledCopy: Bool {
+        if isTranslocated { return false }
         let p = bundlePath
-        if p.contains("AppTranslocation") { return false }
         if p.hasPrefix("/Volumes/") || p.contains("/.Trash/") { return false }
         return p.hasPrefix("/Applications/") || p.contains("/Applications/Helios.app")
     }
 
-    static var isTranslocated: Bool {
-        bundlePath.contains("AppTranslocation")
+    static var originalIsInApplications: Bool {
+        let p = originalURL.path
+        return p.hasPrefix("/Applications/") || p.contains("/Applications/Helios.app")
     }
 
-    static var isFromDiskImage: Bool {
-        bundlePath.hasPrefix("/Volumes/") || bundlePath.contains("/.Trash/")
-    }
-
-    /// Dialog/Kopieren nur, wenn es noch keine echte Kopie in Programme gibt.
+    /// Nur echtes DMG/Papierkorb — nicht Quarantäne einer schon installierten App.
     static var needsCopy: Bool {
-        if isInstalledCopy { return false }
-        if isTranslocated && installedExists { return false }
-        return isFromDiskImage || !isInstalledCopy
+        isFromDiskImage && !originalIsInApplications
     }
 
-    /// Quarantäne-Kopie, Original liegt schon in Programme.
-    static var shouldOpenInstalled: Bool {
-        !isInstalledCopy && installedExists && (isTranslocated || isFromDiskImage)
-    }
+    static var shouldOpenInstalled: Bool { false }
 
     static var locationHint: String {
-        if isInstalledCopy { return "Programme (\(bundlePath))" }
-        if isTranslocated && installedExists {
-            return "Quarantäne-Kopie — Original in Programme"
+        if isTranslocated {
+            return "Quarantäne → \(originalURL.path)"
         }
-        if isFromDiskImage { return "DMG — Rechte greifen hier nicht" }
+        if isFromDiskImage { return "DMG \(originalURL.path)" }
+        if isInstalledCopy { return "Programme" }
         return bundlePath
+    }
+
+    /// Kein Dialog. Quarantäne runter, bei Translokation einmal die Originaldatei öffnen.
+    @MainActor
+    static func settleIfNeeded() {
+        stripQuarantine(bundleURL)
+        stripQuarantine(originalURL)
+        if installedExists { stripQuarantine(installedURL) }
+
+        if !isTranslocated {
+            UserDefaults.standard.set(false, forKey: "helios.didRelaunchUnquarantine")
+            return
+        }
+        guard originalIsInApplications || installedExists else { return }
+        let dest = originalIsInApplications ? originalURL : installedURL
+        let key = "helios.didRelaunchUnquarantine"
+        if UserDefaults.standard.bool(forKey: key) { return }
+        UserDefaults.standard.set(true, forKey: key)
+        let cfg = NSWorkspace.OpenConfiguration()
+        cfg.activates = true
+        NSWorkspace.shared.openApplication(at: dest, configuration: cfg) { _, _ in
+            DispatchQueue.main.async { NSApp.terminate(nil) }
+        }
     }
 
     @MainActor
     static func installAndRelaunch() {
-        let now = CACurrentMediaTime()
-        if now - gate.lastOffer < 8 { return }
-        gate.lastOffer = now
-
-        if isInstalledCopy {
+        if !needsCopy {
+            settleIfNeeded()
             return
         }
-
-        if shouldOpenInstalled {
-            openInstalled(reason: """
-            Helios liegt schon in Programme. macOS hat eine Quarantäne-Kopie gestartet — die Rechte gelten nur für die Datei in Programme.
-
-            Ich öffne /Applications/Helios.app und beende diese Kopie.
-            """)
-            return
-        }
-
         let alert = NSAlert()
         alert.messageText = "Nach Programme kopieren"
-        alert.informativeText = """
-        Diese Sitzung läuft nicht aus Programme (\(bundlePath)).
-
-        Helios wird nach /Applications kopiert. Danach Bedienungshilfen und Eingabeüberwachung einmal aus- und wieder einschalten.
-        """
+        alert.informativeText = "Diese Sitzung läuft aus \(originalURL.path). Helios wird nach /Applications kopiert."
         alert.addButton(withTitle: "Kopieren und öffnen")
         alert.addButton(withTitle: "Abbrechen")
         NSApp.activate()
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         do {
             try copyToApplications()
-            openInstalled(reason: nil)
+            UserDefaults.standard.set(false, forKey: "helios.didRelaunchUnquarantine")
+            let cfg = NSWorkspace.OpenConfiguration()
+            cfg.activates = true
+            NSWorkspace.shared.openApplication(at: installedURL, configuration: cfg) { _, _ in
+                DispatchQueue.main.async { NSApp.terminate(nil) }
+            }
         } catch {
             let a = NSAlert()
             a.alertStyle = .warning
             a.messageText = "Kopieren nicht möglich"
             a.informativeText = """
-            \(error.localizedDescription)
+            Helios nicht überschreiben, wenn es schon in Programme liegt.
 
-            Wenn Helios schon unter Programme liegt: diese Meldung ignorieren und /Applications/Helios.app per Doppelklick starten (nicht die Datei aus dem DMG).
+            Im Terminal:
+            xattr -dr com.apple.quarantine /Applications/Helios.app
 
-            Sonst Helios.app selbst nach Programme ziehen.
+            Danach nur Programme → Helios starten.
             """
-            a.addButton(withTitle: "Programme öffnen")
             a.addButton(withTitle: "OK")
             NSApp.activate()
-            if a.runModal() == .alertFirstButtonReturn {
-                NSWorkspace.shared.open(URL(fileURLWithPath: "/Applications"))
-            }
-        }
-    }
-
-    @MainActor
-    private static func openInstalled(reason: String?) {
-        if let reason {
-            let a = NSAlert()
-            a.messageText = "Installierte Kopie öffnen"
-            a.informativeText = reason
-            a.addButton(withTitle: "Öffnen")
-            NSApp.activate()
-            _ = a.runModal()
-        }
-        stripQuarantine(installedURL)
-        let cfg = NSWorkspace.OpenConfiguration()
-        cfg.activates = true
-        NSWorkspace.shared.openApplication(at: installedURL, configuration: cfg) { _, err in
-            DispatchQueue.main.async {
-                if err != nil {
-                    NSWorkspace.shared.open(URL(fileURLWithPath: "/Applications"))
-                }
-                NSApp.terminate(nil)
-            }
+            a.runModal()
         }
     }
 
     private static func copyToApplications() throws {
         let fm = FileManager.default
         let dest = installedURL
-        let src = bundleURL
         let staging = fm.temporaryDirectory.appendingPathComponent("Helios-\(UUID().uuidString).app")
-        try fm.copyItem(at: src, to: staging)
+        try fm.copyItem(at: originalURL, to: staging)
         stripQuarantine(staging)
         if fm.fileExists(atPath: dest.path) {
             try fm.trashItem(at: dest, resultingItemURL: nil)
@@ -153,7 +136,7 @@ enum AppInstall {
     private static func stripQuarantine(_ url: URL) {
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: "/usr/bin/xattr")
-        proc.arguments = ["-dr", "com.apple.quarantine", url.path]
+        proc.arguments = ["-cr", url.path]
         proc.standardOutput = FileHandle.nullDevice
         proc.standardError = FileHandle.nullDevice
         do {
@@ -164,5 +147,35 @@ enum AppInstall {
             guard let path else { return }
             _ = removexattr(path, "com.apple.quarantine", 0)
         }
+    }
+
+    private static func secHandle() -> UnsafeMutableRawPointer? {
+        dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_NOW)
+    }
+
+    private static func secIsTranslocated(_ url: URL) -> Bool {
+        guard let handle = secHandle(),
+              let raw = dlsym(handle, "SecTranslocateIsTranslocatedURL")
+        else { return url.path.contains("AppTranslocation") }
+        typealias Fn = @convention(c) (
+            CFURL,
+            UnsafeMutablePointer<Bool>?,
+            UnsafeMutablePointer<Unmanaged<CFError>?>?
+        ) -> DarwinBoolean
+        let fn = unsafeBitCast(raw, to: Fn.self)
+        var flag = false
+        _ = fn(url as CFURL, &flag, nil)
+        return flag
+    }
+
+    private static func translocatedOriginal(of url: URL) -> URL? {
+        guard let handle = secHandle(),
+              let raw = dlsym(handle, "SecTranslocateCreateOriginalPathForURL")
+        else { return nil }
+        typealias Fn = @convention(c) (CFURL, UnsafeMutablePointer<Unmanaged<CFError>?>?) -> Unmanaged<CFURL>?
+        let fn = unsafeBitCast(raw, to: Fn.self)
+        var err: Unmanaged<CFError>?
+        guard let result = fn(url as CFURL, &err) else { return nil }
+        return result.takeRetainedValue() as URL
     }
 }

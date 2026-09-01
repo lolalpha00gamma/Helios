@@ -128,10 +128,6 @@ struct HUDView: View {
                     .padding(.vertical, 4)
                     .foregroundStyle(HeliosTheme.void)
                     .background(HeliosTheme.cyan)
-            } else if AppInstall.shouldOpenInstalled {
-                Text("QUARANTÄNE — IN PROGRAMME ÖFFNEN")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(HeliosTheme.danger)
             } else if state.fromDiskImage {
                 Text("NACH PROGRAMME KOPIEREN")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))

@@ -72,10 +72,7 @@ enum Permissions {
     @MainActor
     static func bootstrap() async {
         _ = await requestCamera()
-        if AppInstall.shouldOpenInstalled || AppInstall.needsCopy {
-            AppInstall.installAndRelaunch()
-            return
-        }
+        AppInstall.settleIfNeeded()
         if !accessibilityGranted() {
             promptAccessibility()
         }

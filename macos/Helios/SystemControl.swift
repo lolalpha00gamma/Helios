@@ -50,8 +50,8 @@ final class SystemControl {
     func beginWindowDrag() -> ActionResult {
         let loc = lastPosted ?? NSEvent.mouseLocation.screenFlipped
         guard let win = targetWindow(at: loc) else {
-            if AppInstall.isFromDiskImage {
-                return .fail("Läuft aus dem DMG — nach Programme kopieren")
+            if AppInstall.needsCopy {
+                return .fail("Läuft nicht aus Programme")
             }
             return .fail("Kein Fenster unter der Hand")
         }

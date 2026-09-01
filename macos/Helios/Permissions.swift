@@ -72,7 +72,7 @@ enum Permissions {
     @MainActor
     static func bootstrap() async {
         _ = await requestCamera()
-        if AppInstall.isFromDiskImage || !AppInstall.isInApplications {
+        if AppInstall.shouldOpenInstalled || AppInstall.needsCopy {
             AppInstall.installAndRelaunch()
             return
         }

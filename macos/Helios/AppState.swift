@@ -112,7 +112,7 @@ final class AppState: ObservableObject {
         cameraOK = Permissions.cameraGranted()
         accessOK = Permissions.accessibilityGranted()
         inputOK = Permissions.inputMonitoringGranted()
-        fromDiskImage = AppInstall.isFromDiskImage || !AppInstall.isInApplications
+        fromDiskImage = AppInstall.needsCopy || AppInstall.shouldOpenInstalled
         installPath = AppInstall.locationHint
         screenCount = NSScreen.screens.count
     }

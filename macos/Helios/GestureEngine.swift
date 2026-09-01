@@ -216,10 +216,6 @@ final class GestureEngine {
         }
         lastAction = "\(name) fehlgeschlagen"
         onLog?("\(name) — NICHT AUSGEFÜHRT: \(r.detail)", .failed, conf)
-        if AppInstall.isFromDiskImage {
-            AppInstall.installAndRelaunch()
-            return
-        }
         if need == .ax, r.detail.localizedCaseInsensitiveContains("Bedienung") {
             Permissions.demand(.accessibility)
         } else if need == .input {
@@ -430,9 +426,7 @@ final class GestureEngine {
                 } else {
                     lastAction = "Greifen fehlgeschlagen"
                     onLog?("Greifen — NICHT AUSGEFÜHRT: \(r.detail)", .failed, Int(hand.meanConfidence * 100))
-                    if AppInstall.isFromDiskImage {
-                        AppInstall.installAndRelaunch()
-                    } else if r.detail.contains("Bedienung") || !AXIsProcessTrusted() {
+                    if r.detail.contains("Bedienung") || !AXIsProcessTrusted() {
                         Permissions.demand(.accessibility)
                     }
                 }

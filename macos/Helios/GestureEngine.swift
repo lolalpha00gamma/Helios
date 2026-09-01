@@ -46,6 +46,8 @@ final class GestureEngine {
     private var pinchBeganAt: TimeInterval = 0
     private var pinchTrail: [(t: TimeInterval, x: CGFloat, y: CGFloat)] = []
     private var pinchSpan0: CGFloat?
+    private var grabLogged = false
+    private var lastGrabTry: TimeInterval = 0
     private var twoPinchSince: TimeInterval?
     private var swipeTrail: [(t: TimeInterval, x: CGFloat, y: CGFloat)] = []
     private var swipeHandID: String?
@@ -115,7 +117,7 @@ final class GestureEngine {
             return
         }
         lastHandSeen = now
-        mousePaused = !system.allowsInjection
+        mousePaused = !system.allowsInjection && !system.fromInstallMedia
 
         if system.fromInstallMedia {
             lastAction = "Cursor frei — Helios nach Programme ziehen"
@@ -127,12 +129,7 @@ final class GestureEngine {
         }
 
         if mousePaused {
-            if system.isDragging { system.endWindowDrag() }
-            pinchHeld = false
-            pinchBecameDrag = false
             lastAction = "Maus hat Vorrang"
-            releasePointer()
-            return
         }
 
         if let cal = calibration, cal.active {
@@ -142,6 +139,9 @@ final class GestureEngine {
                 spaceMap = done
                 lastAction = "Kalibrierung fertig"
                 onLog?("Kalibrierung · 4 Ecken", .executed, 100)
+                pinchHeld = false
+                pinchBecameDrag = false
+                cooldownUntil = now + 1.1
             } else {
                 lastAction = "Kalibrierung \(cal.corner.titleDE)"
             }
@@ -429,15 +429,15 @@ final class GestureEngine {
             return false
         }
         if twoPinchSince == nil { twoPinchSince = now }
-        guard now - (twoPinchSince ?? now) >= 0.12 else { return false }
+        guard now - (twoPinchSince ?? now) >= 0.35 else { return false }
         let span = hypot(pinches[0].palm.x - pinches[1].palm.x, pinches[0].palm.y - pinches[1].palm.y)
-        if let old = twoHandSpan, abs(span - old) > 0.010, now >= cooldownUntil {
+        if let old = twoHandSpan, abs(span - old) > 0.04, now >= cooldownUntil {
             let conf = pinches.map(\.meanConfidence).min() ?? 0
             perform("Skalieren", confidence: conf) {
                 system.resizeFocused(scale: span > old ? 1.05 : 0.95)
             }
             twoHandSpan = span
-            cooldownUntil = now + 0.12
+            cooldownUntil = now + 0.28
             return true
         }
         twoHandSpan = span
@@ -471,6 +471,7 @@ final class GestureEngine {
                 (hand.point(.middleTip) ?? hand.palm).x - hand.palm.x,
                 (hand.point(.middleTip) ?? hand.palm).y - hand.palm.y
             )
+            grabLogged = false
             lastAction = testMode ? "Test: Halten" : "Halten"
         } else if isGrab && pinchHeld {
             pinchTrail.append((now, hand.palm.x, hand.palm.y))
@@ -479,13 +480,16 @@ final class GestureEngine {
                 let moved = hypot(hand.palm.x - first.x, hand.palm.y - first.y)
                 if moved > 0.025 { pinchBecameDrag = true }
             }
-            if pinchBecameDrag, !system.isDragging, !testMode {
+            if pinchBecameDrag, !system.isDragging, !testMode, now - lastGrabTry > 0.35 {
+                lastGrabTry = now
                 let at = cursor ?? SpaceMap.linear(hand.palm)
                 let r = system.beginWindowDrag(at: at)
                 if r.ok {
                     lastAction = "Greifen"
                     onLog?("Greifen · \(r.detail)", .executed, Int(hand.meanConfidence * 100))
-                } else {
+                    grabLogged = true
+                } else if !grabLogged {
+                    grabLogged = true
                     lastAction = "Greifen fehlgeschlagen"
                     onLog?("Greifen — NICHT AUSGEFÜHRT: \(r.detail)", .failed, Int(hand.meanConfidence * 100))
                     if r.detail.contains("Bedienung") || !AXIsProcessTrusted() {
@@ -504,7 +508,7 @@ final class GestureEngine {
                 (hand.point(.middleTip) ?? hand.palm).x - hand.palm.x,
                 (hand.point(.middleTip) ?? hand.palm).y - hand.palm.y
             )
-            if let s0 = pinchSpan0, span > s0 + 0.09 {
+            if let s0 = pinchSpan0, !system.isDragging, span > s0 + 0.20 {
                 perform("Heranziehen", confidence: hand.meanConfidence) { system.snapFocused(.fill) }
                 pinchSpan0 = span
                 cooldownUntil = now + 0.5
@@ -517,6 +521,7 @@ final class GestureEngine {
             pinchBecameDrag = false
             pinchTrail.removeAll()
             pinchSpan0 = nil
+            grabLogged = false
             trashHot = false
             if !testMode { system.endWindowDrag() }
             if flung {

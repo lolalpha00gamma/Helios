@@ -139,8 +139,10 @@ final class CalibrationSession {
     private(set) var samples: [CalibCorner: CGPoint] = [:]
     private var lastPalm: CGPoint?
     private var lastT: TimeInterval = 0
+    var lastCapture: TimeInterval = 0
+    var rejected = false
 
-    var progress: CGFloat { hold / 0.7 }
+    var progress: CGFloat { min(1, hold / 1.05) }
     var remaining: Int { 4 - samples.count }
 
     func start() {
@@ -149,6 +151,9 @@ final class CalibrationSession {
         hold = 0
         samples.removeAll()
         lastPalm = nil
+        lastCapture = 0
+        rejected = false
+        lastT = 0
     }
 
     func cancel() {
@@ -170,27 +175,53 @@ final class CalibrationSession {
         let target = targetQuartz()
         let cursor = ScreenGeometry.quartz(fromCocoa: NSEvent.mouseLocation)
         cursorGap = hypot(cursor.x - target.x, cursor.y - target.y)
-        if moved < 0.014 {
+        if moved < 0.012 {
             hold += CGFloat(dt)
         } else {
             hold = 0
         }
-        if (confirm && hold >= 0.2) || hold >= 0.7 {
-            samples[corner] = palm
+        let gap = now - lastCapture
+        let pinchOK = confirm && hold >= 0.55 && gap > 0.8
+        let dwellOK = hold >= 1.05 && gap > 0.8
+        guard pinchOK || dwellOK else { return nil }
+        if let prev = samples[CalibCorner(rawValue: max(0, corner.rawValue - 1)) ?? .topLeft],
+           hypot(palm.x - prev.x, palm.y - prev.y) < 0.10,
+           corner != .topLeft
+        {
             hold = 0
-            lastPalm = nil
-            if let next = CalibCorner(rawValue: corner.rawValue + 1) {
-                corner = next
-            } else {
-                let ordered: [CalibCorner] = [.topLeft, .topRight, .bottomRight, .bottomLeft]
-                let palms = ordered.compactMap { samples[$0] }.map(XY.init)
-                guard palms.count == 4 else { return nil }
-                let map = SpaceMap(palms: palms)
-                map.save()
-                active = false
-                return map
-            }
+            rejected = true
+            return nil
         }
-        return nil
+        rejected = false
+        samples[corner] = palm
+        hold = 0
+        lastPalm = nil
+        lastCapture = now
+        if let next = CalibCorner(rawValue: corner.rawValue + 1) {
+            corner = next
+            return nil
+        }
+        let ordered: [CalibCorner] = [.topLeft, .topRight, .bottomRight, .bottomLeft]
+        let pts = ordered.compactMap { samples[$0] }
+        guard pts.count == 4, Self.quadArea(pts) >= 0.018 else {
+            samples.removeAll()
+            corner = .topLeft
+            rejected = true
+            return nil
+        }
+        let map = SpaceMap(palms: pts.map(XY.init))
+        map.save()
+        active = false
+        return map
+    }
+
+    private static func quadArea(_ p: [CGPoint]) -> CGFloat {
+        guard p.count == 4 else { return 0 }
+        var a: CGFloat = 0
+        for i in 0..<4 {
+            let j = (i + 1) % 4
+            a += p[i].x * p[j].y - p[j].x * p[i].y
+        }
+        return abs(a) / 2
     }
 }

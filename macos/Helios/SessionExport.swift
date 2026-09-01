@@ -66,7 +66,7 @@ final class SessionRecorder {
         if frames.count > maxFrames {
             frames.removeFirst(frames.count - maxFrames)
         }
-        if now - lastThumbAt >= 0.55 {
+        if now - lastThumbAt >= 0.40, !snaps.isEmpty {
             lastThumbAt = now
             thumbs.append((snaps, now - t0))
             if thumbs.count > maxThumbs {
@@ -135,11 +135,19 @@ final class SessionRecorder {
     }
 
     func filmstrip() -> NSImage {
-        let cell = CGSize(width: 320, height: 180)
+        let src: [(hands: [HandSnap], t: Double)] = {
+            if !thumbs.isEmpty { return thumbs }
+            let picked = frames.filter { !$0.hands.isEmpty }
+            guard !picked.isEmpty else { return [] }
+            let step = max(1, picked.count / maxThumbs)
+            return picked.enumerated().compactMap { i, f in
+                i % step == 0 ? (f.hands, f.t) : nil
+            }.suffix(maxThumbs).map { $0 }
+        }()
         let cols = 4
-        let rows = max(1, (thumbs.count + cols - 1) / cols)
-        let size = CGSize(width: cell.width * CGFloat(cols), height: cell.height * CGFloat(max(rows, 1)))
-        let src = thumbs.isEmpty ? [] : thumbs
+        let rows = max(1, (max(src.count, 1) + cols - 1) / cols)
+        let cell = CGSize(width: 320, height: 180)
+        let size = CGSize(width: cell.width * CGFloat(cols), height: cell.height * CGFloat(rows))
         return NSImage(size: size, flipped: false) { rect in
             NSColor(white: 0.05, alpha: 1).setFill()
             rect.fill()
@@ -259,7 +267,7 @@ enum GestureDraw {
         box.fill()
         guard let ctx = NSGraphicsContext.current?.cgContext else { return }
         ctx.saveGState()
-        ctx.setLineWidth(1.8)
+        ctx.setLineWidth(3.2)
         ctx.setLineJoin(.round)
         ctx.setLineCap(.round)
         for hand in hands {
@@ -282,7 +290,7 @@ enum GestureDraw {
             }
             for (_, j) in hand.joints where j.c > 0.18 {
                 let p = vis(j, fitted)
-                ctx.fillEllipse(in: CGRect(x: p.x - 2.4, y: p.y - 2.4, width: 4.8, height: 4.8))
+                ctx.fillEllipse(in: CGRect(x: p.x - 3.2, y: p.y - 3.2, width: 6.4, height: 6.4))
             }
         }
         ctx.restoreGState()

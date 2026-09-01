@@ -25,6 +25,32 @@ enum TargetProbe {
         return CGPoint(x: cocoa.x, y: originH - cocoa.y)
     }
 
+    static func frontmost(skipSelf: Bool = true) -> FocusedTarget? {
+        guard let list = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements],
+            kCGNullWindowID
+        ) as? [[String: Any]] else { return nil }
+        for item in list {
+            let pid = (item[kCGWindowOwnerPID as String] as? pid_t) ?? 0
+            if skipSelf, pid == selfPID { continue }
+            if pid == 0 { continue }
+            let layer = item[kCGWindowLayer as String] as? Int ?? 0
+            guard layer == 0 else { continue }
+            guard let dict = item[kCGWindowBounds as String] as? [String: CGFloat] else { continue }
+            let r = CGRect(
+                x: dict["X"] ?? 0,
+                y: dict["Y"] ?? 0,
+                width: dict["Width"] ?? 0,
+                height: dict["Height"] ?? 0
+            )
+            guard r.width > 80, r.height > 40 else { continue }
+            let app = NSRunningApplication(processIdentifier: pid)
+            guard app?.activationPolicy == .regular else { continue }
+            return makeTarget(pid: pid, item: item, bounds: r)
+        }
+        return nil
+    }
+
     static func windowUnderCursor(skipSelf: Bool = true) -> FocusedTarget? {
         windowAt(quartz: cursorInWindowList(), skipSelf: skipSelf)
     }

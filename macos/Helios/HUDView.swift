@@ -91,7 +91,7 @@ struct HUDView: View {
                     Text("Ecke \(state.calibCorner)")
                         .font(.system(size: 22, weight: .bold, design: .monospaced))
                         .foregroundStyle(HeliosTheme.cyan)
-                    Text("Hand ruhig halten oder Pinzette. Cursor-Abstand zur Ecke: \(Int(state.calibCursorGap)) px")
+                    Text("Hand ruhig halten (~1 s) oder Pinzette. Cursor-Abstand: \(Int(state.calibCursorGap)) px")
                         .font(.system(size: 12, design: .monospaced))
                         .foregroundStyle(.white.opacity(0.85))
                 }

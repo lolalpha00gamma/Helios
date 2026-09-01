@@ -36,9 +36,9 @@ enum GestureTests {
             .littleMCP: CGPoint(x: 0.58, y: mcpY),
             .littlePIP: CGPoint(x: 0.59, y: pipY),
             .littleTip: CGPoint(x: 0.60, y: tipsY),
-            .thumbMP: CGPoint(x: 0.42, y: mcpY),
-            .thumbIP: CGPoint(x: 0.40, y: thumbUp ? wrist.y + 0.28 : mcpY + 0.02),
-            .thumbTip: CGPoint(x: 0.38, y: thumbUp ? wrist.y + 0.40 : mcpY + 0.03)
+            .thumbMP: CGPoint(x: 0.44, y: mcpY),
+            .thumbIP: CGPoint(x: 0.45, y: mcpY + 0.01),
+            .thumbTip: CGPoint(x: 0.46, y: thumbUp ? wrist.y + 0.40 : mcpY - 0.02)
         ]
     }
 

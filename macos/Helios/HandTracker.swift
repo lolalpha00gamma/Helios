@@ -65,6 +65,7 @@ final class HandTracker: @unchecked Sendable {
     private let request: VNDetectHumanHandPoseRequest = {
         let r = VNDetectHumanHandPoseRequest()
         r.maximumHandCount = 2
+        r.usesCPUOnly = false
         MetalHub.bindVision(r)
         return r
     }()

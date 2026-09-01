@@ -20,30 +20,6 @@ struct HUDView: View {
                     windowOutline(target)
                 }
 
-                if let c = state.engineCursor,
-                   ScreenGeometry.contains(quartz: c, screen: screenFrame)
-                {
-                    let local = ScreenGeometry.local(quartz: c, on: screenFrame)
-                    HandBeacon(
-                        phase: state.grabPhase,
-                        hand: state.cursorHand,
-                        target: state.grabTargetName,
-                        local: local
-                    )
-                    .position(x: local.x, y: local.y)
-
-                    if state.grabPhase == .grab, let target = state.focused,
-                       ScreenGeometry.intersects(quartz: target.quartzBounds, screen: screenFrame)
-                    {
-                        let wr = ScreenGeometry.localRect(quartz: target.quartzBounds, on: screenFrame)
-                        Path { p in
-                            p.move(to: local)
-                            p.addLine(to: CGPoint(x: wr.midX, y: wr.midY))
-                        }
-                        .stroke(HeliosTheme.amber, style: StrokeStyle(lineWidth: 2.5, dash: [7, 5]))
-                    }
-                }
-
                 if state.calibActive {
                     calibOverlay
                 }

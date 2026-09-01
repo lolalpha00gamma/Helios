@@ -411,7 +411,7 @@ final class GestureEngine {
             }
             lastPalm = hand.palm
             let from = cursorSmooth ?? q
-            let a: CGFloat = 0.55
+            let a: CGFloat = 0.86
             let s = CGPoint(x: a * q.x + (1 - a) * from.x, y: a * q.y + (1 - a) * from.y)
             cursorSmooth = s
             return s
@@ -429,7 +429,7 @@ final class GestureEngine {
         lastPalm = palm
         var dx = palm.x - prevPalm.x
         var dy = palm.y - prevPalm.y
-        let dead: CGFloat = 0.006
+        let dead: CGFloat = 0.003
         if abs(dx) < dead { dx = 0 }
         if abs(dy) < dead { dy = 0 }
         if dx == 0 && dy == 0 {
@@ -438,7 +438,7 @@ final class GestureEngine {
         cursorDidMove = true
         let from = cursorSmooth ?? ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
         let stepped = ScreenGeometry.stepCursor(from: from, dPalm: CGPoint(x: dx, y: dy), gain: pointerGain)
-        let a: CGFloat = 0.62
+        let a: CGFloat = 0.8
         let s = CGPoint(x: a * stepped.x + (1 - a) * from.x, y: a * stepped.y + (1 - a) * from.y)
         cursorSmooth = s
         return s

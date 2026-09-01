@@ -153,20 +153,23 @@ final class AppState: ObservableObject {
         }
         let tracker = self.tracker
         let cam = self.camera
-        camera.onFrame = { [weak self] vision, preview, luma, arrived in
+        camera.onFrame = { [weak self] vision, _, luma, arrived in
             let t0 = CACurrentMediaTime()
             let hands = tracker.analyze(pixelBuffer: vision, now: t0, mirrored: cam.isMirrored)
             let visMs = (CACurrentMediaTime() - t0) * 1000
             let endToEnd = (CACurrentMediaTime() - arrived) * 1000
-            DispatchQueue.main.async {
+            DispatchQueue.main.async(qos: .userInteractive) {
                 self?.apply(
                     hands: hands,
                     latency: max(visMs, endToEnd),
                     now: CACurrentMediaTime(),
-                    preview: preview,
+                    preview: nil,
                     luma: luma
                 )
             }
+        }
+        camera.setPreviewSink { [weak self] img in
+            self?.preview = img
         }
         camera.start()
         log.record("Kamera gestartet.")
@@ -278,15 +281,34 @@ final class AppState: ObservableObject {
         preview: NSImage?,
         luma: CGFloat
     ) {
-        self.luma = luma
-        latencyMs = latency
+        engine.tick(hands: hands, now: now)
+        overlay.mark(
+            cursor: engine.cursor,
+            phase: engine.grabPhase,
+            hand: engine.cursorHand,
+            target: engine.grabTargetName,
+            window: focused?.quartzBounds
+        )
         frames += 1
         if now - fpsStamp >= 0.5 {
             fps = Double(frames) / (now - fpsStamp)
             frames = 0
             fpsStamp = now
         }
-        engine.tick(hands: hands, now: now)
+        if protocolMode {
+            recorder.push(
+                hands: hands,
+                preview: preview,
+                luma: luma,
+                mode: engine.mode,
+                action: engine.lastAction,
+                now: now
+            )
+        }
+        guard now - lastPanel >= 0.05 else { return }
+        lastPanel = now
+        self.luma = luma
+        latencyMs = latency
         mode = engine.mode
         lastAction = engine.lastAction
         engineCursor = engine.cursor
@@ -301,21 +323,7 @@ final class AppState: ObservableObject {
         mousePaused = engine.mousePaused
         grabPhase = engine.grabPhase
         grabTargetName = engine.grabTargetName
-        if now - lastPanel >= 0.07 {
-            lastPanel = now
-            self.hands = hands
-            if let preview { self.preview = preview }
-        }
-        if protocolMode {
-            recorder.push(
-                hands: hands,
-                preview: preview,
-                luma: luma,
-                mode: engine.mode,
-                action: engine.lastAction,
-                now: now
-            )
-        }
+        self.hands = hands
     }
 }
 

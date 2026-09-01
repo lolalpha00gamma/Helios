@@ -58,9 +58,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         session.beginConfiguration()
         session.inputs.forEach { session.removeInput($0) }
         session.outputs.forEach { session.removeOutput($0) }
-        if session.canSetSessionPreset(.hd1920x1080) {
-            session.sessionPreset = .hd1920x1080
-        } else if session.canSetSessionPreset(.hd1280x720) {
+        if session.canSetSessionPreset(.hd1280x720) {
             session.sessionPreset = .hd1280x720
         } else if session.canSetSessionPreset(.high) {
             session.sessionPreset = .high
@@ -177,7 +175,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         }
     }
 
-    /// 60 fps / 720p schlägt 30 fps / 1080p — Handpose braucht Tempo, kein 4K.
+    /// 720p / hoher fps schlägt 1080p — Vision ist der Flaschenhals, nicht die Auflösung.
     private static func bestFormat(on device: AVCaptureDevice) -> AVCaptureDevice.Format? {
         var best: AVCaptureDevice.Format?
         var bestScore = -1.0
@@ -185,12 +183,12 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             let dims = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
             let w = Double(dims.width)
             let h = Double(dims.height)
-            guard w >= 640, h >= 480, w <= 1920, h <= 1080 else { continue }
+            guard w >= 640, h >= 360, w <= 1280, h <= 800 else { continue }
             let fps = format.videoSupportedFrameRateRanges.map(\.maxFrameRate).max() ?? 0
             guard fps >= 24 else { continue }
-            let fpsTerm = min(fps, 90)
-            let resTerm = min(w * h / (1280 * 720), 1.25)
-            let score = fpsTerm * 8 + resTerm * 20
+            let fpsTerm = min(fps, 120)
+            let near720 = 1.0 - min(abs(h - 720) / 720, 1)
+            let score = fpsTerm * 12 + near720 * 30
             if score > bestScore {
                 bestScore = score
                 best = format
@@ -210,20 +208,28 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         }
     }
 
+    private let previewQueue = DispatchQueue(label: "helios.preview", qos: .utility)
+
     private func process(_ pb: CVPixelBuffer, arrived: TimeInterval) {
         let luma = enhancer.luma(of: pb)
         let vision = enhancer.enhance(pb, luma: luma)
-        var preview: NSImage?
-        let now = CACurrentMediaTime()
-        if now - lastPreview >= 0.05 {
-            lastPreview = now
-            preview = makePreview(pb)
-        }
         handlerLock.lock()
         let handler = frameHandler
         handlerLock.unlock()
-        handler?(vision, preview, luma, arrived)
+        handler?(vision, nil, luma, arrived)
+        let now = CACurrentMediaTime()
+        if now - lastPreview >= 0.12 {
+            lastPreview = now
+            previewQueue.async { [weak self] in
+                guard let img = self?.makePreview(pb) else { return }
+                DispatchQueue.main.async { self?.pushPreview(img) }
+            }
+        }
     }
+
+    private var previewSink: ((NSImage) -> Void)?
+    func setPreviewSink(_ sink: @escaping (NSImage) -> Void) { previewSink = sink }
+    private func pushPreview(_ img: NSImage) { previewSink?(img) }
 
     private func makePreview(_ pb: CVPixelBuffer) -> NSImage? {
         let w = CVPixelBufferGetWidth(pb)

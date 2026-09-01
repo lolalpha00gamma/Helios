@@ -56,6 +56,8 @@ final class AppState: ObservableObject {
     @Published var calibCursorGap: CGFloat = 0
     @Published var mapReady = false
     @Published var mousePaused = false
+    @Published var grabPhase: GrabPhase = .none
+    @Published var grabTargetName = ""
     let calibSession = CalibrationSession()
     private var lastPanel: TimeInterval = 0
     private var didStart = false
@@ -297,6 +299,8 @@ final class AppState: ObservableObject {
         calibCursorGap = calibSession.cursorGap
         mapReady = engine.spaceMap?.isReady == true
         mousePaused = engine.mousePaused
+        grabPhase = engine.grabPhase
+        grabTargetName = engine.grabTargetName
         if now - lastPanel >= 0.07 {
             lastPanel = now
             self.hands = hands

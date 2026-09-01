@@ -16,6 +16,19 @@ enum EngineMode: String {
     }
 }
 
+enum GrabPhase: String {
+    case none, follow, hold, grab
+
+    var labelDE: String {
+        switch self {
+        case .none: return "KEINE HAND"
+        case .follow: return "HIER"
+        case .hold: return "HALTEN"
+        case .grab: return "GREIFT"
+        }
+    }
+}
+
 @MainActor
 final class GestureEngine {
     var mode: EngineMode = .idle
@@ -31,6 +44,8 @@ final class GestureEngine {
     var trashHot = false
     var killFlash = false
     var dragging = false
+    var grabPhase: GrabPhase = .none
+    var grabTargetName = ""
     var cursorHand: String = "—"
     var mousePaused = false
 
@@ -84,6 +99,8 @@ final class GestureEngine {
         twoHandSpan = nil
         trashHot = false
         dragging = false
+        grabPhase = .none
+        grabTargetName = ""
         mustRearm = false
         pointerOrigin = nil
         cursorSmooth = nil
@@ -110,6 +127,8 @@ final class GestureEngine {
             twoPinchSince = nil
             trashHot = false
             dragging = false
+            grabPhase = .none
+            grabTargetName = ""
             if mustRearm {
                 mode = .idle
                 lastAction = "Not-Aus"
@@ -156,9 +175,6 @@ final class GestureEngine {
 
         let primary = preferred(hands)
         let live = mode == .armed || testMode
-        if !live {
-            releasePointer()
-        }
 
         if protocolMode, now - lastPoseLog > 0.28 {
             let key = hands.map { "\($0.sideDE):\($0.pose.rawValue)" }.joined(separator: ",")
@@ -179,6 +195,9 @@ final class GestureEngine {
         handleArming(hands: hands, now: now)
 
         if !live {
+            placeCursor(primary)
+            grabPhase = (primary.pose == .pinch || primary.pose == .fist) ? .hold : .follow
+            grabTargetName = focused?.appName ?? ""
             if hands.contains(where: { $0.pose == .pinch || $0.pose == .fist }) {
                 lastAction = mustRearm ? "Nach Not-Aus: Faust halten" : "Faust halten → Scharf"
             }
@@ -205,6 +224,16 @@ final class GestureEngine {
         drivePeace(actor, now: now)
         driveThumbs(actor, now: now)
         dragging = pinchHeld
+        if system.isDragging {
+            grabPhase = .grab
+            grabTargetName = focused?.appName ?? grabTargetName
+        } else if pinchHeld {
+            grabPhase = .hold
+            grabTargetName = focused?.appName ?? ""
+        } else {
+            grabPhase = .follow
+            grabTargetName = focused?.appName ?? ""
+        }
     }
 
     func forceIdle() {

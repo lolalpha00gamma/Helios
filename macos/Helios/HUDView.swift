@@ -20,20 +20,28 @@ struct HUDView: View {
                     windowOutline(target)
                 }
 
-                if state.showReticle, let c = state.engineCursor,
+                if let c = state.engineCursor,
                    ScreenGeometry.contains(quartz: c, screen: screenFrame)
                 {
                     let local = ScreenGeometry.local(quartz: c, on: screenFrame)
-                    VStack(spacing: 6) {
-                        Reticle(armed: state.mode == .armed && !state.testMode)
-                        Text(state.cursorHand.uppercased())
-                            .font(.system(size: 10, weight: .bold, design: .monospaced))
-                            .foregroundStyle(state.mode == .armed && !state.testMode ? HeliosTheme.amber : HeliosTheme.cyan)
-                        Text(String(format: "%.0f  %.0f", local.x, local.y))
-                            .font(.system(size: 9, design: .monospaced))
-                            .foregroundStyle(HeliosTheme.cyan.opacity(0.8))
-                    }
+                    HandBeacon(
+                        phase: state.grabPhase,
+                        hand: state.cursorHand,
+                        target: state.grabTargetName,
+                        local: local
+                    )
                     .position(x: local.x, y: local.y)
+
+                    if state.grabPhase == .grab, let target = state.focused,
+                       ScreenGeometry.intersects(quartz: target.quartzBounds, screen: screenFrame)
+                    {
+                        let wr = ScreenGeometry.localRect(quartz: target.quartzBounds, on: screenFrame)
+                        Path { p in
+                            p.move(to: local)
+                            p.addLine(to: CGPoint(x: wr.midX, y: wr.midY))
+                        }
+                        .stroke(HeliosTheme.amber, style: StrokeStyle(lineWidth: 2.5, dash: [7, 5]))
+                    }
                 }
 
                 if state.calibActive {
@@ -105,15 +113,18 @@ struct HUDView: View {
 
     private func windowOutline(_ target: FocusedTarget) -> some View {
         let r = ScreenGeometry.localRect(quartz: target.quartzBounds, on: screenFrame).insetBy(dx: -6, dy: -6)
+        let grabbing = state.grabPhase == .grab
+        let holding = state.grabPhase == .hold
+        let col = grabbing ? HeliosTheme.amber : holding ? HeliosTheme.amber.opacity(0.85) : HeliosTheme.cyan
         return ZStack(alignment: .topLeading) {
             RoundedRectangle(cornerRadius: 6)
-                .stroke(HeliosTheme.cyan, lineWidth: 2)
-                .shadow(color: HeliosTheme.cyan.opacity(0.55), radius: 8)
+                .stroke(col, lineWidth: grabbing ? 4 : 2)
+                .shadow(color: col.opacity(0.55), radius: grabbing ? 14 : 8)
                 .frame(width: r.width, height: r.height)
             HStack(spacing: 8) {
-                Image(systemName: "app.fill")
+                Image(systemName: grabbing ? "hand.raised.fill" : "app.fill")
                     .font(.system(size: 10))
-                Text(target.appName.uppercased())
+                Text(grabbing ? "GREIFT · \(target.appName.uppercased())" : holding ? "HALTEN · \(target.appName.uppercased())" : target.appName.uppercased())
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                 if !target.title.isEmpty {
                     Text("· \(target.title)")
@@ -121,11 +132,11 @@ struct HUDView: View {
                         .lineLimit(1)
                 }
             }
-            .foregroundStyle(HeliosTheme.cyan)
+            .foregroundStyle(col)
             .padding(.horizontal, 10)
             .padding(.vertical, 5)
             .background(HeliosTheme.panel)
-            .overlay(Rectangle().stroke(HeliosTheme.cyan.opacity(0.4), lineWidth: 1))
+            .overlay(Rectangle().stroke(col.opacity(0.5), lineWidth: 1))
             .offset(x: 10, y: -28)
         }
         .position(x: r.midX, y: r.midY)
@@ -167,6 +178,7 @@ struct HUDView: View {
                 .foregroundStyle(HeliosTheme.cyan)
                 .shadow(color: HeliosTheme.cyan.opacity(0.8), radius: 8)
             statusPill
+            grabPill
             if state.testMode {
                 Text("TEST")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
@@ -233,6 +245,37 @@ struct HUDView: View {
             )
     }
 
+    private var grabPill: some View {
+        let phase = state.grabPhase
+        let col: Color = {
+            switch phase {
+            case .grab: return HeliosTheme.amber
+            case .hold: return HeliosTheme.amber.opacity(0.85)
+            case .follow: return HeliosTheme.cyan
+            case .none: return HeliosTheme.cyan.opacity(0.45)
+            }
+        }()
+        let text: String = {
+            switch phase {
+            case .grab:
+                let n = state.grabTargetName.isEmpty ? "FENSTER" : state.grabTargetName.uppercased()
+                return "GREIFT · \(n)"
+            case .hold: return "HALTEN — NOCH NICHT GEGRIFFEN"
+            case .follow:
+                let h = state.cursorHand == "—" ? "HAND" : state.cursorHand.uppercased()
+                return "HIER · \(h)"
+            case .none: return "KEINE HAND"
+            }
+        }()
+        return Text(text)
+            .font(.system(size: 13, weight: .bold, design: .monospaced))
+            .padding(.horizontal, 12)
+            .padding(.vertical, 5)
+            .foregroundStyle(phase == .grab || phase == .hold ? HeliosTheme.void : col)
+            .background(phase == .grab || phase == .hold ? HeliosTheme.amber : col.opacity(0.15))
+            .overlay(Rectangle().stroke(col, lineWidth: 1.5))
+    }
+
     private var cheatSheet: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(state.testMode ? "TEST · GESTEN" : "GESTEN")
@@ -274,6 +317,50 @@ struct HUDView: View {
                 .padding(6)
         }
         .opacity(state.showPreviewChip ? 1 : 0)
+    }
+}
+
+struct HandBeacon: View {
+    var phase: GrabPhase
+    var hand: String
+    var target: String
+    var local: CGPoint
+
+    var body: some View {
+        let grab = phase == .grab
+        let hold = phase == .hold
+        let col = grab || hold ? HeliosTheme.amber : HeliosTheme.cyan
+        VStack(spacing: 4) {
+            ZStack {
+                Circle()
+                    .stroke(col.opacity(0.35), lineWidth: 2)
+                    .frame(width: grab ? 120 : 96, height: grab ? 120 : 96)
+                Circle()
+                    .stroke(col, lineWidth: grab ? 4 : 2.5)
+                    .frame(width: 64, height: 64)
+                Image(systemName: grab ? "hand.raised.fill" : hold ? "hand.point.up.left.fill" : "circle.fill")
+                    .font(.system(size: grab ? 22 : 16, weight: .bold))
+                    .foregroundStyle(col)
+            }
+            .shadow(color: col.opacity(0.9), radius: grab ? 16 : 8)
+            Text(phase.labelDE)
+                .font(.system(size: 16, weight: .bold, design: .monospaced))
+                .foregroundStyle(col)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 3)
+                .background(HeliosTheme.void.opacity(0.78))
+            Text(hand.uppercased())
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundStyle(col)
+            if grab, !target.isEmpty {
+                Text(target.uppercased())
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(HeliosTheme.amber)
+            }
+            Text(String(format: "%.0f  %.0f", local.x, local.y))
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(col.opacity(0.8))
+        }
     }
 }
 

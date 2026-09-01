@@ -16,6 +16,7 @@ struct HandSnap: Codable {
     var confidence: Double
     var openScore: Int
     var pinchRatio: Double
+    var pinchClosed: Bool
     var palmX: Double
     var palmY: Double
     var joints: [String: JointSnap]
@@ -201,6 +202,7 @@ final class SessionRecorder {
             confidence: Double(hand.meanConfidence),
             openScore: hand.openScore,
             pinchRatio: Double(hand.pinchRatio),
+            pinchClosed: hand.pinchClosed,
             palmX: Double(hand.palm.x),
             palmY: Double(hand.palm.y),
             joints: joints

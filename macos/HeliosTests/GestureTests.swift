@@ -58,6 +58,26 @@ enum GestureTests {
         let pinchDist = hypot(0.40 - 0.41, 0.62 - 0.61)
         ok(GestureClassifier.classify(joints: pinchJ, pinch: pinchDist) == .pinch, "Pinzette")
 
+        var gate = PinchGate()
+        var t: TimeInterval = 1
+        func step(_ joints: [VNHumanHandPoseObservation.JointName: CGPoint], n: Int) -> Bool {
+            var c: [VNHumanHandPoseObservation.JointName: Float] = [:]
+            for k in joints.keys { c[k] = 0.9 }
+            var closed = false
+            for _ in 0..<n {
+                t += 0.016
+                closed = gate.update(raw: joints, conf: c, now: t).closed
+            }
+            return closed
+        }
+        ok(!step(open, n: 4), "Gate offen bleibt offen")
+        ok(step(pinchJ, n: 4), "Gate schließt bei Pinzette")
+        var gone = pinchJ
+        gone.removeValue(forKey: .thumbTip)
+        gone.removeValue(forKey: .indexTip)
+        ok(step(gone, n: 3), "Gate bleibt zu wenn Spitzen fehlen")
+        ok(!step(open, n: 6), "Gate öffnet wieder")
+
         if fails > 0 {
             fputs("\(fails) GestureTests fehlgeschlagen\n", stderr)
             exit(1)

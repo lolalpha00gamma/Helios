@@ -163,6 +163,20 @@ struct TrackingOverlay: View {
                 )
             }
         }
+
+        if let t = hand.overlayPoint(.thumbTip), let i = hand.overlayPoint(.indexTip) {
+            let a = vis(t, size)
+            let b = vis(i, size)
+            var bar = Path()
+            bar.move(to: a)
+            bar.addLine(to: b)
+            let closed = hand.pinchClosed
+            ctx.stroke(
+                bar,
+                with: .color(closed ? HeliosTheme.amber : HeliosTheme.cyan.opacity(0.55)),
+                style: StrokeStyle(lineWidth: closed ? (compact ? 3 : 4) : (compact ? 1.2 : 1.6), lineCap: .round)
+            )
+        }
     }
 
     private func labels(in size: CGSize) -> [JointLabel] {

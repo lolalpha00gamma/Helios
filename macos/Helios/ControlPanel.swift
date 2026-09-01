@@ -355,7 +355,14 @@ struct ControlPanel: View {
             }
             ProgressView(value: Double(hand.meanConfidence))
                 .tint(hand.chirality == .left ? HeliosTheme.amber : HeliosTheme.cyan)
-            Text(String(format: "Konfidenz %.0f %%  ·  Pinzette %.3f", hand.meanConfidence * 100, hand.pinchDistance))
+            Text(
+                String(
+                    format: "Konfidenz %.0f %%  ·  Pinzette %@  %.2f",
+                    hand.meanConfidence * 100,
+                    hand.pinchClosed ? "ZU" : "OFFEN",
+                    hand.pinchRatio
+                )
+            )
                 .font(.system(size: 10, design: .monospaced))
                 .foregroundStyle(.secondary)
             ForEach(FingerKind.allCases) { finger in

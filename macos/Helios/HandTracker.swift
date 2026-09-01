@@ -17,6 +17,7 @@ struct TrackedHand: Identifiable {
     var pose: HandPose
     var pinchDistance: CGFloat
     var pinchRatio: CGFloat
+    var pinchClosed: Bool
     var palm: CGPoint
     var openScore: Int
     var extended: Set<String>
@@ -72,6 +73,8 @@ final class HandTracker: @unchecked Sendable {
 
     private var leftSmooth = LandmarkSmoothing()
     private var rightSmooth = LandmarkSmoothing()
+    private var leftPinch = PinchGate()
+    private var rightPinch = PinchGate()
     private var poseHold: [Int: (pose: HandPose, n: Int)] = [:]
     private let lock = NSLock()
 
@@ -80,6 +83,8 @@ final class HandTracker: @unchecked Sendable {
         defer { lock.unlock() }
         leftSmooth.reset()
         rightSmooth.reset()
+        leftPinch.reset()
+        rightPinch.reset()
         poseHold.removeAll()
     }
 
@@ -137,13 +142,22 @@ final class HandTracker: @unchecked Sendable {
             for (name, point) in raw {
                 display[name] = TrackedJoint(point: point, confidence: conf[name] ?? 0)
             }
-            let pinchRaw = Self.distance(raw[.thumbTip], raw[.indexTip])
-            let pinchSm = Self.distance(smoothed[.thumbTip], smoothed[.indexTip])
-            let pinch = min(pinchRaw, pinchSm)
+            var pinchGate = chirality == .left ? leftPinch : rightPinch
+            let pinchState = pinchGate.update(raw: raw, conf: conf, now: now)
+            if chirality == .left { leftPinch = pinchGate } else { rightPinch = pinchGate }
+
+            let pinch = pinchState.distance
             let palm = GestureClassifier.palmCenter(smoothed)
-            let pose = stabilize(GestureClassifier.classify(joints: smoothed, pinch: pinch), chirality: chirality)
+            var pose = GestureClassifier.classify(joints: smoothed, pinch: pinch)
+            if pinchState.closed, pose != .openPalm, pose != .peace {
+                pose = .pinch
+            }
+            pose = stabilize(pose, chirality: chirality)
+            if pinchState.closed, pose == .fist || pose == .unknown || pose == .point {
+                pose = .pinch
+            }
             let openScore = GestureClassifier.openScore(joints: smoothed)
-            let ratio = GestureClassifier.pinchRatio(joints: smoothed, pinch: pinch)
+            let ratio = pinchState.ratio
             var ext: Set<String> = []
             for f in FingerKind.allCases {
                 if GestureClassifier.isExtended(smoothed, tip: f.tip, pip: f.pip, mcp: f.mcp) {
@@ -159,14 +173,23 @@ final class HandTracker: @unchecked Sendable {
                     pose: pose,
                     pinchDistance: pinch,
                     pinchRatio: ratio,
+                    pinchClosed: pinchState.closed,
                     palm: palm,
                     openScore: openScore,
                     extended: ext
                 )
             )
         }
-        if !hands.contains(where: { $0.chirality == .left }) { leftSmooth.reset(); poseHold[VNChirality.left.rawValue] = nil }
-        if !hands.contains(where: { $0.chirality == .right }) { rightSmooth.reset(); poseHold[VNChirality.right.rawValue] = nil }
+        if !hands.contains(where: { $0.chirality == .left }) {
+            leftSmooth.reset()
+            leftPinch.reset()
+            poseHold[VNChirality.left.rawValue] = nil
+        }
+        if !hands.contains(where: { $0.chirality == .right }) {
+            rightSmooth.reset()
+            rightPinch.reset()
+            poseHold[VNChirality.right.rawValue] = nil
+        }
         return hands
     }
 
@@ -190,12 +213,5 @@ final class HandTracker: @unchecked Sendable {
         }
         poseHold[k] = (pose, 2)
         return pose
-    }
-
-    private static func distance(_ a: CGPoint?, _ b: CGPoint?) -> CGFloat {
-        guard let a, let b else { return 1 }
-        let dx = a.x - b.x
-        let dy = a.y - b.y
-        return sqrt(dx * dx + dy * dy)
     }
 }

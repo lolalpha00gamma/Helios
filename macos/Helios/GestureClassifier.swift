@@ -65,13 +65,14 @@ enum GestureClassifier {
         let fingers = [index, middle, ring, little].filter { $0 }.count
         let scale = palmScale(joints)
         let ratio = pinch / scale
-        let indexReach: CGFloat = {
-            guard let t = joints[.indexTip], let w = joints[.wrist] else { return 0 }
-            return hypot(t.x - w.x, t.y - w.y) / scale
-        }()
 
-        // Pinzette: Spitzen nah UND Zeigefinger noch raus (sonst ist es eine Faust).
-        if ratio < 0.45, pinch < 0.13, fingers <= 2, indexReach > 0.95 {
+        // Pinzette: Spitzen nah. Zeigefinger darf leicht gebeugt sein (sonst wird's Faust).
+        let pinchPtReach: CGFloat = {
+            guard let t = joints[.thumbTip], let i = joints[.indexTip], let w = joints[.wrist] else { return 0 }
+            let mid = CGPoint(x: (t.x + i.x) / 2, y: (t.y + i.y) / 2)
+            return hypot(mid.x - w.x, mid.y - w.y) / scale
+        }()
+        if ratio < 0.42, fingers <= 2, pinchPtReach > 0.82 {
             return .pinch
         }
         if index && middle && !ring && !little {
@@ -118,5 +119,93 @@ enum GestureClassifier {
         let pipD = hypot(p.x - w.x, p.y - w.y)
         let mcpD = hypot(m.x - w.x, m.y - w.y)
         return tipD > pipD + slack && pipD > mcpD * 0.86
+    }
+}
+
+/// Hysterese auf Roh-Abstand Daumen/Zeigefinger. Fehlende Spitzen (echte Berührung) halten den Zustand.
+struct PinchGate {
+    private(set) var closed = false
+    private var lastRatio: CGFloat = 1
+    private var lastT: TimeInterval = 0
+    private var streak = 0
+
+    mutating func reset() {
+        closed = false
+        lastRatio = 1
+        lastT = 0
+        streak = 0
+    }
+
+    mutating func update(
+        raw: [VNHumanHandPoseObservation.JointName: CGPoint],
+        conf: [VNHumanHandPoseObservation.JointName: Float],
+        now: TimeInterval
+    ) -> (closed: Bool, ratio: CGFloat, distance: CGFloat) {
+        let scale = max(GestureClassifier.palmScale(raw), 0.05)
+        let tipConf = min(conf[.thumbTip] ?? 0, conf[.indexTip] ?? 0)
+        var dTips: CGFloat?
+        if let a = raw[.thumbTip], let b = raw[.indexTip], tipConf > 0.18 {
+            dTips = hypot(a.x - b.x, a.y - b.y)
+        }
+        var dProx: CGFloat?
+        if let a = raw[.thumbIP] ?? raw[.thumbTip], let b = raw[.indexDIP] ?? raw[.indexPIP] ?? raw[.indexTip] {
+            dProx = hypot(a.x - b.x, a.y - b.y)
+        }
+        let dist = dTips ?? ((dProx ?? 1) * 1.12)
+        let ratio = dist / scale
+        let proxRatio = (dProx ?? dist) / scale
+        let wrist = raw[.wrist]
+        let reach: CGFloat = {
+            guard let w = wrist else { return 1 }
+            if let t = raw[.thumbTip], let i = raw[.indexTip] {
+                let m = CGPoint(x: (t.x + i.x) / 2, y: (t.y + i.y) / 2)
+                return hypot(m.x - w.x, m.y - w.y) / scale
+            }
+            if let i = raw[.indexPIP] {
+                return hypot(i.x - w.x, i.y - w.y) / scale
+            }
+            return 1
+        }()
+        let dt = lastT == 0 ? 0.016 : max(0.008, min(0.08, now - lastT))
+        let vel = (ratio - lastRatio) / CGFloat(dt)
+        lastRatio = ratio
+        lastT = now
+
+        let awayFromPalm = reach > 0.78
+        let wantClose = awayFromPalm && (
+            ratio < 0.33
+                || proxRatio < 0.36
+                || (ratio < 0.44 && vel < -2.0)
+        )
+        let wantOpen = ratio > 0.54 && proxRatio > 0.50 && vel > -0.5
+
+        if dTips == nil {
+            if closed {
+                streak = 0
+                return (true, min(ratio, 0.30), dist)
+            }
+            let closeByProxy = awayFromPalm && proxRatio < 0.30
+            if closeByProxy { streak += 1 } else { streak = 0 }
+            if streak >= 3 {
+                closed = true
+                streak = 0
+            }
+            return (closed, ratio, dist)
+        }
+
+        if closed {
+            if wantOpen { streak += 1 } else { streak = 0 }
+            if streak >= 3 {
+                closed = false
+                streak = 0
+            }
+        } else {
+            if wantClose { streak += 1 } else { streak = 0 }
+            if streak >= 2 {
+                closed = true
+                streak = 0
+            }
+        }
+        return (closed, ratio, dist)
     }
 }

@@ -153,7 +153,7 @@ final class GestureEngine {
 
         if let cal = calibration, cal.active {
             let actor = preferred(hands)
-            let confirm = actor.pose == .pinch
+            let confirm = actor.pinchClosed || actor.pose == .pinch
             if let done = cal.feed(palm: actor.palm, now: now, confirm: confirm) {
                 spaceMap = done
                 lastAction = "Kalibrierung fertig"
@@ -482,11 +482,11 @@ final class GestureEngine {
 
     private func driveGrab(_ hand: TrackedHand, now: TimeInterval) {
         let ratio = hand.pinchRatio
-        let posing = hand.pose == .pinch
+        let closed = hand.pinchClosed || hand.pose == .pinch
         let fisting = hand.pose == .fist && mode == .armed
         let isGrab = pinchHeld
-            ? (posing || fisting || ratio < 0.58)
-            : (posing || ratio < 0.38 || fisting)
+            ? (closed || (fisting && ratio < 0.55))
+            : (closed || (fisting && ratio < 0.34))
         if isGrab && !pinchHeld {
             pinchHeld = true
             pinchBecameDrag = false

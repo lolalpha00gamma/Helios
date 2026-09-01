@@ -9,3 +9,4 @@ xcuserdata
 *.moved-aside
 .swiftpm
 .idea
+.testbuild

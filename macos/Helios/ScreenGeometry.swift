@@ -1,17 +1,74 @@
 import AppKit
 import CoreGraphics
 
-enum ScreenGeometry {
-    static var cocoaUnion: CGRect {
-        NSScreen.screens.map(\.frame).reduce(.null) { $0.union($1) }
+/// `NSScreen.screens` fragt den Window-Server und legt bei jedem Zugriff ein neues
+/// Array an. In der 60-Hz-Schleife wird die Geometrie hunderte Male pro Sekunde
+/// gebraucht, ändert sich aber nur beim Umstecken eines Monitors.
+private final class ScreenCache: @unchecked Sendable {
+    static let shared = ScreenCache()
+
+    private let lock = NSLock()
+    private var cachedFrames: [CGRect]?
+    private var cachedPrimaryMaxY: CGFloat?
+    private var cachedUnion: CGRect?
+
+    private init() {
+        NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: nil
+        ) { [weak self] _ in
+            self?.invalidate()
+        }
     }
 
-    /// Cocoa-Y des oberen Rands am Hauptbildschirm (Ursprung 0,0). Nicht die Union.
-    static var primaryCocoaMaxY: CGFloat {
-        NSScreen.screens.first {
+    func invalidate() {
+        lock.lock()
+        cachedFrames = nil
+        cachedPrimaryMaxY = nil
+        cachedUnion = nil
+        lock.unlock()
+    }
+
+    var frames: [CGRect] {
+        lock.lock()
+        defer { lock.unlock() }
+        if let cachedFrames { return cachedFrames }
+        let f = NSScreen.screens.map(\.frame)
+        cachedFrames = f
+        return f
+    }
+
+    var primaryMaxY: CGFloat {
+        lock.lock()
+        defer { lock.unlock() }
+        if let cachedPrimaryMaxY { return cachedPrimaryMaxY }
+        let screens = NSScreen.screens
+        let v = screens.first {
             abs($0.frame.minX) < 0.5 && abs($0.frame.minY) < 0.5
         }?.frame.maxY ?? NSScreen.main?.frame.maxY ?? 0
+        cachedPrimaryMaxY = v
+        return v
     }
+
+    var union: CGRect {
+        lock.lock()
+        defer { lock.unlock() }
+        if let cachedUnion { return cachedUnion }
+        let u = NSScreen.screens.map(\.frame).reduce(CGRect.null) { $0.union($1) }
+        cachedUnion = u
+        return u
+    }
+}
+
+enum ScreenGeometry {
+    static var cocoaUnion: CGRect { ScreenCache.shared.union }
+
+    /// Cocoa-Y des oberen Rands am Hauptbildschirm (Ursprung 0,0). Nicht die Union.
+    static var primaryCocoaMaxY: CGFloat { ScreenCache.shared.primaryMaxY }
+
+    /// Beim Wechsel der Bildschirmanordnung von außen aufzurufen.
+    static func invalidateScreenCache() { ScreenCache.shared.invalidate() }
 
     static func quartz(fromCocoa p: CGPoint) -> CGPoint {
         CoordMath.quartz(fromCocoa: p, primaryMaxY: primaryCocoaMaxY)
@@ -89,14 +146,14 @@ enum ScreenGeometry {
     }
 
     static func clampQuartz(_ p: CGPoint) -> CGPoint {
-        let screens = NSScreen.screens
-        if screens.contains(where: { contains(quartz: p, screen: $0.frame, pad: 0) }) {
+        let screens = ScreenCache.shared.frames
+        if screens.contains(where: { contains(quartz: p, screen: $0, pad: 0) }) {
             return p
         }
         var best = p
         var bestD = CGFloat.greatestFiniteMagnitude
-        for s in screens {
-            let r = quartzRect(fromCocoa: s.frame)
+        for frame in screens {
+            let r = quartzRect(fromCocoa: frame)
             let q = CGPoint(
                 x: min(max(p.x, r.minX + 2), r.maxX - 2),
                 y: min(max(p.y, r.minY + 2), r.maxY - 2)

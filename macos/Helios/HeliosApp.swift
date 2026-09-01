@@ -31,25 +31,38 @@ struct HeliosApp: App {
         }
 
         MenuBarExtra("Helios", systemImage: "sun.max.fill") {
-            Button(state.mode.labelDE) {}
-                .disabled(true)
-            Divider()
-            Button("Konsole") {
-                NSApp.activate()
-                if let win = NSApp.windows.first(where: { $0.title == "Helios" }) {
-                    win.makeKeyAndOrderFront(nil)
-                }
-            }
-            Button(state.cameraRunning ? "Kamera stoppen" : "Kamera starten") {
-                if state.cameraRunning { state.stopCamera() } else { Task { await state.startCamera() } }
-            }
-            Button("Scharf") { state.engine.forceArm() }
-            Button("Idle") { state.engine.forceIdle() }
-            Button(state.testMode ? "Testmodus aus" : "Testmodus an") {
-                state.setTestMode(!state.testMode)
-            }
-            Divider()
-            Button("Beenden") { NSApp.terminate(nil) }
+            MenuBarContent(state: state)
         }
+    }
+}
+
+/// Eigene View, damit `openWindow` verfügbar ist: ein geschlossenes Window-Scene
+/// taucht nicht mehr in `NSApp.windows` auf und ließ sich vorher nicht zurückholen.
+private struct MenuBarContent: View {
+    @ObservedObject var state: AppState
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        Button(state.mode.labelDE) {}
+            .disabled(true)
+        Divider()
+        Button("Konsole") {
+            NSApp.activate()
+            openWindow(id: "konsole")
+        }
+        Button(state.cameraRunning ? "Kamera stoppen" : "Kamera starten") {
+            if state.cameraRunning {
+                state.stopCamera()
+            } else {
+                Task { await state.startCamera() }
+            }
+        }
+        Button("Scharf") { state.engine.forceArm() }
+        Button("Idle") { state.engine.forceIdle() }
+        Button(state.testMode ? "Testmodus aus" : "Testmodus an") {
+            state.setTestMode(!state.testMode)
+        }
+        Divider()
+        Button("Beenden") { NSApp.terminate(nil) }
     }
 }

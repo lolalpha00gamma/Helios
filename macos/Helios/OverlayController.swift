@@ -35,7 +35,12 @@ final class OverlayController {
 
     func rebuild() {
         guard let state else { return }
+        // Zuerst den Geometrie-Cache verwerfen: die Reihenfolge zweier Beobachter
+        // derselben Notification ist nicht definiert, und rebuild darf nicht mit
+        // der alten Bildschirmanordnung rechnen.
+        ScreenGeometry.invalidateScreenCache()
         let screens = NSScreen.screens
+        state.screenCount = screens.count
         let live = Set(screens.map { ScreenGeometry.displayID(of: $0) })
         for (id, panel) in panels where !live.contains(id) {
             panel.orderOut(nil)

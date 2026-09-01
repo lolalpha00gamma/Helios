@@ -9,6 +9,11 @@ on:
 permissions:
   contents: write
 
+# Zwei Läufe gleichzeitig würden sich beim Release-Upload überholen.
+concurrency:
+  group: helios-dmg-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   package:
     runs-on: macos-26
@@ -52,10 +57,16 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "title=$TITLE" >> "$GITHUB_OUTPUT"
 
-      - name: Coord tests
+      - name: Logiktests gegen die echte Quelle
         run: |
-          swift macos/HeliosTests/CoordTests.swift
-          swift macos/HeliosTests/GestureTests.swift
+          set -euo pipefail
+          mkdir -p .testbuild
+          # Die Tests bauen auf den Originaldateien auf, nicht auf einer Kopie —
+          # sonst prüfen sie sich selbst und können eine Regression nie sehen.
+          cat macos/Helios/CoordMath.swift macos/HeliosTests/CoordTests.swift > .testbuild/coord.swift
+          swift .testbuild/coord.swift
+          cat macos/Helios/GestureClassifier.swift macos/HeliosTests/GestureTests.swift > .testbuild/gesture.swift
+          swift .testbuild/gesture.swift
 
       - name: Build Helios.app
         run: |
@@ -138,9 +149,16 @@ jobs:
           EOF
           )"
           if gh release view "$TAG" >/dev/null 2>&1; then
+            PUBLISHED=$(gh release view "$TAG" --json targetCommitish -q .targetCommitish || echo "")
+            if [ "$PUBLISHED" != "${{ github.sha }}" ]; then
+              echo "Release $TAG existiert bereits aus einem anderen Commit ($PUBLISHED)." >&2
+              echo "MARKETING_VERSION bumpen — ein veröffentlichtes DMG wird nicht stillschweigend ersetzt." >&2
+              echo "Das gebaute DMG liegt als Workflow-Artefakt bereit." >&2
+              exit 1
+            fi
             gh release edit "$TAG" --title "$TITLE" --notes "$NOTES" --latest || true
           else
-            gh release create "$TAG" --title "$TITLE" --latest --notes "$NOTES"
+            gh release create "$TAG" --title "$TITLE" --latest --notes "$NOTES" --target "${{ github.sha }}"
           fi
           gh release upload "$TAG" Helios.dmg --clobber
           gh release view "$TAG"

@@ -20,6 +20,8 @@ struct TrackedHand: Identifiable {
     var palm: CGPoint
     var openScore: Int
     var extended: Set<String>
+    /// false, wenn Daumen- oder Zeigespitze fehlt — pinchDistance/pinchRatio sind dann Platzhalter.
+    var hasPinch: Bool
 
     func point(_ name: VNHumanHandPoseObservation.JointName) -> CGPoint? {
         guard let j = joints[name], j.confidence > 0.22 else { return nil }
@@ -99,10 +101,15 @@ final class HandTracker: @unchecked Sendable {
         if observations.isEmpty {
             leftSmooth.reset()
             rightSmooth.reset()
+            poseHold.removeAll()
             return []
         }
 
         var hands: [TrackedHand] = []
+        var usedIDs = Set<String>()
+        // Glättung und Pose-Hysterese hängen an der Handseite. Zwei Hände dürfen
+        // deshalb nie auf derselben Seite landen.
+        var usedSides = Set<Int>()
         hands.reserveCapacity(observations.count)
         for (idx, obs) in observations.enumerated() {
             guard let pts = try? obs.recognizedPoints(.all) else { continue }
@@ -116,10 +123,16 @@ final class HandTracker: @unchecked Sendable {
             guard raw.count >= 8 else { continue }
 
             var chirality = obs.chirality
-            if chirality == .unknown {
+            let guessed = chirality == .unknown
+            if guessed {
                 let wx = raw[.wrist]?.x ?? 0.5
                 chirality = wx < 0.5 ? .left : .right
             }
+            if guessed, usedSides.contains(chirality.rawValue) {
+                // Nur eine geratene Seite darf korrigiert werden, nie eine von Vision belegte.
+                chirality = chirality == .left ? .right : .left
+            }
+            usedSides.insert(chirality.rawValue)
             if mirrored {
                 if chirality == .left { chirality = .right }
                 else if chirality == .right { chirality = .left }
@@ -136,6 +149,7 @@ final class HandTracker: @unchecked Sendable {
             for (name, point) in raw {
                 display[name] = TrackedJoint(point: point, confidence: conf[name] ?? 0)
             }
+            let hasPinch = raw[.thumbTip] != nil && raw[.indexTip] != nil
             let pinchRaw = Self.distance(raw[.thumbTip], raw[.indexTip])
             let pinchSm = Self.distance(smoothed[.thumbTip], smoothed[.indexTip])
             let pinch = min(pinchRaw, pinchSm)
@@ -145,13 +159,19 @@ final class HandTracker: @unchecked Sendable {
             let ratio = GestureClassifier.pinchRatio(joints: smoothed, pinch: pinch)
             var ext: Set<String> = []
             for f in FingerKind.allCases {
-                if GestureClassifier.isExtended(smoothed, tip: f.tip, pip: f.pip, mcp: f.mcp) {
+                let slack = f == .thumb ? GestureClassifier.thumbSlack : GestureClassifier.fingerSlack
+                if GestureClassifier.isExtended(smoothed, tip: f.tip, pip: f.pip, mcp: f.mcp, slack: slack) {
                     ext.insert(f.rawValue)
                 }
             }
+            var handID = chirality == .left ? "L" : (chirality == .right ? "R" : "U-\(idx)")
+            if !usedIDs.insert(handID).inserted {
+                handID = "\(handID)-\(idx)"
+                usedIDs.insert(handID)
+            }
             hands.append(
                 TrackedHand(
-                    id: chirality == .left ? "L" : (chirality == .right ? "R" : "U-\(idx)"),
+                    id: handID,
                     chirality: chirality,
                     joints: joints,
                     displayJoints: display,
@@ -160,7 +180,8 @@ final class HandTracker: @unchecked Sendable {
                     pinchRatio: ratio,
                     palm: palm,
                     openScore: openScore,
-                    extended: ext
+                    extended: ext,
+                    hasPinch: hasPinch
                 )
             )
         }
@@ -172,7 +193,16 @@ final class HandTracker: @unchecked Sendable {
     /// Pose muss 2 Frames halten, sonst flackert Faust/Pinzette/Offen.
     private func stabilize(_ pose: HandPose, chirality: VNChirality) -> HandPose {
         let k = chirality.rawValue
-        if pose == .unknown, let old = poseHold[k] { return old.pose }
+        if pose == .unknown {
+            guard var h = poseHold[k] else { return .unknown }
+            h.n -= 1
+            if h.n <= 0 {
+                poseHold[k] = nil
+                return .unknown
+            }
+            poseHold[k] = h
+            return h.pose
+        }
         if var h = poseHold[k] {
             if h.pose == pose {
                 h.n = min(8, h.n + 1)

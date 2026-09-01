@@ -1,31 +1,10 @@
 import CoreGraphics
 import Foundation
 
-/// Standalone: `swift macos/HeliosTests/CoordTests.swift`
-/// Muss mit CoordMath.swift übereinstimmen.
-
-enum CoordMath {
-    static func quartz(fromCocoa p: CGPoint, primaryMaxY: CGFloat) -> CGPoint {
-        CGPoint(x: p.x, y: primaryMaxY - p.y)
-    }
-
-    static func cocoa(fromQuartz p: CGPoint, primaryMaxY: CGFloat) -> CGPoint {
-        CGPoint(x: p.x, y: primaryMaxY - p.y)
-    }
-
-    static func quartzRect(fromCocoa r: CGRect, primaryMaxY: CGFloat) -> CGRect {
-        CGRect(
-            x: r.origin.x,
-            y: primaryMaxY - r.origin.y - r.height,
-            width: r.width,
-            height: r.height
-        )
-    }
-
-    static func cocoaRect(fromQuartz r: CGRect, primaryMaxY: CGFloat) -> CGRect {
-        quartzRect(fromCocoa: r, primaryMaxY: primaryMaxY)
-    }
-}
+// Wird gegen die echte Quelle gebaut:
+//   cat macos/Helios/CoordMath.swift macos/HeliosTests/CoordTests.swift > coord.swift && swift coord.swift
+// CoordMath darf hier NICHT noch einmal definiert werden — eine Kopie würde
+// nur sich selbst prüfen und könnte eine Regression im App-Code nie sehen.
 
 var fails = 0
 
@@ -56,37 +35,55 @@ pointEq(
 )
 
 // Monitor über dem Hauptschirm: Cocoa-y > primaryH → Quartz-y negativ.
+// Genau hier lag der Fehler, als die Union statt des Hauptbildschirms zählte.
 pointEq(
     CoordMath.quartz(fromCocoa: CGPoint(x: 100, y: 1080 + 400), primaryMaxY: primaryH),
     CGPoint(x: 100, y: -400),
     "Schirm oben"
 )
 
-// Roundtrip.
+// Monitor links vom Hauptschirm: x bleibt negativ, y unberührt.
+pointEq(
+    CoordMath.quartz(fromCocoa: CGPoint(x: -1920, y: 1080), primaryMaxY: primaryH),
+    CGPoint(x: -1920, y: 0),
+    "Schirm links"
+)
+
+// Roundtrip Punkt.
 let p = CGPoint(x: -200, y: 500)
 let q = CoordMath.quartz(fromCocoa: p, primaryMaxY: primaryH)
 pointEq(CoordMath.cocoa(fromQuartz: q, primaryMaxY: primaryH), p, "Roundtrip Punkt")
 
+// Rechteck: Quartz-y misst die Oberkante von oben.
 let cocoaWin = CGRect(x: 100, y: 200, width: 800, height: 600)
 let quartzWin = CoordMath.quartzRect(fromCocoa: cocoaWin, primaryMaxY: primaryH)
 eq(quartzWin.origin.x, 100, "rect x")
-eq(quartzWin.origin.y, primaryH - 200 - 600, "rect y top-left quartz")
+eq(quartzWin.origin.y, primaryH - 200 - 600, "rect y oben links")
 eq(quartzWin.height, 600, "rect h")
+
 let back = CoordMath.cocoaRect(fromQuartz: quartzWin, primaryMaxY: primaryH)
 eq(back.origin.x, cocoaWin.origin.x, "rect roundtrip x")
 eq(back.origin.y, cocoaWin.origin.y, "rect roundtrip y")
 eq(back.width, cocoaWin.width, "rect roundtrip w")
 eq(back.height, cocoaWin.height, "rect roundtrip h")
 
-// AXPosition ist Cocoa. Quartz-Bounds (CGWindow) → Cocoa muss AX treffen.
-let cgWindow = CGRect(x: 50, y: 80, width: 400, height: 300) // quartz
-let ax = CoordMath.cocoaRect(fromQuartz: cgWindow, primaryMaxY: primaryH)
-eq(ax.minX, 50, "AX x")
-eq(ax.height, 300, "AX h")
-eq(ax.maxY, primaryH - 80, "AX top in cocoa")
+// cocoaRect ist eine Involution — zweimal angewandt kommt das Original zurück.
+let twice = CoordMath.cocoaRect(
+    fromQuartz: CoordMath.cocoaRect(fromQuartz: cocoaWin, primaryMaxY: primaryH),
+    primaryMaxY: primaryH
+)
+eq(twice.origin.y, cocoaWin.origin.y, "Involution y")
+
+// Ein Fenster, das oben am Hauptbildschirm klebt, hat Quartz-y 0.
+let topWindow = CGRect(x: 0, y: primaryH - 300, width: 500, height: 300)
+eq(
+    CoordMath.quartzRect(fromCocoa: topWindow, primaryMaxY: primaryH).origin.y,
+    0,
+    "Fenster oben bündig"
+)
 
 if fails > 0 {
-    fputs("\(fails) Tests fehlgeschlagen\n", stderr)
+    fputs("\(fails) CoordTests fehlgeschlagen\n", stderr)
     exit(1)
 }
 print("CoordTests OK")

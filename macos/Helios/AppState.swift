@@ -19,7 +19,6 @@ final class AppState: ObservableObject {
     private let tracker = HandTracker()
 
     @Published var hands: [TrackedHand] = []
-    @Published var displayHands: [TrackedHand] = []
     @Published var mode: EngineMode = .idle
     @Published var lastAction = "—"
     @Published var fps: Double = 0
@@ -52,15 +51,18 @@ final class AppState: ObservableObject {
     @Published var cursorHand = "—"
     @Published var pointerGain: Double = 1.6
     private var lastPanel: TimeInterval = 0
+    private var fpsValue: Double = 0
 
     private var cancellables: Set<AnyCancellable> = []
     private var focusTick = 0
+    private var started = false
 
     func start() {
+        guard !started else { return }
+        started = true
         overlay.attach(state: self)
         engine.onLog = { [weak self] text, kind, conf in
             self?.log.record(text, kind: kind, confidence: conf)
-            self?.objectWillChange.send()
         }
         loadPrefs()
         log.objectWillChange
@@ -72,6 +74,7 @@ final class AppState: ObservableObject {
         $showCheats.sink { Prefs.showCheats = $0 }.store(in: &cancellables)
         $showOutline.sink { Prefs.showOutline = $0 }.store(in: &cancellables)
         $showTrashZone.sink { Prefs.showTrashZone = $0 }.store(in: &cancellables)
+        $showPreviewChip.sink { Prefs.showPreviewChip = $0 }.store(in: &cancellables)
         camera.objectWillChange
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
@@ -160,9 +163,14 @@ final class AppState: ObservableObject {
         camera.onFrame = nil
         camera.stop()
         tracker.reset()
+        engine.reset()
         cameraRunning = false
         hands = []
-        displayHands = []
+        mode = engine.mode
+        lastAction = engine.lastAction
+        engineCursor = nil
+        cursorHand = "—"
+        trashHot = false
         log.record("Kamera gestoppt.")
     }
 
@@ -210,6 +218,7 @@ final class AppState: ObservableObject {
         showCheats = Prefs.showCheats
         showOutline = Prefs.showOutline
         showTrashZone = Prefs.showTrashZone
+        showPreviewChip = Prefs.showPreviewChip
         engine.leftHanded = leftHanded
         engine.pointerGain = CGFloat(pointerGain)
         engine.protocolMode = protocolMode
@@ -238,25 +247,27 @@ final class AppState: ObservableObject {
         preview: NSImage?,
         luma: CGFloat
     ) {
-        self.luma = luma
-        latencyMs = latency
         frames += 1
         if now - fpsStamp >= 0.5 {
-            fps = Double(frames) / (now - fpsStamp)
+            fpsValue = Double(frames) / (now - fpsStamp)
             frames = 0
             fpsStamp = now
         }
         engine.tick(hands: hands, now: now)
-        mode = engine.mode
-        lastAction = engine.lastAction
-        engineCursor = engine.cursor
-        cursorHand = engine.cursorHand
-        trashHot = engine.trashHot
-        killFlash = engine.killFlash
+        // Jede Zuweisung an ein @Published invalidiert die Konsole und jedes
+        // HUD-Panel. Bei 60 fps lohnt der Vergleich.
+        if mode != engine.mode { mode = engine.mode }
+        if lastAction != engine.lastAction { lastAction = engine.lastAction }
+        if engineCursor != engine.cursor { engineCursor = engine.cursor }
+        if cursorHand != engine.cursorHand { cursorHand = engine.cursorHand }
+        if trashHot != engine.trashHot { trashHot = engine.trashHot }
+        if killFlash != engine.killFlash { killFlash = engine.killFlash }
         if now - lastPanel >= 0.07 {
             lastPanel = now
             self.hands = hands
-            self.displayHands = hands
+            self.luma = luma
+            latencyMs = latency
+            if fps != fpsValue { fps = fpsValue }
             if let preview { self.preview = preview }
         }
         if protocolMode {
@@ -315,5 +326,9 @@ enum Prefs {
     static var showTrashZone: Bool {
         get { UserDefaults.standard.object(forKey: "helios.trash") as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "helios.trash") }
+    }
+    static var showPreviewChip: Bool {
+        get { UserDefaults.standard.object(forKey: "helios.chip") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.chip") }
     }
 }

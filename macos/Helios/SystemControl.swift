@@ -24,11 +24,26 @@ final class SystemControl {
     private var lastClick: TimeInterval = 0
     private var lastKey: TimeInterval = 0
     private var lastPosted: CGPoint?
-    private let axQ = DispatchQueue(label: "helios.ax", qos: .userInteractive)
+    private var lastPostedAt: TimeInterval = 0
+    private let dragPump = AXDragPump()
+    /// Ergebnis einer Aktion, die erst nach ihrem Aufruf feststeht (z. B. Aufnahme).
+    var onLate: ((String, ProtocolKind) -> Void)?
+
+    /// Die zuletzt von Helios gesetzte Position gilt nur kurz. Danach zählt wieder
+    /// die echte Maus — sonst klickt eine Geste dorthin, wo der Zeiger vor Minuten stand.
+    private var postedCursor: CGPoint? {
+        guard let lastPosted, CACurrentMediaTime() - lastPostedAt < 0.5 else { return nil }
+        return lastPosted
+    }
+
+    private var aimPoint: CGPoint {
+        postedCursor ?? NSEvent.mouseLocation.screenFlipped
+    }
 
     func moveCursor(to point: CGPoint) {
         let p = ScreenGeometry.clampQuartz(point)
         lastPosted = p
+        lastPostedAt = CACurrentMediaTime()
         let src = CGEventSource(stateID: .hidSystemState)
         let e = CGEvent(mouseEventSource: src, mouseType: .mouseMoved, mouseCursorPosition: p, mouseButton: .left)
         e?.post(tap: .cghidEventTap)
@@ -39,7 +54,7 @@ final class SystemControl {
         let now = CACurrentMediaTime()
         guard now - lastClick > 0.12 else { return .fail("Klick-Pause") }
         lastClick = now
-        let loc = lastPosted ?? NSEvent.mouseLocation.screenFlipped
+        let loc = aimPoint
         guard postMouse(.leftMouseDown, at: loc), postMouse(.leftMouseUp, at: loc) else {
             return .fail("CGEvent Klick")
         }
@@ -48,7 +63,7 @@ final class SystemControl {
 
     @discardableResult
     func beginWindowDrag() -> ActionResult {
-        let loc = lastPosted ?? NSEvent.mouseLocation.screenFlipped
+        let loc = aimPoint
         guard let win = targetWindow(at: loc) else {
             if AppInstall.isFromDiskImage {
                 return .fail("Läuft aus dem DMG — nach Programme kopieren")
@@ -64,17 +79,14 @@ final class SystemControl {
 
     func updateWindowDrag() {
         guard let win = dragElement else { return }
-        let loc = lastPosted ?? NSEvent.mouseLocation.screenFlipped
+        let loc = aimPoint
         let dx = loc.x - dragOriginMouse.x
         let dy = loc.y - dragOriginMouse.y
-        let dest = CGPoint(x: dragOriginWindow.x + dx, y: dragOriginWindow.y + dy)
-        let captured = win
-        axQ.async {
-            _ = SystemControl.setPositionRaw(captured, dest)
-        }
+        dragPump.submit(win, CGPoint(x: dragOriginWindow.x + dx, y: dragOriginWindow.y + dy))
     }
 
     func endWindowDrag() {
+        dragPump.cancel()
         dragElement = nil
     }
 
@@ -111,7 +123,7 @@ final class SystemControl {
     @discardableResult
     func snapFocused(_ edge: SnapEdge) -> ActionResult {
         guard let win = targetWindow() else { return .fail("Kein Fenster") }
-        let loc = NSEvent.mouseLocation.screenFlipped
+        let loc = aimPoint
         let screen = ScreenGeometry.screenContaining(quartz: loc) ?? NSScreen.main
         guard let screen else { return .fail("Kein Bildschirm") }
         let vis = ScreenGeometry.quartzRect(fromCocoa: screen.visibleFrame)
@@ -144,8 +156,12 @@ final class SystemControl {
         if windowID == 0 && bounds.width < 8 {
             return .fail("Kein Zielfenster")
         }
-        let r = WindowCapture.captureSync(windowID: windowID, bounds: bounds)
-        return r
+        return WindowCapture.launch(windowID: windowID) { [weak self] done in
+            self?.onLate?(
+                done.ok ? "Aufnahme · \(done.detail)" : "Aufnahme — NICHT AUSGEFÜHRT: \(done.detail)",
+                done.ok ? .executed : .failed
+            )
+        }
     }
 
     @discardableResult
@@ -256,7 +272,7 @@ final class SystemControl {
     }
 
     private func targetWindow(at point: CGPoint? = nil) -> AXUIElement? {
-        let loc = point ?? lastPosted ?? NSEvent.mouseLocation.screenFlipped
+        let loc = point ?? aimPoint
         if let win = window(at: loc), pid(of: win) != TargetProbe.selfPID {
             return win
         }
@@ -276,15 +292,15 @@ final class SystemControl {
         if AXUIElementCopyAttributeValue(app, "AXWindows" as CFString, &ref) == .success,
            let any = ref as? [AnyObject]
         {
-            let windows = any.map { $0 as! AXUIElement }
-            // AXPosition ist Cocoa (unten links am Hauptbildschirm).
-            let cocoa = ScreenGeometry.cocoaRect(fromQuartz: bounds)
+            let windows = any.compactMap { $0 as? AXUIElement }
+            // AXPosition liegt im selben Raum wie CGWindowList: oben links am
+            // Hauptbildschirm, y nach unten. `bounds` ist bereits genau das.
             var best: AXUIElement?
             var bestArea: CGFloat = 0
             for w in windows {
                 guard let pos = position(of: w), let size = size(of: w) else { continue }
                 let r = CGRect(origin: pos, size: size)
-                let inter = r.intersection(cocoa)
+                let inter = r.intersection(bounds)
                 let area = inter.width * inter.height
                 if area > bestArea, area > 40 {
                     bestArea = area
@@ -296,7 +312,7 @@ final class SystemControl {
         }
         var focused: CFTypeRef?
         if AXUIElementCopyAttributeValue(app, "AXFocusedWindow" as CFString, &focused) == .success {
-            return focused.map { $0 as! AXUIElement }
+            return focused as? AXUIElement
         }
         return nil
     }
@@ -321,7 +337,8 @@ final class SystemControl {
             var parent: CFTypeRef?
             let err = AXUIElementCopyAttributeValue(c, "AXParent" as CFString, &parent)
             if err != .success { return c }
-            current = parent.map { $0 as! AXUIElement }
+            guard let next = parent as? AXUIElement else { return c }
+            current = next
         }
         return current
     }
@@ -334,16 +351,18 @@ final class SystemControl {
     private func position(of el: AXUIElement) -> CGPoint? {
         var v: CFTypeRef?
         guard AXUIElementCopyAttributeValue(el, "AXPosition" as CFString, &v) == .success else { return nil }
+        guard let value = v as? AXValue else { return nil }
         var p = CGPoint.zero
-        AXValueGetValue(v as! AXValue, .cgPoint, &p)
+        guard AXValueGetValue(value, .cgPoint, &p) else { return nil }
         return p
     }
 
     private func size(of el: AXUIElement) -> CGSize? {
         var v: CFTypeRef?
         guard AXUIElementCopyAttributeValue(el, "AXSize" as CFString, &v) == .success else { return nil }
+        guard let value = v as? AXValue else { return nil }
         var s = CGSize.zero
-        AXValueGetValue(v as! AXValue, .cgSize, &s)
+        guard AXValueGetValue(value, .cgSize, &s) else { return nil }
         return s
     }
 
@@ -352,7 +371,7 @@ final class SystemControl {
         Self.setPositionRaw(el, p)
     }
 
-    nonisolated private static func setPositionRaw(_ el: AXUIElement, _ p: CGPoint) -> Bool {
+    nonisolated fileprivate static func setPositionRaw(_ el: AXUIElement, _ p: CGPoint) -> Bool {
         var point = p
         guard let val = AXValueCreate(.cgPoint, &point) else { return false }
         return AXUIElementSetAttributeValue(el, "AXPosition" as CFString, val) == .success
@@ -369,14 +388,80 @@ final class SystemControl {
     private func pressButton(_ win: AXUIElement, _ attr: CFString) -> ActionResult {
         var btn: CFTypeRef?
         let copy = AXUIElementCopyAttributeValue(win, attr, &btn)
-        guard copy == .success, let btn else { return .fail("Kein Knopf \(attr)") }
-        let act = AXUIElementPerformAction(btn as! AXUIElement, "AXPress" as CFString)
+        guard copy == .success, let button = btn as? AXUIElement else {
+            return .fail("Kein Knopf \(attr)")
+        }
+        let act = AXUIElementPerformAction(button, "AXPress" as CFString)
         return act == .success ? .ok(attr as String) : .fail("AXPress \(act.rawValue)")
     }
 }
 
+/// Fensterziehen: nur die jüngste Position zählt. Ohne Koaleszieren staut sich
+/// die AX-Queue auf und das Fenster hängt Sekunden hinter der Hand.
+private final class AXDragPump: @unchecked Sendable {
+    private let queue = DispatchQueue(label: "helios.ax", qos: .userInteractive)
+    private let lock = NSLock()
+    private var pending: (AXUIElement, CGPoint)?
+    private var busy = false
+
+    func submit(_ element: AXUIElement, _ point: CGPoint) {
+        lock.lock()
+        pending = (element, point)
+        let start = !busy
+        if start { busy = true }
+        lock.unlock()
+        guard start else { return }
+        queue.async { self.drain() }
+    }
+
+    func cancel() {
+        lock.lock()
+        pending = nil
+        lock.unlock()
+    }
+
+    private func drain() {
+        while true {
+            lock.lock()
+            let item = pending
+            pending = nil
+            if item == nil { busy = false }
+            lock.unlock()
+            guard let item else { return }
+            _ = SystemControl.setPositionRaw(item.0, item.1)
+        }
+    }
+}
+
+/// Hält den laufenden Prozess fest, bis er beendet ist. Ohne starke Referenz
+/// kann der terminationHandler ausbleiben; ihn im Handler selbst zu halten wäre
+/// ein Zyklus.
+private final class ProcessKeeper: @unchecked Sendable {
+    static let shared = ProcessKeeper()
+    private let lock = NSLock()
+    private var live: [ObjectIdentifier: Process] = [:]
+
+    func hold(_ process: Process) {
+        lock.lock()
+        live[ObjectIdentifier(process)] = process
+        lock.unlock()
+    }
+
+    func drop(_ process: Process) {
+        lock.lock()
+        live[ObjectIdentifier(process)] = nil
+        lock.unlock()
+    }
+}
+
 enum WindowCapture {
-    static func captureSync(windowID: CGWindowID, bounds: CGRect) -> ActionResult {
+    /// Startet screencapture, ohne auf das Ende zu warten — `waitUntilExit` auf dem
+    /// Main-Thread friert HUD und Kamerabild für die Dauer der Aufnahme ein.
+    /// Das echte Ergebnis kommt über `done` nach.
+    static func launch(
+        windowID: CGWindowID,
+        done: @escaping @MainActor @Sendable (ActionResult) -> Void
+    ) -> ActionResult {
         let dir = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
         let fmt = DateFormatter()
@@ -389,15 +474,28 @@ enum WindowCapture {
         } else {
             proc.arguments = ["-x", url.path]
         }
+        proc.terminationHandler = { finished in
+            let status = finished.terminationStatus
+            ProcessKeeper.shared.drop(finished)
+            DispatchQueue.main.async {
+                MainActor.assumeIsolated {
+                    if status == 0, FileManager.default.fileExists(atPath: url.path) {
+                        NSWorkspace.shared.activateFileViewerSelecting([url])
+                        done(.ok(url.lastPathComponent))
+                    } else {
+                        done(.fail("screencapture \(status)"))
+                    }
+                }
+            }
+        }
+        // Vor dem Start festhalten: ein sofort beendeter Prozess würde sonst
+        // `drop` vor `hold` ausführen und den Eintrag dauerhaft liegen lassen.
+        ProcessKeeper.shared.hold(proc)
         do {
             try proc.run()
-            proc.waitUntilExit()
-            if proc.terminationStatus == 0, FileManager.default.fileExists(atPath: url.path) {
-                NSWorkspace.shared.activateFileViewerSelecting([url])
-                return .ok(url.lastPathComponent)
-            }
-            return .fail("screencapture \(proc.terminationStatus)")
+            return .ok("läuft")
         } catch {
+            ProcessKeeper.shared.drop(proc)
             return .fail("screencapture: \(error.localizedDescription)")
         }
     }

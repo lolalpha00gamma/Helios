@@ -17,12 +17,9 @@ enum TargetProbe {
     static var selfPID: pid_t { ProcessInfo.processInfo.processIdentifier }
 
     /// Maus in CGWindowList-Koordinaten (Ursprung oben links am Hauptbildschirm).
+    /// Dieselbe Rechnung wie ScreenGeometry — eine zweite Kopie würde auseinanderlaufen.
     static func cursorInWindowList() -> CGPoint {
-        let cocoa = NSEvent.mouseLocation
-        let originH = NSScreen.screens.first {
-            abs($0.frame.minX) < 0.5 && abs($0.frame.minY) < 0.5
-        }?.frame.maxY ?? NSScreen.main?.frame.maxY ?? 0
-        return CGPoint(x: cocoa.x, y: originH - cocoa.y)
+        ScreenGeometry.quartz(fromCocoa: NSEvent.mouseLocation)
     }
 
     static func windowUnderCursor(skipSelf: Bool = true) -> FocusedTarget? {

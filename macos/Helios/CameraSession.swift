@@ -33,13 +33,24 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     private let enhancer = FrameEnhancer()
     private let ring = GPUFrameRing()
     private var mirroredFlag = false
-    var isMirrored: Bool { mirroredFlag }
+    private let mirrorLock = NSLock()
+    var isMirrored: Bool {
+        mirrorLock.lock()
+        defer { mirrorLock.unlock() }
+        return mirroredFlag
+    }
+
+    private func setMirrored(_ value: Bool) {
+        mirrorLock.lock()
+        mirroredFlag = value
+        mirrorLock.unlock()
+    }
     private let handlerLock = NSLock()
     private var frameHandler: ((CVPixelBuffer, NSImage?, CGFloat, TimeInterval) -> Void)?
 
     func start() {
         DispatchQueue.main.async { self.errorMessage = nil }
-        pump.reset()
+        if let orphan = pump.reset() { ring.release(orphan) }
         cameraQueue.async { [weak self] in
             self?.configureAndRun()
         }
@@ -48,7 +59,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     func stop() {
         cameraQueue.async { [weak self] in
             guard let self else { return }
-            self.pump.cancel()
+            if let orphan = self.pump.cancel() { self.ring.release(orphan) }
             HeliosCatch({ self.session.stopRunning() }, nil)
             DispatchQueue.main.async { self.isRunning = false }
         }
@@ -93,15 +104,21 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         tap = sink
         output.setSampleBufferDelegate(sink, queue: cameraQueue)
         if session.canAddOutput(output) { session.addOutput(output) }
-        HeliosCatch({
-            if let conn = self.output.connection(with: .video), conn.isVideoMirroringSupported {
-                let front = device.position == .front || device.deviceType == .builtInWideAngleCamera
-                conn.isVideoMirrored = front
-                self.mirroredFlag = conn.isVideoMirrored
-            } else {
-                self.mirroredFlag = false
+        var mirrorErr: NSError?
+        _ = HeliosCatch({
+            guard let conn = self.output.connection(with: .video), conn.isVideoMirroringSupported else {
+                self.setMirrored(false)
+                return
             }
-        }, nil)
+            // Ohne dieses Abschalten wirft die Zuweisung eine NSException.
+            conn.automaticallyAdjustsVideoMirroring = false
+            let front = device.position == .front || device.deviceType == .builtInWideAngleCamera
+            conn.isVideoMirrored = front
+            self.setMirrored(conn.isVideoMirrored)
+        }, &mirrorErr)
+        if mirrorErr != nil {
+            self.setMirrored(false)
+        }
         session.commitConfiguration()
 
         configureDevice(device)
@@ -201,7 +218,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
 
     private func accept(_ buffer: CMSampleBuffer) {
         guard let pb = CMSampleBufferGetImageBuffer(buffer) else { return }
-        let (owned, slot) = ring.copy(pb)
+        // Kein freier Slot: Frame verwerfen. Der nächste kommt in 16 ms.
+        guard let (owned, slot) = ring.copy(pb) else { return }
         pump.push(owned, slot: slot, arrived: CACurrentMediaTime(), drop: { [weak self] s in
             self?.ring.release(s)
         }) { [weak self] latest, arrived, doneSlot in
@@ -274,20 +292,28 @@ private final class FramePump: @unchecked Sendable {
         }
     }
 
-    func cancel() {
+    /// Gibt den Slot des noch nicht verarbeiteten Frames zurück, damit der Ring
+    /// ihn freigeben kann — sonst bleibt er für immer belegt.
+    @discardableResult
+    func cancel() -> Int? {
         lock.lock()
         cancelled = true
+        let orphan = latest?.2
         latest = nil
         scheduled = false
         lock.unlock()
+        return orphan
     }
 
-    func reset() {
+    @discardableResult
+    func reset() -> Int? {
         lock.lock()
         cancelled = false
+        let orphan = latest?.2
         latest = nil
         scheduled = false
         lock.unlock()
+        return orphan
     }
 
     private func drain(_ process: @escaping (CVPixelBuffer, TimeInterval, Int) -> Void) {

@@ -72,11 +72,20 @@ final class GPUFrameRing: @unchecked Sendable {
     private var height = 0
     private let lock = NSLock()
 
-    func copy(_ src: CVPixelBuffer) -> (CVPixelBuffer, Int) {
+    /// Obergrenze: mehr als zwei Frames sind nie gleichzeitig unterwegs (Pump hält
+    /// höchstens einen wartenden plus einen laufenden). Wächst der Ring trotzdem,
+    /// wurde ein Slot nicht freigegeben — dann lieber Frames verwerfen als
+    /// unbegrenzt IOSurfaces anzulegen.
+    private static let maxSlots = 12
+
+    /// nil = kein freier Slot. Der Kamera-Buffer darf NICHT ersatzweise
+    /// weitergereicht werden: AVFoundation recycelt ihn, sobald der Delegate
+    /// zurückkehrt, während Vision noch darin liest.
+    func copy(_ src: CVPixelBuffer) -> (buffer: CVPixelBuffer, slot: Int)? {
         let w = CVPixelBufferGetWidth(src)
         let h = CVPixelBufferGetHeight(src)
         lock.lock()
-        if slots.count < 4 || width != w || height != h {
+        if slots.isEmpty || width != w || height != h {
             slots = (0..<8).compactMap { _ in MetalHub.makeBuffer(width: w, height: h) }
             busy = Array(repeating: false, count: slots.count)
             width = w
@@ -87,14 +96,14 @@ final class GPUFrameRing: @unchecked Sendable {
             idx = i
             break
         }
-        if idx == nil, let extra = MetalHub.makeBuffer(width: w, height: h) {
+        if idx == nil, slots.count < Self.maxSlots, let extra = MetalHub.makeBuffer(width: w, height: h) {
             slots.append(extra)
             busy.append(false)
             idx = slots.count - 1
         }
         guard let i = idx, i < slots.count else {
             lock.unlock()
-            return (src, -1)
+            return nil
         }
         busy[i] = true
         let dst = slots[i]

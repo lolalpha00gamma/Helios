@@ -48,9 +48,17 @@ Xcode 26/27, macOS 26 SDK:
 
 ```
 xcodebuild -project macos/Helios.xcodeproj -scheme Helios -configuration Release ARCHS=arm64
-swift macos/HeliosTests/CoordTests.swift
 ```
 
-GitHub Actions legt bei jedem Push auf `main` eine `Helios.dmg` als Release ab.
+Logiktests (laufen gegen die echten Quelldateien, nicht gegen eine Kopie):
+
+```
+cat macos/Helios/CoordMath.swift macos/HeliosTests/CoordTests.swift > /tmp/coord.swift && swift /tmp/coord.swift
+cat macos/Helios/GestureClassifier.swift macos/HeliosTests/GestureTests.swift > /tmp/gesture.swift && swift /tmp/gesture.swift
+```
+
+GitHub Actions baut jeden Push auf `main` und jeden Pull Request. Veröffentlicht wird
+nur, wenn `MARKETING_VERSION` erhöht wurde — ein bereits ausgeliefertes DMG wird nicht
+stillschweigend durch ein anderes ersetzt. Ohne Bump liegt das DMG als Workflow-Artefakt bereit.
 
 Ad-hoc-Signatur. Developer ID + Notarisierung braucht ein Apple-Zertifikat — ohne das muss der Nutzer nach jedem Update die TCC-Schalter neu setzen.

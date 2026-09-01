@@ -72,7 +72,6 @@ struct ControlPanel: View {
                 }
             }
             .toggleStyle(.switch)
-            .keyboardShortcut("t", modifiers: [.command])
             .padding(10)
             .background(state.testMode ? HeliosTheme.cyan.opacity(0.12) : Color.white.opacity(0.04))
             .overlay(
@@ -100,9 +99,10 @@ struct ControlPanel: View {
                         Text("Nach einem Update den Schalter Bedienungshilfen einmal aus- und wieder einschalten.")
                             .font(.system(size: 10))
                             .foregroundStyle(.secondary)
-                        Button("Systemeinstellungen öffnen") {
+                        // Nur ein Bereich: zwei Aufrufe hintereinander überschreiben
+                        // sich, sichtbar bleibt nur der letzte.
+                        Button("Bedienungshilfen öffnen") {
                             Permissions.openPrivacyPane(.accessibility)
-                            Permissions.openPrivacyPane(.inputMonitoring)
                         }
                     }
                 }
@@ -114,7 +114,6 @@ struct ControlPanel: View {
                     Button(state.cameraRunning ? "Kamera stoppen" : "Kamera starten") {
                         if state.cameraRunning { state.stopCamera() } else { Task { await state.startCamera() } }
                     }
-                    .keyboardShortcut("k", modifiers: [.command])
                     HStack {
                         Button("Scharf") { state.engine.forceArm() }
                         Button("Idle") { state.engine.forceIdle() }
@@ -208,7 +207,7 @@ struct ControlPanel: View {
         ZStack {
             CameraPreview(
                 image: state.preview,
-                hands: state.displayHands,
+                hands: state.hands,
                 showLabels: state.showJointLabels,
                 compact: false,
                 placeholder: state.cameraError ?? "Kamera starten"

@@ -107,7 +107,10 @@ final class SessionRecorder {
 
     private func write(to url: URL, log: AuditLog) throws {
         let fm = FileManager.default
-        if fm.fileExists(atPath: url.path) {
+        // Kein removeItem: der Pfad kommt aus dem Speichern-Dialog und kann ein
+        // vorhandener Ordner des Nutzers sein. Wir legen nur an und schreiben hinein.
+        var isDir: ObjCBool = false
+        if fm.fileExists(atPath: url.path, isDirectory: &isDir), !isDir.boolValue {
             try fm.removeItem(at: url)
         }
         try fm.createDirectory(at: url, withIntermediateDirectories: true)
@@ -127,7 +130,7 @@ final class SessionRecorder {
         protokoll.txt   lesbares Protokoll (Erkannt / Ausgeführt / Fehler)
         protokoll.json  dasselbe strukturiert
         gesten.jsonl    eine Zeile pro Frame: Pose, Handseite, Gelenke x/y/Konfidenz
-        gesten.png      Filmstreifen der letzten Gesten (Kamera + Skelett)
+        gesten.png      Filmstreifen der letzten Gesten (Skelett)
 
         Gelenke sind normiert 0…1 (Kamera), y nach oben.
         """

@@ -162,7 +162,8 @@ enum Permissions {
         case .notDetermined:
             return await AVCaptureDevice.requestAccess(for: .video)
         default:
-            await MainActor.run { openPrivacyPane(.camera) }
+            // Kein openPrivacyPane hier: der Aufrufer entscheidet, ob die
+            // Systemeinstellungen aufgehen. Sonst öffnen sie sich doppelt.
             return false
         }
     }

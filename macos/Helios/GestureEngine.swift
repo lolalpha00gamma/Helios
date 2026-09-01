@@ -57,31 +57,48 @@ final class GestureEngine {
     private var lastPalm: CGPoint?
     private var pointerHandID: String?
     private var swipeGraceUntil: TimeInterval = 0
+    private var swipeHandID: String?
+    private var grabHandID: String?
     private var cursorDidMove = false
     private let system = SystemControl()
     var onLog: ((String, ProtocolKind, Int?) -> Void)?
     var focused: FocusedTarget?
+
+    init() {
+        system.onLate = { [weak self] text, kind in
+            self?.onLog?(text, kind, nil)
+        }
+    }
 
     func reset() {
         mode = .idle
         fistSince = nil
         fistLostAt = nil
         palmSince = nil
+        lastPalmSeen = 0
+        killLatched = false
+        peaceSince = nil
+        thumbsSince = nil
         pinchHeld = false
         pinchBecameDrag = false
+        pinchSpan0 = nil
+        grabHandID = nil
         twoPinchSince = nil
         swipeTrail.removeAll()
+        swipeHandID = nil
+        swipeGraceUntil = 0
         pinchTrail.removeAll()
         system.endWindowDrag()
         cursor = nil
         twoHandSpan = nil
         trashHot = false
+        killFlash = false
         dragging = false
         mustRearm = false
-        pointerOrigin = nil
-        cursorSmooth = nil
-        lastPalm = nil
-        pointerHandID = nil
+        armLockUntil = 0
+        cooldownUntil = 0
+        lastLoggedPose = ""
+        releasePointer()
         lastAction = "Reset"
     }
 
@@ -96,6 +113,9 @@ final class GestureEngine {
             lastPalmSeen = 0
             pinchTrail.removeAll()
             swipeTrail.removeAll()
+            swipeHandID = nil
+            grabHandID = nil
+            pinchSpan0 = nil
             if system.isDragging { system.endWindowDrag() }
             pinchHeld = false
             pinchBecameDrag = false
@@ -154,6 +174,8 @@ final class GestureEngine {
             if !testMode, cursorDidMove, actor.pose != .fist, let p = cursor {
                 system.moveCursor(to: p)
             }
+        } else {
+            holdPointer(actor)
         }
         updateTrashHot()
         driveGrab(actor, now: now)
@@ -274,7 +296,8 @@ final class GestureEngine {
         if mode == .armed { return }
 
         let fisting = hands.contains {
-            $0.pose == .fist || ($0.openScore == 0 && $0.pinchRatio > 0.5 && $0.meanConfidence > 0.35)
+            $0.pose == .fist
+                || ($0.openScore == 0 && $0.hasPinch && $0.pinchRatio > 0.5 && $0.meanConfidence > 0.35)
         }
         if fisting {
             fistLostAt = nil
@@ -315,6 +338,9 @@ final class GestureEngine {
 
     private func pinchActor(_ hands: [TrackedHand], primary: TrackedHand) -> TrackedHand {
         if pinchHeld {
+            if let id = grabHandID, let held = hands.first(where: { $0.id == id }) {
+                return held
+            }
             return hands.min { a, b in a.pinchRatio < b.pinchRatio } ?? primary
         }
         if let pinching = hands.filter({ $0.pose == .pinch }).min(by: { $0.pinchRatio < $1.pinchRatio }) {
@@ -355,6 +381,18 @@ final class GestureEngine {
         return s
     }
 
+    /// Zeiger steht (Pinzette gehalten, noch kein Ziehen), aber die Referenz der
+    /// Handfläche läuft mit. Ohne das springt der Cursor beim Übergang zum Ziehen
+    /// um den gesamten währenddessen aufgestauten Weg — und das Fenster mit ihm.
+    private func holdPointer(_ hand: TrackedHand) {
+        if pointerHandID != hand.id {
+            pointerHandID = hand.id
+            cursorSmooth = ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
+        }
+        lastPalm = hand.palm
+        cursorDidMove = false
+    }
+
     private func placeCursor(_ hand: TrackedHand) {
         cursor = actorMapped(hand)
         cursorHand = hand.sideDE
@@ -377,6 +415,7 @@ final class GestureEngine {
                 system.resizeFocused(scale: span > old ? 1.05 : 0.95)
             }
             twoHandSpan = span
+            cooldownUntil = now + 0.12
             return true
         }
         twoHandSpan = span
@@ -404,6 +443,7 @@ final class GestureEngine {
         if isGrab && !pinchHeld {
             pinchHeld = true
             pinchBecameDrag = false
+            grabHandID = hand.id
             pinchBeganAt = now
             pinchTrail = [(now, hand.palm.x, hand.palm.y)]
             pinchSpan0 = hypot(
@@ -454,6 +494,7 @@ final class GestureEngine {
             let held = now - pinchBeganAt
             pinchHeld = false
             pinchBecameDrag = false
+            grabHandID = nil
             pinchTrail.removeAll()
             pinchSpan0 = nil
             trashHot = false
@@ -491,11 +532,12 @@ final class GestureEngine {
         let dist = hypot(dx, dy)
         guard speed > 0.38 && dist > 0.08 else { return false }
         onLog?("Werfen erkannt", .recognized, Int(confidence * 100))
-        if abs(dy) >= abs(dx) && dy < -0.05 {
+        // Vision-Koordinaten: y wächst nach oben. dy > 0 = nach oben geworfen.
+        if abs(dy) >= abs(dx) && dy > 0.08 {
             perform("Wegwerfen", confidence: confidence) { system.throwAway(finder: focused?.isFinder == true) }
             return true
         }
-        if abs(dy) >= abs(dx) && dy > 0.08 {
+        if abs(dy) >= abs(dx) && dy < -0.05 {
             perform("Minimieren", confidence: confidence) { system.minimizeFocused() }
             return true
         }
@@ -517,10 +559,15 @@ final class GestureEngine {
         }
         let open = hands.filter { $0.pose == .openPalm || $0.openScore >= 2 }
         let hand = open.max { a, b in a.openScore < b.openScore }
-            ?? (now < swipeGraceUntil ? hands.first : nil)
+            ?? (now < swipeGraceUntil ? hands.first(where: { $0.id == swipeHandID }) : nil)
         guard let hand else {
             swipeTrail.removeAll()
+            swipeHandID = nil
             return
+        }
+        if hand.id != swipeHandID {
+            swipeTrail.removeAll()
+            swipeHandID = hand.id
         }
         swipeGraceUntil = now + 0.32
         swipeTrail.append((now, hand.palm.x, hand.palm.y))
@@ -535,6 +582,7 @@ final class GestureEngine {
         let name = forward ? "Nächste App" : "Vorherige App"
         perform(name, need: .none, confidence: hand.meanConfidence) { system.switchApp(forward: forward) }
         swipeTrail.removeAll()
+        swipeHandID = nil
         cooldownUntil = now + 0.4
     }
 

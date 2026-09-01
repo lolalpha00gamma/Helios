@@ -33,13 +33,16 @@ struct AuditEntry: Identifiable {
 final class AuditLog: ObservableObject {
     @Published private(set) var entries: [AuditEntry] = []
     private let limit = 2500
+    /// In Blöcken kürzen: `removeFirst` verschiebt das ganze Array, bei jeder
+    /// einzelnen Zeile wäre das wieder O(n) pro Eintrag.
+    private let slack = 256
 
     func record(_ text: String, kind: ProtocolKind = .info, confidence: Int? = nil) {
         entries.append(AuditEntry(at: Date(), kind: kind, text: text, confidence: confidence))
-        if entries.count > limit {
+        if entries.count > limit + slack {
             entries.removeFirst(entries.count - limit)
         }
-        heliosLog.info("\(kind.rawValue, privacy: .public) \(text, privacy: .public)")
+        heliosLog.info("\(kind.rawValue, privacy: .public) \(text, privacy: .private)")
     }
 
     func clear() { entries.removeAll() }

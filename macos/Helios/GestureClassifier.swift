@@ -24,6 +24,13 @@ enum HandPose: String, Equatable {
 }
 
 enum GestureClassifier {
+    /// Toleranz, ab der ein Finger als gestreckt gilt. `classify` und die Anzeige
+    /// müssen denselben Wert benutzen — sonst zeigt der Testmodus "offen" für einen
+    /// Finger, den die Posenerkennung als geschlossen wertet.
+    static let fingerSlack: CGFloat = 0.016
+    static let thumbSlack: CGFloat = 0.012
+    static let openSlack: CGFloat = 0.012
+
     static func palmScale(_ joints: [VNHumanHandPoseObservation.JointName: CGPoint]) -> CGFloat {
         if let w = joints[.wrist], let m = joints[.middleMCP] {
             return max(0.05, hypot(w.x - m.x, w.y - m.y))
@@ -56,11 +63,11 @@ enum GestureClassifier {
         joints: [VNHumanHandPoseObservation.JointName: CGPoint],
         pinch: CGFloat
     ) -> HandPose {
-        let thumb = isExtended(joints, tip: .thumbTip, pip: .thumbIP, mcp: .thumbMP, slack: 0.012)
-        let index = isExtended(joints, tip: .indexTip, pip: .indexPIP, mcp: .indexMCP, slack: 0.016)
-        let middle = isExtended(joints, tip: .middleTip, pip: .middlePIP, mcp: .middleMCP, slack: 0.016)
-        let ring = isExtended(joints, tip: .ringTip, pip: .ringPIP, mcp: .ringMCP, slack: 0.016)
-        let little = isExtended(joints, tip: .littleTip, pip: .littlePIP, mcp: .littleMCP, slack: 0.016)
+        let thumb = isExtended(joints, tip: .thumbTip, pip: .thumbIP, mcp: .thumbMP, slack: thumbSlack)
+        let index = isExtended(joints, tip: .indexTip, pip: .indexPIP, mcp: .indexMCP, slack: fingerSlack)
+        let middle = isExtended(joints, tip: .middleTip, pip: .middlePIP, mcp: .middleMCP, slack: fingerSlack)
+        let ring = isExtended(joints, tip: .ringTip, pip: .ringPIP, mcp: .ringMCP, slack: fingerSlack)
+        let little = isExtended(joints, tip: .littleTip, pip: .littlePIP, mcp: .littleMCP, slack: fingerSlack)
 
         let fingers = [index, middle, ring, little].filter { $0 }.count
         let scale = palmScale(joints)
@@ -97,10 +104,10 @@ enum GestureClassifier {
 
     static func openScore(joints: [VNHumanHandPoseObservation.JointName: CGPoint]) -> Int {
         var n = 0
-        if isExtended(joints, tip: .indexTip, pip: .indexPIP, mcp: .indexMCP, slack: 0.012) { n += 1 }
-        if isExtended(joints, tip: .middleTip, pip: .middlePIP, mcp: .middleMCP, slack: 0.012) { n += 1 }
-        if isExtended(joints, tip: .ringTip, pip: .ringPIP, mcp: .ringMCP, slack: 0.012) { n += 1 }
-        if isExtended(joints, tip: .littleTip, pip: .littlePIP, mcp: .littleMCP, slack: 0.012) { n += 1 }
+        if isExtended(joints, tip: .indexTip, pip: .indexPIP, mcp: .indexMCP, slack: openSlack) { n += 1 }
+        if isExtended(joints, tip: .middleTip, pip: .middlePIP, mcp: .middleMCP, slack: openSlack) { n += 1 }
+        if isExtended(joints, tip: .ringTip, pip: .ringPIP, mcp: .ringMCP, slack: openSlack) { n += 1 }
+        if isExtended(joints, tip: .littleTip, pip: .littlePIP, mcp: .littleMCP, slack: openSlack) { n += 1 }
         return n
     }
 

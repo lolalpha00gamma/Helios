@@ -36,7 +36,9 @@ struct HUDView: View {
                     .position(x: local.x, y: local.y)
                 }
 
-                trashZone
+                if state.showTrashZone {
+                    trashZone
+                }
 
                 if isPrimary {
                     VStack {
@@ -44,9 +46,9 @@ struct HUDView: View {
                             .padding(.top, 18)
                         Spacer()
                         HStack(alignment: .bottom) {
-                            cheatSheet
+                            if state.showCheats { cheatSheet }
                             Spacer()
-                            cameraChip
+                            if state.showPreviewChip { cameraChip }
                         }
                         .padding(22)
                     }
@@ -111,7 +113,6 @@ struct HUDView: View {
         )
         .shadow(color: (hot ? HeliosTheme.danger : HeliosTheme.cyan).opacity(hot ? 0.7 : 0.2), radius: hot ? 16 : 4)
         .position(x: r.midX, y: r.midY)
-        .opacity(state.showTrashZone ? 1 : 0)
     }
 
     private var topBar: some View {
@@ -150,7 +151,7 @@ struct HUDView: View {
                 .font(HeliosTheme.mono)
                 .foregroundStyle(HeliosTheme.amber)
             Spacer()
-            Text("\(NSScreen.screens.count) MON")
+            Text("\(state.screenCount) MON")
                 .font(HeliosTheme.mono)
                 .foregroundStyle(HeliosTheme.cyan.opacity(0.7))
             Text(String(format: "%.0f ms   %.0f fps", state.latencyMs, state.fps))
@@ -191,7 +192,8 @@ struct HUDView: View {
             Text("Faust halten     Scharf")
             Text("Handfläche       Ziehen (heben = neu ansetzen)")
             Text("Pinzette / Faust Greifen · Klick")
-            Text("Werfen           Papierkorb / zu")
+            Text("Werfen hoch      Papierkorb / zu")
+            Text("Werfen runter    Minimieren")
             Text("Offene Hand wischen  App wechseln")
             Text("Werfen L/R       Andocken")
             Text("Zwei Pinzetten   Skalieren")
@@ -203,13 +205,12 @@ struct HUDView: View {
         .padding(12)
         .background(HeliosTheme.panel)
         .overlay(Rectangle().stroke(HeliosTheme.cyan.opacity(0.25), lineWidth: 1))
-        .opacity(state.showCheats ? 1 : 0)
     }
 
     private var cameraChip: some View {
         CameraPreview(
             image: state.preview,
-            hands: state.displayHands,
+            hands: state.hands,
             showLabels: state.showJointLabels,
             compact: true
         )
@@ -222,7 +223,6 @@ struct HUDView: View {
                 .foregroundStyle(HeliosTheme.cyan)
                 .padding(6)
         }
-        .opacity(state.showPreviewChip ? 1 : 0)
     }
 }
 

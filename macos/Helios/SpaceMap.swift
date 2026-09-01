@@ -139,10 +139,13 @@ final class CalibrationSession {
     private(set) var samples: [CalibCorner: CGPoint] = [:]
     private var lastPalm: CGPoint?
     private var lastT: TimeInterval = 0
-    var lastCapture: TimeInterval = 0
-    var rejected = false
+    private var lastCapture: TimeInterval = 0
+    private var needRelease = false
+    private var needMove = false
+    private(set) var hint = "Pinzette an der Ecke halten"
+    private(set) var rejected = false
 
-    var progress: CGFloat { min(1, hold / 1.05) }
+    var progress: CGFloat { min(1, hold / 0.9) }
     var remaining: Int { 4 - samples.count }
 
     func start() {
@@ -152,8 +155,11 @@ final class CalibrationSession {
         samples.removeAll()
         lastPalm = nil
         lastCapture = 0
+        needRelease = false
+        needMove = false
         rejected = false
         lastT = 0
+        hint = "Ecke oben links: Hand hin, Pinzette 1 s halten"
     }
 
     func cancel() {
@@ -165,7 +171,7 @@ final class CalibrationSession {
         SpaceMap.screenCorners()[corner.rawValue]
     }
 
-    /// Gibt die fertige Karte zurück, sobald 4 Ecken liegen.
+    /// Nur Pinzette. Nach jedem Treffer: Hand öffnen und zur nächsten Ecke gehen.
     func feed(palm: CGPoint, now: TimeInterval, confirm: Bool) -> SpaceMap? {
         guard active else { return nil }
         let dt = lastT == 0 ? 0 : min(now - lastT, 0.08)
@@ -175,44 +181,78 @@ final class CalibrationSession {
         let target = targetQuartz()
         let cursor = ScreenGeometry.quartz(fromCocoa: NSEvent.mouseLocation)
         cursorGap = hypot(cursor.x - target.x, cursor.y - target.y)
-        if moved < 0.012 {
+        if moved < 0.014 {
             hold += CGFloat(dt)
         } else {
             hold = 0
         }
-        let gap = now - lastCapture
-        let pinchOK = confirm && hold >= 0.55 && gap > 0.8
-        let dwellOK = hold >= 1.05 && gap > 0.8
-        guard pinchOK || dwellOK else { return nil }
-        if let prev = samples[CalibCorner(rawValue: max(0, corner.rawValue - 1)) ?? .topLeft],
-           hypot(palm.x - prev.x, palm.y - prev.y) < 0.10,
-           corner != .topLeft
-        {
+
+        if needRelease {
             hold = 0
+            hint = "Hand öffnen, dann nach \(corner.titleDE)"
+            if !confirm {
+                needRelease = false
+                needMove = true
+            }
+            return nil
+        }
+        if needMove {
+            if let last = lastSample(), hypot(palm.x - last.x, palm.y - last.y) < 0.20 {
+                hold = 0
+                hint = "Noch zu nah — weiter nach \(corner.titleDE)"
+                return nil
+            }
+            needMove = false
+        }
+        if samples.values.contains(where: { hypot(palm.x - $0.x, palm.y - $0.y) < 0.18 }) {
+            hold = 0
+            hint = "Zu nah an einer fertigen Ecke — weiter nach außen"
             rejected = true
             return nil
         }
+        if !confirm {
+            hint = "Pinzette an Ecke \(corner.titleDE) halten (\(remaining) offen)"
+            return nil
+        }
+        if hold < 0.9 {
+            hint = "Pinzette halten … \(Int(min(100, hold / 0.9 * 100))) %"
+            return nil
+        }
+        if lastCapture > 0, now - lastCapture < 1.8 {
+            hint = "Kurz warten …"
+            return nil
+        }
+
         rejected = false
         samples[corner] = palm
         hold = 0
         lastPalm = nil
         lastCapture = now
+        needRelease = true
         if let next = CalibCorner(rawValue: corner.rawValue + 1) {
             corner = next
+            hint = "OK. Öffnen und nach \(next.titleDE)"
             return nil
         }
         let ordered: [CalibCorner] = [.topLeft, .topRight, .bottomRight, .bottomLeft]
         let pts = ordered.compactMap { samples[$0] }
-        guard pts.count == 4, Self.quadArea(pts) >= 0.018 else {
-            samples.removeAll()
-            corner = .topLeft
+        guard pts.count == 4, Self.quadArea(pts) >= 0.035 else {
+            samples[.bottomLeft] = nil
+            corner = .bottomLeft
+            hint = "Ecken zu nah. Unten links weiter außen, dann Pinzette."
             rejected = true
             return nil
         }
         let map = SpaceMap(palms: pts.map(XY.init))
         map.save()
         active = false
+        hint = "Fertig"
         return map
+    }
+
+    private func lastSample() -> CGPoint? {
+        let prev = CalibCorner(rawValue: max(0, corner.rawValue - 1)) ?? .topLeft
+        return samples[prev]
     }
 
     private static func quadArea(_ p: [CGPoint]) -> CGFloat {

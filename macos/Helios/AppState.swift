@@ -305,7 +305,7 @@ final class AppState: ObservableObject {
                 now: now
             )
         }
-        guard now - lastPanel >= 0.05 else { return }
+        guard now - lastPanel >= 0.09 else { return }
         lastPanel = now
         self.luma = luma
         latencyMs = latency

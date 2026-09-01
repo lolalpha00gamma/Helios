@@ -162,14 +162,10 @@ final class GestureEngine {
                 pinchBecameDrag = false
                 cooldownUntil = now + 1.1
             } else {
-                lastAction = "Kalibrierung \(cal.corner.titleDE)"
+                lastAction = cal.hint
             }
-            let mapped = (spaceMap ?? SpaceMap(palms: [])).isReady
-                ? (spaceMap?.apply(actor.palm) ?? SpaceMap.linear(actor.palm))
-                : SpaceMap.linear(actor.palm)
-            cursor = mapped
+            cursor = SpaceMap.linear(actor.palm)
             cursorHand = actor.sideDE
-            if !testMode { system.moveCursor(to: mapped) }
             return
         }
 

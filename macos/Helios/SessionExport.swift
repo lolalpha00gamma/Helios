@@ -51,7 +51,7 @@ final class SessionRecorder {
         action: String,
         now: TimeInterval
     ) {
-        if now - lastFrameAt < 0.07 { return }
+        if now - lastFrameAt < 0.12 { return }
         lastFrameAt = now
         let snaps = hands.map(Self.snap)
         let frame = GestureFrame(

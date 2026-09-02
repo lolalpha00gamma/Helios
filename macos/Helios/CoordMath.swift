@@ -119,7 +119,7 @@ enum GestureMath {
     static let killGrace: TimeInterval = 0.14
     /// Zwei offene Hände müssen still und getrennt halten — 0,80 s hat Klick/Swipe mitgetötet.
     static let killHold: TimeInterval = 1.35
-    static let killPalmStill: CGFloat = 0.28
+    static let killPalmStill: CGFloat = 0.14
     /// Körperpose: Vision unbekannt → lose (0,72). Vision widerspricht → nur klarer Sieger (0,50).
     static let bodyVoteLoose: Double = 0.72
     static let bodyVoteStrict: Double = 0.50
@@ -456,6 +456,20 @@ enum GestureMath {
         if pinchHeld { return false }
         guard palmsY.count >= 2 else { return false }
         return palmsY.allSatisfy { $0 < tablePalmY } && stillHW < tableStillHW
+    }
+
+    /// Pinzette starten: Gate oder klare Closedness. Pose allein (Faust/HMM-Hold) zählt nicht.
+    static func pinchStartsGrab(gate: Bool, closedness: Double) -> Bool {
+        gate || closedness > 0.58
+    }
+
+    /// Pinzette halten: etwas weicher, immer noch ohne Faust-Pose.
+    static func pinchHoldsGrab(gate: Bool, closedness: Double) -> Bool {
+        gate || closedness > 0.42
+    }
+
+    static func keyboardStill(movedPx: CGFloat, need: CGFloat = 16) -> Bool {
+        movedPx < need
     }
 
     static func flipLeft(_ isLeft: Bool, mirrored: Bool) -> Bool {

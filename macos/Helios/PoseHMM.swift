@@ -58,9 +58,13 @@ struct PoseHMM {
         // Unknown darf eine echte Pose nicht unter das Aktions-Tor drücken.
         // next[current] ist verdünnt — perform() blockte sonst bei gehaltenem unknown.
         if best.key == .unknown, current != .unknown {
-            holdSince = nil
-            let held = max(0.62, lastRealProb > 0.40 ? lastRealProb : (next[current] ?? 0.62))
-            return (current, held, pinch)
+            if current == .pinch, pinch < 0.40 {
+                holdSince = nil
+            } else {
+                holdSince = nil
+                let held = max(0.62, lastRealProb > 0.40 ? lastRealProb : (next[current] ?? 0.62))
+                return (current, held, pinch)
+            }
         }
 
         if best.key != current {

@@ -673,6 +673,27 @@ enum CoordTests {
             fails += 1
         }
 
+        if GestureMath.pinchStartsGrab(gate: false, closedness: 0.30) {
+            fputs("FAIL Faust/Pose startet keine Pinzette\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinchStartsGrab(gate: true, closedness: 0.20) {
+            fputs("FAIL Gate muss Greifen starten\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchHoldsGrab(gate: false, closedness: 0.20) {
+            fputs("FAIL offene Hand hält keine Pinzette\n", stderr)
+            fails += 1
+        }
+        if GestureMath.keyboardStill(movedPx: 24) {
+            fputs("FAIL Tastatur tippt nicht beim Zielen\n", stderr)
+            fails += 1
+        }
+        if GestureMath.killPalmStill > 0.18 {
+            fputs("FAIL Not-Aus-Still muss Scroll erlauben\n", stderr)
+            fails += 1
+        }
+
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)
             exit(1)

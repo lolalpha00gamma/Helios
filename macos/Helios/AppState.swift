@@ -770,7 +770,6 @@ final class AppState: ObservableObject {
             guard let c = matchCover(out[i], cover, leadMap: leadMap, coverMap: coverMap) else { continue }
             let pinch = CameraRig.pinchAssist(lead: out[i].pinchClosedness, cover: c.pinchClosedness)
             out[i].pinchClosedness = pinch
-            out[i].pinchClosed = pinch > 0.55
             out[i].quality = min(1, out[i].quality + 0.10 * c.quality)
             if canMap, let lm = leadMap, let cm = coverMap {
                 let a = lm.apply(out[i].palm)

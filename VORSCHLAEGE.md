@@ -1,6 +1,19 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.19**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+Stand: **1.6.21**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.21 erledigt
+
+Erkennung: Faust startete Zug, HMM hielt Pinzette offen, Cooldown fror Drag, Cover überschrieb Gate, Not-Aus bei Scroll, Tastatur beim Zielen.
+
+1. **pinchClosed = PinchGate**, nicht HMM-EMA.
+2. **Greifen nur Gate/Closedness**, nicht `pose == .pinch` / Faust.
+3. **HMM-Hold** lässt Pinzette fallen, wenn Closedness < 0,40.
+4. **Cooldown** ruft `driveGrab(fire: false)` — Zug lebt, kein Extra-Klick.
+5. **Cover** ändert `pinchClosed` nicht.
+6. **killPalmStill 0,14** — Scroll setzt Not-Aus zurück.
+7. **Tastatur still** (< 16 px) vor dem Tippen.
+8. MARKETING_VERSION 1.6.21 (Build 51).
 
 ## In 1.6.19 erledigt
 

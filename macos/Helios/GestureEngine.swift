@@ -123,6 +123,7 @@ final class GestureEngine {
     private var pointSince: TimeInterval?
     private var kbDwellID: String?
     private var kbDwellAt: TimeInterval?
+    private var kbCursorAt: CGPoint?
     private var shiftLatch = false
     private var cmdLatch = false
     private var fistHideSince: TimeInterval?
@@ -371,6 +372,10 @@ final class GestureEngine {
             placeCursors(hands, actor: primary)
             if !testMode, !system.isDragging, cursorDidMove, primary.pose != .fist, let p = cursor {
                 system.moveCursor(to: p)
+            }
+            if pinchHeld {
+                let actor = pinchActor(hands, primary: primary)
+                driveGrab(actor, now: now, fire: false)
             }
             updateTrashHot()
             dragging = pinchHeld
@@ -998,7 +1003,7 @@ final class GestureEngine {
         }
     }
 
-    private func driveGrab(_ hand: TrackedHand, now: TimeInterval) {
+    private func driveGrab(_ hand: TrackedHand, now: TimeInterval, fire: Bool = true) {
         if keyboardVisible, let c = cursor, AirLayout.hit(at: c, keys: keyboardHits) != nil {
             return
         }
@@ -1038,12 +1043,9 @@ final class GestureEngine {
             swipeMuteUntil = now + GestureMath.swipeMuteAfterPinch
             return
         }
-        let ratio = hand.pinchRatio
-        let closed = hand.pinchClosed || hand.pinchClosedness > 0.55 || hand.pose == .pinch
-        let fisting = hand.pose == .fist && mode == .armed
         let isGrab = pinchHeld
-            ? (closed || (fisting && ratio < 0.55))
-            : (closed || (fisting && ratio < 0.34))
+            ? GestureMath.pinchHoldsGrab(gate: hand.pinchClosed, closedness: hand.pinchClosedness)
+            : (fire && GestureMath.pinchStartsGrab(gate: hand.pinchClosed, closedness: hand.pinchClosedness))
         if isGrab && !pinchHeld {
             pinchHeld = true
             pinchBecameDrag = false
@@ -1115,12 +1117,12 @@ final class GestureEngine {
                 return hypot(a.x - b.x, a.y - b.y)
             }()
             let wasDrag = pinchBecameDrag
-            let flung = resolveFling(
+            let flung = fire ? resolveFling(
                 now: now,
                 confidence: Float(hand.poseProb),
                 palmWidth: hand.palmWidth,
                 afterDrag: wasDrag
-            )
+            ) : false
             let held = now - pinchBeganAt
             let palmMoved = pinchPalmMoved
             pinchHeld = false
@@ -1138,6 +1140,10 @@ final class GestureEngine {
             let knobsNow = chromeKnobs
             if !testMode { system.endWindowDrag() }
             swipeMuteUntil = now + GestureMath.swipeMuteAfterPinch
+            if !fire {
+                lastAction = "Loslassen"
+                return
+            }
             if flung {
                 cooldownUntil = now + 0.4
                 chromeKnobs = []
@@ -1335,7 +1341,7 @@ final class GestureEngine {
     @discardableResult
     private func driveRightClick(_ hand: TrackedHand, now: TimeInterval) -> Bool {
         let ringOut = hand.isExtended(.ring) && !hand.isExtended(.middle)
-        let pinching = hand.pinchClosed || hand.pose == .pinch || hand.pinchClosedness > 0.55
+        let pinching = hand.pinchClosed || hand.pinchClosedness > 0.55
         guard pinching, ringOut, !pinchHeld else {
             ringPinchSince = nil
             return false
@@ -1449,6 +1455,17 @@ final class GestureEngine {
         if kbDwellID != key.id {
             kbDwellID = key.id
             kbDwellAt = now
+            kbCursorAt = loc
+        }
+        let moved = {
+            guard let o = kbCursorAt else { return 0 as CGFloat }
+            return hypot(loc.x - o.x, loc.y - o.y)
+        }()
+        if !GestureMath.keyboardStill(movedPx: moved) {
+            kbDwellAt = now
+            kbCursorAt = loc
+            keyboardDwell = 0
+            return
         }
         let held = now - (kbDwellAt ?? now)
         keyboardDwell = CGFloat(min(1, held / GestureMath.keyboardDwell))

@@ -1,4 +1,4 @@
-# Helios **1.6.9**
+# Helios **1.6.10**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,13 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.10
+
+Die Installations-DMG fehlte unter Releases: die Tests vor dem Paket sind seit 1.6.0 rot gelaufen, deshalb wurde nie `Helios.dmg` hochgeladen. Latest blieb **v1.5.7**.
+
+- **Fling-Totzone:** Mini-Ruck tot in der *kalibrierten* Schirmmitte. Echter Wurf am Rand bleibt Werfen — der Test hat einen vollen Wurf in der Mitte erwartet und CI blockiert.
+- **Faust ≠ Pinzette.** Eingeringelte Finger mit Daumen neben dem Zeigefinger waren Pinzette (Klick). Pinzette braucht einen gestreckten Zeigefinger.
 
 ## Neu in 1.6.9
 

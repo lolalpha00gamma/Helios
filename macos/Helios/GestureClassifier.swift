@@ -206,6 +206,7 @@ enum GestureClassifier {
         logits[.openPalm] = Double(index.score + middle.score + ring.score + little.score) * 1.15
         logits[.pinch] = Double(closedness) * 4.4 + Double(reach) * 0.8
             - Double(middle.score + ring.score) * 0.7
+            - Double(1 - index.score) * 1.2
         logits[.point] = Double(index.score) * 3.4 - Double(middle.score + ring.score + little.score) * 1.5
         logits[.peace] = Double(index.score + middle.score) * 2.1 - Double(ring.score + little.score) * 2.2
         logits[.thumbsUp] = Double(thumbUp) * 4.2
@@ -351,7 +352,7 @@ enum GestureClassifier {
         let logits: [HandPose: Double] = [
             .fist: Double((1 - index) + (1 - middle) + (1 - ring) + (1 - little)),
             .openPalm: Double(index + middle + ring + little),
-            .pinch: Double(closedness) * 4.0,
+            .pinch: Double(closedness) * 4.0 - Double(1 - index) * 1.2,
             .point: Double(index) * 3 - Double(middle + ring) * 1.4,
             .peace: Double(index + middle) * 2 - Double(ring + little) * 2,
             .thumbsUp: Double(thumb) * 2.5,

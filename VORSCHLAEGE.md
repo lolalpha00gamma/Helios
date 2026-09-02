@@ -1,6 +1,6 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.9**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+Stand: **1.6.10**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
 
 ## In 1.6.9 erledigt
 

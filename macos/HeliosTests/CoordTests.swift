@@ -265,12 +265,21 @@ enum CoordTests {
             fputs("FAIL Ecke ist keine Totzone\n", stderr)
             fails += 1
         }
+        // Mini-Ruck (0,60 HW): tot in der Schirmmitte, Werfen am Kamerarand / in der Ecke.
         let midFling: [(t: TimeInterval, x: CGFloat, y: CGFloat)] = [
             (0.00, 0.20, 0.20),
-            (0.08, 0.20, 0.40)
+            (0.08, 0.20, 0.272)
         ]
         if GestureMath.flingFromTrail(midFling, palmWidth: 0.12, centerDead: true, screenUV: CGPoint(x: 0.50, y: 0.50)) != .none {
             fputs("FAIL kalibrierte Totzone am Schirmmittelpunkt, nicht Kameramitte\n", stderr)
+            fails += 1
+        }
+        if GestureMath.flingFromTrail(midFling, palmWidth: 0.12, centerDead: true) != .throwUp {
+            fputs("FAIL ohne Kalibrierung zählt Kameraposition — Rand ist kein Tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.flingFromTrail(midFling, palmWidth: 0.12, centerDead: true, screenUV: CGPoint(x: 0.90, y: 0.10)) != .throwUp {
+            fputs("FAIL Totzone nur in der Schirmmitte, Ecke bleibt Werfen\n", stderr)
             fails += 1
         }
         if GestureMath.clutchOwnRadius < 40 {

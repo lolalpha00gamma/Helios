@@ -55,11 +55,8 @@ struct PoseHMM {
 
         // Unknown darf eine echte Pose nicht unter das 0,62-Tor drücken.
         if best.key == .unknown, current != .unknown {
-            let pCur = next[current] ?? 0
-            if pCur >= 0.28 || best.value < 0.62 {
-                holdSince = nil
-                return (current, pCur, pinch)
-            }
+            holdSince = nil
+            return (current, next[current] ?? 0, pinch)
         }
 
         if best.key != current {
@@ -78,13 +75,14 @@ struct PoseHMM {
 
     private func affinity(_ a: HandPose, _ b: HandPose) -> Double {
         if a == b { return 1 }
+        if b == .unknown { return 0.05 }
+        if a == .unknown { return 0.22 }
         let close: Set<[HandPose]> = [
             [.pinch, .fist], [.fist, .pinch],
             [.pinch, .point], [.point, .pinch],
             [.point, .peace], [.peace, .point],
             [.openPalm, .peace], [.peace, .openPalm],
-            [.fist, .thumbsUp], [.thumbsUp, .fist],
-            [.unknown, a], [a, .unknown]
+            [.fist, .thumbsUp], [.thumbsUp, .fist]
         ]
         if close.contains([a, b]) { return 0.28 }
         return 0.08

@@ -10,9 +10,8 @@ final class HeliosAppDelegate: NSObject, NSApplicationDelegate {
     nonisolated(unsafe) static weak var state: AppState?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Nie .accessory — das reißt das SwiftUI-Fenster ein, löscht das Dock
-        // und Cmd+Q trifft dann die App darunter. Helios bleibt erreichbar.
         NSApp.setActivationPolicy(.regular)
+        ConsolePolicy.dressAll()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -42,7 +41,10 @@ struct HeliosApp: App {
             ControlPanel()
                 .environmentObject(state)
                 .frame(minWidth: 980, minHeight: 620)
-                .onAppear { state.start() }
+                .onAppear {
+                    state.start()
+                    ConsolePolicy.dressAll()
+                }
                 .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
                     state.shutdown()
                 }
@@ -85,11 +87,17 @@ struct HeliosApp: App {
     }
 }
 
+/// Konsole bleibt sichtbar, stiehlt aber nicht den Vordergrund.
+/// SwiftUI macht das Fenster bei jedem State-Tick key — das fangen wir ab.
 @MainActor
 enum ConsolePolicy {
     private static var hiding = false
     private static var pinned = false
+    private static var userRequestedFront = false
+    private static var lastOtherPID: pid_t = 0
     private static var observers: [NSObjectProtocol] = []
+    private static var frontReset: DispatchWorkItem?
+    private static var lastYield: TimeInterval = 0
 
     static func isHUD(_ w: NSWindow) -> Bool {
         w is HUDPanel || w.level.rawValue >= Int(CGWindowLevelForKey(.assistiveTechHighWindow))
@@ -99,8 +107,13 @@ enum ConsolePolicy {
         guard observers.isEmpty else { return }
         let bounce: (Notification) -> Void = { note in
             MainActor.assumeIsolated {
-                guard hiding, !pinned, let w = note.object as? NSWindow, !isHUD(w) else { return }
-                w.orderOut(nil)
+                guard let w = note.object as? NSWindow, !isHUD(w) else { return }
+                dress(w)
+                if hiding {
+                    w.orderOut(nil)
+                    return
+                }
+                demoteIfStolen(w)
             }
         }
         observers.append(NotificationCenter.default.addObserver(
@@ -110,6 +123,26 @@ enum ConsolePolicy {
             forName: NSWindow.didBecomeMainNotification, object: nil, queue: .main, using: bounce
         ))
         observers.append(NotificationCenter.default.addObserver(
+            forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
+        ) { _ in
+            Task { @MainActor in
+                dressAll()
+                if !hiding { yieldStolenFocus() }
+            }
+        })
+        observers.append(NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+        ) { note in
+            let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+            let bid = app?.bundleIdentifier
+            let pid = app?.processIdentifier ?? 0
+            Task { @MainActor in
+                if let bid, bid != Bundle.main.bundleIdentifier, pid != 0 {
+                    lastOtherPID = pid
+                }
+            }
+        })
+        observers.append(NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification, object: nil, queue: .main
         ) { note in
             let hud = note.object is HUDPanel
@@ -118,15 +151,81 @@ enum ConsolePolicy {
                 pinned = false
             }
         })
+        if let front = NSWorkspace.shared.frontmostApplication,
+           front.bundleIdentifier != Bundle.main.bundleIdentifier
+        {
+            lastOtherPID = front.processIdentifier
+        }
+        dressAll()
     }
 
-    /// Konsole weg — App bleibt im Dock, Cmd+Q und Beenden funktionieren.
+    static func dressAll() {
+        for w in NSApp.windows where !isHUD(w) {
+            dress(w)
+        }
+    }
+
+    static func dress(_ w: NSWindow) {
+        w.hidesOnDeactivate = false
+        w.collectionBehavior.insert([.canJoinAllSpaces, .stationary, .ignoresCycle])
+    }
+
+    private static func userCaused() -> Bool {
+        if userRequestedFront { return true }
+        guard let e = NSApp.currentEvent else { return false }
+        switch e.type {
+        case .leftMouseDown, .rightMouseDown, .leftMouseUp, .rightMouseUp, .keyDown:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private static func demoteIfStolen(_ w: NSWindow) {
+        if hiding {
+            w.orderOut(nil)
+            return
+        }
+        guard !userCaused() else { return }
+        if w.isKeyWindow { w.resignKey() }
+        if w.isMainWindow { w.resignMain() }
+        yieldStolenFocus()
+    }
+
+    private static func yieldStolenFocus() {
+        guard !userCaused() else { return }
+        guard lastOtherPID != 0 else { return }
+        let now = CACurrentMediaTime()
+        if now - lastYield < 0.28 { return }
+        lastYield = now
+        guard let other = NSRunningApplication(processIdentifier: lastOtherPID),
+              !other.isTerminated,
+              other.bundleIdentifier != Bundle.main.bundleIdentifier
+        else { return }
+        if #available(macOS 14.0, *) {
+            _ = NSRunningApplication.current.yieldActivation(to: other)
+        } else {
+            other.activate()
+        }
+    }
+
+    private static func markUserFront() {
+        userRequestedFront = true
+        frontReset?.cancel()
+        let work = DispatchWorkItem {
+            userRequestedFront = false
+        }
+        frontReset = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7, execute: work)
+    }
+
+    /// Nur wenn der Schalter „Konsole bei Scharf ausblenden“ an ist.
     static func hide() {
         if pinned { return }
         hiding = true
         NSApp.setActivationPolicy(.regular)
         for w in NSApp.windows where !isHUD(w) {
-            w.collectionBehavior.insert(.ignoresCycle)
+            dress(w)
             w.orderOut(nil)
         }
     }
@@ -134,7 +233,7 @@ enum ConsolePolicy {
     static func enforce() {
         guard hiding, !pinned else { return }
         for w in NSApp.windows where !isHUD(w) {
-            w.collectionBehavior.insert(.ignoresCycle)
+            dress(w)
             if w.isVisible || w.isKeyWindow || w.isMainWindow {
                 w.orderOut(nil)
             }
@@ -144,10 +243,12 @@ enum ConsolePolicy {
     static func show() {
         pinned = true
         hiding = false
+        markUserFront()
         NSApp.setActivationPolicy(.regular)
         NSApp.activate()
         var found = false
         for w in NSApp.windows where !isHUD(w) {
+            dress(w)
             w.collectionBehavior.remove(.ignoresCycle)
             w.makeKeyAndOrderFront(nil)
             found = true
@@ -160,6 +261,7 @@ enum ConsolePolicy {
     static func prepareQuit() {
         pinned = true
         hiding = false
+        markUserFront()
         NSApp.setActivationPolicy(.regular)
     }
 }

@@ -65,7 +65,7 @@ final class AppState: ObservableObject {
     @Published var grabTargetName = ""
     @Published var chromeKnobs: [ChromeKnob] = []
     @Published var chromeHot = ""
-    @Published var hideConsoleWhenArmed = true
+    @Published var hideConsoleWhenArmed = false
     @Published var cameraDevices: [CameraChoice] = []
     @Published var selectedCameraID = ""
     @Published var cameraPair: CameraPair = .single
@@ -820,8 +820,13 @@ enum Prefs {
         set { UserDefaults.standard.set(newValue, forKey: "helios.preview") }
     }
     static var hideConsoleWhenArmed: Bool {
-        get { UserDefaults.standard.object(forKey: "helios.hideConsole") as? Bool ?? true }
-        set { UserDefaults.standard.set(newValue, forKey: "helios.hideConsole") }
+        get {
+            if UserDefaults.standard.object(forKey: "helios.hideConsole.stay") != nil {
+                return UserDefaults.standard.bool(forKey: "helios.hideConsole.stay")
+            }
+            return false
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.hideConsole.stay") }
     }
     static var fusionTemperature: Double {
         get {

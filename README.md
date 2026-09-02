@@ -1,4 +1,4 @@
-# Helios **1.6.11**
+# Helios **1.6.12**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,14 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.12
+
+Die Konsole ist wieder da — und bleibt stehen. Sie springt nicht mehr bei jedem Kamera-Frame über die App, die du steuerst.
+
+- **UI bleibt.** Standard: Konsole sichtbar, auch bei Scharf. Der Schalter „Konsole bei Scharf ausblenden“ ist aus.
+- **Kein Vordergrund-Diebstahl.** SwiftUI hat das Fenster bei jedem Tick key gemacht. Jetzt: nur nach vorn, wenn du Konsole, Dock oder das Fenster selbst klickst. Sonst gibt Helios den Fokus sofort zurück, das Fenster bleibt wo es war (`stationary`, `hidesOnDeactivate = false`).
+- Beenden und Osmo-Livestream aus 1.6.11 unverändert.
 
 ## Neu in 1.6.11
 

@@ -159,7 +159,7 @@ struct ControlPanel: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Konsole bei Scharf ausblenden")
                                 .font(.system(size: 13, weight: .semibold))
-                            Text("Menüleiste ☀ oder Dock → Konsole. Helios beenden: Menü Beenden oder Cmd+Q auf Helios, nicht das rote Fenster-X.")
+                            Text("Standard aus. Die Konsole bleibt stehen und stiehlt nicht den Vordergrund — Gesten laufen in der App darunter. Nur einschalten, wenn das Fenster komplett weg soll.")
                                 .font(.system(size: 10))
                                 .foregroundStyle(.secondary)
                         }

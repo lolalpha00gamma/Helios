@@ -51,7 +51,7 @@ final class GestureEngine {
     var dwellEnabled = false
     var chromeKnobs: [ChromeKnob] = []
     var chromeHot = ""
-    var hideConsoleWhenArmed = true
+    var hideConsoleWhenArmed = false
     var clapWake = false
     var peaceProgress: CGFloat = 0
 

@@ -127,7 +127,7 @@ enum GestureMath {
     static let thumbsHold: TimeInterval = 0.70
     /// Sitzung 12:59:50: Öffnen nach Pinzette wurde zum Wischen, Rückkehr zur Gegenrichtung.
     static let swipeMuteAfterPinch: TimeInterval = 0.45
-    static let swipeReverseLock: TimeInterval = 0.55
+    static let swipeReverseLock: TimeInterval = 0.90
     /// 0,18 Handbreiten war Palm-Zittern. Klick braucht eine stillstehende Pinzette.
     static let pinchDragNeed: CGFloat = 0.45
     static let pinchClickMinHold: TimeInterval = 0.05

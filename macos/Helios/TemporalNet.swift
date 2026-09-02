@@ -66,7 +66,7 @@ final class TemporalNet {
             .point: ext[1] * 3.2 - ext[2] * 2.4 - ext[3] * 1.6,
             .peace: ext[1] * 2.2 + ext[2] * 2.2 - ext[3] * 2.4 - ext[4] * 2.0,
             .thumbsUp: ext[0] * 2.8 + thumbY * 2.4 - ext.dropFirst().reduce(0, +),
-            .unknown: 0.15
+            .unknown: -1.2
         ]
         if hold { for k in logits.keys { logits[k, default: 0] *= 1.15 } }
         let keys = HandPose.allCases

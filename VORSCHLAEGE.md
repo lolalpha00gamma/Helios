@@ -1,6 +1,16 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.7**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+Stand: **1.6.8**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+
+## In 1.6.8 erledigt
+
+Warum 1.6.7 sich tot anfühlte, sobald die zweite Hand im Bild war: Not-Aus zählte 0,8 s jede zwei offenen Hände und **return true während des Zählens** — Klick, Wischen, Skalieren starben. Körperpose überschrieb Vision L/R schon bei Verhältnis 0,72 → Steuerhand-Tausch → Cursor-Teleport. Softmax/HMM hatten `.unknown` mit Logit 0,35, Pose fiel unter das 0,62-Tor.
+
+- **Not-Aus nur nach 1,35 s** zwei `openPalm`, Abstand ≥ Klatschen-offen, still. Während des Haltens laufen andere Gesten weiter. Pinzette / Zwei-Pinzette überspringt. Grace blockt nicht.
+- **Körper-Vote nur bei Vision-unbekannt oder Verhältnis < 0,50.** Schwacher Wrist-Treffer kippt die Steuerhand nicht mehr.
+- **Cursor bleibt** beim Track-Wechsel: Palme neu verankern, `cursorSmooth` behalten.
+- **unknown-Logit −1,8.** HMM hält die aktuelle Pose, wenn unknown schwach führt.
+- **palmWidth-EMA** pro Track (0,22) — Fling/Wischen bei Webcam-Zoom stabil.
 
 ## In 1.6.7 erledigt
 
@@ -96,8 +106,12 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Zwei Sessions parallel** (Mac + Desk View oder Mac + Osmo), Vision nur auf der führenden.
 - **Clutch nur globale Hardware** — Local-Monitor ganz weglassen (eigene Events kommen lokal an).
 - **Kalibrier-Quad sichtbar** als dünnes Viereck der vier Anschläge, nicht nur Ecken-Marken.
-- **Handflächen-Norm pro Track** (palmWidth-EMA), damit Fling/Wischen bei Zoom der Webcam stabil bleibt.
 - **Peace-Fortschritt auch in der Konsole**, nicht nur HUD-Ring.
+- **1-Frame Kalman** auf dem Relativ-Zeiger bei Continuity 8 fps — der Hochpass zittert dort anders als bei 24 fps.
+- **Ruhezonen in den Schirmecken** (2 %): Mikro-Motion ignorieren, ohne den Anschlag zu verlieren.
+- **Aktions-Tor an Fusion-Entropie.** Flache Verteilung → höherer Floor, spitze → 0,55 statt 0,62.
+- **Hände auf dem Tisch** (beide Palmen unten, wenig Bewegung 1,2 s) → Idle ohne Not-Aus.
+- **Klick-Tick** optional (system sound), aus by default.
 
 ## Größere Erweiterungen
 
@@ -116,6 +130,11 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Hover-Dwell nur über AX-Knöpfen**, nicht frei auf dem Schreibtisch.
 - **Pinzette-Hysterese pro fps.** Bei 8 fps 0,45 Handbreiten zu knapp — an Frame-dt koppeln.
 - **Desk-View als zweite Karte**, nicht als Steuerkamera (Aufsicht für Kill/Klatschen).
+- **Gesten-Lexikon.** Nutzer hält 1,5 s eine Pose, speichert sie als benannte Aktion (ohne CoreML-Training).
+- **Watch-IMU Fusion.** Handgelenk-Beschleunigung als Clutch/Kill, wenn die Webcam die Hände verliert.
+- **Overlay auf Stage-Manager-Spaces** — AX sieht oft nur das aktuelle Space.
+- **Fusion-Temperatur auto** aus Landmark-Qualität, Slider bleibt Override.
+- **CGEvent 1-px Jiggler ignorieren** (manche Mäuse senden Idle-Ticks).
 
 ## Nicht tun
 
@@ -128,3 +147,7 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - `tick` bei Cooldown wieder komplett returnen — der Cursor muss laufen.
 - Faust nachträglich zur Pinzette ummappen.
 - PR #1 / Branch `bugfix` mergen — 1.6.3 hat die fehlenden Stücke, der Branch ist 1.5.7.
+- Not-Aus wieder `return true` während des Zählens.
+- Körperpose Vision L/R immer überschreiben.
+- `.unknown` wieder mit positivem Softmax-Logit.
+- Cursor bei Track-ID-Wechsel auf die neue Palme teleportieren.

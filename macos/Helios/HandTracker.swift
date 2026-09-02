@@ -87,6 +87,7 @@ private struct TrackSlot {
     var lastSeen: TimeInterval = 0
     var lastZ: [VNHumanHandPoseObservation.JointName: CGFloat] = [:]
     var lastNow: TimeInterval = 0
+    var palmWidthEma: CGFloat = 0
 }
 
 final class HandTracker: @unchecked Sendable {
@@ -174,10 +175,8 @@ final class HandTracker: @unchecked Sendable {
             guard raw.count >= 8 else { continue }
             var chirality = obs.chirality
             let palm = GestureClassifier.palmCenter(raw)
-            if let voted = bodyChirality(palm: palm, body: bodyPts) {
-                if chirality == .unknown || chirality != voted {
-                    chirality = voted
-                }
+            if let voted = bodyChirality(palm: palm, body: bodyPts, vision: chirality) {
+                chirality = voted
             } else if chirality == .unknown {
                 let wx = raw[.wrist]?.x ?? 0.5
                 if mirrored {
@@ -280,6 +279,7 @@ final class HandTracker: @unchecked Sendable {
             slot.lastPalm = fused.palm
             slot.lastSeen = now
             slot.lastNow = now
+            slot.palmWidthEma = GestureMath.palmWidthEMA(prev: slot.palmWidthEma, next: fused.palmWidth)
             if let ti = assigned[idx], ti < tracks.count {
                 tracks[ti] = slot
             } else {
@@ -299,7 +299,7 @@ final class HandTracker: @unchecked Sendable {
                     pinchClosed: hmmOut.pinch > 0.55,
                     pinchClosedness: hmmOut.pinch,
                     palm: fused.palm,
-                    palmWidth: fused.palmWidth,
+                    palmWidth: slot.palmWidthEma,
                     openScore: feat2D.openScore,
                     extended: ext,
                     fusion: dbg,
@@ -365,11 +365,12 @@ final class HandTracker: @unchecked Sendable {
         return 1
     }
 
-    /// Körperpose stimmt L/R ab, wenn Vision die Hände tauscht.
-    /// Nur klare Sieger: näher an einem Handgelenk, Abstand-Verhältnis < 0,72.
+    /// Körperpose stimmt L/R nur ab, wenn Vision unbekannt ist oder der Vote klar gewinnt.
+    /// Sonst kippt ein schwacher Wrist-Treffer die Steuerhand und der Cursor springt.
     private func bodyChirality(
         palm: CGPoint,
-        body: [VNHumanBodyPoseObservation.JointName: VNRecognizedPoint]
+        body: [VNHumanBodyPoseObservation.JointName: VNRecognizedPoint],
+        vision: VNChirality
     ) -> VNChirality? {
         func pt(_ name: VNHumanBodyPoseObservation.JointName) -> CGPoint? {
             guard let p = body[name], p.confidence > 0.20 else { return nil }
@@ -380,8 +381,16 @@ final class HandTracker: @unchecked Sendable {
         let dr = hypot(palm.x - right.x, palm.y - right.y)
         let nearest = min(dl, dr)
         let farthest = max(dl, dr)
-        guard farthest > 1e-4, nearest / farthest < 0.72 else { return nil }
-        return dl < dr ? .left : .right
+        guard farthest > 1e-4 else { return nil }
+        let ratio = Double(nearest / farthest)
+        let voted: VNChirality = dl < dr ? .left : .right
+        let disagree = vision != .unknown && vision != voted
+        guard GestureMath.bodyOverridesVision(
+            visionUnknown: vision == .unknown,
+            ratio: ratio,
+            disagree: disagree
+        ) else { return nil }
+        return voted
     }
 }
 

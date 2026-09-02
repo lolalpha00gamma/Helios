@@ -60,6 +60,7 @@ final class GestureEngine {
     private var lastHandSeen: TimeInterval = 0
     private var palmSince: TimeInterval?
     private var lastPalmSeen: TimeInterval = 0
+    private var killPalms: [CGPoint]?
     private var thumbsSince: TimeInterval?
     private var peaceSince: TimeInterval?
     private var pinchHeld = false
@@ -118,6 +119,7 @@ final class GestureEngine {
         lastHandSeen = 0
         palmSince = nil
         lastPalmSeen = 0
+        killPalms = nil
         thumbsSince = nil
         peaceSince = nil
         pinchHeld = false
@@ -191,6 +193,7 @@ final class GestureEngine {
             palmSince = nil
             killLatched = false
             lastPalmSeen = 0
+            killPalms = nil
             pinchTrail.removeAll()
             swipeTrail.removeAll()
             swipeHandID = nil
@@ -506,14 +509,31 @@ final class GestureEngine {
     private func handleKillSwitch(hands: [TrackedHand], now: TimeInterval) -> Bool {
         if firstClapAt > 0, now - firstClapAt < GestureMath.clapMaxGap {
             palmSince = nil
+            killPalms = nil
             return false
         }
-        let open = hands.filter { $0.openScore >= 4 }
+        if pinchHeld || twoPinchSince != nil {
+            palmSince = nil
+            killPalms = nil
+            if killLatched {
+                lastAction = "Not-Aus"
+                mode = .idle
+                return true
+            }
+            return false
+        }
+        let open = hands.filter { $0.pose == .openPalm && $0.openScore >= 4 }
         if open.count >= 2 {
             let unit = max(0.04, (open[0].palmWidth + open[1].palmWidth) / 2)
             let span = space.dist(open[0].palm, open[1].palm) / unit
-            if span < GestureMath.clapOpen {
+            if !GestureMath.killSwitchCandidate(
+                openPalms: open.count,
+                spanHW: span,
+                pinchHeld: false,
+                twoPinch: false
+            ) {
                 palmSince = nil
+                killPalms = nil
                 if !killLatched { return false }
             }
             if killLatched {
@@ -521,10 +541,20 @@ final class GestureEngine {
                 mode = .idle
                 return true
             }
+            if let prev = killPalms, prev.count >= 2 {
+                let moved = max(
+                    space.dist(open[0].palm, prev[0]) / unit,
+                    space.dist(open[1].palm, prev[1]) / unit
+                )
+                if moved > GestureMath.killPalmStill {
+                    palmSince = now
+                }
+            }
+            killPalms = [open[0].palm, open[1].palm]
             if palmSince == nil { palmSince = now }
             lastPalmSeen = now
             let held = now - (palmSince ?? now)
-            if held >= 0.80 {
+            if held >= GestureMath.killHold {
                 mode = .idle
                 mustRearm = true
                 killLatched = true
@@ -534,7 +564,7 @@ final class GestureEngine {
                 fistSince = nil
                 system.endWindowDrag()
                 lastAction = "Not-Aus"
-                onLog?("Beide Hände offen → Not-Aus. Bleibt Idle, bis Faust hält oder 2× klatschen.", .info, nil)
+                onLog?("Beide Hände offen und still → Not-Aus. Bleibt Idle, bis Faust hält oder 2× klatschen.", .info, nil)
                 killFlash = true
                 Task { [weak self] in
                     try? await Task.sleep(nanoseconds: 350_000_000)
@@ -544,12 +574,13 @@ final class GestureEngine {
                 return true
             }
             lastAction = "Not-Aus halten"
-            return true
+            return false
         }
         if now - lastPalmSeen < GestureMath.killGrace, palmSince != nil {
-            return true
+            return false
         }
         palmSince = nil
+        killPalms = nil
         killLatched = false
         return false
     }
@@ -627,10 +658,13 @@ final class GestureEngine {
             pointerHandID = hand.id
             lastPalm = palm
             palmSlow = palm
+            cursorDidMove = false
+            if let existing = cursorSmooth {
+                return existing
+            }
             if let map = spaceMap, map.isReady {
                 let q = map.apply(palm)
                 cursorSmooth = q
-                cursorDidMove = true
                 return q
             }
             let start = ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)

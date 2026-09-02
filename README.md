@@ -1,4 +1,4 @@
-# Helios **1.6.7**
+# Helios **1.6.8**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,16 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.8
+
+Die zweite Hand im Bild hat 1.6.7 praktisch ausgeschaltet: Not-Aus zählte 0,8 s und **blockte jede andere Geste schon während des Haltens**. Ein unsicherer Körper-Vote hat L/R getauscht, der Cursor sprang. `.unknown` im Softmax hat klare Posen unter 62 % gedrückt.
+
+- **Not-Aus 1,35 s**, nur zwei echte offene Hände, weit auseinander, still. Klick/Wischen/Skalieren laufen während des Zählens. Pinzette ist kein Kill.
+- **Vision L/R bleibt**, außer der Körper ist sich sehr sicher (Abstand-Verhältnis < 0,50) oder Vision sagt unbekannt.
+- **Kein Cursor-Sprung** wenn die Track-ID wechselt — Palme neu verankern, Zeiger bleibt.
+- **unknown-Logit −1,8**, HMM hält die letzte echte Pose.
+- **palmWidth geglättet** pro Hand, Fling/Wischen bei Zoom der Webcam ruhiger.
 
 ## Neu in 1.6.7
 

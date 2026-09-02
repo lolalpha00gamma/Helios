@@ -211,7 +211,7 @@ enum GestureClassifier {
         logits[.thumbsUp] = Double(thumbUp) * 4.2
             + Double((1 - index.score) + (1 - middle.score) + (1 - ring.score)) * 0.7
             - Double(closedness) * 1.4
-        logits[.unknown] = 0.35
+        logits[.unknown] = -1.8
 
         let keys = HandPose.allCases
         let sm = JointGeom.softmax(keys.map { logits[$0] ?? 0 }, temperature: 0.72)
@@ -355,7 +355,7 @@ enum GestureClassifier {
             .point: Double(index) * 3 - Double(middle + ring) * 1.4,
             .peace: Double(index + middle) * 2 - Double(ring + little) * 2,
             .thumbsUp: Double(thumb) * 2.5,
-            .unknown: 0.3
+            .unknown: -1.8
         ]
         let keys = HandPose.allCases
         let sm = JointGeom.softmax(keys.map { logits[$0] ?? 0 }, temperature: 0.7)

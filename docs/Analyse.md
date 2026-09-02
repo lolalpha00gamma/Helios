@@ -1,10 +1,23 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
-Stand: 2026-09-02. Helios 1.6.2. Erkennung (1.6.0/1.6.1) bleibt; 1.6.2
-ist Koordinaten, AX, Threads, HUD. Alle fünf Phasen aus `docs/Erkennung.md`
-laufen gleichzeitig — kein Stufenplan. 1.6.1 kollabiert korrelierte Quellen.
+Stand: 2026-09-02. Helios 1.6.8. Erkennung (1.6.0/1.6.1) bleibt; 1.6.2
+ist Koordinaten, AX, Threads, HUD. 1.6.8: Not-Aus blockt nicht mehr
+während des Zählens, Körper-Vote überschreibt Vision nur bei klarem
+Sieger, unknown-Logit negativ, Cursor hält den Track.
 
-## 0. 1.6.2 — Plattform, nicht Erkennung
+## 0. 1.6.8 — Rest-Logik, nicht Fusion
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | Not-Aus `return true` ab Tick 1 | nur nach 1,35 s stiller offener Palmen |
+| 2 | `openScore ≥ 4` reicht | `pose == .openPalm` und Abstand ≥ clapOpen |
+| 3 | Kill während Pinzette | Skip wenn `pinchHeld` / Zwei-Pinzette |
+| 4 | Körper-Vote Ratio 0,72 immer | Override nur unknown oder Ratio < 0,50 |
+| 5 | Track-Wechsel teleportiert Cursor | `cursorSmooth` behalten, Palme re-anchorn |
+| 6 | unknown-Logit 0,35 | −1,8; HMM hält aktuelle Pose |
+| 7 | palmWidth roh pro Frame | EMA 0,22 pro Track |
+
+## 0b. 1.6.2 — Plattform, nicht Erkennung
 
 | # | Bug | Fix |
 |---|---|---|

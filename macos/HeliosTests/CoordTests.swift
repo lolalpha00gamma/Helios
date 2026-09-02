@@ -285,6 +285,56 @@ enum CoordTests {
             fputs("FAIL Hybrid-Band 15 %\n", stderr)
             fails += 1
         }
+        if GestureMath.killHold < 1.2 {
+            fputs("FAIL Not-Aus muss länger als 0,80 s halten\n", stderr)
+            fails += 1
+        }
+        if GestureMath.killSwitchCandidate(openPalms: 2, spanHW: 1.5, pinchHeld: false, twoPinch: false) {
+            fputs("FAIL Not-Aus bei Kontaktabstand (Klatschen)\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.killSwitchCandidate(openPalms: 2, spanHW: 2.5, pinchHeld: false, twoPinch: false) {
+            fputs("FAIL zwei offene Hände weit auseinander sind Not-Aus-Kandidat\n", stderr)
+            fails += 1
+        }
+        if GestureMath.killSwitchCandidate(openPalms: 2, spanHW: 3.0, pinchHeld: true, twoPinch: false) {
+            fputs("FAIL Not-Aus während Pinzette\n", stderr)
+            fails += 1
+        }
+        if GestureMath.killSwitchCandidate(openPalms: 2, spanHW: 3.0, pinchHeld: false, twoPinch: true) {
+            fputs("FAIL Not-Aus während Zwei-Pinzette\n", stderr)
+            fails += 1
+        }
+        if GestureMath.killSwitchCandidate(openPalms: 1, spanHW: 3.0, pinchHeld: false, twoPinch: false) {
+            fputs("FAIL eine offene Hand ist kein Not-Aus\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.bodyOverridesVision(visionUnknown: true, ratio: 0.60, disagree: false) {
+            fputs("FAIL unbekannte Vision darf Körper-Vote 0,60 nehmen\n", stderr)
+            fails += 1
+        }
+        if GestureMath.bodyOverridesVision(visionUnknown: false, ratio: 0.60, disagree: true) {
+            fputs("FAIL Vision L/R bleibt bei schwachem Körper-Vote 0,60\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.bodyOverridesVision(visionUnknown: false, ratio: 0.40, disagree: true) {
+            fputs("FAIL klarer Körper-Vote 0,40 überstimmt Vision\n", stderr)
+            fails += 1
+        }
+        if GestureMath.bodyOverridesVision(visionUnknown: false, ratio: 0.40, disagree: false) {
+            fputs("FAIL einig kein Override\n", stderr)
+            fails += 1
+        }
+        let ema = GestureMath.palmWidthEMA(prev: 0.12, next: 0.20, alpha: 0.22)
+        if abs(ema - (0.22 * 0.20 + 0.78 * 0.12)) > 0.0001 {
+            fputs("FAIL palmWidth-EMA \(ema)\n", stderr)
+            fails += 1
+        }
+        let emaFirst = GestureMath.palmWidthEMA(prev: 0, next: 0.15)
+        if abs(emaFirst - 0.15) > 0.0001 {
+            fputs("FAIL palmWidth-EMA erster Sample\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

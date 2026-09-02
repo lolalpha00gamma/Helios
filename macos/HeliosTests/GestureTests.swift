@@ -124,6 +124,27 @@ enum GestureTests {
         }
         ok(pose == .fist, "HMM geht auf Faust")
 
+        var stay = PoseHMM()
+        var locked = HandPose.unknown
+        for i in 0..<16 {
+            var em: [HandPose: Double] = [:]
+            for k in HandPose.allCases { em[k] = 0.04 }
+            em[.openPalm] = 0.72
+            locked = stay.step(emission: em, pinchClosedness: 0.1, now: Double(i) * 0.016, dt: 0.016).pose
+        }
+        ok(locked == .openPalm, "HMM auf offene Hand")
+        for i in 16..<24 {
+            var em: [HandPose: Double] = [:]
+            for k in HandPose.allCases { em[k] = 0.08 }
+            em[.unknown] = 0.40
+            locked = stay.step(emission: em, pinchClosedness: 0.1, now: Double(i) * 0.016, dt: 0.016).pose
+        }
+        ok(locked == .openPalm, "HMM hält Pose wenn unknown schwach führt")
+
+        let openFeats = GestureClassifier.features(joints: open, pinch: 0.22, space: .hd720)
+        ok((openFeats.probs[.unknown] ?? 1) < 0.12, "unknown-Masse nach Logit −1,8 klein")
+        ok((openFeats.probs[.openPalm] ?? 0) > 0.55, "offene Hand bleibt über Aktions-Tor")
+
         let short = hand(tipsY: 0.38)
         let ang = GestureClassifier.fingerExtension(short, .index, space: .hd720, conf: [:]).score
         ok(ang >= 0, "Winkel-Streckung definiert bei verkürzter Hand")

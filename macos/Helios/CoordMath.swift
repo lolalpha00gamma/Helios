@@ -81,6 +81,12 @@ enum GestureMath {
     static let palmHighpass: CGFloat = 0.08
     static let deadMan: TimeInterval = 8.0
     static let killGrace: TimeInterval = 0.14
+    /// Zwei offene Hände müssen still und getrennt halten — 0,80 s hat Klick/Swipe mitgetötet.
+    static let killHold: TimeInterval = 1.35
+    static let killPalmStill: CGFloat = 0.28
+    /// Körperpose: Vision unbekannt → lose (0,72). Vision widerspricht → nur klarer Sieger (0,50).
+    static let bodyVoteLoose: Double = 0.72
+    static let bodyVoteStrict: Double = 0.50
     static let swipeOpenNeed = 3
     static let thumbsHold: TimeInterval = 0.70
     /// Sitzung 12:59:50: Öffnen nach Pinzette wurde zum Wischen, Rückkehr zur Gegenrichtung.
@@ -232,5 +238,31 @@ enum GestureMath {
             }
         }
         return best
+    }
+
+    /// Not-Aus-Kandidat: zwei offene Palmen, Abstand ≥ Klatschen-offen, keine Pinzette.
+    /// Haltezeit prüft die Engine — hier nur die Form, damit Tests ohne Vision laufen.
+    static func killSwitchCandidate(
+        openPalms: Int,
+        spanHW: CGFloat,
+        pinchHeld: Bool,
+        twoPinch: Bool
+    ) -> Bool {
+        if pinchHeld || twoPinch { return false }
+        if openPalms < 2 { return false }
+        return spanHW >= clapOpen
+    }
+
+    /// Vision L/R bleibt, solange der Körper-Vote nicht klar gewinnt.
+    static func bodyOverridesVision(visionUnknown: Bool, ratio: Double, disagree: Bool) -> Bool {
+        if visionUnknown { return ratio < bodyVoteLoose && ratio > 0 }
+        if disagree { return ratio < bodyVoteStrict && ratio > 0 }
+        return false
+    }
+
+    static func palmWidthEMA(prev: CGFloat, next: CGFloat, alpha: CGFloat = 0.22) -> CGFloat {
+        if prev <= 0.001 { return next }
+        let a = min(1, max(0, alpha))
+        return a * next + (1 - a) * prev
     }
 }

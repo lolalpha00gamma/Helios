@@ -1,6 +1,6 @@
 # Erkennung — implementiert (kein Phasenplan)
 
-Stand: 2026-09-02, Helios 1.6.7. Alle fünf Phasen aus dem
+Stand: 2026-09-02, Helios 1.6.8. Alle fünf Phasen aus dem
 Konsolidierungsdokument laufen gleichzeitig. Fällt eine Quelle aus, geht
 ihr Fusionsgewicht auf 0. Korrelierte Quellen (Lift/Zeit ≈ 2D) werden
 kollabiert, sonst flacht die Pose unter das Aktions-Tor.

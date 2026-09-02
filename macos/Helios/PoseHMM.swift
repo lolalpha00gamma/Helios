@@ -53,6 +53,15 @@ struct PoseHMM {
         let a = 1 - exp(-dt / pinchTau)
         pinch = pinch * (1 - a) + pinchClosedness * a
 
+        // Unknown darf eine echte Pose nicht unter das 0,62-Tor drücken.
+        if best.key == .unknown, current != .unknown {
+            let pCur = next[current] ?? 0
+            if pCur >= 0.28 || best.value < 0.62 {
+                holdSince = nil
+                return (current, pCur, pinch)
+            }
+        }
+
         if best.key != current {
             if holdSince == nil { holdSince = now }
             if now - (holdSince ?? now) >= 0.05, best.value >= 0.48 {

@@ -57,6 +57,12 @@ enum CoordTests {
         eq(ax.height, 300, "AX h")
         eq(ax.maxY, primaryH - 80, "AX top in cocoa")
 
+        // AXUIElementCopyElementAtPosition und AXPosition sind Cocoa, nicht Quartz.
+        let quartzCursor = CGPoint(x: 200, y: 100)
+        let axHit = CoordMath.cocoa(fromQuartz: quartzCursor, primaryMaxY: primaryH)
+        eq(axHit.x, 200, "AX hit-test x")
+        eq(axHit.y, primaryH - 100, "AX hit-test y (nicht Quartz)")
+
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)
             exit(1)

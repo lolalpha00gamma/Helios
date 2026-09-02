@@ -78,6 +78,7 @@ final class GestureEngine {
     private var lastPalm: CGPoint?
     private var pointerHandID: String?
     private var swipeGraceUntil: TimeInterval = 0
+    private var armedQuietUntil: TimeInterval = 0
     private var cursorDidMove = false
     private let system = SystemControl()
     var onLog: ((String, ProtocolKind, Int?) -> Void)?
@@ -87,13 +88,37 @@ final class GestureEngine {
         mode = .idle
         fistSince = nil
         fistLostAt = nil
+        lastHandSeen = 0
         palmSince = nil
+        lastPalmSeen = 0
+        thumbsSince = nil
+        peaceSince = nil
         pinchHeld = false
         pinchBecameDrag = false
+        pinchBeganAt = 0
+        pinchTrail.removeAll()
+        pinchSpan0 = nil
+        grabLogged = false
+        lastGrabTry = 0
         twoPinchSince = nil
         swipeTrail.removeAll()
         swipeHandID = nil
-        pinchTrail.removeAll()
+        cooldownUntil = 0
+        lastArmToggle = 0
+        lastLoggedPose = ""
+        lastPoseLog = 0
+        killLatched = false
+        mustRearm = false
+        armLockUntil = 0
+        pointerOrigin = nil
+        cursorSmooth = nil
+        lastPalm = nil
+        pointerHandID = nil
+        swipeGraceUntil = 0
+        armedQuietUntil = 0
+        cursorDidMove = false
+        mousePaused = false
+        killFlash = false
         system.endWindowDrag()
         cursor = nil
         twoHandSpan = nil
@@ -101,11 +126,6 @@ final class GestureEngine {
         dragging = false
         grabPhase = .none
         grabTargetName = ""
-        mustRearm = false
-        pointerOrigin = nil
-        cursorSmooth = nil
-        lastPalm = nil
-        pointerHandID = nil
         lastAction = "Reset"
     }
 
@@ -200,7 +220,16 @@ final class GestureEngine {
             dragging = false
             return
         }
-        if now < cooldownUntil { return }
+        if now < cooldownUntil || now < armedQuietUntil {
+            // Peace/Kill-Cooldown darf den Cursor nicht einfrieren — nur Aktionen.
+            placeCursor(primary)
+            if !testMode, !system.isDragging, cursorDidMove, primary.pose != .fist, let p = cursor {
+                system.moveCursor(to: p)
+            }
+            updateTrashHot()
+            dragging = pinchHeld
+            return
+        }
 
         if handleTwoPinchScale(hands: hands, now: now) {
             return
@@ -295,7 +324,7 @@ final class GestureEngine {
 
     @discardableResult
     private func handleKillSwitch(hands: [TrackedHand], now: TimeInterval) -> Bool {
-        let open = hands.filter(\.isOpenEnough)
+        let open = hands.filter { $0.openScore >= 4 }
         if open.count >= 2 {
             if killLatched {
                 lastAction = "Not-Aus"
@@ -305,7 +334,7 @@ final class GestureEngine {
             if palmSince == nil { palmSince = now }
             lastPalmSeen = now
             let held = now - (palmSince ?? now)
-            if held >= 0.22 {
+            if held >= 0.80 {
                 mode = .idle
                 mustRearm = true
                 killLatched = true
@@ -357,6 +386,7 @@ final class GestureEngine {
                 mode = .armed
                 lastAction = "Scharf"
                 cooldownUntil = now + 0.4
+                armedQuietUntil = now + 0.70
                 onLog?("Faust → Scharf", .executed, Int((hands.map(\.meanConfidence).max() ?? 0) * 100))
             } else if held >= 0.08 {
                 lastAction = "Faust …"
@@ -454,7 +484,8 @@ final class GestureEngine {
             return false
         }
         if twoPinchSince == nil { twoPinchSince = now }
-        guard now - (twoPinchSince ?? now) >= 0.35 else { return false }
+        // Während der Bestätigung den Tick belegen, sonst feuern Klick/Wischen.
+        guard now - (twoPinchSince ?? now) >= 0.35 else { return true }
         let span = hypot(pinches[0].palm.x - pinches[1].palm.x, pinches[0].palm.y - pinches[1].palm.y)
         if let old = twoHandSpan, abs(span - old) > 0.04, now >= cooldownUntil {
             let conf = pinches.map(\.meanConfidence).min() ?? 0
@@ -481,6 +512,7 @@ final class GestureEngine {
     }
 
     private func driveGrab(_ hand: TrackedHand, now: TimeInterval) {
+        if now < armedQuietUntil, !pinchHeld { return }
         let ratio = hand.pinchRatio
         let closed = hand.pinchClosed || hand.pose == .pinch
         let fisting = hand.pose == .fist && mode == .armed
@@ -621,12 +653,17 @@ final class GestureEngine {
         }
         swipeGraceUntil = now + 0.32
         swipeTrail.append((now, hand.palm.x, hand.palm.y))
-        swipeTrail.removeAll { now - $0.t > 0.55 }
+        swipeTrail.removeAll { now - $0.t > 0.40 }
         guard let first = swipeTrail.first, swipeTrail.count >= 2 else { return }
         let dx = hand.palm.x - first.x
         let dy = hand.palm.y - first.y
         let dt = now - first.t
-        guard dt > 0.12, abs(dx) > 0.12, abs(dx) > abs(dy) * 1.05 else { return }
+        let speed = hypot(dx, dy) / max(dt, 0.001)
+        // Nur echte Flicks: schnell, waagerecht, nicht dasselbe wie Cursor-Führen.
+        guard dt >= 0.08, dt <= 0.40,
+              abs(dx) > 0.20,
+              abs(dx) > abs(dy) * 1.8,
+              speed > 0.85 else { return }
         onLog?("Wischen erkannt", .recognized, Int(hand.meanConfidence * 100))
         let forward = dx < 0
         let name = forward ? "Nächste App" : "Vorherige App"
@@ -639,7 +676,7 @@ final class GestureEngine {
     private func drivePeace(_ hand: TrackedHand, now: TimeInterval) {
         if hand.pose == .peace {
             if peaceSince == nil { peaceSince = now }
-            if now - (peaceSince ?? now) > 0.55 {
+            if now - (peaceSince ?? now) > 0.90 {
                 let target = focused
                 perform("Aufnahme", need: .capture, confidence: hand.meanConfidence) {
                     if let t = target, t.quartzBounds.width > 8 {

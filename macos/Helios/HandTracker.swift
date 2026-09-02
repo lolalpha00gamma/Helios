@@ -110,6 +110,7 @@ final class HandTracker: @unchecked Sendable {
 
         var hands: [TrackedHand] = []
         hands.reserveCapacity(observations.count)
+        var claimed: Set<VNChirality> = []
         for (idx, obs) in observations.enumerated() {
             guard let pts = try? obs.recognizedPoints(.all) else { continue }
             if obs.confidence < 0.22 { continue }
@@ -130,9 +131,25 @@ final class HandTracker: @unchecked Sendable {
                 if chirality == .left { chirality = .right }
                 else if chirality == .right { chirality = .left }
             }
-            var smoother = chirality == .left ? leftSmooth : rightSmooth
+            // Zwei Beobachtungen dürfen sich nicht denselben Smoother teilen.
+            if chirality != .unknown, claimed.contains(chirality) {
+                if chirality == .left, !claimed.contains(.right) {
+                    chirality = .right
+                } else if chirality == .right, !claimed.contains(.left) {
+                    chirality = .left
+                } else {
+                    chirality = .unknown
+                }
+            }
+            if chirality != .unknown {
+                claimed.insert(chirality)
+            }
+            let useLeft = chirality == .left
+            let useRight = chirality == .right
+            var smoother = useLeft ? leftSmooth : (useRight ? rightSmooth : LandmarkSmoothing())
             let smoothed = smoother.apply(raw, now: now)
-            if chirality == .left { leftSmooth = smoother } else { rightSmooth = smoother }
+            if useLeft { leftSmooth = smoother }
+            else if useRight { rightSmooth = smoother }
 
             var joints: [VNHumanHandPoseObservation.JointName: TrackedJoint] = [:]
             var display: [VNHumanHandPoseObservation.JointName: TrackedJoint] = [:]
@@ -142,9 +159,10 @@ final class HandTracker: @unchecked Sendable {
             for (name, point) in raw {
                 display[name] = TrackedJoint(point: point, confidence: conf[name] ?? 0)
             }
-            var pinchGate = chirality == .left ? leftPinch : rightPinch
+            var pinchGate = useLeft ? leftPinch : (useRight ? rightPinch : PinchGate())
             let pinchState = pinchGate.update(raw: raw, conf: conf, now: now)
-            if chirality == .left { leftPinch = pinchGate } else { rightPinch = pinchGate }
+            if useLeft { leftPinch = pinchGate }
+            else if useRight { rightPinch = pinchGate }
 
             let pinch = pinchState.distance
             let palm = GestureClassifier.palmCenter(smoothed)

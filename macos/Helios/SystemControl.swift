@@ -45,7 +45,7 @@ final class SystemControl {
 
     func startClutch() {
         guard monitors.isEmpty else { return }
-        let mask: NSEvent.EventTypeMask = [.leftMouseDragged]
+        let mask: NSEvent.EventTypeMask = [.leftMouseDragged, .mouseMoved]
         let note: (NSEvent) -> Void = { [weak self] e in
             Task { @MainActor in self?.noteHardware(e) }
         }
@@ -55,7 +55,7 @@ final class SystemControl {
     }
 
     private func noteHardware(_ e: NSEvent) {
-        guard e.type == .leftMouseDragged else { return }
+        guard e.type == .leftMouseDragged || e.type == .mouseMoved else { return }
         let now = CACurrentMediaTime()
         if now - lastPostAt < 0.08 { return }
         let d = hypot(e.deltaX, e.deltaY)
@@ -165,7 +165,7 @@ final class SystemControl {
         let loc = NSEvent.mouseLocation.screenFlipped
         let screen = ScreenGeometry.screenContaining(quartz: loc) ?? NSScreen.main
         guard let screen else { return .fail("Kein Bildschirm") }
-        let vis = ScreenGeometry.quartzRect(fromCocoa: screen.visibleFrame)
+        let vis = screen.visibleFrame
         switch edge {
         case .left:
             _ = setPosition(win, vis.origin)
@@ -362,7 +362,9 @@ final class SystemControl {
     private func window(at point: CGPoint) -> AXUIElement? {
         let sys = ax(AXUIElementCreateSystemWide())
         var ref: AXUIElement?
-        let err = AXUIElementCopyElementAtPosition(sys, Float(point.x), Float(point.y), &ref)
+        // AXUIElementCopyElementAtPosition ist Cocoa (unten links), Cursor ist Quartz.
+        let cocoa = ScreenGeometry.cocoa(fromQuartz: point)
+        let err = AXUIElementCopyElementAtPosition(sys, Float(cocoa.x), Float(cocoa.y), &ref)
         guard err == .success, let start = ref else { return nil }
         return ancestorWindow(start)
     }

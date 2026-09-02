@@ -1,4 +1,4 @@
-# Helios
+# Helios **1.5.7**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -19,6 +19,21 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
 
+## Neu in 1.5.7
+
+Fenster trafen oft das falsche Ziel: AX-Hit-Test und Snap liefen in Quartz-Y statt Cocoa. Offene Hand zum Cursor hat nebenbei App-Wechsel ausgelöst. Faust-Scharf wurde zum Klick. Peace hat den Cursor 4 s eingefroren. Details: [VORSCHLAEGE.md](./VORSCHLAEGE.md).
+
+- **AX in Cocoa.** `AXUIElementCopyElementAtPosition` und `AXPosition` bekommen Cocoa-Koordinaten.
+- **Snap auf `visibleFrame`.** Andocken/Füllen nutzt den Cocoa-sichtbaren Bereich, nicht das geflippte Quartz-Rect.
+- **Wischen = Flick.** Nur schnell, waagerecht, `dx > 0.20`, `speed > 0.85`. Langsames Cursor-Führen wechselt keine App.
+- **Scharf-Ruhe 0,7 s.** Die Arming-Faust startet kein Halten/Klick.
+- **Cooldown bewegt den Cursor weiter.** Nur Aktionen pausieren.
+- **Not-Aus 0,8 s, openScore ≥ 4.** Kein Kill durch zwei lockere Hände.
+- **Zwei Pinzetten belegen den Tick** schon in der 0,35 s-Bestätigung.
+- **Maus-Clutch** hört auch `mouseMoved`.
+- **Peace 0,9 s.** Weniger Fehl-Screenshots.
+- **Chirality eindeutig.** Zwei Hände teilen sich keinen Smoother mehr.
+
 ## Gesten
 
 | Geste | Wirkung |
@@ -33,10 +48,10 @@ Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Da
 | Werfen nach links/rechts | Andocken |
 | Pinzette + zu sich ziehen | Fenster füllen |
 | Zwei Pinzetten | Skalieren |
-| Offene Hand waagerecht wischen | App wechseln |
-| Peace halten | Fensteraufnahme auf den Schreibtisch |
+| Offene Hand **schnell** waagerecht wischen | App wechseln |
+| Peace halten (~0,9 s) | Fensteraufnahme auf den Schreibtisch |
 | Daumen hoch | App hervorholen |
-| Beide Handflächen | Not-Aus → Idle (erst Faust macht wieder scharf) |
+| Beide Handflächen (~0,8 s) | Not-Aus → Idle (erst Faust macht wieder scharf) |
 
 **Testmodus** (⌘T): Erkennung anzeigen, keine Systemaktionen.
 

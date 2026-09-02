@@ -11,14 +11,31 @@ struct HandEstimate {
     var quality: Double
     var available: Bool
     var palmWidth: CGFloat
+
     static func empty(_ source: EstimateSource) -> HandEstimate {
-        HandEstimate(source: source, probabilities: Dictionary(uniqueKeysWithValues: HandPose.allCases.map { ($0, 0.0) }), pinchClosedness: 0, palm: .zero, palmVariance: 1, quality: 0, available: false, palmWidth: 0.12)
+        HandEstimate(
+            source: source,
+            probabilities: Dictionary(uniqueKeysWithValues: HandPose.allCases.map { ($0, 0) }),
+            pinchClosedness: 0,
+            palm: .zero,
+            palmVariance: 1,
+            quality: 0,
+            available: false,
+            palmWidth: 0.12
+        )
     }
-    var argmax: HandPose { probabilities.max(by: { $0.value < $1.value })?.key ?? .unknown }
+
+    var argmax: HandPose {
+        probabilities.max(by: { $0.value < $1.value })?.key ?? .unknown
+    }
 }
 
 enum EstimateSource: String, CaseIterable {
-    case geometry2D, lift3D, temporal, depth
+    case geometry2D
+    case lift3D
+    case temporal
+    case depth
+
     var labelDE: String {
         switch self {
         case .geometry2D: return "2D"
@@ -43,5 +60,6 @@ struct Joint3: Equatable {
     var y: CGFloat
     var z: CGFloat
     var c: Float
+
     var xy: CGPoint { CGPoint(x: x, y: y) }
 }

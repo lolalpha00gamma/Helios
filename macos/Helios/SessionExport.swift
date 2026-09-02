@@ -7,18 +7,25 @@ import Vision
 struct JointSnap: Codable {
     var x: Double
     var y: Double
+    var z: Double?
     var c: Double
 }
 
 struct HandSnap: Codable {
+    var id: String?
     var side: String
     var pose: String
+    var label: String?
     var confidence: Double
+    var poseProb: Double?
+    var quality: Double?
     var openScore: Int
     var pinchRatio: Double
     var pinchClosed: Bool
+    var pinchClosedness: Double?
     var palmX: Double
     var palmY: Double
+    var palmWidth: Double?
     var joints: [String: JointSnap]
 }
 
@@ -127,10 +134,12 @@ final class SessionRecorder {
 
         protokoll.txt   lesbares Protokoll (Erkannt / Ausgeführt / Fehler)
         protokoll.json  dasselbe strukturiert
-        gesten.jsonl    eine Zeile pro Frame: Pose, Handseite, Gelenke x/y/Konfidenz
+        gesten.jsonl    eine Zeile pro Frame: Pose, label (Create ML), Gelenke x/y/z/Konfidenz
         gesten.png      Filmstreifen der letzten Gesten (Kamera + Skelett)
 
-        Gelenke sind normiert 0…1 (Kamera), y nach oben.
+        Gelenke: x/y normiert 0…1 (Kamera), y nach oben. z relativ zum Handgelenk, isotrope Skala.
+        label: englischer Pose-Name (fist, openPalm, pinch, point, thumbsUp, peace, unknown).
+        Training: Create ML Tabular/Time-Series auf 12 Frames × 8 Merkmale, Ausgabe HeliosTemporal.mlmodel.
         """
         try readme.write(to: url.appendingPathComponent("README.txt"), atomically: true, encoding: .utf8)
     }
@@ -193,18 +202,25 @@ final class SessionRecorder {
             joints[Self.key(name)] = JointSnap(
                 x: Double(j.point.x),
                 y: Double(j.point.y),
+                z: Double(j.z),
                 c: Double(j.confidence)
             )
         }
         return HandSnap(
+            id: hand.id,
             side: hand.sideDE,
             pose: hand.pose.labelDE,
+            label: hand.pose.rawValue,
             confidence: Double(hand.meanConfidence),
+            poseProb: hand.poseProb,
+            quality: hand.quality,
             openScore: hand.openScore,
             pinchRatio: Double(hand.pinchRatio),
             pinchClosed: hand.pinchClosed,
+            pinchClosedness: hand.pinchClosedness,
             palmX: Double(hand.palm.x),
             palmY: Double(hand.palm.y),
+            palmWidth: Double(hand.palmWidth),
             joints: joints
         )
     }

@@ -58,6 +58,8 @@ final class AppState: ObservableObject {
     @Published var mousePaused = false
     @Published var grabPhase: GrabPhase = .none
     @Published var grabTargetName = ""
+    @Published var fusion: FusionDebug?
+    @Published var hasDepth = false
     let calibSession = CalibrationSession()
     private var lastPanel: TimeInterval = 0
     private var didStart = false
@@ -155,7 +157,12 @@ final class AppState: ObservableObject {
         let cam = self.camera
         camera.onFrame = { [weak self] vision, _, luma, arrived in
             let t0 = CACurrentMediaTime()
-            let hands = tracker.analyze(pixelBuffer: vision, now: t0, mirrored: cam.isMirrored)
+            let hands = tracker.analyze(
+                pixelBuffer: vision,
+                now: t0,
+                mirrored: cam.isMirrored,
+                depth: cam.latestDepth
+            )
             let visMs = (CACurrentMediaTime() - t0) * 1000
             let endToEnd = (CACurrentMediaTime() - arrived) * 1000
             DispatchQueue.main.async(qos: .userInteractive) {
@@ -324,6 +331,8 @@ final class AppState: ObservableObject {
         grabPhase = engine.grabPhase
         grabTargetName = engine.grabTargetName
         self.hands = hands
+        fusion = hands.first?.fusion ?? tracker.lastFusion
+        hasDepth = camera.hasDepth
     }
 }
 

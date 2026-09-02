@@ -2,7 +2,8 @@ import CoreGraphics
 import Foundation
 import Vision
 
-/// `swiftc -framework Vision macos/Helios/GestureClassifier.swift macos/HeliosTests/GestureTests.swift -o /tmp/g && /tmp/g`
+/// `swiftc -framework Vision macos/Helios/*.swift macos/HeliosTests/GestureTests.swift` is not used;
+/// compile the classifier files listed in README.
 
 @main
 enum GestureTests {
@@ -43,6 +44,8 @@ enum GestureTests {
     }
 
     static func main() {
+        GestureClassifier.space = AspectSpace(width: 1280, height: 720)
+
         let open = hand(tipsY: 0.72)
         ok(GestureClassifier.classify(joints: open, pinch: 0.22) == .openPalm, "offene Hand")
         ok(GestureClassifier.openScore(joints: open) >= 3, "openScore")
@@ -55,10 +58,11 @@ enum GestureTests {
         pinchJ[.indexPIP] = CGPoint(x: 0.42, y: 0.48)
         pinchJ[.indexMCP] = CGPoint(x: 0.46, y: 0.34)
         pinchJ[.thumbTip] = CGPoint(x: 0.41, y: 0.61)
-        let pinchDist = hypot(0.40 - 0.41, 0.62 - 0.61)
+        let pinchDist = AspectSpace.hd720.dist(CGPoint(x: 0.40, y: 0.62), CGPoint(x: 0.41, y: 0.61))
         ok(GestureClassifier.classify(joints: pinchJ, pinch: pinchDist) == .pinch, "Pinzette")
 
         var gate = PinchGate()
+        gate.setSpace(.hd720)
         var t: TimeInterval = 1
         func step(_ joints: [VNHumanHandPoseObservation.JointName: CGPoint], n: Int) -> Bool {
             var c: [VNHumanHandPoseObservation.JointName: Float] = [:]
@@ -71,12 +75,55 @@ enum GestureTests {
             return closed
         }
         ok(!step(open, n: 4), "Gate offen bleibt offen")
-        ok(step(pinchJ, n: 4), "Gate schließt bei Pinzette")
+        ok(step(pinchJ, n: 6), "Gate schließt bei Pinzette")
         var gone = pinchJ
         gone.removeValue(forKey: .thumbTip)
         gone.removeValue(forKey: .indexTip)
-        ok(step(gone, n: 3), "Gate bleibt zu wenn Spitzen fehlen")
-        ok(!step(open, n: 6), "Gate öffnet wieder")
+        ok(step(gone, n: 4), "Gate bleibt zu wenn Spitzen fehlen")
+        ok(!step(open, n: 10), "Gate öffnet wieder")
+
+        let isoX = AspectSpace.hd720.dist(CGPoint(x: 0, y: 0), CGPoint(x: 100 / 1280, y: 0))
+        let isoY = AspectSpace.hd720.dist(CGPoint(x: 0, y: 0), CGPoint(x: 0, y: 100 / 720))
+        ok(abs(isoX - isoY) < 0.002, "isotrop: 100 px in x entspricht 100 px in y")
+
+        let fusion = EstimateFusion()
+        var p2: [HandPose: Double] = [:]
+        var p3: [HandPose: Double] = [:]
+        for k in HandPose.allCases { p2[k] = 0.02; p3[k] = 0.02 }
+        p2[.openPalm] = 0.8
+        p3[.fist] = 0.7
+        let e2 = HandEstimate(source: .geometry2D, probabilities: p2, pinchClosedness: 0.1, palm: CGPoint(x: 0.4, y: 0.4), palmVariance: 0.002, quality: 0.9, available: true, palmWidth: 0.12)
+        let e3 = HandEstimate(source: .lift3D, probabilities: p3, pinchClosedness: 0.1, palm: CGPoint(x: 0.41, y: 0.4), palmVariance: 0.002, quality: 0.9, available: true, palmWidth: 0.12)
+        let (fused, _) = fusion.fuse([e2, e3], dt: 0.016)
+        ok(fused.available, "Fusion liefert Schätzung")
+        ok((fused.probabilities[.openPalm] ?? 0) > 0.2, "2D-Stimme bleibt hörbar")
+
+        var pD: [HandPose: Double] = [:]
+        for k in HandPose.allCases { pD[k] = 0.02 }
+        pD[.openPalm] = 0.75
+        let eD = HandEstimate(source: .depth, probabilities: pD, pinchClosedness: 0.1, palm: CGPoint(x: 0.4, y: 0.4), palmVariance: 0.001, quality: 0.9, available: true, palmWidth: 0.12)
+        let (_, dbg) = fusion.fuse([e2, e3, eD], dt: 0.016)
+        ok((dbg.weights["lift3D"] ?? 1) < (dbg.weights["depth"] ?? 0) + 0.05, "Lift-Gewicht fällt wenn Tiefe da ist")
+        ok(dbg.usedDepth, "Fusion markiert echte Tiefe")
+
+        var hmm = PoseHMM()
+        var pose = HandPose.unknown
+        for i in 0..<12 {
+            var em: [HandPose: Double] = [:]
+            for k in HandPose.allCases { em[k] = 0.05 }
+            em[.fist] = 0.7
+            let r = hmm.step(emission: em, pinchClosedness: 0.1, now: Double(i) * 0.016, dt: 0.016)
+            pose = r.pose
+        }
+        ok(pose == .fist, "HMM geht auf Faust")
+
+        let short = hand(tipsY: 0.38)
+        let ang = GestureClassifier.fingerExtension(short, .index, space: .hd720, conf: [:]).score
+        ok(ang >= 0, "Winkel-Streckung definiert bei verkürzter Hand")
+
+        let sameSideA = CGPoint(x: 0.22, y: 0.4)
+        let sameSideB = CGPoint(x: 0.28, y: 0.42)
+        ok(AspectSpace.hd720.dist(sameSideA, sameSideB) < 0.15, "zwei Hände links bleiben trennbar")
 
         if fails > 0 {
             fputs("\(fails) GestureTests fehlgeschlagen\n", stderr)

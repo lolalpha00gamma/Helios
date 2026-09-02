@@ -1,4 +1,4 @@
-# Helios **1.5.7**
+# Helios **1.6.0**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -19,20 +19,33 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
 
+## Neu in 1.6.0
+
+Erkennung ist nicht mehr nur 2D. Vier Quellen laufen parallel und werden fusioniert.
+Details: [docs/Erkennung.md](./docs/Erkennung.md), Analyse und GitHub-Abgleich: [docs/Analyse.md](./docs/Analyse.md).
+
+- **Isotroper Raum.** Vision-x/y sind unabhängig [0,1] — Abstände laufen in x′ = x·(w/h).
+- **Track-ID statt Chiralität.** Zwei Hände auf derselben Bildseite überschreiben sich nicht mehr.
+- **Gelenkwinkel + Softmax** statt Radialabstand und binärer Kanten.
+- **3D-Lift** über MANO-Knochenlängen (jede Webcam) plus echte Tiefe, wo das Format sie hat.
+- **Zeitnetz** 12 Frames, optional `HeliosTemporal.mlmodel`; sonst Heuristik.
+- **HMM in Sekunden**, PinchGate 32/55 ms, Ausreißer 3,5·Median.
+- **Systemaktionen ab Pose 70 %.** Schwellen in Handbreiten (Wisch 0,85, Wurf 2,6 hw/s).
+- 1.5.7-Sicherheit bleibt: Not-Aus 0,8 s, Scharf-Ruhe 0,7 s, Peace 0,9 s, Flick-Wischen.
+
 ## Neu in 1.5.7
 
 Fenster trafen oft das falsche Ziel: AX-Hit-Test und Snap liefen in Quartz-Y statt Cocoa. Offene Hand zum Cursor hat nebenbei App-Wechsel ausgelöst. Faust-Scharf wurde zum Klick. Peace hat den Cursor 4 s eingefroren. Details: [VORSCHLAEGE.md](./VORSCHLAEGE.md).
 
 - **AX in Cocoa.** `AXUIElementCopyElementAtPosition` und `AXPosition` bekommen Cocoa-Koordinaten.
 - **Snap auf `visibleFrame`.** Andocken/Füllen nutzt den Cocoa-sichtbaren Bereich, nicht das geflippte Quartz-Rect.
-- **Wischen = Flick.** Nur schnell, waagerecht, `dx > 0.20`, `speed > 0.85`. Langsames Cursor-Führen wechselt keine App.
+- **Wischen = Flick.** Nur schnell, waagerecht. Langsames Cursor-Führen wechselt keine App.
 - **Scharf-Ruhe 0,7 s.** Die Arming-Faust startet kein Halten/Klick.
 - **Cooldown bewegt den Cursor weiter.** Nur Aktionen pausieren.
 - **Not-Aus 0,8 s, openScore ≥ 4.** Kein Kill durch zwei lockere Hände.
 - **Zwei Pinzetten belegen den Tick** schon in der 0,35 s-Bestätigung.
 - **Maus-Clutch** hört auch `mouseMoved`.
 - **Peace 0,9 s.** Weniger Fehl-Screenshots.
-- **Chirality eindeutig.** Zwei Hände teilen sich keinen Smoother mehr.
 
 ## Gesten
 

@@ -80,9 +80,12 @@ final class GestureEngine {
     private var swipeGraceUntil: TimeInterval = 0
     private var armedQuietUntil: TimeInterval = 0
     private var cursorDidMove = false
+    private var lastPalmWidth: CGFloat = 0.12
     private let system = SystemControl()
     var onLog: ((String, ProtocolKind, Int?) -> Void)?
     var focused: FocusedTarget?
+
+    private var space: AspectSpace { GestureClassifier.space }
 
     func reset() {
         mode = .idle
@@ -156,6 +159,7 @@ final class GestureEngine {
             return
         }
         lastHandSeen = now
+        lastPalmWidth = hands.map(\.palmWidth).max() ?? lastPalmWidth
         mousePaused = !system.allowsInjection && !system.fromInstallMedia
 
         if system.fromInstallMedia {
@@ -198,9 +202,9 @@ final class GestureEngine {
                 lastLoggedPose = key
                 lastPoseLog = now
                 let text = hands.map {
-                    String(format: "%@ %@ %.0f%%", $0.sideDE, $0.pose.labelDE, $0.meanConfidence * 100)
+                    String(format: "%@ %@ %.0f%%", $0.sideDE, $0.pose.labelDE, $0.poseProb * 100)
                 }.joined(separator: " · ")
-                let conf = Int((hands.map(\.meanConfidence).max() ?? 0) * 100)
+                let conf = Int((hands.map(\.poseProb).max() ?? 0) * 100)
                 onLog?("Geste \(text)", .recognized, conf)
             }
         }
@@ -299,8 +303,14 @@ final class GestureEngine {
         _ name: String,
         need: PermissionNeed = .ax,
         confidence: Float = 1,
+        systemAction: Bool = true,
         _ body: () -> ActionResult
     ) {
+        if systemAction, confidence < 0.70, !testMode {
+            lastAction = "\(name) — unsicher"
+            onLog?("\(name) — Pose < 70 %", .blocked, Int(confidence * 100))
+            return
+        }
         let conf = Int(confidence * 100)
         if testMode {
             lastAction = "Test: \(name)"
@@ -387,7 +397,7 @@ final class GestureEngine {
                 lastAction = "Scharf"
                 cooldownUntil = now + 0.4
                 armedQuietUntil = now + 0.70
-                onLog?("Faust → Scharf", .executed, Int((hands.map(\.meanConfidence).max() ?? 0) * 100))
+                onLog?("Faust → Scharf", .executed, Int((hands.map(\.poseProb).max() ?? 0) * 100))
             } else if held >= 0.08 {
                 lastAction = "Faust …"
             }
@@ -416,7 +426,7 @@ final class GestureEngine {
         if pinchHeld {
             return hands.min { a, b in a.pinchRatio < b.pinchRatio } ?? primary
         }
-        if let pinching = hands.filter({ $0.pose == .pinch }).min(by: { $0.pinchRatio < $1.pinchRatio }) {
+        if let pinching = hands.filter({ $0.pose == .pinch || $0.pinchClosedness > 0.55 }).min(by: { $0.pinchRatio < $1.pinchRatio }) {
             return pinching
         }
         if let fist = hands.first(where: { $0.pose == .fist }) {
@@ -486,9 +496,10 @@ final class GestureEngine {
         if twoPinchSince == nil { twoPinchSince = now }
         // Während der Bestätigung den Tick belegen, sonst feuern Klick/Wischen.
         guard now - (twoPinchSince ?? now) >= 0.35 else { return true }
-        let span = hypot(pinches[0].palm.x - pinches[1].palm.x, pinches[0].palm.y - pinches[1].palm.y)
-        if let old = twoHandSpan, abs(span - old) > 0.04, now >= cooldownUntil {
-            let conf = pinches.map(\.meanConfidence).min() ?? 0
+        let unit = max(0.04, (pinches[0].palmWidth + pinches[1].palmWidth) / 2)
+        let span = space.dist(pinches[0].palm, pinches[1].palm) / unit
+        if let old = twoHandSpan, abs(span - old) > 0.28, now >= cooldownUntil {
+            let conf = Float(pinches.map(\.poseProb).min() ?? 0)
             perform("Skalieren", confidence: conf) {
                 system.resizeFocused(scale: span > old ? 1.05 : 0.95)
             }
@@ -514,7 +525,7 @@ final class GestureEngine {
     private func driveGrab(_ hand: TrackedHand, now: TimeInterval) {
         if now < armedQuietUntil, !pinchHeld { return }
         let ratio = hand.pinchRatio
-        let closed = hand.pinchClosed || hand.pose == .pinch
+        let closed = hand.pinchClosed || hand.pinchClosedness > 0.55 || hand.pose == .pinch
         let fisting = hand.pose == .fist && mode == .armed
         let isGrab = pinchHeld
             ? (closed || (fisting && ratio < 0.55))
@@ -524,18 +535,15 @@ final class GestureEngine {
             pinchBecameDrag = false
             pinchBeganAt = now
             pinchTrail = [(now, hand.palm.x, hand.palm.y)]
-            pinchSpan0 = hypot(
-                (hand.point(.middleTip) ?? hand.palm).x - hand.palm.x,
-                (hand.point(.middleTip) ?? hand.palm).y - hand.palm.y
-            )
+            pinchSpan0 = space.dist(hand.point(.middleTip) ?? hand.palm, hand.palm) / max(0.04, hand.palmWidth)
             grabLogged = false
             lastAction = testMode ? "Test: Halten" : "Halten"
         } else if isGrab && pinchHeld {
             pinchTrail.append((now, hand.palm.x, hand.palm.y))
             pinchTrail.removeAll { now - $0.t > 0.5 }
             if let first = pinchTrail.first {
-                let moved = hypot(hand.palm.x - first.x, hand.palm.y - first.y)
-                if moved > 0.025 { pinchBecameDrag = true }
+                let moved = space.dist(hand.palm, CGPoint(x: first.x, y: first.y)) / max(0.04, hand.palmWidth)
+                if moved > 0.18 { pinchBecameDrag = true }
             }
             if pinchBecameDrag, !system.isDragging, !testMode, now - lastGrabTry > 0.35 {
                 lastGrabTry = now
@@ -543,12 +551,12 @@ final class GestureEngine {
                 let r = system.beginWindowDrag(at: at)
                 if r.ok {
                     lastAction = "Greifen"
-                    onLog?("Greifen · \(r.detail)", .executed, Int(hand.meanConfidence * 100))
+                    onLog?("Greifen · \(r.detail)", .executed, Int(hand.poseProb * 100))
                     grabLogged = true
                 } else if !grabLogged {
                     grabLogged = true
                     lastAction = "Greifen fehlgeschlagen"
-                    onLog?("Greifen — NICHT AUSGEFÜHRT: \(r.detail)", .failed, Int(hand.meanConfidence * 100))
+                    onLog?("Greifen — NICHT AUSGEFÜHRT: \(r.detail)", .failed, Int(hand.poseProb * 100))
                     if r.detail.contains("Bedienung") || !AXIsProcessTrusted() {
                         Permissions.demand(.accessibility)
                     }
@@ -561,17 +569,14 @@ final class GestureEngine {
             } else if testMode, pinchBecameDrag {
                 lastAction = trashHot ? "Test: Papierkorb" : "Test: Ziehen"
             }
-            let span = hypot(
-                (hand.point(.middleTip) ?? hand.palm).x - hand.palm.x,
-                (hand.point(.middleTip) ?? hand.palm).y - hand.palm.y
-            )
-            if let s0 = pinchSpan0, !system.isDragging, span > s0 + 0.20 {
-                perform("Heranziehen", confidence: hand.meanConfidence) { system.snapFocused(.fill) }
+            let span = space.dist(hand.point(.middleTip) ?? hand.palm, hand.palm) / max(0.04, hand.palmWidth)
+            if let s0 = pinchSpan0, !system.isDragging, span > s0 + 1.4 {
+                perform("Heranziehen", confidence: Float(hand.poseProb)) { system.snapFocused(.fill) }
                 pinchSpan0 = span
                 cooldownUntil = now + 0.5
             }
         } else if !isGrab && pinchHeld {
-            let flung = resolveFling(now: now, confidence: hand.meanConfidence)
+            let flung = resolveFling(now: now, confidence: Float(hand.poseProb), palmWidth: hand.palmWidth)
             let wasDrag = pinchBecameDrag
             let held = now - pinchBeganAt
             pinchHeld = false
@@ -587,9 +592,9 @@ final class GestureEngine {
             }
             if wasDrag {
                 lastAction = testMode ? "Test: Loslassen" : "Loslassen"
-                onLog?("Loslassen", testMode ? .blocked : .executed, Int(hand.meanConfidence * 100))
+                onLog?("Loslassen", testMode ? .blocked : .executed, Int(hand.poseProb * 100))
             } else if held >= 0.07, held < 0.55 {
-                perform("Klick", need: .input, confidence: hand.meanConfidence) { system.click() }
+                perform("Klick", need: .input, confidence: Float(max(hand.poseProb, hand.pinchClosedness))) { system.click() }
             } else if held < 0.07 {
                 lastAction = "zu kurz"
             }
@@ -597,7 +602,8 @@ final class GestureEngine {
         }
     }
 
-    private func resolveFling(now: TimeInterval, confidence: Float) -> Bool {
+    private func resolveFling(now: TimeInterval, confidence: Float, palmWidth: CGFloat) -> Bool {
+        let unit = max(0.04, palmWidth)
         if trashHot {
             perform("Wegwerfen", confidence: confidence) { system.throwAway(finder: focused?.isFinder == true) }
             return true
@@ -606,27 +612,28 @@ final class GestureEngine {
             return false
         }
         let dt = max(0.04, last.t - first.t)
-        let vx = (last.x - first.x) / dt
-        let vy = (last.y - first.y) / dt
+        let delta = space.vec(CGPoint(x: first.x, y: first.y), CGPoint(x: last.x, y: last.y))
+        let dx = delta.x / unit
+        let dy = delta.y / unit
+        let vx = dx / dt
+        let vy = dy / dt
         let speed = hypot(vx, vy)
-        let dx = last.x - first.x
-        let dy = last.y - first.y
         let dist = hypot(dx, dy)
-        guard speed > 0.38 && dist > 0.08 else { return false }
+        guard speed > 2.6 && dist > 0.55 else { return false }
         onLog?("Werfen erkannt", .recognized, Int(confidence * 100))
-        if abs(dy) >= abs(dx) && dy > 0.08 {
+        if abs(dy) >= abs(dx) && dy > 0.55 {
             perform("Wegwerfen", confidence: confidence) { system.throwAway(finder: focused?.isFinder == true) }
             return true
         }
-        if abs(dy) >= abs(dx) && dy < -0.05 {
+        if abs(dy) >= abs(dx) && dy < -0.35 {
             perform("Minimieren", confidence: confidence) { system.minimizeFocused() }
             return true
         }
-        if dx < -0.07 {
+        if dx < -0.50 {
             perform("Links andocken", confidence: confidence) { system.snapFocused(.left) }
             return true
         }
-        if dx > 0.07 {
+        if dx > 0.50 {
             perform("Rechts andocken", confidence: confidence) { system.snapFocused(.right) }
             return true
         }
@@ -655,30 +662,32 @@ final class GestureEngine {
         swipeTrail.append((now, hand.palm.x, hand.palm.y))
         swipeTrail.removeAll { now - $0.t > 0.40 }
         guard let first = swipeTrail.first, swipeTrail.count >= 2 else { return }
-        let dx = hand.palm.x - first.x
-        let dy = hand.palm.y - first.y
+        let unit = max(0.04, hand.palmWidth)
+        let delta = space.vec(CGPoint(x: first.x, y: first.y), hand.palm)
+        let dx = delta.x / unit
+        let dy = delta.y / unit
         let dt = now - first.t
         let speed = hypot(dx, dy) / max(dt, 0.001)
-        // Nur echte Flicks: schnell, waagerecht, nicht dasselbe wie Cursor-Führen.
+        // Flick: schnell, waagerecht, in Handbreiten — nicht dasselbe wie Cursor-Führen.
         guard dt >= 0.08, dt <= 0.40,
-              abs(dx) > 0.20,
+              abs(dx) > 0.85,
               abs(dx) > abs(dy) * 1.8,
-              speed > 0.85 else { return }
-        onLog?("Wischen erkannt", .recognized, Int(hand.meanConfidence * 100))
+              speed > 2.6 else { return }
+        onLog?("Wischen erkannt", .recognized, Int(hand.poseProb * 100))
         let forward = dx < 0
         let name = forward ? "Nächste App" : "Vorherige App"
-        perform(name, need: .none, confidence: hand.meanConfidence) { system.switchApp(forward: forward) }
+        perform(name, need: .none, confidence: Float(hand.poseProb)) { system.switchApp(forward: forward) }
         swipeTrail.removeAll()
         swipeHandID = nil
         cooldownUntil = now + 0.4
     }
 
     private func drivePeace(_ hand: TrackedHand, now: TimeInterval) {
-        if hand.pose == .peace {
+        if hand.pose == .peace, hand.poseProb >= 0.50 {
             if peaceSince == nil { peaceSince = now }
             if now - (peaceSince ?? now) > 0.90 {
                 let target = focused
-                perform("Aufnahme", need: .capture, confidence: hand.meanConfidence) {
+                perform("Aufnahme", need: .capture, confidence: Float(hand.poseProb)) {
                     if let t = target, t.quartzBounds.width > 8 {
                         return system.screenshotFocused(windowID: t.windowID, bounds: t.quartzBounds)
                     }
@@ -694,10 +703,10 @@ final class GestureEngine {
     }
 
     private func driveThumbs(_ hand: TrackedHand, now: TimeInterval) {
-        if hand.pose == .thumbsUp {
+        if hand.pose == .thumbsUp, hand.poseProb >= 0.50 {
             if thumbsSince == nil { thumbsSince = now }
             if now - (thumbsSince ?? now) > 0.5 {
-                perform("Hervorholen", need: .none, confidence: hand.meanConfidence) { system.unhideFront() }
+                perform("Hervorholen", need: .none, confidence: Float(hand.poseProb)) { system.unhideFront() }
                 thumbsSince = nil
                 cooldownUntil = now + 3
             }

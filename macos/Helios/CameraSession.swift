@@ -36,6 +36,9 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     var isMirrored: Bool { mirroredFlag }
     private let handlerLock = NSLock()
     private var frameHandler: ((CVPixelBuffer, NSImage?, CGFloat, TimeInterval) -> Void)?
+    let depthTap = DepthCapture()
+    var latestDepth: DepthSample? { depthTap.latest }
+    var hasDepth: Bool { depthTap.attached }
 
     func start() {
         DispatchQueue.main.async { self.errorMessage = nil }
@@ -91,6 +94,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         tap = sink
         output.setSampleBufferDelegate(sink, queue: cameraQueue)
         if session.canAddOutput(output) { session.addOutput(output) }
+        depthTap.attach(session: session, device: device, queue: cameraQueue)
         HeliosCatch({
             if let conn = self.output.connection(with: .video), conn.isVideoMirroringSupported {
                 let front = device.position == .front || device.deviceType == .builtInWideAngleCamera
@@ -150,6 +154,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             if let format = Self.bestFormat(on: device) {
                 device.activeFormat = format
             }
+            self.depthTap.applyActiveFormat(device)
             if let range = device.activeFormat.videoSupportedFrameRateRanges.max(by: {
                 $0.maxFrameRate < $1.maxFrameRate
             }) {
@@ -176,6 +181,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     }
 
     /// 720p / hoher fps schlägt 1080p — Vision ist der Flaschenhals, nicht die Auflösung.
+    /// Formate mit Tiefenkanal gewinnen leicht, damit echte z-Werte ankommen.
     private static func bestFormat(on device: AVCaptureDevice) -> AVCaptureDevice.Format? {
         var best: AVCaptureDevice.Format?
         var bestScore = -1.0
@@ -188,7 +194,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             guard fps >= 24 else { continue }
             let fpsTerm = min(fps, 120)
             let near720 = 1.0 - min(abs(h - 720) / 720, 1)
-            let score = fpsTerm * 12 + near720 * 30
+            let depthBonus = format.supportedDepthDataFormats.isEmpty ? 0.0 : 80.0
+            let score = fpsTerm * 12 + near720 * 30 + depthBonus
             if score > bestScore {
                 bestScore = score
                 best = format

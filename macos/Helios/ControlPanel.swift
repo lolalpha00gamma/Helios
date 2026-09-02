@@ -188,6 +188,7 @@ struct ControlPanel: View {
                 LabeledContent("Latenz", value: String(format: "%.0f ms · %.0f fps", state.latencyMs, state.fps))
                 LabeledContent("Licht", value: state.luma < 0.28 ? "Dunkel — Verstärkung" : state.luma < 0.45 ? "Gedämpft" : "OK")
                 LabeledContent("Monitore", value: "\(state.screenCount)")
+                LabeledContent("Tiefe", value: state.hasDepth ? "Kanal aktiv" : "nur 3D-Lift")
                 if let app = state.focused {
                     LabeledContent("App", value: app.appName)
                 }
@@ -277,6 +278,7 @@ struct ControlPanel: View {
             Text("HÄNDE · FINGER")
                 .font(HeliosTheme.mono)
                 .foregroundStyle(HeliosTheme.cyan)
+            FusionStrip(fusion: state.fusion, hasDepth: state.hasDepth)
             if state.hands.isEmpty {
                 Text("Warte auf Erkennung…")
                     .font(.system(size: 12))
@@ -297,12 +299,12 @@ struct ControlPanel: View {
                             .font(.system(size: 11))
                         Spacer()
                     }
-                    VStack(alignment: .leading, spacing: 6) {
+                    VStack(alignment: .leading, spacing: 8) {
                         Button("Sitzung exportieren…") { state.exportSession() }
                             .keyboardShortcut("e", modifiers: [.command])
                         Button("Protokoll kopieren") { state.copyProtocol() }
                         Button("Filmstreifen kopieren") { state.copyFilmstrip() }
-                        Text("Ein PNG mit der Geste + JSONL/TXT. In Grok einfügen, keine Screenshots.")
+                        Text("Ein PNG mit der Geste + JSONL/TXT. Label-Feld in gesten.jsonl ist für Create ML.")
                             .font(.system(size: 10))
                             .foregroundStyle(.secondary)
                     }
@@ -346,21 +348,22 @@ struct ControlPanel: View {
     private func handCard(_ hand: TrackedHand) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text(hand.sideDE)
+                Text("\(hand.id) · \(hand.sideDE)")
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
                     .foregroundStyle(hand.chirality == .left ? HeliosTheme.amber : HeliosTheme.cyan)
                 Spacer()
                 Text(hand.pose.labelDE)
                     .font(.system(size: 12, weight: .semibold))
             }
-            ProgressView(value: Double(hand.meanConfidence))
+            ProgressView(value: hand.poseProb)
                 .tint(hand.chirality == .left ? HeliosTheme.amber : HeliosTheme.cyan)
             Text(
                 String(
-                    format: "Konfidenz %.0f %%  ·  Pinzette %@  %.2f",
-                    hand.meanConfidence * 100,
+                    format: "Pose %.0f %%  ·  Pinzette %@  %.2f  ·  q %.2f",
+                    hand.poseProb * 100,
                     hand.pinchClosed ? "ZU" : "OFFEN",
-                    hand.pinchRatio
+                    hand.pinchRatio,
+                    hand.quality
                 )
             )
                 .font(.system(size: 10, design: .monospaced))

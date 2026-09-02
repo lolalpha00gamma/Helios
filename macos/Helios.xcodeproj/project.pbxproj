@@ -31,6 +31,14 @@
 		AA0000000000000000000066 /* SessionExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000005A /* SessionExport.swift */; };
 		AA0000000000000000000067 /* CoordMath.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000005B /* CoordMath.swift */; };
 		AA0000000000000000000068 /* SpaceMap.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000005C /* SpaceMap.swift */; };
+		AA0000000000000000000070 /* AspectSpace.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000080 /* AspectSpace.swift */; };
+		AA0000000000000000000071 /* HandEstimate.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000081 /* HandEstimate.swift */; };
+		AA0000000000000000000072 /* EstimateFusion.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000082 /* EstimateFusion.swift */; };
+		AA0000000000000000000073 /* PoseHMM.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000083 /* PoseHMM.swift */; };
+		AA0000000000000000000074 /* Lift3D.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000084 /* Lift3D.swift */; };
+		AA0000000000000000000075 /* TemporalNet.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000085 /* TemporalNet.swift */; };
+		AA0000000000000000000076 /* DepthCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000086 /* DepthCapture.swift */; };
+		AA0000000000000000000077 /* FusionStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000087 /* FusionStrip.swift */; };
 		AA000000000000000000003E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000004E /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -65,6 +73,14 @@
 		AA000000000000000000005A /* SessionExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionExport.swift; sourceTree = "<group>"; };
 		AA000000000000000000005B /* CoordMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoordMath.swift; sourceTree = "<group>"; };
 		AA000000000000000000005C /* SpaceMap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpaceMap.swift; sourceTree = "<group>"; };
+		AA0000000000000000000080 /* AspectSpace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AspectSpace.swift; sourceTree = "<group>"; };
+		AA0000000000000000000081 /* HandEstimate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandEstimate.swift; sourceTree = "<group>"; };
+		AA0000000000000000000082 /* EstimateFusion.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EstimateFusion.swift; sourceTree = "<group>"; };
+		AA0000000000000000000083 /* PoseHMM.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PoseHMM.swift; sourceTree = "<group>"; };
+		AA0000000000000000000084 /* Lift3D.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Lift3D.swift; sourceTree = "<group>"; };
+		AA0000000000000000000085 /* TemporalNet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TemporalNet.swift; sourceTree = "<group>"; };
+		AA0000000000000000000086 /* DepthCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepthCapture.swift; sourceTree = "<group>"; };
+		AA0000000000000000000087 /* FusionStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FusionStrip.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -114,6 +130,14 @@
 				AA000000000000000000005A /* SessionExport.swift */,
 				AA000000000000000000005B /* CoordMath.swift */,
 				AA000000000000000000005C /* SpaceMap.swift */,
+				AA0000000000000000000080 /* AspectSpace.swift */,
+				AA0000000000000000000081 /* HandEstimate.swift */,
+				AA0000000000000000000082 /* EstimateFusion.swift */,
+				AA0000000000000000000083 /* PoseHMM.swift */,
+				AA0000000000000000000084 /* Lift3D.swift */,
+				AA0000000000000000000085 /* TemporalNet.swift */,
+				AA0000000000000000000086 /* DepthCapture.swift */,
+				AA0000000000000000000087 /* FusionStrip.swift */,
 				AA0000000000000000000053 /* ScreenGeometry.swift */,
 				AA0000000000000000000054 /* FocusTracker.swift */,
 				AA0000000000000000000055 /* HeliosTry.m */,
@@ -224,6 +248,14 @@
 				AA0000000000000000000066 /* SessionExport.swift in Sources */,
 				AA0000000000000000000067 /* CoordMath.swift in Sources */,
 				AA0000000000000000000068 /* SpaceMap.swift in Sources */,
+				AA0000000000000000000070 /* AspectSpace.swift in Sources */,
+				AA0000000000000000000071 /* HandEstimate.swift in Sources */,
+				AA0000000000000000000072 /* EstimateFusion.swift in Sources */,
+				AA0000000000000000000073 /* PoseHMM.swift in Sources */,
+				AA0000000000000000000074 /* Lift3D.swift in Sources */,
+				AA0000000000000000000075 /* TemporalNet.swift in Sources */,
+				AA0000000000000000000076 /* DepthCapture.swift in Sources */,
+				AA0000000000000000000077 /* FusionStrip.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -274,7 +306,7 @@
 				CODE_SIGN_ENTITLEMENTS = Helios.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 29;
+				CURRENT_PROJECT_VERSION = 30;
 				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -286,7 +318,7 @@
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.5.7;
+				MARKETING_VERSION = 1.6.0;
 				PRODUCT_BUNDLE_IDENTIFIER = app.helios.control;
 				PRODUCT_NAME = Helios;
 				SDKROOT = macosx;
@@ -306,7 +338,7 @@
 				CODE_SIGN_ENTITLEMENTS = Helios.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 29;
+				CURRENT_PROJECT_VERSION = 30;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
@@ -319,7 +351,7 @@
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.5.7;
+				MARKETING_VERSION = 1.6.0;
 				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_BUNDLE_IDENTIFIER = app.helios.control;
 				PRODUCT_NAME = Helios;

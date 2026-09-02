@@ -1,5 +1,4 @@
 import CoreMedia
-import CoreML
 import CoreVideo
 import Foundation
 import Vision
@@ -7,6 +6,7 @@ import Vision
 struct TrackedJoint {
     var point: CGPoint
     var confidence: Float
+    var z: CGFloat = 0
 }
 
 struct TrackedHand: Identifiable {
@@ -15,12 +15,17 @@ struct TrackedHand: Identifiable {
     var joints: [VNHumanHandPoseObservation.JointName: TrackedJoint]
     var displayJoints: [VNHumanHandPoseObservation.JointName: TrackedJoint]
     var pose: HandPose
+    var poseProb: Double
     var pinchDistance: CGFloat
     var pinchRatio: CGFloat
     var pinchClosed: Bool
+    var pinchClosedness: Double
     var palm: CGPoint
+    var palmWidth: CGFloat
     var openScore: Int
     var extended: Set<String>
+    var fusion: FusionDebug?
+    var quality: Double
 
     func point(_ name: VNHumanHandPoseObservation.JointName) -> CGPoint? {
         guard let j = joints[name], j.confidence > 0.22 else { return nil }
@@ -62,6 +67,27 @@ struct TrackedHand: Identifiable {
     }
 }
 
+private struct RawObs {
+    var raw: [VNHumanHandPoseObservation.JointName: CGPoint]
+    var conf: [VNHumanHandPoseObservation.JointName: Float]
+    var chirality: VNChirality
+    var palm: CGPoint
+}
+
+private struct TrackSlot {
+    var id: String
+    var chirality: VNChirality
+    var smoother = LandmarkSmoothing()
+    var pinch = PinchGate()
+    var hmm = PoseHMM()
+    var fusion = EstimateFusion()
+    var temporal = TemporalNet()
+    var lastPalm: CGPoint = .zero
+    var lastSeen: TimeInterval = 0
+    var lastZ: [VNHumanHandPoseObservation.JointName: CGFloat] = [:]
+    var lastNow: TimeInterval = 0
+}
+
 final class HandTracker: @unchecked Sendable {
     private let request: VNDetectHumanHandPoseRequest = {
         let r = VNDetectHumanHandPoseRequest()
@@ -71,47 +97,64 @@ final class HandTracker: @unchecked Sendable {
         return r
     }()
 
-    private var leftSmooth = LandmarkSmoothing()
-    private var rightSmooth = LandmarkSmoothing()
-    private var leftPinch = PinchGate()
-    private var rightPinch = PinchGate()
-    private var poseHold: [Int: (pose: HandPose, n: Int)] = [:]
+    private let bodyRequest: VNDetectHumanBodyPoseRequest = {
+        let r = VNDetectHumanBodyPoseRequest()
+        r.usesCPUOnly = false
+        MetalHub.bindVision(r)
+        return r
+    }()
+
+    private var tracks: [TrackSlot] = []
+    private var nextID = 1
     private let lock = NSLock()
+    var lastFusion: FusionDebug?
+    var depthAvailable = false
 
     func reset() {
         lock.lock()
         defer { lock.unlock() }
-        leftSmooth.reset()
-        rightSmooth.reset()
-        leftPinch.reset()
-        rightPinch.reset()
-        poseHold.removeAll()
+        tracks.removeAll()
+        lastFusion = nil
     }
 
-    func analyze(pixelBuffer: CVPixelBuffer, now: TimeInterval, mirrored: Bool = true) -> [TrackedHand] {
+    func analyze(
+        pixelBuffer: CVPixelBuffer,
+        now: TimeInterval,
+        mirrored: Bool = true,
+        depth: DepthSample? = nil
+    ) -> [TrackedHand] {
         lock.lock()
         defer { lock.unlock() }
+        let w = CVPixelBufferGetWidth(pixelBuffer)
+        let h = CVPixelBufferGetHeight(pixelBuffer)
+        let space = AspectSpace(width: CGFloat(max(1, w)), height: CGFloat(max(1, h)))
+        GestureClassifier.space = space
+
         let handler = VNImageRequestHandler(
             cvPixelBuffer: pixelBuffer,
             orientation: .up,
             options: [.ciContext: MetalHub.ci]
         )
         do {
-            try handler.perform([request])
+            try handler.perform([request, bodyRequest])
         } catch {
-            return []
+            _ = try? VNImageRequestHandler(
+                cvPixelBuffer: pixelBuffer,
+                orientation: .up,
+                options: [.ciContext: MetalHub.ci]
+            ).perform([request])
         }
         let observations = request.results ?? []
         if observations.isEmpty {
-            leftSmooth.reset()
-            rightSmooth.reset()
+            tracks.removeAll { now - $0.lastSeen > 0.28 }
             return []
         }
 
-        var hands: [TrackedHand] = []
-        hands.reserveCapacity(observations.count)
-        var claimed: Set<VNChirality> = []
-        for (idx, obs) in observations.enumerated() {
+        let bodyPts = (try? bodyRequest.results?.first?.recognizedPoints(.all)) ?? [:]
+        depthAvailable = depth != nil
+
+        var obsList: [RawObs] = []
+        for obs in observations {
             guard let pts = try? obs.recognizedPoints(.all) else { continue }
             if obs.confidence < 0.22 { continue }
             var raw: [VNHumanHandPoseObservation.JointName: CGPoint] = [:]
@@ -121,7 +164,6 @@ final class HandTracker: @unchecked Sendable {
                 conf[name] = p.confidence
             }
             guard raw.count >= 8 else { continue }
-
             var chirality = obs.chirality
             if chirality == .unknown {
                 let wx = raw[.wrist]?.x ?? 0.5
@@ -131,105 +173,218 @@ final class HandTracker: @unchecked Sendable {
                 if chirality == .left { chirality = .right }
                 else if chirality == .right { chirality = .left }
             }
-            // Zwei Beobachtungen dürfen sich nicht denselben Smoother teilen.
-            if chirality != .unknown, claimed.contains(chirality) {
-                if chirality == .left, !claimed.contains(.right) {
-                    chirality = .right
-                } else if chirality == .right, !claimed.contains(.left) {
-                    chirality = .left
-                } else {
-                    chirality = .unknown
-                }
+            obsList.append(RawObs(raw: raw, conf: conf, chirality: chirality, palm: GestureClassifier.palmCenter(raw)))
+        }
+
+        let assigned = assign(obsList, space: space, now: now)
+        var hands: [TrackedHand] = []
+        for (idx, obs) in obsList.enumerated() {
+            var slot: TrackSlot
+            if let ti = assigned[idx], ti < tracks.count {
+                slot = tracks[ti]
+            } else {
+                slot = TrackSlot(id: "T\(nextID)", chirality: obs.chirality)
+                nextID += 1
             }
-            if chirality != .unknown {
-                claimed.insert(chirality)
+            slot.smoother.space = space
+            slot.pinch.setSpace(space)
+            let dt = slot.lastNow == 0 ? 0.016 : max(0.008, min(0.08, now - slot.lastNow))
+
+            let smoothed = slot.smoother.apply(obs.raw, now: now)
+            let pinchState = slot.pinch.update(raw: smoothed, conf: obs.conf, now: now)
+            let feat2D = GestureClassifier.features(
+                joints: smoothed,
+                pinch: pinchState.distance,
+                conf: obs.conf,
+                space: space
+            )
+            var q2 = feat2D.quality
+            q2 *= forearmGate(palm: feat2D.palm, wrist: smoothed[.wrist], chirality: obs.chirality, body: bodyPts, space: space)
+
+            let e2 = HandEstimate(
+                source: .geometry2D,
+                probabilities: feat2D.probs,
+                pinchClosedness: pinchState.closedness,
+                palm: feat2D.palm,
+                palmVariance: 0.0018 / max(0.2, feat2D.quality),
+                quality: q2,
+                available: true,
+                palmWidth: feat2D.palmWidth
+            )
+
+            let lifted = Lift3D.lift(joints: smoothed, conf: obs.conf, space: space, previous: slot.lastZ)
+            slot.lastZ = Dictionary(uniqueKeysWithValues: lifted.pts.map { ($0.key, $0.value.z) })
+            var e3 = Lift3D.estimate(pts: lifted.pts, residual: lifted.residual, palmWidth: lifted.palmWidth)
+            e3.palm = feat2D.palm
+
+            var eDepth = HandEstimate.empty(.depth)
+            if let depth {
+                eDepth = depth.estimate(joints: smoothed, conf: obs.conf, space: space, palmWidth: feat2D.palmWidth)
             }
-            let useLeft = chirality == .left
-            let useRight = chirality == .right
-            var smoother = useLeft ? leftSmooth : (useRight ? rightSmooth : LandmarkSmoothing())
-            let smoothed = smoother.apply(raw, now: now)
-            if useLeft { leftSmooth = smoother }
-            else if useRight { rightSmooth = smoother }
+
+            let extArr: [CGFloat] = ["thumb", "index", "middle", "ring", "little"].map { feat2D.extensions[$0] ?? 0 }
+            let vel = space.dist(slot.lastPalm, feat2D.palm) / CGFloat(dt)
+            let tFeat = TemporalNet.features(
+                ext: extArr,
+                pinchRatio: feat2D.pinchRatio,
+                thumbUp: feat2D.extensions["thumb"] ?? 0,
+                palmVel: vel
+            )
+            var eT = slot.temporal.push(features: tFeat, now: now)
+            eT.palm = feat2D.palm
+            eT.palmWidth = feat2D.palmWidth
+            eT.palmVariance = 0.006
+
+            let (fused, dbg) = slot.fusion.fuse([e2, e3, eDepth, eT], dt: dt)
+            let hmmOut = slot.hmm.step(
+                emission: fused.probabilities,
+                pinchClosedness: fused.pinchClosedness,
+                now: now,
+                dt: dt
+            )
+            lastFusion = dbg
 
             var joints: [VNHumanHandPoseObservation.JointName: TrackedJoint] = [:]
             var display: [VNHumanHandPoseObservation.JointName: TrackedJoint] = [:]
             for (name, point) in smoothed {
-                joints[name] = TrackedJoint(point: point, confidence: conf[name] ?? 0)
+                joints[name] = TrackedJoint(point: point, confidence: obs.conf[name] ?? 0, z: lifted.pts[name]?.z ?? 0)
             }
-            for (name, point) in raw {
-                display[name] = TrackedJoint(point: point, confidence: conf[name] ?? 0)
+            for (name, point) in obs.raw {
+                display[name] = TrackedJoint(point: point, confidence: obs.conf[name] ?? 0)
             }
-            var pinchGate = useLeft ? leftPinch : (useRight ? rightPinch : PinchGate())
-            let pinchState = pinchGate.update(raw: raw, conf: conf, now: now)
-            if useLeft { leftPinch = pinchGate }
-            else if useRight { rightPinch = pinchGate }
-
-            let pinch = pinchState.distance
-            let palm = GestureClassifier.palmCenter(smoothed)
-            var pose = GestureClassifier.classify(joints: smoothed, pinch: pinch)
-            if pinchState.closed, pose != .openPalm, pose != .peace {
-                pose = .pinch
-            }
-            pose = stabilize(pose, chirality: chirality)
-            if pinchState.closed, pose == .fist || pose == .unknown || pose == .point {
-                pose = .pinch
-            }
-            let openScore = GestureClassifier.openScore(joints: smoothed)
-            let ratio = pinchState.ratio
             var ext: Set<String> = []
             for f in FingerKind.allCases {
-                if GestureClassifier.isExtended(smoothed, tip: f.tip, pip: f.pip, mcp: f.mcp) {
-                    ext.insert(f.rawValue)
-                }
+                if (feat2D.extensions[f.rawValue] ?? 0) > 0.52 { ext.insert(f.rawValue) }
             }
+
+            slot.chirality = obs.chirality
+            slot.lastPalm = fused.palm
+            slot.lastSeen = now
+            slot.lastNow = now
+            if let ti = assigned[idx], ti < tracks.count {
+                tracks[ti] = slot
+            } else {
+                tracks.append(slot)
+            }
+
             hands.append(
                 TrackedHand(
-                    id: chirality == .left ? "L" : (chirality == .right ? "R" : "U-\(idx)"),
-                    chirality: chirality,
+                    id: slot.id,
+                    chirality: obs.chirality,
                     joints: joints,
                     displayJoints: display,
-                    pose: pose,
-                    pinchDistance: pinch,
-                    pinchRatio: ratio,
-                    pinchClosed: pinchState.closed,
-                    palm: palm,
-                    openScore: openScore,
-                    extended: ext
+                    pose: hmmOut.pose,
+                    poseProb: hmmOut.prob,
+                    pinchDistance: pinchState.distance,
+                    pinchRatio: feat2D.pinchRatio,
+                    pinchClosed: hmmOut.pinch > 0.55,
+                    pinchClosedness: hmmOut.pinch,
+                    palm: fused.palm,
+                    palmWidth: fused.palmWidth,
+                    openScore: feat2D.openScore,
+                    extended: ext,
+                    fusion: dbg,
+                    quality: fused.quality
                 )
             )
         }
-        if !hands.contains(where: { $0.chirality == .left }) {
-            leftSmooth.reset()
-            leftPinch.reset()
-            poseHold[VNChirality.left.rawValue] = nil
-        }
-        if !hands.contains(where: { $0.chirality == .right }) {
-            rightSmooth.reset()
-            rightPinch.reset()
-            poseHold[VNChirality.right.rawValue] = nil
-        }
+        tracks.removeAll { now - $0.lastSeen > 0.28 }
         return hands
     }
 
-    /// Pose muss 2 Frames halten, sonst flackert Faust/Pinzette/Offen.
-    private func stabilize(_ pose: HandPose, chirality: VNChirality) -> HandPose {
-        let k = chirality.rawValue
-        if pose == .unknown, let old = poseHold[k] { return old.pose }
-        if var h = poseHold[k] {
-            if h.pose == pose {
-                h.n = min(8, h.n + 1)
-                poseHold[k] = h
-                return pose
+    private func assign(_ obs: [RawObs], space: AspectSpace, now: TimeInterval) -> [Int: Int] {
+        var result: [Int: Int] = [:]
+        let live = tracks.enumerated().filter { now - $0.element.lastSeen < 0.35 }
+        if live.isEmpty || obs.isEmpty { return [:] }
+        var usedT: Set<Int> = []
+        var usedO: Set<Int> = []
+        var pairs: [(o: Int, t: Int, d: CGFloat)] = []
+        for (oi, o) in obs.enumerated() {
+            for (ti, tr) in live {
+                pairs.append((oi, ti, space.dist(o.palm, tr.lastPalm)))
             }
-            h.n -= 1
-            if h.n <= 0 {
-                poseHold[k] = (pose, 2)
-                return pose
-            }
-            poseHold[k] = h
-            return h.pose
         }
-        poseHold[k] = (pose, 2)
-        return pose
+        for p in pairs.sorted(by: { $0.d < $1.d }) {
+            if usedO.contains(p.o) || usedT.contains(p.t) { continue }
+            if p.d > 0.22 { continue }
+            result[p.o] = p.t
+            usedO.insert(p.o)
+            usedT.insert(p.t)
+        }
+        return result
+    }
+
+    private func forearmGate(
+        palm: CGPoint,
+        wrist: CGPoint?,
+        chirality: VNChirality,
+        body: [VNHumanBodyPoseObservation.JointName: VNRecognizedPoint],
+        space: AspectSpace
+    ) -> Double {
+        guard let wrist else { return 1 }
+        let elbowName: VNHumanBodyPoseObservation.JointName = chirality == .left ? .leftElbow : .rightElbow
+        let wristName: VNHumanBodyPoseObservation.JointName = chirality == .left ? .leftWrist : .rightWrist
+        guard let el = body[elbowName], el.confidence > 0.15,
+              let bw = body[wristName], bw.confidence > 0.15
+        else { return 1 }
+        let e = CGPoint(x: el.location.x, y: el.location.y)
+        let ww = CGPoint(x: bw.location.x, y: bw.location.y)
+        let forearm = space.vec(e, ww)
+        let handAx = space.vec(wrist, palm)
+        let nf = hypot(forearm.x, forearm.y)
+        let nh = hypot(handAx.x, handAx.y)
+        guard nf > 1e-5, nh > 1e-5 else { return 1 }
+        let cosv = (forearm.x * handAx.x + forearm.y * handAx.y) / (nf * nh)
+        let ang = acos(max(-1, min(1, Double(cosv))))
+        if ang > 1.05 { return 0.35 }
+        if ang > 0.7 { return 0.7 }
+        return 1
+    }
+}
+
+struct DepthSample {
+    var map: CVPixelBuffer
+
+    func estimate(
+        joints: [VNHumanHandPoseObservation.JointName: CGPoint],
+        conf: [VNHumanHandPoseObservation.JointName: Float],
+        space: AspectSpace,
+        palmWidth: CGFloat
+    ) -> HandEstimate {
+        var pts: [VNHumanHandPoseObservation.JointName: Joint3] = [:]
+        var depths: [CGFloat] = []
+        CVPixelBufferLockBaseAddress(map, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(map, .readOnly) }
+        let mw = CVPixelBufferGetWidth(map)
+        let mh = CVPixelBufferGetHeight(map)
+        let bpr = CVPixelBufferGetBytesPerRow(map)
+        guard let base = CVPixelBufferGetBaseAddress(map) else { return .empty(.depth) }
+        let fmt = CVPixelBufferGetPixelFormatType(map)
+        for (name, p) in joints {
+            let px = min(mw - 1, max(0, Int(p.x * CGFloat(mw))))
+            let py = min(mh - 1, max(0, Int((1 - p.y) * CGFloat(mh))))
+            var z: Float = 0
+            if fmt == kCVPixelFormatType_DepthFloat32 || fmt == kCVPixelFormatType_DisparityFloat32 {
+                let row = base.advanced(by: py * bpr).assumingMemoryBound(to: Float.self)
+                z = row[px]
+            }
+            if z.isFinite, z != 0 { depths.append(CGFloat(z)) }
+            let iso = space.iso(p)
+            pts[name] = Joint3(x: iso.x, y: iso.y, z: CGFloat(z), c: conf[name] ?? 0)
+        }
+        guard depths.count >= 4 else { return .empty(.depth) }
+        let z0 = JointGeom.median(depths)
+        for k in pts.keys { pts[k]?.z -= z0 }
+        let lifted = Lift3D.estimate(pts: pts, residual: 0.12, palmWidth: palmWidth)
+        return HandEstimate(
+            source: .depth,
+            probabilities: lifted.probabilities,
+            pinchClosedness: lifted.pinchClosedness,
+            palm: GestureClassifier.palmCenter(joints),
+            palmVariance: 0.0009,
+            quality: 0.85,
+            available: true,
+            palmWidth: palmWidth
+        )
     }
 }

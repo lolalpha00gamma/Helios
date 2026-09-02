@@ -89,6 +89,7 @@ final class GestureEngine {
     private var cursorSmooth: CGPoint?
     private var lastPalm: CGPoint?
     private var pointerHandID: String?
+    private var pointerSourceID: String = ""
     private var palmSlow: CGPoint?
     private var swipeGraceUntil: TimeInterval = 0
     private var swipeMuteUntil: TimeInterval = 0
@@ -151,6 +152,7 @@ final class GestureEngine {
         cursorSmooth = nil
         lastPalm = nil
         pointerHandID = nil
+        pointerSourceID = ""
         palmSlow = nil
         swipeGraceUntil = 0
         armedQuietUntil = 0
@@ -384,6 +386,7 @@ final class GestureEngine {
         lastPalm = nil
         palmSlow = nil
         pointerHandID = nil
+        pointerSourceID = ""
         cursorSmooth = nil
     }
 
@@ -392,6 +395,7 @@ final class GestureEngine {
         lastPalm = nil
         palmSlow = nil
         pointerHandID = nil
+        pointerSourceID = ""
         cursorSmooth = nil
         pointerOrigin = nil
         cursorDidMove = false
@@ -654,7 +658,11 @@ final class GestureEngine {
 
     private func actorMapped(_ hand: TrackedHand) -> CGPoint {
         let palm = hand.palm
-        if pointerHandID != hand.id {
+        let sourceChanged = !hand.sourceID.isEmpty && pointerSourceID != hand.sourceID
+        if sourceChanged {
+            pointerSourceID = hand.sourceID
+        }
+        if pointerHandID != hand.id || sourceChanged {
             pointerHandID = hand.id
             lastPalm = palm
             palmSlow = palm

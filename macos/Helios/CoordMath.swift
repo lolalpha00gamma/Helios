@@ -110,6 +110,10 @@ enum GestureMath {
     static let hybridBand: CGFloat = 0.15
     static let clutchOwnRadius: CGFloat = 48
     static let clutchOwnWindow: TimeInterval = 0.12
+    /// Zwei Kameras: gemappte Zeiger > so viele Pixel auseinander = Winkel-Unco, Lead gewinnt.
+    static let rigDisagreePx: CGFloat = 140
+    static let rigCoverEnter: Double = 0.18
+    static let rigCoverExit: Double = 0.12
 
     /// Schreibtisch / Wallpaper: fast schirmfüllend, ohne Fenstertitel.
     static func fillsScreen(_ window: CGRect, screen: CGRect, heightSlop: CGFloat = 80) -> Bool {
@@ -264,5 +268,72 @@ enum GestureMath {
         if prev <= 0.001 { return next }
         let a = min(1, max(0, alpha))
         return a * next + (1 - a) * prev
+    }
+}
+
+/// mac = Built-in, phone = Kontinuität/Desk View, osmo = USB-Extern.
+enum CameraRole: String, CaseIterable {
+    case mac, phone, osmo
+}
+
+enum CameraPair: String, CaseIterable, Identifiable {
+    case single, macPhone, macOsmo, phoneOsmo
+
+    var id: String { rawValue }
+
+    var titleDE: String {
+        switch self {
+        case .single: return "Eine Kamera"
+        case .macPhone: return "Mac + iPhone"
+        case .macOsmo: return "Mac + Osmo"
+        case .phoneOsmo: return "iPhone + Osmo (ohne Mac)"
+        }
+    }
+
+    var detailDE: String {
+        switch self {
+        case .single: return "Nur die gewählte Quelle. Blickwinkel = diese eine Kamera."
+        case .macPhone: return "Mac von vorn, iPhone zweiter Winkel (Kontinuität oder Desk View)."
+        case .macOsmo: return "Mac von vorn, Osmo Action 3 per USB (Webcam-Modus) seitlich/weit."
+        case .phoneOsmo: return "Kein Mac. iPhone führt, Osmo deckt den toten Winkel."
+        }
+    }
+}
+
+enum CameraRig {
+    static func resolve(pair: CameraPair, mac: String?, phone: String?, osmo: String?) -> (lead: String, cover: String?)? {
+        switch pair {
+        case .single:
+            return nil
+        case .macPhone:
+            guard let mac, let phone else { return nil }
+            return (mac, phone)
+        case .macOsmo:
+            guard let mac, let osmo else { return nil }
+            return (mac, osmo)
+        case .phoneOsmo:
+            guard let phone, let osmo else { return nil }
+            return (phone, osmo)
+        }
+    }
+
+    /// Hysterese: Cover nur wenn Lead die Hand verliert oder deutlich schlechter ist.
+    static func useCover(
+        leadQ: Double,
+        coverQ: Double,
+        leadN: Int,
+        coverN: Int,
+        usingCover: Bool
+    ) -> Bool {
+        if coverN == 0 { return false }
+        if leadN == 0 { return true }
+        if usingCover {
+            return leadQ <= coverQ + GestureMath.rigCoverExit
+        }
+        return coverQ > leadQ + GestureMath.rigCoverEnter && leadQ < 0.40
+    }
+
+    static func mapsDisagree(_ a: CGPoint, _ b: CGPoint, limit: CGFloat = GestureMath.rigDisagreePx) -> Bool {
+        hypot(a.x - b.x, a.y - b.y) > limit
     }
 }

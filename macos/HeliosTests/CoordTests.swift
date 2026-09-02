@@ -336,6 +336,47 @@ enum CoordTests {
             fails += 1
         }
 
+        if CameraRig.resolve(pair: .macPhone, mac: "m", phone: "p", osmo: nil)?.cover != "p" {
+            fputs("FAIL Mac+iPhone Cover ist iPhone\n", stderr)
+            fails += 1
+        }
+        if CameraRig.resolve(pair: .macOsmo, mac: "m", phone: nil, osmo: "o")?.cover != "o" {
+            fputs("FAIL Mac+Osmo Cover ist Osmo\n", stderr)
+            fails += 1
+        }
+        if CameraRig.resolve(pair: .phoneOsmo, mac: "m", phone: "p", osmo: "o")?.lead != "p" {
+            fputs("FAIL iPhone+Osmo Lead ist iPhone, kein Mac\n", stderr)
+            fails += 1
+        }
+        if CameraRig.resolve(pair: .macPhone, mac: "m", phone: nil, osmo: "o") != nil {
+            fputs("FAIL Mac+iPhone ohne iPhone ist unvollständig\n", stderr)
+            fails += 1
+        }
+        if CameraRig.useCover(leadQ: 0.8, coverQ: 0.5, leadN: 1, coverN: 1, usingCover: false) {
+            fputs("FAIL Cover nicht bei gutem Lead\n", stderr)
+            fails += 1
+        }
+        if !CameraRig.useCover(leadQ: 0.1, coverQ: 0.7, leadN: 1, coverN: 1, usingCover: false) {
+            fputs("FAIL Cover wenn Lead die Hand fast verliert\n", stderr)
+            fails += 1
+        }
+        if !CameraRig.useCover(leadQ: 0.0, coverQ: 0.4, leadN: 0, coverN: 1, usingCover: false) {
+            fputs("FAIL Cover wenn Lead leer\n", stderr)
+            fails += 1
+        }
+        if CameraRig.mapsDisagree(CGPoint(x: 0, y: 0), CGPoint(x: 40, y: 40)) {
+            fputs("FAIL 56 px ist kein Winkel-Unco\n", stderr)
+            fails += 1
+        }
+        if !CameraRig.mapsDisagree(CGPoint(x: 0, y: 0), CGPoint(x: 200, y: 0)) {
+            fputs("FAIL 200 px ist Winkel-Unco, Lead gewinnt\n", stderr)
+            fails += 1
+        }
+        if GestureMath.rigDisagreePx < 80 {
+            fputs("FAIL Unco-Schwelle zu eng\n", stderr)
+            fails += 1
+        }
+
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)
             exit(1)

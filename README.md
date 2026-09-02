@@ -1,4 +1,4 @@
-# Helios **1.6.8**
+# Helios **1.6.9**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,15 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.9
+
+Multi-Kamera war nur ein Picker für **eine** Quelle. Jetzt echte Paare, jede Quelle mit eigener Homographie.
+
+- **Mac + iPhone**, **Mac + Osmo**, **iPhone + Osmo (ohne Mac)**. Lead macht Gesten, Cover ist der zweite Blickwinkel.
+- **Kalibrierung pro Kamera:** 4 Bildschirmecken in DIESER Sicht. Homographie schluckt Winkel, Weitwinkel, Spiegelung. Danach automatisch die zweite Quelle.
+- **Winkel-Unco:** weichen die gemappten Zeiger > 140 px ab, gewinnt Lead — kein Mittelwert aus zwei falschen Winkeln.
+- Cover nur wenn Lead die Hand verliert (Hysterese). Continuity ist oft exklusiv zur Mac-Kamera — Osmo per USB ist die robuste zweite Quelle.
 
 ## Neu in 1.6.8
 
@@ -150,17 +159,19 @@ Bei Scharf blendet Helios die Konsole aus (Menüleiste holt sie zurück), damit 
 
 ## Kameras
 
-Eine Quelle gleichzeitig, Picker in der Konsole.
+Paar in der Konsole, oder eine Quelle.
 
-| Quelle | Was Helios damit macht |
+| Paar / Quelle | Rolle |
 |---|---|
-| MacBook-Kamera | Default. Kein LiDAR. |
-| iPhone (Kontinuität) | Gleicher iCloud-Account, Continuity Camera. Meist **statt** der Mac-Kamera, nicht parallel. |
-| Desk View | Apples zweiter Winkel (Ultraweit von oben, macOS 14+). Das ist der sinnvolle 2.-Winkel, nicht zwei Vision-Sessions. |
-| Osmo Action 3 | USB-C, am Gerät **Webcam** einschalten. Taucht als Extern auf. Weitwinkel, **keine** Tiefe. |
-| LiDAR (iPhone 12 Pro+) | Nur wenn Kontinuität ein `supportedDepthDataFormats` liefert. Dann hängt `DepthCapture` den Kanal an — Fusion nutzt echte z. Viele Continuity-Formate haben **keine** Tiefe. |
+| Eine Kamera | Nur die gewählte Quelle |
+| Mac + iPhone | Mac führt (vorn), iPhone Kontinuität oder Desk View als zweiter Winkel |
+| Mac + Osmo | Mac führt, Osmo Action 3 USB-Webcam (seitlich/weit) |
+| iPhone + Osmo | **Kein Mac.** iPhone führt, Osmo deckt den toten Winkel |
+| LiDAR | Nur wenn Kontinuität ein Tiefenformat liefert |
 
-Zwei Kameras gleichzeitig (Mac + iPhone oder Mac + Osmo) sind möglich als zwei `AVCaptureSession`s, aber Continuity ist oft exklusiv und Vision auf zwei Streams sprengt das Budget. Nicht in 1.6.5.
+Kalibrierung: erst Lead 4 Ecken, dann Cover dieselben Bildschirmecken aus dem anderen Winkel. Jede Homographie gehört zu genau dieser Kamera (Blickwinkel, Weitwinkel, Spiegelung).
+
+Continuity blockt oft die Mac-Kamera — dann bleibt Lead allein. Osmo per USB ist die robuste zweite Quelle. Cover-Vision läuft gedrosselt (~20 fps).
 
 ## Bau
 

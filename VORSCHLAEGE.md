@@ -1,6 +1,13 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.8**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+Stand: **1.6.9**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+
+## In 1.6.9 erledigt
+
+- Zwei `AVCaptureSession`s: Mac+iPhone, Mac+Osmo, iPhone+Osmo ohne Mac.
+- Kalibrierung **pro Kamera** (eigene Homographie = Blickwinkel/FOV/Spiegelung).
+- Winkel-Unco: >140 px Abweichung → Lead, kein Blend.
+- Cover nur wenn Lead die Hand verliert.
 
 ## In 1.6.8 erledigt
 
@@ -103,7 +110,6 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Per-App-Profile.** Safari: nur Klick/Scroll. Finder: Werfen/Papierkorb. Xcode: aus.
 - **Zwei-Pinzetten Skalieren** an gegenüberliegenden Fensterkanten, nicht am Palmenabstand.
 - **Session-Replay** der Landmark-CSV direkt im HUD, Frame für Frame — ohne Xcode.
-- **Zwei Sessions parallel** (Mac + Desk View oder Mac + Osmo), Vision nur auf der führenden.
 - **Clutch nur globale Hardware** — Local-Monitor ganz weglassen (eigene Events kommen lokal an).
 - **Kalibrier-Quad sichtbar** als dünnes Viereck der vier Anschläge, nicht nur Ecken-Marken.
 - **Peace-Fortschritt auch in der Konsole**, nicht nur HUD-Ring.

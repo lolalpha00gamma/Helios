@@ -27,6 +27,7 @@ struct TrackedHand: Identifiable {
     var extended: Set<String>
     var fusion: FusionDebug?
     var quality: Double
+    var sourceID: String = ""
 
     func point(_ name: VNHumanHandPoseObservation.JointName) -> CGPoint? {
         guard let j = joints[name], j.confidence > 0.22 else { return nil }
@@ -303,7 +304,8 @@ final class HandTracker: @unchecked Sendable {
                     openScore: feat2D.openScore,
                     extended: ext,
                     fusion: dbg,
-                    quality: fused.quality
+                    quality: fused.quality,
+                    sourceID: ""
                 )
             )
         }

@@ -31,22 +31,25 @@ enum CalibCorner: Int, CaseIterable, Codable {
 struct SpaceMap: Codable {
     var palms: [XY]
     var displayID: UInt32 = 0
+    var cameraID: String = ""
 
     var isReady: Bool { palms.count == 4 }
 
     enum CodingKeys: String, CodingKey {
-        case palms, displayID
+        case palms, displayID, cameraID
     }
 
-    init(palms: [XY], displayID: UInt32 = 0) {
+    init(palms: [XY], displayID: UInt32 = 0, cameraID: String = "") {
         self.palms = palms
         self.displayID = displayID
+        self.cameraID = cameraID
     }
 
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         palms = try c.decode([XY].self, forKey: .palms)
         displayID = try c.decodeIfPresent(UInt32.self, forKey: .displayID) ?? 0
+        cameraID = try c.decodeIfPresent(String.self, forKey: .cameraID) ?? ""
     }
 
     static func screenCorners(displayID: CGDirectDisplayID = 0) -> [CGPoint] {
@@ -102,7 +105,7 @@ struct SpaceMap: Codable {
     }
 
     private func cachedHomography() -> [CGFloat]? {
-        HomographyStore.get(palms, displayID: displayID)
+        HomographyStore.get(palms, displayID: displayID, cameraID: cameraID)
     }
 
     /// 4 Punktpaare, h22 = 1, 8×8 Gauss.
@@ -157,7 +160,27 @@ struct SpaceMap: Codable {
         displayID == 0 ? "helios.spaceMap" : "helios.spaceMap.\(displayID)"
     }
 
-    static func load(displayID: CGDirectDisplayID = 0) -> SpaceMap? {
+    static func camKey(cameraID: String, displayID: CGDirectDisplayID) -> String {
+        if cameraID.isEmpty { return storageKey(displayID: displayID) }
+        return displayID == 0
+            ? "helios.spaceMap.cam.\(cameraID)"
+            : "helios.spaceMap.cam.\(cameraID).\(displayID)"
+    }
+
+    static func load(cameraID: String = "", displayID: CGDirectDisplayID = 0) -> SpaceMap? {
+        if !cameraID.isEmpty {
+            if let data = UserDefaults.standard.data(forKey: camKey(cameraID: cameraID, displayID: displayID)),
+               let map = try? JSONDecoder().decode(SpaceMap.self, from: data)
+            {
+                return map
+            }
+            if displayID != 0,
+               let data = UserDefaults.standard.data(forKey: camKey(cameraID: cameraID, displayID: 0)),
+               let map = try? JSONDecoder().decode(SpaceMap.self, from: data)
+            {
+                return map
+            }
+        }
         if displayID != 0,
            let data = UserDefaults.standard.data(forKey: storageKey(displayID: displayID)),
            let map = try? JSONDecoder().decode(SpaceMap.self, from: data)
@@ -174,6 +197,14 @@ struct SpaceMap: Codable {
         if displayID != 0 {
             UserDefaults.standard.set(data, forKey: Self.storageKey(displayID: displayID))
         }
+        if !cameraID.isEmpty {
+            UserDefaults.standard.set(data, forKey: Self.camKey(cameraID: cameraID, displayID: displayID))
+            var ids = UserDefaults.standard.stringArray(forKey: "helios.spaceMap.cameras") ?? []
+            if !ids.contains(cameraID) {
+                ids.append(cameraID)
+                UserDefaults.standard.set(ids, forKey: "helios.spaceMap.cameras")
+            }
+        }
     }
 
     static func clear() {
@@ -181,6 +212,16 @@ struct SpaceMap: Codable {
         for screen in NSScreen.screens {
             UserDefaults.standard.removeObject(forKey: storageKey(displayID: ScreenGeometry.displayID(of: screen)))
         }
+        let ids = UserDefaults.standard.stringArray(forKey: "helios.spaceMap.cameras") ?? []
+        for id in ids {
+            UserDefaults.standard.removeObject(forKey: camKey(cameraID: id, displayID: 0))
+            for screen in NSScreen.screens {
+                UserDefaults.standard.removeObject(
+                    forKey: camKey(cameraID: id, displayID: ScreenGeometry.displayID(of: screen))
+                )
+            }
+        }
+        UserDefaults.standard.removeObject(forKey: "helios.spaceMap.cameras")
         HomographyStore.clear()
     }
 }
@@ -189,21 +230,24 @@ private enum HomographyStore {
     private static let lock = NSLock()
     private static var palms: [XY] = []
     private static var displayID: UInt32 = 0
+    private static var cameraID: String = ""
     private static var H: [CGFloat]?
 
-    static func get(_ src: [XY], displayID: UInt32) -> [CGFloat]? {
+    static func get(_ src: [XY], displayID: UInt32, cameraID: String = "") -> [CGFloat]? {
         lock.lock()
         defer { lock.unlock() }
-        if src == palms, displayID == Self.displayID, let H { return H }
+        if src == palms, displayID == Self.displayID, cameraID == Self.cameraID, let H { return H }
         guard src.count == 4 else {
             palms = src
             Self.displayID = displayID
+            Self.cameraID = cameraID
             H = nil
             return nil
         }
         H = SpaceMap.homography(from: src.map(\.point), to: SpaceMap.screenCorners(displayID: displayID))
         palms = src
         Self.displayID = displayID
+        Self.cameraID = cameraID
         return H
     }
 
@@ -211,6 +255,7 @@ private enum HomographyStore {
         lock.lock()
         palms = []
         displayID = 0
+        cameraID = ""
         H = nil
         lock.unlock()
     }
@@ -231,11 +276,14 @@ final class CalibrationSession {
     private(set) var hint = "Pinzette an der Ecke halten"
     private(set) var rejected = false
     private var targetDisplay: CGDirectDisplayID = 0
+    private(set) var cameraID = ""
+    private(set) var cameraLabel = ""
+    private var finishedID: String?
 
     var progress: CGFloat { min(1, hold / 0.9) }
     var remaining: Int { 4 - samples.count }
 
-    func start() {
+    func start(cameraID: String = "", label: String = "") {
         active = true
         corner = .topLeft
         hold = 0
@@ -247,7 +295,20 @@ final class CalibrationSession {
         rejected = false
         lastT = 0
         targetDisplay = ScreenGeometry.mainDisplayID
-        hint = "Ecke oben links: dein Anschlag, nicht der Kamerarand. Pinzette 1 s."
+        self.cameraID = cameraID
+        cameraLabel = label
+        finishedID = nil
+        if label.isEmpty {
+            hint = "Ecke oben links: dein Anschlag, nicht der Kamerarand. Pinzette 1 s."
+        } else {
+            hint = "\(label): Ecke oben links — Blickwinkel dieser Quelle. Anschlag, nicht Kamerarand."
+        }
+    }
+
+    func consumeFinished() -> String? {
+        let v = finishedID
+        finishedID = nil
+        return v
     }
 
     func cancel() {
@@ -332,9 +393,10 @@ final class CalibrationSession {
             rejected = true
             return nil
         }
-        let map = SpaceMap(palms: pts.map(XY.init), displayID: targetDisplay)
+        let map = SpaceMap(palms: pts.map(XY.init), displayID: targetDisplay, cameraID: cameraID)
         map.save()
         active = false
+        finishedID = cameraID
         hint = "Fertig"
         return map
     }

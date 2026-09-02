@@ -73,7 +73,9 @@ struct HUDView: View {
             }
             if isPrimary {
                 VStack(spacing: 8) {
-                    Text("KALIBRIERUNG · ANSCHLAG, NICHT KAMERARAND")
+                    Text(state.calibSession.cameraLabel.isEmpty
+                         ? "KALIBRIERUNG · ANSCHLAG, NICHT KAMERARAND"
+                         : "KALIBRIERUNG · \(state.calibSession.cameraLabel.uppercased())")
                         .font(.system(size: 13, weight: .bold, design: .monospaced))
                         .foregroundStyle(HeliosTheme.amber)
                     Text("Ecke \(state.calibCorner)   ·   \(state.calibSession.samples.count)/4")
@@ -82,7 +84,7 @@ struct HUDView: View {
                     Text(state.calibSession.hint)
                         .font(.system(size: 13, design: .monospaced))
                         .foregroundStyle(.white.opacity(0.9))
-                    Text("So weit die Hand kommt, ohne das Bild zu verlassen. Nur Pinzette bestätigt.")
+                    Text("Blickwinkel dieser Quelle. 4 Bildschirmecken, Anschlag in DIESEM Bild. Nur Pinzette bestätigt.")
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(HeliosTheme.amber)
                 }
@@ -319,8 +321,18 @@ struct HUDView: View {
     }
 
     private var cameraChip: some View {
-        CameraPreview(
-            image: state.preview,
+        let coverCalib = state.calibActive && state.calibSession.cameraID == state.camera.coverID && !state.camera.coverID.isEmpty
+        let img = coverCalib ? (state.coverPreview ?? state.preview) : state.preview
+        let label: String = {
+            if coverCalib { return state.coverName + " · 2. WINKEL" }
+            if state.cameraPair != .single {
+                let src = state.actorSource == "cover" ? state.coverName : state.deviceName
+                return src + (state.coverRunning ? " + 2. Winkel" : "")
+            }
+            return state.deviceName
+        }()
+        return CameraPreview(
+            image: img,
             hands: state.hands,
             showLabels: state.showJointLabels,
             compact: true
@@ -329,7 +341,7 @@ struct HUDView: View {
         .clipped()
         .overlay(Rectangle().stroke(HeliosTheme.cyan.opacity(0.5), lineWidth: 1))
         .overlay(alignment: .topLeading) {
-            Text(state.deviceName)
+            Text(label)
                 .font(.system(size: 9, weight: .medium, design: .monospaced))
                 .foregroundStyle(HeliosTheme.cyan)
                 .padding(6)

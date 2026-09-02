@@ -17,6 +17,9 @@ final class AppState: ObservableObject {
     private var frames: Int = 0
     private var fpsStamp: TimeInterval = CACurrentMediaTime()
     private let tracker = HandTracker()
+    private let coverTracker = HandTracker()
+    private let coverSlot = CoverSlot()
+    private var usingCover = false
 
     @Published var hands: [TrackedHand] = []
     @Published var mode: EngineMode = .idle
@@ -65,6 +68,13 @@ final class AppState: ObservableObject {
     @Published var hideConsoleWhenArmed = true
     @Published var cameraDevices: [CameraChoice] = []
     @Published var selectedCameraID = ""
+    @Published var cameraPair: CameraPair = .single
+    @Published var coverName = "—"
+    @Published var coverRunning = false
+    @Published var coverError: String?
+    @Published var coverPreview: NSImage?
+    @Published var coverMapReady = false
+    @Published var actorSource = ""
     @Published var fusion: FusionDebug?
     @Published var hasDepth = false
     @Published var permissionBanner = ""
@@ -129,6 +139,10 @@ final class AppState: ObservableObject {
                 self.cameraError = self.camera.errorMessage
                 self.cameraDevices = self.camera.devices
                 self.selectedCameraID = self.camera.selectedID
+                self.coverName = self.camera.coverName
+                self.coverRunning = self.camera.coverRunning
+                self.coverError = self.camera.coverError
+                self.cameraPair = self.camera.pair
             }
             .store(in: &cancellables)
 
@@ -240,17 +254,23 @@ final class AppState: ObservableObject {
             Permissions.requestInputMonitoring()
         }
         let tracker = self.tracker
+        let coverTracker = self.coverTracker
         let cam = self.camera
         let slot = self.applySlot
         camera.onFrame = { [weak self] vision, _, luma, arrived in
             let t0 = CACurrentMediaTime()
-            let hands = tracker.analyze(
+            var hands = tracker.analyze(
                 pixelBuffer: vision,
                 now: t0,
                 mirrored: cam.isMirrored,
                 depth: cam.latestDepth,
                 orientation: cam.visionOrientation
             )
+            let leadID = cam.selectedID
+            for i in hands.indices {
+                hands[i].sourceID = leadID
+                hands[i].id = "L." + hands[i].id
+            }
             let visMs = (CACurrentMediaTime() - t0) * 1000
             let endToEnd = (CACurrentMediaTime() - arrived) * 1000
             slot.push(
@@ -262,6 +282,24 @@ final class AppState: ObservableObject {
                 DispatchQueue.main.async { self?.drainApply() }
             }
         }
+        camera.coverPipe.onBuffer = { [weak self] pb, arrived, mirrored, orient in
+            var hands = coverTracker.analyze(
+                pixelBuffer: pb,
+                now: arrived,
+                mirrored: mirrored,
+                depth: nil,
+                orientation: orient
+            )
+            let cid = cam.coverID
+            for i in hands.indices {
+                hands[i].sourceID = cid
+                hands[i].id = "C." + hands[i].id
+            }
+            self?.coverSlot.push(hands)
+        }
+        camera.coverPipe.onPreview = { [weak self] img in
+            Task { @MainActor in self?.coverPreview = img }
+        }
         camera.setPreviewSink { [weak self] img in
             self?.preview = img
         }
@@ -271,10 +309,15 @@ final class AppState: ObservableObject {
 
     func stopCamera() {
         camera.onFrame = nil
+        camera.coverPipe.onBuffer = nil
+        camera.coverPipe.onPreview = nil
         camera.stop()
         tracker.reset()
+        coverTracker.reset()
         cameraRunning = false
+        coverRunning = false
         hands = []
+        coverSlot.push([])
         log.record("Kamera gestoppt.")
     }
 
@@ -322,6 +365,7 @@ final class AppState: ObservableObject {
     func setFusionTemperature(_ t: Double) {
         fusionTemperature = min(1.4, max(0.35, t))
         tracker.fusionTemperature = fusionTemperature
+        coverTracker.fusionTemperature = fusionTemperature
         Prefs.fusionTemperature = fusionTemperature
     }
 
@@ -354,12 +398,23 @@ final class AppState: ObservableObject {
         engine.dwellEnabled = dwellEnabled
         engine.hideConsoleWhenArmed = hideConsoleWhenArmed
         tracker.fusionTemperature = fusionTemperature
+        coverTracker.fusionTemperature = fusionTemperature
         cameraDevices = CameraSession.discover()
+        if let raw = UserDefaults.standard.string(forKey: "helios.cameraPair"),
+           let p = CameraPair(rawValue: raw)
+        {
+            cameraPair = p
+            camera.preparePair(p, devices: cameraDevices)
+        }
         selectedCameraID = UserDefaults.standard.string(forKey: "helios.cameraID")
             ?? cameraDevices.first?.id ?? ""
         if !selectedCameraID.isEmpty, !cameraDevices.contains(where: { $0.id == selectedCameraID }) {
             selectedCameraID = cameraDevices.first?.id ?? ""
         }
+        engine.spaceMap = SpaceMap.load(cameraID: selectedCameraID, displayID: ScreenGeometry.mainDisplayID)
+            ?? SpaceMap.load(displayID: ScreenGeometry.mainDisplayID)
+        mapReady = engine.spaceMap?.isReady == true
+        coverMapReady = SpaceMap.load(cameraID: UserDefaults.standard.string(forKey: "helios.coverID") ?? "")?.isReady == true
     }
 
     func setHideConsoleWhenArmed(_ on: Bool) {
@@ -373,17 +428,54 @@ final class AppState: ObservableObject {
     }
 
     func selectCamera(_ id: String) {
+        cameraPair = .single
+        UserDefaults.standard.set(CameraPair.single.rawValue, forKey: "helios.cameraPair")
         selectedCameraID = id
         camera.selectDevice(id)
+        engine.spaceMap = SpaceMap.load(cameraID: id, displayID: ScreenGeometry.mainDisplayID)
+        mapReady = engine.spaceMap?.isReady == true
         log.record("Kamera: \(cameraDevices.first(where: { $0.id == id })?.name ?? id)", kind: .info)
+    }
+
+    func selectPair(_ pair: CameraPair) {
+        cameraPair = pair
+        camera.selectPair(pair, devices: cameraDevices, fallbackLead: selectedCameraID)
+        if pair == .single {
+            engine.spaceMap = SpaceMap.load(cameraID: selectedCameraID, displayID: ScreenGeometry.mainDisplayID)
+            log.record("Eine Kamera", kind: .info)
+            return
+        }
+        let mac = CameraSession.pick(cameraDevices, role: .mac)?.name
+        let phone = CameraSession.pick(cameraDevices, role: .phone)?.name
+        let osmo = CameraSession.pick(cameraDevices, role: .osmo)?.name
+        log.record("Paar \(pair.titleDE) · Mac \(mac ?? "—") · iPhone \(phone ?? "—") · Osmo \(osmo ?? "—")", kind: .info)
+        if CameraRig.resolve(
+            pair: pair,
+            mac: CameraSession.pick(cameraDevices, role: .mac)?.id,
+            phone: CameraSession.pick(cameraDevices, role: .phone)?.id,
+            osmo: CameraSession.pick(cameraDevices, role: .osmo)?.id
+        ) == nil {
+            log.record("Paar unvollständig — zweite Kamera fehlt.", kind: .blocked)
+        }
     }
 
     func startCalibration() {
         hudVisible = true
         overlayVisible()
-        calibSession.start()
+        let coverID = camera.coverID
+        let leadID = camera.selectedID
+        let leadReady = SpaceMap.load(cameraID: leadID)?.isReady == true
+        if cameraPair != .single, !coverID.isEmpty, leadReady,
+           SpaceMap.load(cameraID: coverID)?.isReady != true
+        {
+            calibSession.start(cameraID: coverID, label: camera.coverName)
+            log.record("Kalibrierung zweiter Winkel: \(camera.coverName)", kind: .info)
+        } else {
+            let label = camera.deviceName
+            calibSession.start(cameraID: leadID, label: label)
+            log.record("Kalibrierung: \(label) · Ecke oben links", kind: .info)
+        }
         engine.calibration = calibSession
-        log.record("Kalibrierung: Ecke oben links", kind: .info)
     }
 
     func cancelCalibration() {
@@ -399,8 +491,11 @@ final class AppState: ObservableObject {
     }
 
     func reloadSpaceMap() {
-        engine.spaceMap = SpaceMap.load(displayID: ScreenGeometry.mainDisplayID)
+        let id = usingCover ? camera.coverID : camera.selectedID
+        engine.spaceMap = SpaceMap.load(cameraID: id, displayID: ScreenGeometry.mainDisplayID)
+            ?? SpaceMap.load(displayID: ScreenGeometry.mainDisplayID)
         mapReady = engine.spaceMap?.isReady == true
+        coverMapReady = SpaceMap.load(cameraID: camera.coverID)?.isReady == true
     }
 
     private func overlayVisible() {
@@ -430,6 +525,17 @@ final class AppState: ObservableObject {
         luma: CGFloat
     ) {
         engine.tick(hands: hands, now: now)
+        if let done = calibSession.consumeFinished() {
+            let name = cameraDevices.first(where: { $0.id == done })?.name ?? (done.isEmpty ? deviceName : done)
+            log.record("Kalibrierung \(name) — Homographie nimmt Blickwinkel, Weitwinkel und Spiegelung auf.", kind: .info)
+            if cameraPair != .single, !camera.coverID.isEmpty, done == camera.selectedID,
+               SpaceMap.load(cameraID: camera.coverID)?.isReady != true
+            {
+                calibSession.start(cameraID: camera.coverID, label: camera.coverName)
+                engine.calibration = calibSession
+                log.record("Zweiter Winkel: \(camera.coverName). Dieselben 4 Bildschirmecken aus dieser Sicht.", kind: .info)
+            }
+        }
         if engine.clapWake {
             engine.clapWake = false
             hudVisible = true
@@ -503,11 +609,83 @@ final class AppState: ObservableObject {
         hasDepth = camera.hasDepth
         cameraDevices = camera.devices
         selectedCameraID = camera.selectedID
+        coverName = camera.coverName
+        coverRunning = camera.coverRunning
+        coverError = camera.coverError
+        cameraPair = camera.pair
+        coverMapReady = SpaceMap.load(cameraID: camera.coverID)?.isReady == true
+        actorSource = usingCover ? "cover" : "lead"
     }
 
     private func drainApply() {
         guard let item = applySlot.take() else { return }
-        apply(hands: item.hands, latency: item.latency, now: item.now, preview: nil, luma: item.luma)
+        let fused = fuseHands(lead: item.hands)
+        apply(hands: fused, latency: item.latency, now: item.now, preview: nil, luma: item.luma)
+    }
+
+    private func fuseHands(lead: [TrackedHand]) -> [TrackedHand] {
+        let cover = coverSlot.take()
+        let leadID = camera.selectedID
+        let coverID = camera.coverID
+        let disp = ScreenGeometry.mainDisplayID
+
+        if calibSession.active {
+            if !calibSession.cameraID.isEmpty, calibSession.cameraID == coverID {
+                engine.spaceMap = SpaceMap.load(cameraID: coverID, displayID: disp)
+                return cover
+            }
+            engine.spaceMap = SpaceMap.load(cameraID: leadID, displayID: disp)
+                ?? SpaceMap.load(displayID: disp)
+            return lead
+        }
+
+        let leadQ = lead.map(\.quality).max() ?? 0
+        let coverQ = cover.map(\.quality).max() ?? 0
+        var pick = CameraRig.useCover(
+            leadQ: leadQ,
+            coverQ: coverQ,
+            leadN: lead.count,
+            coverN: cover.count,
+            usingCover: usingCover
+        )
+        let leadMap = SpaceMap.load(cameraID: leadID, displayID: disp) ?? SpaceMap.load(displayID: disp)
+        let coverMap = SpaceMap.load(cameraID: coverID, displayID: disp)
+        if pick, coverMap?.isReady != true { pick = false }
+        if pick, lead.count > 0, cover.count > 0,
+           let lm = leadMap, lm.isReady, let cm = coverMap, cm.isReady
+        {
+            let a = lm.apply(lead[0].palm)
+            let b = cm.apply(cover[0].palm)
+            if CameraRig.mapsDisagree(a, b) {
+                pick = false
+            }
+        }
+        usingCover = pick
+        if pick {
+            engine.spaceMap = coverMap
+            return cover
+        }
+        engine.spaceMap = leadMap
+        return lead
+    }
+}
+
+/// Cover-Vision schreibt hier, Lead-Tick liest — analog ApplySlot.
+private final class CoverSlot: @unchecked Sendable {
+    private let lock = NSLock()
+    private var hands: [TrackedHand] = []
+
+    func push(_ h: [TrackedHand]) {
+        lock.lock()
+        hands = h
+        lock.unlock()
+    }
+
+    func take() -> [TrackedHand] {
+        lock.lock()
+        let h = hands
+        lock.unlock()
+        return h
     }
 }
 

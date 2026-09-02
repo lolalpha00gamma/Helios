@@ -12,6 +12,7 @@ struct CameraChoice: Identifiable, Hashable {
     var name: String
     var kindDE: String
     var hasDepth: Bool
+    var role: CameraRole
 }
 
 final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
@@ -20,8 +21,15 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     @Published var deviceName = "—"
     @Published var devices: [CameraChoice] = []
     @Published var selectedID = ""
+    @Published var coverID = ""
+    @Published var coverName = "—"
+    @Published var coverRunning = false
+    @Published var coverError: String?
+    @Published var pair: CameraPair = .single
 
     private var preferredID: String = UserDefaults.standard.string(forKey: "helios.cameraID") ?? ""
+    private var preferredCoverID: String = UserDefaults.standard.string(forKey: "helios.coverID") ?? ""
+    let coverPipe = CoverCapture()
 
     /// Vision-Buffer, optionales Preview, Helligkeit 0…1, Ankunftszeit
     var onFrame: ((CVPixelBuffer, NSImage?, CGFloat, TimeInterval) -> Void)? {
@@ -87,8 +95,12 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             guard let self else { return }
             self.pump.cancel()
             HeliosCatch({ self.session.stopRunning() }, nil)
+            self.coverPipe.stop()
             self.releaseKeepAlive()
-            DispatchQueue.main.async { self.isRunning = false }
+            DispatchQueue.main.async {
+                self.isRunning = false
+                self.coverRunning = false
+            }
         }
     }
 
@@ -97,6 +109,13 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         cameraQueue.async { [weak self] in
             guard let self else { return }
             self.preferredID = id
+            self.preferredCoverID = ""
+            self.coverPipe.stop()
+            DispatchQueue.main.async {
+                self.coverID = ""
+                self.coverRunning = false
+                self.pair = .single
+            }
             if self.session.isRunning {
                 self.pump.cancel()
                 HeliosCatch({ self.session.stopRunning() }, nil)
@@ -104,6 +123,75 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
                 self.configureAndRun()
             }
         }
+    }
+
+    func preparePair(_ pair: CameraPair, devices: [CameraChoice]) {
+        self.pair = pair
+        if pair == .single {
+            preferredCoverID = ""
+            return
+        }
+        let mac = Self.pick(devices, role: .mac)?.id
+        let phone = Self.pick(devices, role: .phone, preferDesk: pair == .macPhone)?.id
+        let osmo = Self.pick(devices, role: .osmo)?.id
+        if let ids = CameraRig.resolve(pair: pair, mac: mac, phone: phone, osmo: osmo) {
+            preferredID = ids.lead
+            preferredCoverID = ids.cover ?? ""
+            UserDefaults.standard.set(ids.lead, forKey: "helios.cameraID")
+            UserDefaults.standard.set(ids.cover ?? "", forKey: "helios.coverID")
+        }
+    }
+
+    func selectPair(_ pair: CameraPair, devices: [CameraChoice], fallbackLead: String) {
+        UserDefaults.standard.set(pair.rawValue, forKey: "helios.cameraPair")
+        let mac = Self.pick(devices, role: .mac)?.id
+        let phone = Self.pick(devices, role: .phone, preferDesk: pair == .macPhone)?.id
+        let osmo = Self.pick(devices, role: .osmo)?.id
+        cameraQueue.async { [weak self] in
+            guard let self else { return }
+            if pair == .single {
+                self.preferredCoverID = ""
+                UserDefaults.standard.set("", forKey: "helios.coverID")
+                self.coverPipe.stop()
+                DispatchQueue.main.async {
+                    self.pair = .single
+                    self.coverID = ""
+                    self.coverRunning = false
+                    self.coverError = nil
+                }
+                if self.session.isRunning {
+                    self.pump.cancel()
+                    HeliosCatch({ self.session.stopRunning() }, nil)
+                    self.pump.reset()
+                    self.configureAndRun()
+                }
+                return
+            }
+            guard let ids = CameraRig.resolve(pair: pair, mac: mac, phone: phone, osmo: osmo) else {
+                DispatchQueue.main.async {
+                    self.pair = pair
+                    self.coverError = "Paar unvollständig — fehlende Kamera anschließen (iPhone Kontinuität / Osmo Webcam)."
+                    self.coverRunning = false
+                }
+                return
+            }
+            self.preferredID = ids.lead
+            self.preferredCoverID = ids.cover ?? ""
+            UserDefaults.standard.set(ids.lead, forKey: "helios.cameraID")
+            UserDefaults.standard.set(ids.cover ?? "", forKey: "helios.coverID")
+            DispatchQueue.main.async {
+                self.pair = pair
+                self.coverError = nil
+            }
+            if self.session.isRunning {
+                self.pump.cancel()
+                HeliosCatch({ self.session.stopRunning() }, nil)
+                self.coverPipe.stop()
+                self.pump.reset()
+                self.configureAndRun()
+            }
+        }
+        _ = fallbackLead
     }
 
     static func discover() -> [CameraChoice] {
@@ -129,7 +217,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
                 uniqueID: d.uniqueID,
                 name: d.localizedName,
                 kindDE: kindDE(d),
-                hasDepth: d.formats.contains { !$0.supportedDepthDataFormats.isEmpty }
+                hasDepth: d.formats.contains { !$0.supportedDepthDataFormats.isEmpty },
+                role: role(d)
             ))
         }
         return out
@@ -137,7 +226,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
 
     private static func kindDE(_ d: AVCaptureDevice) -> String {
         if #available(macOS 14.0, *), d.deviceType == .deskViewCamera {
-            return "Desk View — zweiter Winkel"
+            return "Desk View — iPhone von oben"
         }
         switch d.deviceType {
         case .builtInWideAngleCamera: return "Mac-Kamera"
@@ -145,6 +234,36 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         case .external: return "Extern (USB / Osmo)"
         default: return "Kamera"
         }
+    }
+
+    static func role(_ d: AVCaptureDevice) -> CameraRole {
+        if #available(macOS 14.0, *), d.deviceType == .deskViewCamera {
+            return .phone
+        }
+        switch d.deviceType {
+        case .builtInWideAngleCamera: return .mac
+        case .continuityCamera: return .phone
+        case .external: return .osmo
+        default: return .mac
+        }
+    }
+
+    static func pick(_ devices: [CameraChoice], role: CameraRole, preferDesk: Bool = false) -> CameraChoice? {
+        let xs = devices.filter { $0.role == role }
+        if role == .phone {
+            if preferDesk, let d = xs.first(where: { $0.kindDE.contains("Desk") }) { return d }
+            if let c = xs.first(where: { $0.kindDE.contains("Kontinuität") }) { return c }
+        }
+        return xs.first
+    }
+
+    static func shouldMirror(_ d: AVCaptureDevice) -> Bool {
+        if d.deviceType == .external { return false }
+        if #available(macOS 14.0, *), d.deviceType == .deskViewCamera { return false }
+        if d.deviceType == .continuityCamera {
+            return d.position != .back
+        }
+        return d.position == .front || d.deviceType == .builtInWideAngleCamera
     }
 
     private func configureAndRun() {
@@ -187,8 +306,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         depthTap.attach(session: session, device: device, queue: cameraQueue)
         HeliosCatch({
             if let conn = self.output.connection(with: .video), conn.isVideoMirroringSupported {
-                let front = device.position == .front || device.deviceType == .builtInWideAngleCamera
-                conn.isVideoMirrored = front
+                conn.isVideoMirrored = Self.shouldMirror(device)
                 self.setMirrored(conn.isVideoMirrored)
             } else {
                 self.setMirrored(false)
@@ -218,6 +336,53 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             }
         }
         retainKeepAlive()
+        startCoverIfNeeded()
+    }
+
+    private func startCoverIfNeeded() {
+        coverPipe.stop()
+        guard !preferredCoverID.isEmpty, preferredCoverID != preferredID else {
+            DispatchQueue.main.async {
+                self.coverID = ""
+                self.coverName = "—"
+                self.coverRunning = false
+            }
+            return
+        }
+        let types: [AVCaptureDevice.DeviceType] = {
+            var t: [AVCaptureDevice.DeviceType] = [.builtInWideAngleCamera, .continuityCamera, .external]
+            if #available(macOS 14.0, *) { t.append(.deskViewCamera) }
+            return t
+        }()
+        let found = AVCaptureDevice.DiscoverySession(
+            deviceTypes: types,
+            mediaType: .video,
+            position: .unspecified
+        ).devices
+        guard let device = found.first(where: { $0.uniqueID == preferredCoverID }) else {
+            DispatchQueue.main.async {
+                self.coverError = "Zweite Kamera nicht gefunden."
+                self.coverRunning = false
+            }
+            return
+        }
+        if let err = coverPipe.start(device: device) {
+            DispatchQueue.main.async {
+                self.coverError = err
+                self.coverRunning = false
+                self.coverID = device.uniqueID
+                self.coverName = device.localizedName
+            }
+            return
+        }
+        let cname = device.localizedName
+        let cid = device.uniqueID
+        DispatchQueue.main.async {
+            self.coverID = cid
+            self.coverName = cname
+            self.coverRunning = true
+            self.coverError = nil
+        }
     }
 
     private func retainKeepAlive() {
@@ -486,5 +651,108 @@ private final class FrameSink: NSObject, AVCaptureVideoDataOutputSampleBufferDel
         from connection: AVCaptureConnection
     ) {
         emit(sampleBuffer)
+    }
+}
+
+/// Zweite AVCaptureSession — anderer Blickwinkel. Vision gedrosselt, kein Depth.
+final class CoverCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
+    var onBuffer: ((CVPixelBuffer, TimeInterval, Bool, CGImagePropertyOrientation) -> Void)?
+    var onPreview: ((NSImage) -> Void)?
+    private(set) var isMirrored = false
+    private(set) var visionOrientation: CGImagePropertyOrientation = .up
+
+    private let session = AVCaptureSession()
+    private let output = AVCaptureVideoDataOutput()
+    private let queue = DispatchQueue(label: "helios.cover", qos: .userInitiated)
+    private var last: TimeInterval = 0
+    private var lastPreview: TimeInterval = 0
+
+    func start(device: AVCaptureDevice) -> String? {
+        stop()
+        session.beginConfiguration()
+        session.inputs.forEach { session.removeInput($0) }
+        session.outputs.forEach { session.removeOutput($0) }
+        if session.canSetSessionPreset(.hd1280x720) {
+            session.sessionPreset = .hd1280x720
+        }
+        do {
+            let input = try AVCaptureDeviceInput(device: device)
+            guard session.canAddInput(input) else {
+                session.commitConfiguration()
+                return "Zweite Kamera blockiert (Continuity oft exklusiv zur Mac-Kamera). Osmo per USB ist die robuste zweite Quelle."
+            }
+            session.addInput(input)
+        } catch {
+            session.commitConfiguration()
+            return error.localizedDescription
+        }
+        output.alwaysDiscardsLateVideoFrames = true
+        output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
+        output.setSampleBufferDelegate(self, queue: queue)
+        if session.canAddOutput(output) { session.addOutput(output) }
+        if let conn = output.connection(with: .video), conn.isVideoMirroringSupported {
+            conn.isVideoMirrored = CameraSession.shouldMirror(device)
+            isMirrored = conn.isVideoMirrored
+        } else {
+            isMirrored = false
+        }
+        if #available(macOS 14.0, *), let conn = output.connection(with: .video) {
+            let angle = conn.videoRotationAngle
+            let wrapped = Int(((angle.truncatingRemainder(dividingBy: 360)) + 360)
+                .truncatingRemainder(dividingBy: 360).rounded())
+            switch wrapped {
+            case 90: visionOrientation = .right
+            case 180: visionOrientation = .down
+            case 270: visionOrientation = .left
+            default: visionOrientation = .up
+            }
+        } else {
+            visionOrientation = .up
+        }
+        session.commitConfiguration()
+        var err: NSError?
+        _ = HeliosCatch({ self.session.startRunning() }, &err)
+        if let err { return err.localizedDescription }
+        if !session.isRunning {
+            return "Zweite Session läuft nicht. Continuity blockt oft die Mac-Kamera."
+        }
+        return nil
+    }
+
+    func stop() {
+        HeliosCatch({ self.session.stopRunning() }, nil)
+    }
+
+    func captureOutput(
+        _ output: AVCaptureOutput,
+        didOutput sampleBuffer: CMSampleBuffer,
+        from connection: AVCaptureConnection
+    ) {
+        let now = CACurrentMediaTime()
+        guard now - last >= 0.05 else { return }
+        last = now
+        guard let pb = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        onBuffer?(pb, now, isMirrored, visionOrientation)
+        if now - lastPreview >= 0.20 {
+            lastPreview = now
+            if let img = Self.preview(pb) {
+                DispatchQueue.main.async { self.onPreview?(img) }
+            }
+        }
+    }
+
+    private static func preview(_ pb: CVPixelBuffer) -> NSImage? {
+        let w = CVPixelBufferGetWidth(pb)
+        let h = CVPixelBufferGetHeight(pb)
+        guard w > 1, h > 1 else { return nil }
+        let scale = min(1, 320 / CGFloat(w))
+        let tw = max(2, Int((CGFloat(w) * scale).rounded()))
+        let th = max(2, Int((CGFloat(h) * scale).rounded()))
+        let src = CIImage(cvPixelBuffer: pb)
+        let scaled = src.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+        guard let cg = MetalHub.ci.createCGImage(scaled, from: CGRect(x: 0, y: 0, width: tw, height: th)) else {
+            return nil
+        }
+        return NSImage(cgImage: cg, size: NSSize(width: tw, height: th))
     }
 }

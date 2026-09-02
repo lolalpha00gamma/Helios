@@ -218,8 +218,16 @@ struct ControlPanel: View {
                     Text(state.mapReady ? "Ecken gespeichert — außen absolut, innen relativ (Trackpad)." : "Noch nicht kalibriert — Zeiger relativ.")
                         .font(.system(size: 11))
                         .foregroundStyle(state.mapReady ? HeliosTheme.cyan : .secondary)
+                    if state.cameraPair != .single {
+                        Text("Lead: \(state.deviceName)\(state.mapReady ? " · kalibriert" : " · 4 Ecken fehlen")")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                        Text("Cover: \(state.coverName)\(state.coverMapReady ? " · kalibriert" : " · 4 Ecken fehlen")")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                    }
                     if state.calibActive {
-                        Text("Jetzt: \(state.calibCorner). Pinzette 1 s halten.")
+                        Text("Jetzt: \(state.calibSession.cameraLabel.isEmpty ? state.deviceName : state.calibSession.cameraLabel) · \(state.calibCorner). Pinzette 1 s halten.")
                             .font(.system(size: 11))
                             .foregroundStyle(HeliosTheme.amber)
                         Button("Abbrechen") { state.cancelCalibration() }
@@ -231,7 +239,7 @@ struct ControlPanel: View {
                         Button("Kalibrierung löschen") { state.clearCalibration() }
                             .buttonStyle(.borderless)
                     }
-                    Text("Je Ecke: dein persönlicher Anschlag, nicht der Kamerarand. Gilt für diesen Monitor. Innen folgt der Zeiger relativ (kein Zittern in der Mitte), die äußeren 15 % bleiben absolut, damit du die Ecken erreichst.")
+                    Text("Je Ecke: dein persönlicher Anschlag in DIESER Kamera, nicht der Kamerarand. Jede Quelle hat eigenen Blickwinkel (Mac von vorn, iPhone Kontinuität/Desk View, Osmo weit/seitlich) — die Homographie schluckt Winkel, Weitwinkel und Spiegelung. Bei zwei Kameras: erst Lead 4 Ecken, dann Cover dieselben Bildschirmecken aus der anderen Sicht. Weichen die gemappten Zeiger stark ab (Winkel-Unco), gewinnt die Lead-Kamera.")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
                 }
@@ -291,25 +299,51 @@ struct ControlPanel: View {
 
     private var cameraPicker: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Kamera")
+            Text("Kameras")
                 .font(.system(size: 13, weight: .semibold))
-            if state.cameraDevices.isEmpty {
-                Text(state.deviceName)
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(.secondary)
-            } else {
-                Picker("Quelle", selection: Binding(
-                    get: { state.selectedCameraID },
-                    set: { state.selectCamera($0) }
-                )) {
-                    ForEach(state.cameraDevices) { d in
-                        Text("\(d.name) · \(d.kindDE)\(d.hasDepth ? " · Tiefe" : "")")
-                            .tag(d.id)
-                    }
+            Picker("Paar", selection: Binding(
+                get: { state.cameraPair },
+                set: { state.selectPair($0) }
+            )) {
+                ForEach(CameraPair.allCases) { p in
+                    Text(p.titleDE).tag(p)
                 }
-                .labelsHidden()
             }
-            Text("iPhone: Kontinuitätskamera (gleicher iCloud-Account, Kamera-App zu). Desk View ist Apples zweiter Winkel von oben — nicht gleichzeitig mit der Mac-Kamera in dieser Version. Osmo Action 3: am Gerät Webcam-Modus, USB-C, taucht als Extern auf. LiDAR (iPhone 12 Pro+) nur wenn Kontinuität ein Tiefenformat liefert — dann „Tiefe“ am Namen.")
+            .labelsHidden()
+            Text(state.cameraPair.detailDE)
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
+            if state.cameraPair == .single {
+                if state.cameraDevices.isEmpty {
+                    Text(state.deviceName)
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                } else {
+                    Picker("Quelle", selection: Binding(
+                        get: { state.selectedCameraID },
+                        set: { state.selectCamera($0) }
+                    )) {
+                        ForEach(state.cameraDevices) { d in
+                            Text("\(d.name) · \(d.kindDE)\(d.hasDepth ? " · Tiefe" : "")")
+                                .tag(d.id)
+                        }
+                    }
+                    .labelsHidden()
+                }
+            } else {
+                Text("Lead \(state.deviceName)")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(HeliosTheme.cyan)
+                Text("Cover \(state.coverRunning ? state.coverName : (state.coverError ?? "nicht aktiv"))")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(state.coverRunning ? HeliosTheme.cyan : HeliosTheme.amber)
+            }
+            if let err = state.coverError, !err.isEmpty {
+                Text(err)
+                    .font(.system(size: 10))
+                    .foregroundStyle(HeliosTheme.amber)
+            }
+            Text("iPhone: Kontinuität (gleicher iCloud-Account, Kamera-App zu) oder Desk View von oben. Osmo Action 3: am Gerät Webcam, USB-C. Continuity ist oft exklusiv zur Mac-Kamera — Mac+iPhone kann die zweite Session verweigern; Mac+Osmo und iPhone+Osmo sind die robusten Paare. LiDAR nur wenn Kontinuität Tiefe liefert.")
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
         }

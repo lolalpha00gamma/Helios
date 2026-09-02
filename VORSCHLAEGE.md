@@ -1,32 +1,23 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.5.8**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+Stand: **1.6.1**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
 
-## In 1.5.8 erledigt
+## In 1.6.1 erledigt
 
-1. **Build-Bruch.** `LandmarkSmoothing` nutzte `AspectSpace`/`JointGeom`, die Dateien lagen nicht im Xcode-Target — 1.5.7 kompiliert nicht. Fusion-Dateien sind jetzt im Target.
-2. **Fusion verdrahtet.** 2D + 3D-Lift + Temporal → `EstimateFusion` → `PoseHMM`. Vorher tot im Ordner, Erkennung blieb die alte If-Kette.
-3. **1–2 Frames Dropout** beenden Drag/Klick nicht mehr (180 ms Hold).
-4. **PinchGate.** Fehlende Spitzen halten max. 0,32 s zu, nicht ewig — Drag klebt nicht.
-5. **Not-Aus und Zwei-Pinzetten** lassen den Cursor weiterlaufen.
-6. **Scroll.** Zwei offene Hände vertikal.
-7. **Rechtsklick.** Pinzette + Ringfinger kurz.
-8. **Dwell-Klick.** Optional, offene Hand 1 s still.
-9. **HUD:** Idle-Banner nach Not-Aus, Latenz-Sparkline, Fusion-Streifen.
-10. **Fusion/HMM/Temporal reset** wenn eine Hand aus dem Bild fällt — sonst klebt die alte Pose am nächsten Auftauchen.
+1. **Korrelierte Fusion.** Lift3D und Temporal-Heuristik sind dieselben 2D-Punkte (plus klebriges z-Vorzeichen). 1.6.0 hat sie als unabhängige Stimmen gepoolt → flaches Softmax → Pose < 70 % → `perform()` hat *jede* Systemaktion blockiert. Jetzt: 2D führt (0,62), Lift/Zeit kollabieren bei >80 % Überlappung, Softmax-Temperatur 0,75, Tor 62 %.
+2. **Kein Chirality-Doppel-Flip.** Der Frontkamera-Buffer ist schon `isVideoMirrored`. Ein zweiter L/R-Tausch hat Linkshänder die rechte Hand als Steuerhand gegeben. Unbekannt fällt auf Bildposition, gespiegelt vs. ungespiegelt getrennt.
+3. **Zwei-Pinzetten nach 0,35 s** belegen den Tick weiter — sonst feuern Klick und Wischen während des Skalierens.
+4. **Track-Zuordnung 0,42** (war 0,22 iso) plus Chirality-Bonus. Flicks verlieren die ID nicht mehr.
+5. **HMM** τ=0,11 s, Umschalten ab p≥0,48 / 50 ms. 0,62 + 180 ms hat Gestenwechsel verschluckt.
+6. **PinchGate.** Occludierte Spitzen halten max. 0,32 s zu, nicht ewig.
+7. **Dropout 180 ms.** Ein verlorener Vision-Frame beendet Drag nicht mit einem Fehlklick.
+8. **Scroll / Rechtsklick / Dwell** wirklich verdrahtet (1.5.8 hatte sie nur in der README). Dwell aus by default.
+9. **HUD:** Idle-Banner nach Not-Aus, Latenz-Sparkline (30 Frames), Fusion zeigt kollabierte Quellen.
+10. **Not-Aus und Zwei-Pinzetten** bewegen den Cursor weiter.
 
-## In 1.5.7 erledigt (nicht nochmal bauen)
+## In 1.6.0 / 1.5.8 / 1.5.7 erledigt (nicht nochmal bauen)
 
-1. AX-Hit-Test und Snap in Cocoa statt Quartz
-2. Wischen nur als Flick, nicht als Cursor-Führen
-3. Faust-Scharf ohne Folge-Klick (`armedQuietUntil`)
-4. Cooldown friert den Cursor nicht ein
-5. Not-Aus langsamer und strenger
-6. Zwei-Pinzetten-Wait belegte den Tick nicht
-7. Doppelte Chirality teilte sich den One-Euro-Smoother
-8. Hardware-Maus nur über `leftMouseDragged` erkannt
-9. `reset()` ließ Kill/Peace/Cooldown liegen
-10. Peace zu kurz (0,55 s)
+Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohne Folge-Klick. Cooldown friert den Cursor nicht ein. Not-Aus 0,8 s. Chirality teilt sich keinen Smoother. Maus-Clutch inkl. `mouseMoved`. Peace 0,9 s.
 
 ## Nächste Fixes (klein, hoher Nutzen)
 
@@ -34,10 +25,11 @@ Stand: **1.5.8**. Die Punkte unten sind Erweiterungen, kein Backlog der schon ge
 - **Kalibrierung merken pro Display-ID**, nicht nur ein Homography für alle Schirme.
 - **SpaceMap hybrid:** nur in den äußeren 15 % absolut, innen Trackpad-Relativ.
 - **Maus-Clutch ignoriert eigene CGEvents** härter (delta=0 Filter) — bei <12 fps kann `mouseMoved` Helios selbst pausieren.
-- **Chirality über Körperpose**, wenn Vision L/R vertauscht (`VNDetectHumanBodyPose`).
+- **Chirality über Körperpose**, wenn Vision L/R vertauscht (`VNDetectHumanBodyPose`) — `forearmGate` existiert, L/R-Vote noch nicht.
 - **Zwei-Pinzetten Skalieren** an gegenüberliegenden Fensterkanten, nicht am Palmenabstand.
 - **Pointer-Beschleunigung** wie Trackpad (nichtlinear), damit Feinzielen in der Bildschirmmitte nicht zittert.
 - **Session-Replay** der Landmark-CSV direkt im HUD, Frame für Frame — ohne Xcode.
+- **Fusion-Temperatur** als Inspector-Slider (Debug), nicht hart 0,75.
 
 ## Größere Erweiterungen
 
@@ -45,12 +37,14 @@ Stand: **1.5.8**. Die Punkte unten sind Erweiterungen, kein Backlog der schon ge
 - **VoiceOver-Ansage** der letzten Aktion, ausgeschaltet by default.
 - **Fenstertiling über Stage Manager** statt nur AX-Snap.
 - **Swift Testing** in Xcode, Gesten-Zeitreihen als Fixtures.
-- **LiDAR/TrueDepth** (`DepthCapture`) verdrahten, sobald ein Mac es hat — Datei existiert, Session nicht.
-- **Echtes Temporal-CoreML** (`HeliosTemporal.mlmodel`) statt Heuristik.
+- **LiDAR/TrueDepth** (`DepthCapture`) verdrahten, sobald ein Mac es hat — Datei existiert, Session hängt am Format.
+- **Echtes Temporal-CoreML** (`HeliosTemporal.mlmodel`) statt Heuristik. Ohne Modell bleibt Zeit ein 2D-Echo.
 - **Zoom/Trackpad-Magnify** als Geste (Pinzette + offene zweite Hand).
 - **Mission Control / Schreibtisch.** Drei Finger hoch / runter, hinter Extra-Schalter.
 - **Apple Watch als Not-Aus.** Krone oder Action-Taste tötet Injektion, wenn die Kamera die Hände nicht sieht.
 - **Umgebungslicht → HUD.** Bei dunklem Schreibtisch Overlay dämpfen, nicht den Bildinhalt überstrahlen.
+- **Hand-Velocity-Prior** im HMM (schnelle Faust ist kein Pinch).
+- **Zwei-Personen-Szenen.** Wenn Körperpose zwei Torsi sieht, zweite Hand nie als Steuerhand.
 
 ## Nicht tun
 
@@ -58,3 +52,5 @@ Stand: **1.5.8**. Die Punkte unten sind Erweiterungen, kein Backlog der schon ge
 - Mehr als zwei Hände. Vision max. 2 ist die ehrliche Grenze.
 - Cursor während Pinch-Hold einfrieren (war Absicht für Klick-Zielen — bleibt).
 - Fusion-Dateien wieder aus dem Target nehmen.
+- Lift3D und Temporal wieder als unabhängige Voter mit Gewicht ≥ 0,25.
+- Aktions-Tor wieder auf 70 % ohne die Fusion zu schärfen.

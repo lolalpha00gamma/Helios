@@ -1,8 +1,9 @@
 # Erkennung — implementiert (kein Phasenplan)
 
-Stand: 2026-09-02, Helios 1.6.0. Alle fünf Phasen aus dem
+Stand: 2026-09-02, Helios 1.6.1. Alle fünf Phasen aus dem
 Konsolidierungsdokument laufen gleichzeitig. Fällt eine Quelle aus, geht
-ihr Fusionsgewicht auf 0.
+ihr Fusionsgewicht auf 0. Korrelierte Quellen (Lift/Zeit ≈ 2D) werden
+kollabiert, sonst flacht die Pose unter das Aktions-Tor.
 
 ## Pipeline
 
@@ -21,21 +22,24 @@ Frame ─┬─► 2D  Vision-Landmarken, Gelenkwinkel, isotrope Geometrie
 | `AspectSpace.swift` | x·(w/h), alle Abstände isotrop |
 | `HandEstimate.swift` | gemeinsame Schätz-Schnittstelle |
 | `EstimateFusion.swift` | log-Pooling, inverse Varianz, adaptive Gewichte |
-| `PoseHMM.swift` | Vorwärtsfilter, Umschalten ≥ 80 ms und p ≥ 0.62 |
+| `PoseHMM.swift` | Vorwärtsfilter, Umschalten ≥ 50 ms und p ≥ 0.48 |
 | `Lift3D.swift` | z² = L² − (Δx²+Δy²), Vorzeichen aus Kinematik + Zeit |
 | `TemporalNet.swift` | Heuristik-GRU / optionales Core ML |
 | `DepthCapture.swift` | echte Tiefe, sonst nil |
 | `LandmarkSmoothing.swift` | One-Euro + 3,5·Median-Ausreißer |
-| `GestureClassifier.swift` | Winkel, Softmax, robustes palmScale |
-| `HandTracker.swift` | Track-ID (ungarisch), Unterarm-Prior, Fusion |
-| `GestureEngine.swift` | Schwellen in Handbreiten, Aktionen ab p ≥ 0.70 |
-| `FusionStrip.swift` | Inspector-Diagnose |
+| `GestureClassifier.swift` | Winkel, Softmax, robustes palmScale, Pinch-Timeout 0,32 s |
+| `HandTracker.swift` | Track-ID, Unterarm-Prior, kein Chirality-Doppel-Flip |
+| `GestureEngine.swift` | Schwellen in Handbreiten, Aktionen ab p ≥ 0.62 |
+| `FusionStrip.swift` | Inspector-Diagnose, kollabierte Quellen |
 
 ## Gewichte
 
-Start: 2D 0.40, 3D-Lift 0.28, Tiefe 0.22, Zeit 0.25.
-Ist echte Tiefe da, fällt das Lift-Gewicht auf 0.12 — die Fehler der
-Tiefenquelle dürfen nicht dieselben 2D-Punkte sein.
+Start: 2D 0.62, 3D-Lift 0.14, Tiefe 0.32, Zeit 0.16.
+Ist echte Tiefe da, fällt das Lift-Gewicht auf 0.06. Überlappen Lift oder
+Zeit die 2D-Verteilung zu mehr als 80 %, fällt ihr Rohgewicht auf 22 % —
+sonst ist die Fusion drei Stimmen desselben Fehlers.
+
+Softmax-Temperatur 0.75. Aktions-Tor 62 %.
 
 ## Aktions-Sicherheit (aus 1.5.7, bleibt)
 

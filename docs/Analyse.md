@@ -1,7 +1,7 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
-Stand: 2026-09-02. Helios 1.6.0. Alle fünf Phasen aus `docs/Erkennung.md`
-laufen gleichzeitig — kein Stufenplan.
+Stand: 2026-09-02. Helios 1.6.1. Alle fünf Phasen aus `docs/Erkennung.md`
+laufen gleichzeitig — kein Stufenplan. 1.6.1 kollabiert korrelierte Quellen.
 
 ## 1. Bestand vor der Umstellung (1.5.7)
 
@@ -33,7 +33,7 @@ Frame ─┬─► 2D   Gelenkwinkel, Softmax, isotropes palmScale
 Track-ID (gierig 2×2 auf Palm-Abstand) statt Links/Rechts als Schlüssel.
 Chiralität bleibt Attribut. Ausreißer: 3,5·Median, One-Euro mit dt in
 Sekunden. Wurf/Wischen/Skalieren in **Handbreiten**. Systemaktionen ab
-Pose-p ≥ 0,70. 1.5.7-Sicherheit bleibt: Not-Aus 0,8 s und openScore ≥ 4,
+Pose-p ≥ 0,62. 1.5.7-Sicherheit bleibt: Not-Aus 0,8 s und openScore ≥ 4,
 Scharf-Ruhe 0,7 s, Peace 0,9 s, Cooldown bewegt den Cursor weiter.
 
 Bekannte Restgrenze: ohne echte Tiefe ist 3D-Lift aus denselben 2D-Punkten

@@ -23,6 +23,8 @@ final class AppState: ObservableObject {
     @Published var lastAction = "—"
     @Published var fps: Double = 0
     @Published var latencyMs: Double = 0
+    @Published var latencyHistory: [Double] = []
+    @Published var dwellEnabled = false
     @Published var cameraOK = false
     @Published var accessOK = false
     @Published var cameraRunning = false
@@ -224,6 +226,13 @@ final class AppState: ObservableObject {
         Prefs.pointerGain = g
     }
 
+    func setDwellEnabled(_ on: Bool) {
+        dwellEnabled = on
+        engine.dwellEnabled = on
+        Prefs.dwellEnabled = on
+        log.record(on ? "Dwell-Klick an" : "Dwell-Klick aus", kind: .info)
+    }
+
     private func loadPrefs() {
         leftHanded = Prefs.leftHanded
         pointerGain = Prefs.pointerGain
@@ -236,10 +245,12 @@ final class AppState: ObservableObject {
         showOutline = Prefs.showOutline
         showTrashZone = Prefs.showTrashZone
         showPreviewChip = Prefs.showPreviewChip
+        dwellEnabled = Prefs.dwellEnabled
         engine.leftHanded = leftHanded
         engine.pointerGain = CGFloat(pointerGain)
         engine.protocolMode = protocolMode
         engine.testMode = testMode
+        engine.dwellEnabled = dwellEnabled
     }
 
     func startCalibration() {
@@ -316,6 +327,10 @@ final class AppState: ObservableObject {
         lastPanel = now
         self.luma = luma
         latencyMs = latency
+        var hist = latencyHistory
+        hist.append(latency)
+        if hist.count > 30 { hist.removeFirst(hist.count - 30) }
+        latencyHistory = hist
         mode = engine.mode
         lastAction = engine.lastAction
         engineCursor = engine.cursor
@@ -340,6 +355,10 @@ enum Prefs {
     static var leftHanded: Bool {
         get { UserDefaults.standard.object(forKey: "helios.leftHanded") as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "helios.leftHanded") }
+    }
+    static var dwellEnabled: Bool {
+        get { UserDefaults.standard.bool(forKey: "helios.dwell") }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.dwell") }
     }
     static var pointerGain: Double {
         get {

@@ -155,9 +155,10 @@ enum CoordMath {
     }
 
     /// Profil-Invert gilt für Natural-an. Natural-aus dreht nochmal, sonst doppelt falsch.
-    static func signedScrollTicks(_ ticks: Int32, profileInverts: Bool, natural: Bool) -> Int32 {
+    /// Horizontal (wheel2 / Safari-History) nimmt den Profil-XOR nicht — sonst geht Zurück vorwärts.
+    static func signedScrollTicks(_ ticks: Int32, profileInverts: Bool, natural: Bool, horizontal: Bool = false) -> Int32 {
         var t = ticks
-        if profileInverts { t = -t }
+        if profileInverts, !horizontal { t = -t }
         if !natural { t = -t }
         return t
     }
@@ -173,5 +174,56 @@ enum CoordMath {
 
     static func keyClutchSeconds(isRepeat: Bool, modifiersDown: Bool) -> Double {
         (isRepeat || modifiersDown) ? keyRepeatClutch : keyClutch
+    }
+
+    /// 80 ms nach Pinch-Start, sonst Ghost-Doppelklick in Textfeldern.
+    static let textSelectDwell: Double = 0.08
+    static let peaceRegionWidth: CGFloat = 720
+    static let peaceRegionHeight: CGFloat = 450
+
+    static func textSelectReady(held: Double, dwell: Double = textSelectDwell) -> Bool {
+        held >= dwell
+    }
+
+    /// AX-Text unter dem Cursor → HUD als I-Beam, nicht als Pfeil.
+    static func ibeamRole(_ role: String?) -> Bool {
+        guard let role else { return false }
+        return textRoles.contains(role)
+    }
+
+    /// Faust der zweiten Hand während Pinch = Shift+Klick.
+    static func shiftClick(otherFist: Bool) -> Bool {
+        otherFist
+    }
+
+    /// Peace-Fallback: Region um den Cursor, nicht der ganze Schirm.
+    static func peaceRegion(
+        around quartz: CGPoint,
+        screen: CGRect,
+        width: CGFloat = peaceRegionWidth,
+        height: CGFloat = peaceRegionHeight
+    ) -> CGRect {
+        let w = min(max(120, width), max(120, screen.width))
+        let h = min(max(80, height), max(80, screen.height))
+        var x = quartz.x - w / 2
+        var y = quartz.y - h / 2
+        if screen.width > 0 {
+            x = min(max(x, screen.minX), screen.maxX - w)
+        }
+        if screen.height > 0 {
+            y = min(max(y, screen.minY), screen.maxY - h)
+        }
+        return CGRect(x: x, y: y, width: w, height: h)
+    }
+
+    /// 0…1 der aktuellen Peace-Pause. Fail 0,8 s darf nicht durch 4 geteilt werden.
+    static func peaceCooldownFraction(leftover: Double, span: Double) -> CGFloat {
+        guard span > 0, leftover > 0 else { return 0 }
+        return CGFloat(min(1, max(0, leftover / span)))
+    }
+
+    /// HUD-Sekunden: Restzeit, nicht remain×4.
+    static func peaceCooldownSeconds(leftover: Double) -> Double {
+        max(0, leftover)
     }
 }

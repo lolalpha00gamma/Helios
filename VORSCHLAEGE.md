@@ -1,6 +1,19 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.12**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+Stand: **1.6.13**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+
+## In 1.6.13 erledigt
+
+Warum 1.6.12 Magnet, Peace-Chip, Rechtsklick und Safari-History trotzdem falsch anfühlte: `applyMagnet` hat nur das HUD gesetzt, `click()` nahm `lastPosted`. `peaceCooldownRemain` teilte immer durch 4. Nach Rechtsklick lief `driveGrab` in denselben Pinch. `signedScrollTicks` XOR'te auch wheel2. Peace ohne Fenster war Fullscreen.
+
+1. **Magnet → HID.** `adoptPosted` + `moveCursor`, sonst 4 px daneben.
+2. **Peace-Cooldown Restsekunden.** Fail-Ring/Chip startet bei 0,8 s, nicht 0,2.
+3. **Rechtsklick schluckt Pinch.** `pinchArmedAfterClutch = false`.
+4. **Horizontal ohne Profil-Invert.** Safari-History nicht denselben XOR.
+5. **Shift-Klick.** Zweite Faust während Pinch.
+6. **I-Beam** auf AXTextArea/WebArea.
+7. **Peace `-R` Region** um den Cursor.
+8. **Text-Dwell 80 ms** vor HID-Down.
 
 ## In 1.6.12 erledigt
 
@@ -150,11 +163,12 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 
 ## Nächste Fixes (klein, hoher Nutzen)
 
-- **Shift-Klick.** Faust der zweiten Hand während Pinch = Shift+Klick (Finder/Xcode-Mehrfach).
-- **I-Beam.** Magnet auf AXTextArea zeigt Text-Cursor, nicht den Pfeil.
-- **Peace-Region.** `screencapture -R` wenn kein Fenster unter der Hand.
-- **Rechtsklick-Hold 140 ms vs. Text-Drag:** Ringfinger-Pinch darf keine Auswahl starten.
-- **Horizontal-Invert getrennt.** Safari-History (wheel2) nicht denselben XOR wie Seitenscroll.
+- **Cmd/Opt-Klick.** Peace der zweiten Hand = Cmd+Klick, Point = Opt+Klick — analog Shift-Faust.
+- **Click-Lock auch AXCheckBox / AXRadioButton.** Toggle-Zitter sonst als Drag.
+- **Per-App invertHorizontal.** Terminal braucht wheel2-XOR, Safari nicht — eigener Toggle.
+- **System-Cursor verstecken** solange Scharf (optional, Trackpad-Clutch holt ihn zurück).
+- **Peace-Region folgt dem Fenster**, wenn eins unter der Hand liegt, sonst 16:9 um den Cursor (Region sitzt schon).
+- **Magnet-Rolle im HUD-Chip.** „SCHLIESSEN“ / „SLIDER“, nicht nur „Magnet“.
 
 ## Größere Erweiterungen
 
@@ -202,9 +216,17 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **AX-SelectedText lesen** nach Text-Drag, in die Zwischenablage nur auf Extra-Geste (nicht still).
 - **Scroll-Coast an palmeWidth.** Große Peace-Hand = längerer Nachlauf, kleine = kürzer.
 - **HUD-Kompass blinkt**, wenn der Konsolen-Schirm keine SpaceMap hat und der Cursor dort ankommt.
-- **Rechtsklick-Hold 140 ms vs. Text-Drag:** Ringfinger-Pinch darf keine Auswahl starten.
 - **Mission-Control drei Finger** hinter Extra-Schalter, sobald Peace/Scroll entzerrt ist.
 - **Per-App Text-Drag aus.** Terminal/Xcode-Vim: Pinch bleibt Klick, keine Selection.
+- **Zwei-Finger Magnify.** Pinzette + offene zweite Hand = Trackpad-Zoom in Safari, Extra-Schalter.
+- **Clutch-Statistik im HUD.** Wie oft Maus vs. Geste in den letzten 60 s — Gain zu hoch, wenn Clutch dauernd feuert.
+- **Kalibrier-Heatmap nach 9 Punkten.** Welche Zelle RMSE > 12 px hat, dort nochmal.
+- **Bezel-Warp.** Unkalibrierter Nachbarschirm interpoliert den Cursor über die Naht.
+- **Modifier-Chord der zweiten Hand.** Faust=Shift sitzt; Peace=Cmd, Point=Opt als Extra.
+- **AXPress statt HID** auf AXButton unter Magnet — zuverlässiger als Pixel-Klick auf Traffic Lights.
+- **Scroll-Richtung live aus Frontmost-Bundle**, nicht nur beim Profil-Wechsel (Safari-Tab in Stage Manager).
+- **Ghost-Cursor während Clutch klickt nicht nach.** Sitzt schon; HUD darf „klickbereit in N ms“ zeigen.
+- **Text-Drag Startpunkt = Magnet-I-Beam**, nicht Palm-Mitte — sonst beginnt die Auswahl ein Wort daneben.
 
 ## Nicht tun
 
@@ -246,3 +268,9 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - Text-Drag über AXButton/Toolbar weiterziehen.
 - Tasten-Clutch nur auf den ersten `keyDown` (Repeat und Modifier durchlassen).
 - Natural-Scroll des Systems ignorieren und Profil doppelt invertieren.
+- Magnet nur HUD snappen, HID auf `lastPosted` 4 px daneben klicken.
+- Peace-Cooldown immer durch 4 teilen (Fail-Chip bei 20 %).
+- Nach Rechtsklick denselben Pinch als Linksklick werten.
+- Safari-Invert auch auf wheel2 (History geht rückwärts).
+- Peace ohne Fenster als Fullscreen-screencapture.
+- Text-HID-Down im selben Frame wie Pinch-Start.

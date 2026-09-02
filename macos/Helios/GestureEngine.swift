@@ -49,7 +49,7 @@ enum GestureAction: String, CaseIterable, Codable, Hashable {
 
     static func from(name: String) -> GestureAction? {
         switch name {
-        case "Klick": return .click
+        case "Klick", "Shift-Klick": return .click
         case "Scroll": return .scroll
         case "Nächste App", "Vorherige App": return .swipe
         case "Wegwerfen", "Minimieren", "Links andocken", "Rechts andocken": return .fling
@@ -247,6 +247,7 @@ final class GestureEngine {
     var clutchReason: String?
     var clutchRemain: CGFloat = 0
     var peaceCooldownRemain: CGFloat = 0
+    var cursorIBeam = false
 
     private var fistSince: TimeInterval?
     private var fistLostAt: TimeInterval?
@@ -371,6 +372,7 @@ final class GestureEngine {
         clutchReason = nil
         clutchRemain = 0
         peaceCooldownRemain = 0
+        cursorIBeam = false
         system.endWindowDrag()
         system.endTextDrag()
         cursor = nil
@@ -550,7 +552,7 @@ final class GestureEngine {
         }
         let right = driveRightClick(actor, now: now)
         if !right {
-            driveGrab(actor, now: now)
+            driveGrab(actor, hands: hands, now: now)
         }
         driveSwipe(hands: hands, now: now)
         driveScroll(hands: hands, now: now)
@@ -558,6 +560,7 @@ final class GestureEngine {
         driveThumbs(actor, now: now)
         driveDwell(actor, now: now)
         drivePalmRest(actor, now: now)
+        refreshCursorChrome()
         dragging = pinchHeld
         if system.isDragging {
             grabPhase = .grab
@@ -604,6 +607,7 @@ final class GestureEngine {
         cursorSmooth = nil
         pointerOrigin = nil
         cursorDidMove = false
+        cursorIBeam = false
     }
 
     /// Clutch hat den Pinch unterbrochen — Loslassen danach ist kein Klick.
@@ -832,9 +836,16 @@ final class GestureEngine {
     private func refreshHudTimes(now: TimeInterval) {
         clutchReason = system.clutchReason
         clutchRemain = system.clutchRemain
-        peaceCooldownRemain = peaceCooldownUntil > now
-            ? CGFloat(min(1, max(0, (peaceCooldownUntil - now) / 4)))
-            : 0
+        let leftover = peaceCooldownUntil > now ? peaceCooldownUntil - now : 0
+        peaceCooldownRemain = leftover > 0 ? CGFloat(CoordMath.peaceCooldownSeconds(leftover: leftover)) : 0
+    }
+
+    private func refreshCursorChrome() {
+        guard let p = cursor, !testMode else {
+            cursorIBeam = false
+            return
+        }
+        cursorIBeam = CoordMath.ibeamRole(system.cachedRole(at: p))
     }
 
     private func mappedPoint(_ hand: TrackedHand) -> CGPoint {
@@ -1029,7 +1040,7 @@ final class GestureEngine {
         }
     }
 
-    private func driveGrab(_ hand: TrackedHand, now: TimeInterval) {
+    private func driveGrab(_ hand: TrackedHand, hands: [TrackedHand], now: TimeInterval) {
         if now < armedQuietUntil, !pinchHeld { return }
         let ratio = hand.pinchRatio
         let closed = hand.pinchClosed || hand.pinchClosedness > 0.55 || hand.pose == .pinch
@@ -1071,6 +1082,7 @@ final class GestureEngine {
             if !testMode, !system.isDragging, !system.isTextDragging,
                let start = pinchStartQuartz,
                GestureClassifier.textSelectMoved(moved),
+               CoordMath.textSelectReady(held: now - pinchBeganAt),
                !system.onTitleBar(at: start),
                now - lastGrabTry > 0.12
             {
@@ -1163,7 +1175,12 @@ final class GestureEngine {
                 lastAction = testMode ? "Test: Loslassen" : "Loslassen"
                 onLog?("Loslassen", testMode ? .blocked : .executed, Int(hand.poseProb * 100))
             } else if held >= 0.07, held < 0.55 {
-                perform("Klick", need: .input, confidence: Float(max(hand.poseProb, hand.pinchClosedness))) { system.click() }
+                let shift = CoordMath.shiftClick(
+                    otherFist: hands.contains { $0.id != hand.id && $0.pose == .fist }
+                )
+                perform(shift ? "Shift-Klick" : "Klick", need: .input, confidence: Float(max(hand.poseProb, hand.pinchClosedness))) {
+                    system.click(shift: shift)
+                }
             } else if held < 0.07 {
                 lastAction = "zu kurz"
             }
@@ -1269,8 +1286,9 @@ final class GestureEngine {
                     }
                     let loc = cursor ?? ScreenGeometry.quartz(fromCocoa: NSEvent.mouseLocation)
                     let screen = ScreenGeometry.screenContaining(quartz: loc) ?? NSScreen.screens.first
-                    let b = screen.map { ScreenGeometry.quartzRect(fromCocoa: $0.frame) } ?? .zero
-                    return system.screenshotFocused(windowID: 0, bounds: b)
+                    let quartzScreen = screen.map { ScreenGeometry.quartzRect(fromCocoa: $0.frame) } ?? .zero
+                    let region = CoordMath.peaceRegion(around: loc, screen: quartzScreen)
+                    return system.screenshotFocused(windowID: 0, bounds: region)
                 }
                 peaceSince = nil
                 peaceProgress = 0
@@ -1381,7 +1399,7 @@ final class GestureEngine {
             UserDefaults.standard.object(forKey: "com.apple.swipescrolldirection")
         )
         vTicks = CoordMath.signedScrollTicks(vTicks, profileInverts: profile.invertScroll, natural: natural)
-        hTicks = CoordMath.signedScrollTicks(hTicks, profileInverts: profile.invertScroll, natural: natural)
+        hTicks = CoordMath.signedScrollTicks(hTicks, profileInverts: profile.invertScroll, natural: natural, horizontal: true)
         guard vTicks != 0 || hTicks != 0 else { return }
         let conf = Float(actors.map(\.poseProb).min() ?? 0)
         perform("Scroll", need: .input, confidence: conf) { system.scroll(ticks: vTicks, horizontal: hTicks) }
@@ -1422,6 +1440,13 @@ final class GestureEngine {
             }
             ringPinchSince = nil
             cooldownUntil = now + 0.45
+            // Loslassen danach ist kein Linksklick. Finger müssen erst wieder offen sein.
+            pinchArmedAfterClutch = false
+            pinchHeld = false
+            pinchBecameDrag = false
+            pinchTrail.removeAll()
+            pinchStartQuartz = nil
+            titleBarSince = nil
             return true
         }
         lastAction = "Rechtsklick …"
@@ -1458,10 +1483,13 @@ final class GestureEngine {
     }
 
     /// 4 px AX-Magnet auf Schließen/Slider, solange Pinch stillhält.
+    /// HUD *und* HID: sonst klickt `lastPosted` 4 px neben dem Magnet.
     private func applyMagnet(at quartz: CGPoint) {
         guard !testMode, let snapped = system.magnetQuartz(at: quartz) else { return }
         cursor = snapped
         cursorSmooth = snapped
+        system.adoptPosted(snapped)
+        system.moveCursor(to: snapped)
         lastAction = "Magnet"
     }
 }

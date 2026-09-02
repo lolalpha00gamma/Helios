@@ -258,7 +258,7 @@ struct HUDView: View {
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(HeliosTheme.amber)
             } else if state.peaceCooldownRemain > 0.02 {
-                Text(String(format: "AUFNAHME %.0fs", state.peaceCooldownRemain * 4))
+                Text(String(format: "AUFNAHME %.0fs", state.peaceCooldownRemain))
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)

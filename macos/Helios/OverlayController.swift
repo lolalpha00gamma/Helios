@@ -108,12 +108,22 @@ final class OverlayController {
         target: String,
         window: CGRect?,
         peace: CGFloat = 0,
-        clutch: CGFloat = 0
+        clutch: CGFloat = 0,
+        ibeam: Bool = false
     ) {
         for (id, view) in markers {
             guard let panel = panels[id] else { continue }
             view.screenFrame = panel.frame
-            view.apply(cursor: cursor, phase: phase, hand: hand, target: target, window: window, peace: peace, clutch: clutch)
+            view.apply(
+                cursor: cursor,
+                phase: phase,
+                hand: hand,
+                target: target,
+                window: window,
+                peace: peace,
+                clutch: clutch,
+                ibeam: ibeam
+            )
         }
     }
 
@@ -201,7 +211,8 @@ final class HandMarkerView: NSView {
         target: String,
         window: CGRect?,
         peace: CGFloat = 0,
-        clutch: CGFloat = 0
+        clutch: CGFloat = 0,
+        ibeam: Bool = false
     ) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -218,12 +229,24 @@ final class HandMarkerView: NSView {
         let ghost = clutch > 0.02
         let col: CGColor = {
             if ghost { return CGColor(red: 1, green: 0.72, blue: 0.15, alpha: 0.45) }
+            if ibeam { return CGColor(red: 0.85, green: 0.95, blue: 1, alpha: 1) }
             switch phase {
             case .grab, .hold: return CGColor(red: 1, green: 0.72, blue: 0.15, alpha: 1)
             case .follow: return CGColor(red: 0.25, green: 0.9, blue: 1, alpha: 1)
             case .none: return CGColor(gray: 0.55, alpha: 0.5)
             }
         }()
+        if ibeam {
+            let path = CGMutablePath()
+            path.addRect(CGRect(x: 0, y: 0, width: 16, height: 3))
+            path.addRect(CGRect(x: 6, y: 0, width: 4, height: 28))
+            path.addRect(CGRect(x: 0, y: 25, width: 16, height: 3))
+            core.path = path
+            core.bounds = CGRect(x: 0, y: 0, width: 16, height: 28)
+        } else {
+            core.path = CGPath(ellipseIn: CGRect(x: 0, y: 0, width: 14, height: 14), transform: nil)
+            core.bounds = CGRect(x: 0, y: 0, width: 14, height: 14)
+        }
         ring.strokeColor = col
         ring.lineDashPattern = ghost ? [6, 5] : nil
         ring.opacity = ghost ? 0.55 : 1
@@ -234,6 +257,8 @@ final class HandMarkerView: NSView {
         label.foregroundColor = col
         if ghost {
             label.string = "GEIST  \(hand.uppercased())"
+        } else if ibeam {
+            label.string = "TEXT  \(hand.uppercased())"
         } else {
             label.string = "\(phase.labelDE)  \(hand.uppercased())" + (grab && !target.isEmpty ? "  \(target.uppercased())" : "")
         }

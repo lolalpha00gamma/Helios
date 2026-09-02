@@ -168,6 +168,8 @@ enum CoordTests {
         ok(CoordMath.signedScrollTicks(10, profileInverts: true, natural: false) == 10, "Safari Natural-aus nicht doppelt")
         ok(CoordMath.signedScrollTicks(10, profileInverts: false, natural: true) == 10, "Finder Natural roh")
         ok(CoordMath.signedScrollTicks(10, profileInverts: false, natural: false) == -10, "Finder Natural-aus")
+        ok(CoordMath.signedScrollTicks(10, profileInverts: true, natural: true, horizontal: true) == 10, "Safari wheel2 ohne Profil-XOR")
+        ok(CoordMath.signedScrollTicks(10, profileInverts: true, natural: false, horizontal: true) == -10, "Safari wheel2 nur Natural")
         ok(CoordMath.modifiersBlockInjection(1 << 17), "Shift blockt")
         ok(CoordMath.modifiersBlockInjection(1 << 20), "Cmd blockt")
         ok(!CoordMath.modifiersBlockInjection(1 << 16), "CapsLock blockt nicht")
@@ -175,6 +177,30 @@ enum CoordTests {
         ok(CoordMath.keyClutchSeconds(isRepeat: false, modifiersDown: false) == 0.40, "Tasten-Clutch 400 ms")
         ok(CoordMath.keyClutchSeconds(isRepeat: true, modifiersDown: false) == 0.55, "Repeat 550 ms")
         ok(CoordMath.keyClutchSeconds(isRepeat: false, modifiersDown: true) == 0.55, "Modifier 550 ms")
+        ok(CoordMath.textSelectReady(held: 0.08), "Text-Dwell 80 ms")
+        ok(!CoordMath.textSelectReady(held: 0.04), "unter 80 ms kein HID-Down")
+        ok(CoordMath.ibeamRole("AXTextArea"), "TextArea I-Beam")
+        ok(CoordMath.ibeamRole("AXWebArea"), "WebArea I-Beam")
+        ok(!CoordMath.ibeamRole("AXButton"), "Button kein I-Beam")
+        ok(!CoordMath.ibeamRole(nil), "ohne Rolle kein I-Beam")
+        ok(CoordMath.shiftClick(otherFist: true), "zweite Faust = Shift-Klick")
+        ok(!CoordMath.shiftClick(otherFist: false), "ohne Faust kein Shift")
+        eq(CoordMath.peaceCooldownFraction(leftover: 0.80, span: 0.80), 1, "Fail-Ring startet voll")
+        eq(CoordMath.peaceCooldownFraction(leftover: 0.80, span: 4), 0.20, "Treffer 0,8/4 = 0,20")
+        eq(CGFloat(CoordMath.peaceCooldownSeconds(leftover: 0.80)), 0.80, "HUD 0,8 s nicht ×4")
+        let region = CoordMath.peaceRegion(
+            around: CGPoint(x: 100, y: 100),
+            screen: CGRect(x: 0, y: 0, width: 1920, height: 1080)
+        )
+        eq(region.width, 720, "Peace-Region Breite")
+        eq(region.height, 450, "Peace-Region Höhe")
+        ok(region.contains(CGPoint(x: 100, y: 100)), "Peace-Region um den Cursor")
+        let edge = CoordMath.peaceRegion(
+            around: CGPoint(x: 10, y: 10),
+            screen: CGRect(x: 0, y: 0, width: 1920, height: 1080)
+        )
+        eq(edge.minX, 0, "Peace-Region klebt am Schirmrand")
+        eq(edge.minY, 0, "Peace-Region klebt oben")
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

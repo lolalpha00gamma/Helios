@@ -40,6 +40,8 @@ final class SystemControl {
     private var magnetCachedAtPoint = CGPoint.zero
     private var magnetCached: CGPoint?
     private var magnetCachedRole: String?
+    private var roleCachedAt: Double = 0
+    private var roleCachedAtPoint = CGPoint.zero
     /// Markiert eigene CGEvents. Clutch filtert darüber, nicht nur über 120 ms.
     private static let stampMagic: Int64 = 0x48454C49
 
@@ -166,17 +168,24 @@ final class SystemControl {
         }
     }
 
+    /// Magnet/HUD-Snap muss `lastPosted` setzen, sonst klickt HID 4 px daneben.
+    func adoptPosted(_ point: CGPoint) {
+        lastPosted = ScreenGeometry.clampQuartz(point)
+        lastPostAt = CACurrentMediaTime()
+    }
+
     @discardableResult
-    func click() -> ActionResult {
+    func click(shift: Bool = false) -> ActionResult {
         let now = CACurrentMediaTime()
         guard now - lastClick > 0.12 else { return .fail("Klick-Pause") }
         lastClick = now
         guard allowsInjection else { return .fail("Maus hat Vorrang") }
         let loc = lastPosted ?? NSEvent.mouseLocation.screenFlipped
-        guard postMouse(.leftMouseDown, at: loc), postMouse(.leftMouseUp, at: loc) else {
+        let flags: CGEventFlags = shift ? .maskShift : []
+        guard postMouse(.leftMouseDown, at: loc, flags: flags), postMouse(.leftMouseUp, at: loc, flags: flags) else {
             return .fail("CGEvent Klick")
         }
-        return .ok("Klick")
+        return .ok(shift ? "Shift-Klick" : "Klick")
     }
 
     @discardableResult
@@ -302,6 +311,24 @@ final class SystemControl {
 
     var isTextDragging: Bool { textDragActive }
     private(set) var lastMagnetRole: String?
+    private(set) var lastHitRole: String?
+
+    /// AX-Rolle unter dem Cursor, 30 ms Cache. Kein Magnet-Snap.
+    func cachedRole(at quartz: CGPoint) -> String? {
+        let now = CACurrentMediaTime()
+        if CoordMath.magnetCacheHit(
+            cachedAt: roleCachedAt,
+            cachedAtPoint: roleCachedAtPoint,
+            now: now,
+            point: quartz
+        ) {
+            return lastHitRole
+        }
+        lastHitRole = axRole(at: quartz)
+        roleCachedAt = now
+        roleCachedAtPoint = quartz
+        return lastHitRole
+    }
 
     /// Pinch über Text stiehlt kein Fenster — nur die oberen 36 pt (Traffic Lights).
     func onTitleBar(at quartz: CGPoint) -> Bool {
@@ -331,6 +358,7 @@ final class SystemControl {
             magnetCached = nil
             magnetCachedRole = nil
             lastMagnetRole = nil
+            lastHitRole = nil
             return nil
         }
         let cocoa = ScreenGeometry.cocoa(fromQuartz: quartz)
@@ -351,6 +379,7 @@ final class SystemControl {
         {
             var role: CFTypeRef?
             AXUIElementCopyAttributeValue(el, "AXRole" as CFString, &role)
+            lastHitRole = role as? String
             if let r = role as? String, Self.magnetRoles.contains(r),
                let p = position(of: el), let s = size(of: el)
             {
@@ -569,7 +598,12 @@ final class SystemControl {
     }
 
     @discardableResult
-    private func postMouse(_ type: CGEventType, at point: CGPoint, button: CGMouseButton = .left) -> Bool {
+    private func postMouse(
+        _ type: CGEventType,
+        at point: CGPoint,
+        button: CGMouseButton = .left,
+        flags: CGEventFlags = []
+    ) -> Bool {
         let src = CGEventSource(stateID: .hidSystemState)
         guard let e = CGEvent(
             mouseEventSource: src,
@@ -577,6 +611,9 @@ final class SystemControl {
             mouseCursorPosition: ScreenGeometry.clampQuartz(point),
             mouseButton: button
         ) else { return false }
+        if flags.rawValue != 0 {
+            e.flags = flags
+        }
         stamp(e)
         e.post(tap: .cghidEventTap)
         return true
@@ -725,6 +762,12 @@ enum WindowCapture {
         proc.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
         if windowID != 0 {
             proc.arguments = ["-l\(windowID)", "-x", url.path]
+        } else if bounds.width >= 8, bounds.height >= 8 {
+            let x = Int(bounds.minX.rounded())
+            let y = Int(bounds.minY.rounded())
+            let w = Int(bounds.width.rounded())
+            let h = Int(bounds.height.rounded())
+            proc.arguments = ["-R\(x),\(y),\(w),\(h)", "-x", url.path]
         } else {
             proc.arguments = ["-x", url.path]
         }

@@ -1,4 +1,4 @@
-# Helios **1.6.12**
+# Helios **1.6.13**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,19 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.13
+
+1.6.12 hat Slider und Peace-Cooldown — der Magnet hat trotzdem 4 px neben dem Schließen-Knopf geklickt, der Fail-Chip hat durch 4 geteilt, Rechtsklick wurde zum Ghost-Linksklick, und Safari-History ging rückwärts.
+
+- **Magnet trifft HID.** `applyMagnet` setzt `lastPosted` und bewegt den Cursor; Klick landet auf Schließen/Slider, nicht 4 px daneben.
+- **Peace-Cooldown ehrlich.** HUD zeigt Restsekunden, nicht remain×4. Fail 0,8 s startet voll, nicht bei 20 %.
+- **Rechtsklick schluckt Pinch.** Nach 140 ms Ringfinger kein Folge-Linksklick beim Öffnen.
+- **wheel2 ohne Profil-XOR.** Safari-Invert dreht nur vertikal; History/Seitenscroll bleibt Natural.
+- **Shift-Klick.** Faust der zweiten Hand während Pinch = Shift+Klick (Finder/Xcode).
+- **I-Beam über Text.** AXTextArea/WebArea zeigt Text-Cursor, nicht den Pfeil.
+- **Peace-Region.** Ohne Fenster: `screencapture -R` 720×450 um den Cursor, nicht der ganze Schirm.
+- **Text-Dwell 80 ms.** HID-Down erst nach 80 ms Pinch, sonst Ghost-Doppelklick in Inputs.
 
 ## Neu in 1.6.12
 

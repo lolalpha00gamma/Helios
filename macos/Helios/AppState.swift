@@ -479,7 +479,8 @@ final class AppState: ObservableObject {
             target: engine.grabTargetName,
             window: focused?.quartzBounds,
             peace: engine.peaceProgress,
-            clutch: engine.clutchRemain
+            clutch: engine.clutchRemain,
+            ibeam: engine.cursorIBeam
         )
         frames += 1
         if now - fpsStamp >= 0.5 {

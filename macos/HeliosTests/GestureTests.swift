@@ -96,7 +96,14 @@ enum GestureTests {
         let e3 = HandEstimate(source: .lift3D, probabilities: p3, pinchClosedness: 0.1, palm: CGPoint(x: 0.41, y: 0.4), palmVariance: 0.002, quality: 0.9, available: true, palmWidth: 0.12)
         let (fused, _) = fusion.fuse([e2, e3], dt: 0.016)
         ok(fused.available, "Fusion liefert Schätzung")
-        ok((fused.probabilities[.openPalm] ?? 0) > 0.2, "2D-Stimme bleibt hörbar")
+        ok((fused.probabilities[.openPalm] ?? 0) > 0.45, "2D-Stimme bleibt führend")
+
+        var copy3 = p2
+        let eCopy = HandEstimate(source: .lift3D, probabilities: copy3, pinchClosedness: 0.1, palm: CGPoint(x: 0.4, y: 0.4), palmVariance: 0.002, quality: 0.9, available: true, palmWidth: 0.12)
+        let eT = HandEstimate(source: .temporal, probabilities: copy3, pinchClosedness: 0.1, palm: CGPoint(x: 0.4, y: 0.4), palmVariance: 0.006, quality: 0.42, available: true, palmWidth: 0.12)
+        let (peaked, dbgPeak) = fusion.fuse([e2, eCopy, eT], dt: 0.016)
+        ok((peaked.probabilities[.openPalm] ?? 0) > 0.70, "korrelierte Lift/Zeit flatten die Pose nicht")
+        ok(!dbgPeak.collapsed.isEmpty, "korrelierte Quellen werden markiert")
 
         var pD: [HandPose: Double] = [:]
         for k in HandPose.allCases { pD[k] = 0.02 }

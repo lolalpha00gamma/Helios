@@ -38,7 +38,7 @@ final class TemporalNet {
             return last
         }
         skip += 1
-        if skip % 2 == 0, last.available { return last }
+        if skip % 2 == 0, last.available, model != nil { return last }
 
         if let model, let fromML = inferML(model) {
             last = fromML
@@ -79,7 +79,7 @@ final class TemporalNet {
             pinchClosedness: max(0, min(1, 1 - pinch)),
             palm: .zero,
             palmVariance: 0.008,
-            quality: hold ? 0.62 : 0.42,
+            quality: hold ? 0.55 : 0.28,
             available: true,
             palmWidth: 0.12
         )

@@ -306,6 +306,7 @@ struct PinchGate {
     private var lastT: TimeInterval = 0
     private var closeFor: TimeInterval = 0
     private var openFor: TimeInterval = 0
+    private var missingSince: TimeInterval = 0
     private var space = AspectSpace.hd720
 
     mutating func reset() {
@@ -314,6 +315,7 @@ struct PinchGate {
         lastT = 0
         closeFor = 0
         openFor = 0
+        missingSince = 0
     }
 
     mutating func setSpace(_ s: AspectSpace) { space = s }
@@ -347,11 +349,19 @@ struct PinchGate {
         let wantOpen = ratio > 0.56 && proxRatio > 0.50 && vel > -0.4
 
         if dTips == nil {
+            if missingSince == 0 { missingSince = now }
+            if now - missingSince > 0.32 {
+                closed = false
+                closeFor = 0
+                openFor = 0
+                return (false, ratio, dist, closedness)
+            }
             if closed { return (true, min(ratio, 0.30), dist, max(closedness, 0.7)) }
             if wantClose { closeFor += dt } else { closeFor = 0 }
             if closeFor >= 0.045 { closed = true; closeFor = 0 }
             return (closed, ratio, dist, closedness)
         }
+        missingSince = 0
         if closed {
             if wantOpen { openFor += dt; closeFor = 0 } else { openFor = 0 }
             if openFor >= 0.055 { closed = false; openFor = 0 }

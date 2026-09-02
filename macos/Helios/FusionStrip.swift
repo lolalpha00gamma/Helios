@@ -18,6 +18,11 @@ struct FusionStrip: View {
             if let fusion {
                 Text(String(format: "Pose %.0f %%  ·  Pinzette %.0f %%", fusion.poseProb * 100, fusion.pinchClosedness * 100))
                     .font(.system(size: 11, design: .monospaced))
+                if !fusion.collapsed.isEmpty {
+                    Text("kollabiert: " + fusion.collapsed.joined(separator: ", "))
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(HeliosTheme.amber)
+                }
                 ForEach(fusion.weights.keys.sorted(), id: \.self) { k in
                     HStack(spacing: 8) {
                         Text(k)

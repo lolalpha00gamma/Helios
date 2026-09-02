@@ -92,6 +92,40 @@ final class SystemControl {
     }
 
     @discardableResult
+    func rightClick() -> ActionResult {
+        let now = CACurrentMediaTime()
+        guard now - lastClick > 0.12 else { return .fail("Klick-Pause") }
+        lastClick = now
+        guard allowsInjection else { return .fail("Maus hat Vorrang") }
+        let loc = lastPosted ?? NSEvent.mouseLocation.screenFlipped
+        guard postMouse(.rightMouseDown, at: loc, button: .right),
+              postMouse(.rightMouseUp, at: loc, button: .right)
+        else {
+            return .fail("CGEvent Rechtsklick")
+        }
+        return .ok("Rechtsklick")
+    }
+
+    @discardableResult
+    func scroll(ticks: Int32) -> ActionResult {
+        guard allowsInjection else { return .fail("Maus hat Vorrang") }
+        guard ticks != 0 else { return .ok("0") }
+        let src = CGEventSource(stateID: .hidSystemState)
+        guard let e = CGEvent(
+            scrollWheelEvent2Source: src,
+            units: .pixel,
+            wheelCount: 1,
+            wheel1: ticks,
+            wheel2: 0,
+            wheel3: 0
+        ) else {
+            return .fail("CGEvent Scroll")
+        }
+        e.post(tap: .cghidEventTap)
+        return .ok(String(format: "%+d", ticks))
+    }
+
+    @discardableResult
     func beginWindowDrag(at quartz: CGPoint? = nil) -> ActionResult {
         guard allowsInjection else { return .fail("Maus hat Vorrang — Steuerung pausiert") }
         let loc = quartz ?? lastPosted ?? NSEvent.mouseLocation.screenFlipped
@@ -294,13 +328,13 @@ final class SystemControl {
     }
 
     @discardableResult
-    private func postMouse(_ type: CGEventType, at point: CGPoint) -> Bool {
+    private func postMouse(_ type: CGEventType, at point: CGPoint, button: CGMouseButton = .left) -> Bool {
         let src = CGEventSource(stateID: .hidSystemState)
         guard let e = CGEvent(
             mouseEventSource: src,
             mouseType: type,
             mouseCursorPosition: ScreenGeometry.clampQuartz(point),
-            mouseButton: .left
+            mouseButton: button
         ) else { return false }
         e.post(tap: .cghidEventTap)
         return true

@@ -1,4 +1,4 @@
-# Helios **1.5.8**
+# Helios **1.6.1**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -19,32 +19,29 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
 
-## Neu in 1.5.8
+## Neu in 1.6.1
 
-1.5.7 kompiliert nicht: Fusion-Dateien und `AspectSpace` fehlten im Xcode-Target, `LandmarkSmoothing` rief sie trotzdem. Jetzt im Target, und die Fusion ist **verdrahtet** (2D + 3D-Lift + Temporal → HMM).
+1.6.0 hat vier Quellen fusioniert, aber drei davon waren dasselbe 2D-Signal. Die Pose kam selten über 70 %, also hat das Aktions-Tor fast alles geschluckt. 1.5.8 hat Scroll/Rechtsklick/Dwell in der README behauptet — der Code war leer.
 
-- **Dropout 180 ms.** Ein verlorener Vision-Frame beendet Drag nicht mehr mit einem Fehlklick.
-- **Pinch-Timeout.** Occludierte Spitzen halten die Pinzette 0,32 s, nicht ewig.
-- **Not-Aus / Zwei-Pinzetten** bewegen den Cursor weiter.
-- **Scroll** (zwei offene Hände vertikal), **Rechtsklick** (Pinzette + Ring), **Dwell-Klick** (optional).
-- HUD: Idle-Banner nach Not-Aus, Latenz-Sparkline, Fusion-Streifen.
+- **Fusion entkoppelt.** 2D führt. Lift und Zeit-Heuristik kollabieren, wenn sie die 2D-Verteilung nur kopieren. Aktions-Tor 62 %.
+- **Kein L/R-Doppel-Flip** auf der schon gespiegelten Frontkamera.
+- **Zwei-Pinzetten** belegen den Tick auch nach der 0,35 s-Bestätigung.
+- **Tracks** überleben Flicks (0,42 iso). HMM schaltet schneller.
+- **Scroll** (zwei offene Hände vertikal), **Rechtsklick** (Pinzette + Ring), **Dwell-Klick** (optional, 1 s still).
+- Dropout 180 ms, Pinch-Timeout 0,32 s, Latenz-Sparkline, Idle-Banner nach Not-Aus.
 
-Details: [VORSCHLAEGE.md](./VORSCHLAEGE.md).
+Details: [docs/Erkennung.md](./docs/Erkennung.md), [VORSCHLAEGE.md](./VORSCHLAEGE.md).
 
-## Neu in 1.5.7
+## Neu in 1.6.0
 
-Fenster trafen oft das falsche Ziel: AX-Hit-Test und Snap liefen in Quartz-Y statt Cocoa. Offene Hand zum Cursor hat nebenbei App-Wechsel ausgelöst. Faust-Scharf wurde zum Klick. Peace hat den Cursor 4 s eingefroren. Details: [VORSCHLAEGE.md](./VORSCHLAEGE.md).
+Erkennung ist nicht mehr nur 2D. Vier Quellen laufen parallel und werden fusioniert.
 
-- **AX in Cocoa.** `AXUIElementCopyElementAtPosition` und `AXPosition` bekommen Cocoa-Koordinaten.
-- **Snap auf `visibleFrame`.** Andocken/Füllen nutzt den Cocoa-sichtbaren Bereich, nicht das geflippte Quartz-Rect.
-- **Wischen = Flick.** Nur schnell, waagerecht, `dx > 0.20`, `speed > 0.85`. Langsames Cursor-Führen wechselt keine App.
-- **Scharf-Ruhe 0,7 s.** Die Arming-Faust startet kein Halten/Klick.
-- **Cooldown bewegt den Cursor weiter.** Nur Aktionen pausieren.
-- **Not-Aus 0,8 s, openScore ≥ 4.** Kein Kill durch zwei lockere Hände.
-- **Zwei Pinzetten belegen den Tick** schon in der 0,35 s-Bestätigung.
-- **Maus-Clutch** hört auch `mouseMoved`.
-- **Peace 0,9 s.** Weniger Fehl-Screenshots.
-- **Chirality eindeutig.** Zwei Hände teilen sich keinen Smoother mehr.
+- **Isotroper Raum.** Vision-x/y sind unabhängig [0,1] — Abstände laufen in x′ = x·(w/h).
+- **Track-ID statt Chiralität.** Zwei Hände auf derselben Bildseite überschreiben sich nicht mehr.
+- **Gelenkwinkel + Softmax** statt Radialabstand und binärer Kanten.
+- **3D-Lift** über MANO-Knochenlängen plus echte Tiefe, wo das Format sie hat.
+- **Zeitnetz** 12 Frames, optional `HeliosTemporal.mlmodel`.
+- 1.5.7-Sicherheit bleibt: Not-Aus 0,8 s, Scharf-Ruhe 0,7 s, Peace 0,9 s, Flick-Wischen.
 
 ## Gesten
 
@@ -53,6 +50,7 @@ Fenster trafen oft das falsche Ziel: AX-Hit-Test und Snap liefen in Quartz-Y sta
 | Faust halten | Scharf schalten |
 | Offene Hand bewegen | Cursor (Trackpad: heben = neu ansetzen) |
 | Pinzette kurz | Klick |
+| Pinzette + Ringfinger kurz | Rechtsklick |
 | Pinzette oder Faust + ziehen | Fenster verschieben |
 | In die Papierkorb-Ecke ziehen und loslassen | Fenster zu / Finder-Auswahl in den Papierkorb |
 | Werfen nach oben | Wegwerfen |
@@ -62,7 +60,6 @@ Fenster trafen oft das falsche Ziel: AX-Hit-Test und Snap liefen in Quartz-Y sta
 | Zwei Pinzetten | Skalieren |
 | Offene Hand **schnell** waagerecht wischen | App wechseln |
 | Zwei offene Hände vertikal | Scroll |
-| Pinzette + Ringfinger kurz | Rechtsklick |
 | Offene Hand 1 s still (optional) | Dwell-Klick |
 | Peace halten (~0,9 s) | Fensteraufnahme auf den Schreibtisch |
 | Daumen hoch | App hervorholen |

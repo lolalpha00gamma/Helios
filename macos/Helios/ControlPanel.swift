@@ -60,6 +60,20 @@ struct ControlPanel: View {
             .toggleStyle(.switch)
 
             Toggle(isOn: Binding(
+                get: { state.dwellEnabled },
+                set: { state.setDwellEnabled($0) }
+            )) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Dwell-Klick")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("Offene Hand eine Sekunde still = Klick. Aus by default.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.switch)
+
+            Toggle(isOn: Binding(
                 get: { state.testMode },
                 set: { state.setTestMode($0) }
             )) {
@@ -186,6 +200,7 @@ struct ControlPanel: View {
                 LabeledContent("Hände", value: "\(state.hands.count)")
                 LabeledContent("Aktion", value: state.lastAction)
                 LabeledContent("Latenz", value: String(format: "%.0f ms · %.0f fps", state.latencyMs, state.fps))
+                LatencySpark(values: state.latencyHistory)
                 LabeledContent("Licht", value: state.luma < 0.28 ? "Dunkel — Verstärkung" : state.luma < 0.45 ? "Gedämpft" : "OK")
                 LabeledContent("Monitore", value: "\(state.screenCount)")
                 LabeledContent("Tiefe", value: state.hasDepth ? "Kanal aktiv" : "nur 3D-Lift")
@@ -397,5 +412,29 @@ struct ControlPanel: View {
         .padding(8)
         .background(Color.white.opacity(0.04))
         .overlay(Rectangle().stroke(Color.white.opacity(0.08), lineWidth: 1))
+    }
+}
+
+struct LatencySpark: View {
+    var values: [Double]
+
+    var body: some View {
+        GeometryReader { g in
+            let maxV = max(values.max() ?? 1, 1)
+            Path { p in
+                guard values.count > 1 else { return }
+                for (i, v) in values.enumerated() {
+                    let x = g.size.width * CGFloat(i) / CGFloat(max(values.count - 1, 1))
+                    let y = g.size.height * (1 - CGFloat(v / maxV))
+                    if i == 0 { p.move(to: CGPoint(x: x, y: y)) }
+                    else { p.addLine(to: CGPoint(x: x, y: y)) }
+                }
+            }
+            .stroke(HeliosTheme.cyan.opacity(0.85), lineWidth: 1.2)
+        }
+        .frame(height: 28)
+        .background(Color.white.opacity(0.04))
+        .overlay(Rectangle().stroke(Color.white.opacity(0.08), lineWidth: 1))
+        .accessibilityLabel("Latenz der letzten Frames")
     }
 }

@@ -48,6 +48,7 @@ final class GestureEngine {
     var grabTargetName = ""
     var cursorHand: String = "—"
     var mousePaused = false
+    var dwellEnabled = false
 
     private var fistSince: TimeInterval?
     private var fistLostAt: TimeInterval?
@@ -81,6 +82,10 @@ final class GestureEngine {
     private var armedQuietUntil: TimeInterval = 0
     private var cursorDidMove = false
     private var lastPalmWidth: CGFloat = 0.12
+    private var scrollAnchor: (t: TimeInterval, y: CGFloat)?
+    private var ringPinchSince: TimeInterval?
+    private var dwellSince: TimeInterval?
+    private var dwellPalm: CGPoint?
     private let system = SystemControl()
     var onLog: ((String, ProtocolKind, Int?) -> Void)?
     var focused: FocusedTarget?
@@ -122,6 +127,10 @@ final class GestureEngine {
         cursorDidMove = false
         mousePaused = false
         killFlash = false
+        scrollAnchor = nil
+        ringPinchSince = nil
+        dwellSince = nil
+        dwellPalm = nil
         system.endWindowDrag()
         cursor = nil
         twoHandSpan = nil
@@ -135,6 +144,10 @@ final class GestureEngine {
     func tick(hands incoming: [TrackedHand], now: TimeInterval) {
         let hands = incoming.filter { $0.joints.count >= 8 && $0.meanConfidence >= 0.18 }
         if hands.isEmpty {
+            if lastHandSeen > 0, now - lastHandSeen < 0.18, pinchHeld {
+                dragging = pinchHeld
+                return
+            }
             releasePointer()
             fistSince = nil
             fistLostAt = nil
@@ -148,6 +161,10 @@ final class GestureEngine {
             pinchHeld = false
             pinchBecameDrag = false
             twoPinchSince = nil
+            scrollAnchor = nil
+            ringPinchSince = nil
+            dwellSince = nil
+            dwellPalm = nil
             trashHot = false
             dragging = false
             grabPhase = .none
@@ -210,6 +227,10 @@ final class GestureEngine {
         }
 
         if handleKillSwitch(hands: hands, now: now) {
+            placeCursor(primary)
+            if !testMode, cursorDidMove, let p = cursor {
+                system.moveCursor(to: p)
+            }
             return
         }
         handleArming(hands: hands, now: now)
@@ -235,10 +256,7 @@ final class GestureEngine {
             return
         }
 
-        if handleTwoPinchScale(hands: hands, now: now) {
-            return
-        }
-
+        let scaling = handleTwoPinchScale(hands: hands, now: now)
         let actor = pinchActor(hands, primary: primary)
         let freezePointer = pinchHeld && !pinchBecameDrag
         if !freezePointer {
@@ -248,10 +266,19 @@ final class GestureEngine {
             }
         }
         updateTrashHot()
-        driveGrab(actor, now: now)
+        if scaling {
+            dragging = pinchHeld
+            return
+        }
+        let right = driveRightClick(actor, now: now)
+        if !right {
+            driveGrab(actor, now: now)
+        }
         driveSwipe(hands: hands, now: now)
+        driveScroll(hands: hands, now: now)
         drivePeace(actor, now: now)
         driveThumbs(actor, now: now)
+        driveDwell(actor, now: now)
         dragging = pinchHeld
         if system.isDragging {
             grabPhase = .grab
@@ -306,7 +333,7 @@ final class GestureEngine {
         systemAction: Bool = true,
         _ body: () -> ActionResult
     ) {
-        if systemAction, confidence < 0.70, !testMode {
+        if systemAction, confidence < 0.62, !testMode {
             lastAction = "\(name) — unsicher"
             onLog?("\(name) — Pose < 70 %", .blocked, Int(confidence * 100))
             return
@@ -508,7 +535,7 @@ final class GestureEngine {
             return true
         }
         twoHandSpan = span
-        return false
+        return true
     }
 
     private func updateTrashHot() {
@@ -712,6 +739,85 @@ final class GestureEngine {
             }
         } else {
             thumbsSince = nil
+        }
+    }
+
+    /// Zwei offene Hände vertikal — getrennt vom waagerechten Flick-Wischen.
+    private func driveScroll(hands: [TrackedHand], now: TimeInterval) {
+        guard !pinchHeld else {
+            scrollAnchor = nil
+            return
+        }
+        let open = hands.filter { $0.openScore >= 3 }
+        guard open.count >= 2 else {
+            scrollAnchor = nil
+            return
+        }
+        let y = open.map(\.palm.y).reduce(0, +) / CGFloat(open.count)
+        let unit = max(0.04, (open[0].palmWidth + open[1].palmWidth) / 2)
+        guard let a = scrollAnchor else {
+            scrollAnchor = (now, y)
+            return
+        }
+        let dy = (y - a.y) / unit
+        let dt = now - a.t
+        guard dt >= 0.05, abs(dy) > 0.10 else { return }
+        let ticks = Int32(max(-24, min(24, -dy * 18)))
+        guard ticks != 0 else { return }
+        let conf = Float(open.map(\.poseProb).min() ?? 0)
+        perform("Scroll", need: .input, confidence: conf) { system.scroll(ticks: ticks) }
+        scrollAnchor = (now, y)
+    }
+
+    /// Pinzette + Ringfinger, Mittel nicht gestreckt. Kurzer Halt → Rechtsklick statt Ziehen.
+    @discardableResult
+    private func driveRightClick(_ hand: TrackedHand, now: TimeInterval) -> Bool {
+        let ringOut = hand.isExtended(.ring) && !hand.isExtended(.middle)
+        let pinching = hand.pinchClosed || hand.pose == .pinch || hand.pinchClosedness > 0.55
+        guard pinching, ringOut, !pinchHeld else {
+            ringPinchSince = nil
+            return false
+        }
+        if ringPinchSince == nil { ringPinchSince = now }
+        let held = now - (ringPinchSince ?? now)
+        if held >= 0.14 {
+            perform("Rechtsklick", need: .input, confidence: Float(max(hand.poseProb, hand.pinchClosedness))) {
+                system.rightClick()
+            }
+            ringPinchSince = nil
+            cooldownUntil = now + 0.45
+            return true
+        }
+        lastAction = "Rechtsklick …"
+        return true
+    }
+
+    /// Offene Hand 1 s still. Aus by default — Accessibility, nicht Alltags-Klick.
+    private func driveDwell(_ hand: TrackedHand, now: TimeInterval) {
+        guard dwellEnabled, !pinchHeld, hand.openScore >= 3, hand.pose != .fist else {
+            dwellSince = nil
+            dwellPalm = nil
+            return
+        }
+        if let prev = dwellPalm {
+            let moved = space.dist(hand.palm, prev) / max(0.04, hand.palmWidth)
+            if moved > 0.10 {
+                dwellSince = now
+                dwellPalm = hand.palm
+                return
+            }
+        } else {
+            dwellSince = now
+            dwellPalm = hand.palm
+            return
+        }
+        if now - (dwellSince ?? now) >= 1.0 {
+            perform("Dwell-Klick", need: .input, confidence: Float(hand.poseProb)) { system.click() }
+            dwellSince = nil
+            dwellPalm = nil
+            cooldownUntil = now + 0.8
+        } else {
+            lastAction = "Dwell …"
         }
     }
 }

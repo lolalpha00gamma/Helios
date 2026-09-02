@@ -178,7 +178,9 @@ struct HUDView: View {
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(HeliosTheme.cyan)
             } else if state.mode == .idle {
-                Text("FAUST HALTEN → SCHARF")
+                Text(state.lastAction.localizedCaseInsensitiveContains("Not-Aus")
+                     ? "NOT-AUS · FAUST HALTEN → SCHARF"
+                     : "FAUST HALTEN → SCHARF")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(HeliosTheme.amber)
             }
@@ -266,6 +268,8 @@ struct HUDView: View {
             Text("Werfen oben      Wegwerfen")
             Text("Werfen unten     Minimieren")
             Text("Offene Hand wischen  App wechseln")
+            Text("Zwei Hände hoch/runter  Scroll")
+            Text("Pinzette + Ring  Rechtsklick")
             Text("Werfen L/R       Andocken")
             Text("Zwei Pinzetten   Skalieren")
             Text("Peace halten     Aufnahme")

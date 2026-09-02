@@ -146,7 +146,7 @@ final class HandTracker: @unchecked Sendable {
         }
         let observations = request.results ?? []
         if observations.isEmpty {
-            tracks.removeAll { now - $0.lastSeen > 0.28 }
+            tracks.removeAll { now - $0.lastSeen > 0.18 }
             return []
         }
 
@@ -167,11 +167,11 @@ final class HandTracker: @unchecked Sendable {
             var chirality = obs.chirality
             if chirality == .unknown {
                 let wx = raw[.wrist]?.x ?? 0.5
-                chirality = wx < 0.5 ? .left : .right
-            }
-            if mirrored {
-                if chirality == .left { chirality = .right }
-                else if chirality == .right { chirality = .left }
+                if mirrored {
+                    chirality = wx < 0.5 ? .left : .right
+                } else {
+                    chirality = wx < 0.5 ? .right : .left
+                }
             }
             obsList.append(RawObs(raw: raw, conf: conf, chirality: chirality, palm: GestureClassifier.palmCenter(raw)))
         }
@@ -189,6 +189,11 @@ final class HandTracker: @unchecked Sendable {
             slot.smoother.space = space
             slot.pinch.setSpace(space)
             let dt = slot.lastNow == 0 ? 0.016 : max(0.008, min(0.08, now - slot.lastNow))
+            if slot.lastSeen > 0, now - slot.lastSeen > 0.35 {
+                slot.hmm.reset()
+                slot.fusion.reset()
+                slot.temporal.reset()
+            }
 
             let smoothed = slot.smoother.apply(obs.raw, now: now)
             let pinchState = slot.pinch.update(raw: smoothed, conf: obs.conf, now: now)
@@ -288,7 +293,7 @@ final class HandTracker: @unchecked Sendable {
                 )
             )
         }
-        tracks.removeAll { now - $0.lastSeen > 0.28 }
+        tracks.removeAll { now - $0.lastSeen > 0.18 }
         return hands
     }
 
@@ -301,12 +306,14 @@ final class HandTracker: @unchecked Sendable {
         var pairs: [(o: Int, t: Int, d: CGFloat)] = []
         for (oi, o) in obs.enumerated() {
             for (ti, tr) in live {
-                pairs.append((oi, ti, space.dist(o.palm, tr.lastPalm)))
+                var d = space.dist(o.palm, tr.lastPalm)
+                if o.chirality == tr.chirality { d -= 0.04 }
+                pairs.append((oi, ti, d))
             }
         }
         for p in pairs.sorted(by: { $0.d < $1.d }) {
             if usedO.contains(p.o) || usedT.contains(p.t) { continue }
-            if p.d > 0.22 { continue }
+            if p.d > 0.42 { continue }
             result[p.o] = p.t
             usedO.insert(p.o)
             usedT.insert(p.t)

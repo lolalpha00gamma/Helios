@@ -53,6 +53,7 @@ struct FusionDebug: Equatable {
     var poseProb: Double
     var pinchClosedness: Double
     var usedDepth: Bool
+    var collapsed: [String] = []
 }
 
 struct Joint3: Equatable {

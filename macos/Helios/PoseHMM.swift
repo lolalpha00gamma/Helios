@@ -26,7 +26,7 @@ struct PoseHMM {
         now: TimeInterval,
         dt: TimeInterval
     ) -> (pose: HandPose, prob: Double, pinch: Double) {
-        let tauStay: Double = 0.18
+        let tauStay: Double = 0.11
         let pStay = exp(-dt / tauStay)
         let pLeave = 1 - pStay
         var next: [HandPose: Double] = [:]
@@ -55,7 +55,7 @@ struct PoseHMM {
 
         if best.key != current {
             if holdSince == nil { holdSince = now }
-            if now - (holdSince ?? now) >= 0.08, best.value >= 0.62 {
+            if now - (holdSince ?? now) >= 0.05, best.value >= 0.48 {
                 current = best.key
                 holdSince = nil
             }

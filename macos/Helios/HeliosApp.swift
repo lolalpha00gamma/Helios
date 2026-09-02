@@ -11,6 +11,7 @@ final class HeliosAppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
+        ConsolePolicy.openedByUser()
         ConsolePolicy.dressAll()
     }
 
@@ -93,10 +94,11 @@ struct HeliosApp: App {
 enum ConsolePolicy {
     private static var hiding = false
     private static var pinned = false
-    private static var userRequestedFront = false
+    /// Nur true, wenn die Konsole selbst angeklickt oder über Menü/Dock geöffnet wurde.
+    private static var consoleHeld = false
     private static var lastOtherPID: pid_t = 0
     private static var observers: [NSObjectProtocol] = []
-    private static var frontReset: DispatchWorkItem?
+    private static var clickMonitor: Any?
     private static var lastYield: TimeInterval = 0
 
     static func isHUD(_ w: NSWindow) -> Bool {
@@ -139,6 +141,7 @@ enum ConsolePolicy {
             Task { @MainActor in
                 if let bid, bid != Bundle.main.bundleIdentifier, pid != 0 {
                     lastOtherPID = pid
+                    consoleHeld = false
                 }
             }
         })
@@ -151,6 +154,17 @@ enum ConsolePolicy {
                 pinned = false
             }
         })
+        if clickMonitor == nil {
+            clickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { event in
+                let hud = event.window is HUDPanel
+                if event.window != nil, !hud {
+                    Task { @MainActor in
+                        consoleHeld = true
+                    }
+                }
+                return event
+            }
+        }
         if let front = NSWorkspace.shared.frontmostApplication,
            front.bundleIdentifier != Bundle.main.bundleIdentifier
         {
@@ -170,15 +184,8 @@ enum ConsolePolicy {
         w.collectionBehavior.insert([.canJoinAllSpaces, .stationary, .ignoresCycle])
     }
 
-    private static func userCaused() -> Bool {
-        if userRequestedFront { return true }
-        guard let e = NSApp.currentEvent else { return false }
-        switch e.type {
-        case .leftMouseDown, .rightMouseDown, .leftMouseUp, .rightMouseUp, .keyDown:
-            return true
-        default:
-            return false
-        }
+    private static func userChoseConsole() -> Bool {
+        consoleHeld
     }
 
     private static func demoteIfStolen(_ w: NSWindow) {
@@ -186,14 +193,14 @@ enum ConsolePolicy {
             w.orderOut(nil)
             return
         }
-        guard !userCaused() else { return }
+        guard !userChoseConsole() else { return }
         if w.isKeyWindow { w.resignKey() }
         if w.isMainWindow { w.resignMain() }
         yieldStolenFocus()
     }
 
     private static func yieldStolenFocus() {
-        guard !userCaused() else { return }
+        guard !userChoseConsole() else { return }
         guard lastOtherPID != 0 else { return }
         let now = CACurrentMediaTime()
         if now - lastYield < 0.28 { return }
@@ -207,16 +214,6 @@ enum ConsolePolicy {
         } else {
             other.activate()
         }
-    }
-
-    private static func markUserFront() {
-        userRequestedFront = true
-        frontReset?.cancel()
-        let work = DispatchWorkItem {
-            userRequestedFront = false
-        }
-        frontReset = work
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7, execute: work)
     }
 
     /// Nur wenn der Schalter „Konsole bei Scharf ausblenden“ an ist.
@@ -240,10 +237,14 @@ enum ConsolePolicy {
         }
     }
 
-    static func show() {
+    static func openedByUser() {
+        consoleHeld = true
         pinned = true
         hiding = false
-        markUserFront()
+    }
+
+    static func show() {
+        openedByUser()
         NSApp.setActivationPolicy(.regular)
         NSApp.activate()
         var found = false
@@ -261,7 +262,7 @@ enum ConsolePolicy {
     static func prepareQuit() {
         pinned = true
         hiding = false
-        markUserFront()
+        consoleHeld = true
         NSApp.setActivationPolicy(.regular)
     }
 }

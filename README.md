@@ -1,4 +1,4 @@
-# Helios **1.6.12**
+# Helios **1.6.13**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,10 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.13
+
+Nach vorn nur, wenn du die Konsole **selbst** anwählst (Fenster klicken, Menüleiste ☀ → Konsole, Dock). Gesten-Klicks, Klicks in anderen Apps und Kamera-Ticks holen sie nicht.
 
 ## Neu in 1.6.12
 

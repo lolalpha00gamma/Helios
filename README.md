@@ -1,4 +1,4 @@
-# Helios **1.6.11**
+# Helios **1.6.12**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,17 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.12
+
+1.6.11 hat Peace vs Scroll und Textauswahl — Slider zitterten trotzdem aus dem Magnet, ein fehlgeschlagener Screenshot sperrte 4 s, Zwei-Finger ging nur vertikal, und Text-Drag lief in die Toolbar.
+
+- **Click-Lock Slider.** Pinch auf AXSlider/Incrementor klebt bis 0,30 Handbreiten, kein Zitter-Drag.
+- **Peace-Cooldown 0,8 s** nach fehlgeschlagenem Screenshot, 4 s nur nach Treffer.
+- **Zwei-Finger waagerecht.** Klar horizontale Peace-Bewegung = `wheel2` (Browser-History/Shift-Scroll).
+- **Text-Drag bricht an Chrome ab.** AXButton/Toolbar/Tab beendet die Auswahl, nicht den Textkörper daneben.
+- **Natural-Scroll.** `com.apple.swipescrolldirection` XOR Profil-Invert — Natural-aus dreht Safari nicht doppelt.
+- **Tasten-Clutch.** `flagsChanged` + Repeat 550 ms; Shift/Cmd/Opt/Ctrl halten Injektion, CapsLock nicht.
 
 ## Neu in 1.6.11
 
@@ -172,8 +183,9 @@ Erkennung ist nicht mehr nur 2D. Vier Quellen laufen parallel und werden fusioni
 | Offene Hand **schnell** waagerecht wischen | App wechseln |
 | Zwei offene Hände vertikal | Scroll |
 | Zwei Finger (Peace) vertikal, zweite Hand ruht | Scroll (eine Hand) |
+| Zwei Finger (Peace) klar waagerecht | Horizontal-Scroll (`wheel2`) |
 | Offene Hand 1 s still (optional) | Dwell-Klick |
-| Peace halten (~0,9 s) | Fensteraufnahme auf den Schreibtisch |
+| Peace halten (~0,9 s, 1,2 s nach Scroll) | Fensteraufnahme. Fehlschlag 0,8 s Pause, Treffer 4 s |
 | Daumen hoch | App hervorholen |
 | Beide Handflächen (~0,8 s) | Not-Aus → Idle (erst Faust macht wieder scharf) |
 

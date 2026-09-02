@@ -12,6 +12,18 @@ enum CoordMath {
     /// AX-Hit-Test nicht jeden Frame systemweit.
     static let magnetCache: Double = 0.03
     static let textSelectHandwidths: CGFloat = 0.08
+    /// Pinch auf Slider: unter so vielen Handbreiten klebt der Magnet, kein Zitter-Drag.
+    static let clickLockHandwidths: CGFloat = 0.30
+    static let peaceCooldownOk: Double = 4
+    static let peaceCooldownFail: Double = 0.80
+    static let clickLockRoles: Set<String> = ["AXSlider", "AXIncrementor"]
+    static let textRoles: Set<String> = [
+        "AXTextArea", "AXTextField", "AXTextView", "AXWebArea", "AXStaticText"
+    ]
+    static let textAbortRoles: Set<String> = [
+        "AXButton", "AXToolbar", "AXTab", "AXMenuBar", "AXMenuItem",
+        "AXCloseButton", "AXMinimizeButton", "AXZoomButton", "AXRadioButton"
+    ]
 
     static func quartz(fromCocoa p: CGPoint, primaryMaxY: CGFloat) -> CGPoint {
         CGPoint(x: p.x, y: primaryMaxY - p.y)
@@ -106,5 +118,60 @@ enum CoordMath {
         radius: CGFloat = 8
     ) -> Bool {
         now - cachedAt < ttl && hypot(point.x - cachedAtPoint.x, point.y - cachedAtPoint.y) < radius
+    }
+
+    /// Nach fehlgeschlagenem Screenshot nicht 4 s tot — nur 0,8 s, sonst wirkt die App tot.
+    static func peaceCooldown(succeeded: Bool) -> Double {
+        succeeded ? peaceCooldownOk : peaceCooldownFail
+    }
+
+    /// Slider/Stepper: kleine Palm-Zitter sind kein Drag.
+    static func clickLockHolds(moved: CGFloat, role: String?) -> Bool {
+        guard let role, clickLockRoles.contains(role) else { return false }
+        return moved < clickLockHandwidths
+    }
+
+    /// Text-Drag bleibt in Text/Web. Chrome daneben bricht ab.
+    static func stillInText(role: String?) -> Bool {
+        guard let role else { return true }
+        if textRoles.contains(role) { return true }
+        if textAbortRoles.contains(role) { return false }
+        return true
+    }
+
+    /// Dominant-Achse. Klar waagerecht → horizontal (Browser Shift-Wheel), sonst vertikal.
+    static func scrollDelta(dx: CGFloat, dy: CGFloat) -> (horizontal: CGFloat, vertical: CGFloat) {
+        if abs(dx) > abs(dy) * 1.25, abs(dx) > 0.10 {
+            return (dx, 0)
+        }
+        return (0, dy)
+    }
+
+    /// macOS Natural-Scroll (Finger hoch = Inhalt runter). Default an.
+    static func naturalScrollEnabled(_ object: Any?) -> Bool {
+        if let b = object as? Bool { return b }
+        if let n = object as? NSNumber { return n.boolValue }
+        return true
+    }
+
+    /// Profil-Invert gilt für Natural-an. Natural-aus dreht nochmal, sonst doppelt falsch.
+    static func signedScrollTicks(_ ticks: Int32, profileInverts: Bool, natural: Bool) -> Int32 {
+        var t = ticks
+        if profileInverts { t = -t }
+        if !natural { t = -t }
+        return t
+    }
+
+    static let keyClutch: Double = 0.40
+    static let keyRepeatClutch: Double = 0.55
+    /// Shift/Ctrl/Opt/Cmd — CapsLock zählt nicht, sonst klebt der Clutch.
+    static let modifierBlockMask: UInt = (1 << 17) | (1 << 18) | (1 << 19) | (1 << 20)
+
+    static func modifiersBlockInjection(_ raw: UInt) -> Bool {
+        (raw & modifierBlockMask) != 0
+    }
+
+    static func keyClutchSeconds(isRepeat: Bool, modifiersDown: Bool) -> Double {
+        (isRepeat || modifiersDown) ? keyRepeatClutch : keyClutch
     }
 }

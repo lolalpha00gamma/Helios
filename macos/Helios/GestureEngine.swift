@@ -281,7 +281,7 @@ final class GestureEngine {
     private var armedQuietUntil: TimeInterval = 0
     private var cursorDidMove = false
     private var lastPalmWidth: CGFloat = 0.12
-    private var scrollAnchor: (t: TimeInterval, y: CGFloat)?
+    private var scrollAnchor: (t: TimeInterval, x: CGFloat, y: CGFloat)?
     private var ringPinchSince: TimeInterval?
     private var dwellSince: TimeInterval?
     private var dwellPalm: CGPoint?
@@ -303,6 +303,7 @@ final class GestureEngine {
     /// Zwei-Finger-Scroll-Nachlauf.
     private var lastScrollAt: TimeInterval = 0
     private var lastScrollTicks: Int32 = 0
+    private var lastScrollHorizontal: Int32 = 0
     private var pinchStartQuartz: CGPoint?
     private let system = SystemControl()
     var onLog: ((String, ProtocolKind, Int?) -> Void)?
@@ -364,6 +365,7 @@ final class GestureEngine {
         wasClutch = false
         lastScrollAt = 0
         lastScrollTicks = 0
+        lastScrollHorizontal = 0
         pinchStartQuartz = nil
         peaceProgress = 0
         clutchReason = nil
@@ -622,17 +624,18 @@ final class GestureEngine {
     }
 
 
+    @discardableResult
     private func perform(
         _ name: String,
         need: PermissionNeed = .ax,
         confidence: Float = 1,
         systemAction: Bool = true,
         _ body: () -> ActionResult
-    ) {
+    ) -> Bool {
         if systemAction, let kind = GestureAction.from(name: name), !profile.allows(kind), !testMode {
             lastAction = "\(name) — \(profile.name) blockt"
             onLog?("\(name) — Profil \(profile.name)", .blocked, Int(confidence * 100))
-            return
+            return false
         }
         if systemAction, !testMode {
             if let kind = GestureAction.from(name: name) {
@@ -644,30 +647,30 @@ final class GestureEngine {
                         .blocked,
                         Int(confidence * 100)
                     )
-                    return
+                    return false
                 }
             } else if luma < 0.20 {
                 lastAction = "\(name) — zu dunkel"
                 onLog?("\(name) — luma \(String(format: "%.2f", Double(luma))) < 0,20", .blocked, Int(confidence * 100))
-                return
+                return false
             }
         }
         if systemAction, confidence < 0.62, !testMode {
             lastAction = "\(name) — unsicher"
             onLog?("\(name) — Pose < 62 %", .blocked, Int(confidence * 100))
-            return
+            return false
         }
         let conf = Int(confidence * 100)
         if testMode {
             lastAction = "Test: \(name)"
             onLog?("\(name) — Testmodus, System unberührt", .blocked, conf)
-            return
+            return false
         }
         let r = body()
         if r.ok {
             lastAction = name
             onLog?("\(name) · \(r.detail)", .executed, conf)
-            return
+            return true
         }
         lastAction = "\(name) fehlgeschlagen"
         onLog?("\(name) — NICHT AUSGEFÜHRT: \(r.detail)", .failed, conf)
@@ -676,6 +679,7 @@ final class GestureEngine {
         } else if need == .input {
             Permissions.demand(.inputMonitoring)
         }
+        return false
     }
 
     @discardableResult
@@ -1057,9 +1061,9 @@ final class GestureEngine {
             var moved: CGFloat = 0
             if let first = pinchTrail.first {
                 moved = space.dist(hand.palm, CGPoint(x: first.x, y: first.y)) / max(0.04, hand.palmWidth)
-                // Bewegung ohne Profil-Greifen: trotzdem Drag-Intent, damit
-                // Safari keinen Fehlklick feuert — beginWindowDrag läuft über perform().
-                if moved > 0.18 { pinchBecameDrag = true }
+                if moved > 0.18, !CoordMath.clickLockHolds(moved: moved, role: system.lastMagnetRole) {
+                    pinchBecameDrag = true
+                }
             }
             let at = dragPoint(hand)
             if pinchStartQuartz == nil { pinchStartQuartz = at }
@@ -1118,6 +1122,9 @@ final class GestureEngine {
             }
             if !pinchBecameDrag, !system.isDragging, !system.isTextDragging {
                 applyMagnet(at: dragPoint(hand))
+                if CoordMath.clickLockHolds(moved: moved, role: system.lastMagnetRole) {
+                    lastAction = "Slider"
+                }
             }
             let span = space.dist(hand.point(.middleTip) ?? hand.palm, hand.palm) / max(0.04, hand.palmWidth)
             if let s0 = pinchSpan0, !system.isDragging, !system.isTextDragging, span > s0 + 1.4 {
@@ -1256,7 +1263,7 @@ final class GestureEngine {
             peaceProgress = CGFloat(min(1, max(0, held / need)))
             if held > need {
                 let target = focused
-                perform("Aufnahme", need: .capture, confidence: Float(hand.poseProb)) {
+                let ok = perform("Aufnahme", need: .capture, confidence: Float(hand.poseProb)) {
                     if let t = target, t.quartzBounds.width > 8 {
                         return system.screenshotFocused(windowID: t.windowID, bounds: t.quartzBounds)
                     }
@@ -1267,8 +1274,9 @@ final class GestureEngine {
                 }
                 peaceSince = nil
                 peaceProgress = 0
-                peaceCooldownUntil = now + 4
-                cooldownUntil = now + 4
+                let pause = CoordMath.peaceCooldown(succeeded: ok)
+                peaceCooldownUntil = now + pause
+                cooldownUntil = now + pause
             }
         } else {
             peaceSince = nil
@@ -1323,6 +1331,7 @@ final class GestureEngine {
         guard !pinchHeld else {
             scrollAnchor = nil
             lastScrollTicks = 0
+            lastScrollHorizontal = 0
             return
         }
         func isRest(_ h: TrackedHand) -> Bool {
@@ -1354,34 +1363,45 @@ final class GestureEngine {
             return
         }
         let y = actors.map(\.palm.y).reduce(0, +) / CGFloat(actors.count)
+        let x = actors.map(\.palm.x).reduce(0, +) / CGFloat(actors.count)
         let unit = max(0.04, (actors[0].palmWidth + (actors.count > 1 ? actors[1].palmWidth : actors[0].palmWidth)) / 2)
         guard let a = scrollAnchor else {
-            scrollAnchor = (now, y)
+            scrollAnchor = (now, x, y)
             return
         }
         let dy = (y - a.y) / unit
+        let dx = (x - a.x) / unit
         let dt = now - a.t
-        guard dt >= 0.05, abs(dy) > 0.10 else { return }
+        guard dt >= 0.05 else { return }
+        let axis = CoordMath.scrollDelta(dx: dx, dy: dy)
         let gain = 2.2 / max(0.06, unit)
-        var ticks = Int32(max(-24, min(24, -dy * gain)))
-        if profile.invertScroll { ticks = -ticks }
-        guard ticks != 0 else { return }
+        var vTicks = Int32(max(-24, min(24, -axis.vertical * gain)))
+        var hTicks = Int32(max(-24, min(24, -axis.horizontal * gain)))
+        let natural = CoordMath.naturalScrollEnabled(
+            UserDefaults.standard.object(forKey: "com.apple.swipescrolldirection")
+        )
+        vTicks = CoordMath.signedScrollTicks(vTicks, profileInverts: profile.invertScroll, natural: natural)
+        hTicks = CoordMath.signedScrollTicks(hTicks, profileInverts: profile.invertScroll, natural: natural)
+        guard vTicks != 0 || hTicks != 0 else { return }
         let conf = Float(actors.map(\.poseProb).min() ?? 0)
-        perform("Scroll", need: .input, confidence: conf) { system.scroll(ticks: ticks) }
-        scrollAnchor = (now, y)
+        perform("Scroll", need: .input, confidence: conf) { system.scroll(ticks: vTicks, horizontal: hTicks) }
+        scrollAnchor = (now, x, y)
         lastScrollAt = now
-        lastScrollTicks = ticks
+        lastScrollTicks = vTicks
+        lastScrollHorizontal = hTicks
         peaceSince = nil
         peaceProgress = 0
     }
 
     /// Trackpad-Nachlauf 180 ms, sonst stirbt der Schwung hart am Lift.
     private func coastScroll(now: TimeInterval) {
-        let ticks = CoordMath.scrollCoastTicks(last: lastScrollTicks, elapsed: now - lastScrollAt)
-        if ticks != 0 {
-            perform("Scroll", need: .input, confidence: 0.70) { system.scroll(ticks: ticks) }
+        let v = CoordMath.scrollCoastTicks(last: lastScrollTicks, elapsed: now - lastScrollAt)
+        let h = CoordMath.scrollCoastTicks(last: lastScrollHorizontal, elapsed: now - lastScrollAt)
+        if v != 0 || h != 0 {
+            perform("Scroll", need: .input, confidence: 0.70) { system.scroll(ticks: v, horizontal: h) }
         } else {
             lastScrollTicks = 0
+            lastScrollHorizontal = 0
         }
     }
 

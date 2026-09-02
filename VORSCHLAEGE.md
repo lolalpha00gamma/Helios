@@ -1,6 +1,17 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.11**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+Stand: **1.6.12**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+
+## In 1.6.12 erledigt
+
+Warum 1.6.11 Slider trotzdem zittert, Peace nach Fehlschlag 4 s tot ist, Browser nicht seitwärts scrollt und Text-Drag in die Toolbar läuft: Magnet ließ nach 0,18 Handbreiten los. `drivePeace` setzte Cooldown immer auf 4 s. `driveScroll` kannte nur Y. `updateTextDrag` hat die AX-Rolle nicht geprüft. Natural-Scroll des Systems war unsichtbar. `keyDown` ohne Repeat/Modifier ließ Tippen in Gesten laufen.
+
+1. **Click-Lock** auf AXSlider/Incrementor bis 0,30 Handbreiten. Magnet-Cache hält die Rolle.
+2. **Peace-Cooldown 0,8 s** nach Fehlschlag (`perform` gibt den Treffer zurück).
+3. **Horizontal-Scroll** (`wheel2`) bei klarem Δx.
+4. **Text-Drag bricht** an Button/Toolbar/Tab.
+5. **Natural-Scroll XOR Profil.** Natural-aus dreht Safari nicht doppelt.
+6. **Tasten-Clutch.** `flagsChanged` + Repeat 550 ms, Modifier halten, CapsLock nicht.
 
 ## In 1.6.11 erledigt
 
@@ -139,10 +150,11 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 
 ## Nächste Fixes (klein, hoher Nutzen)
 
-- **Click-Lock für Slider.** Pinch halten rastet, Bewegung ohne Zittern am Thumb — Magnet sitzt, der Zug zittert noch.
-- **Peace-Cooldown kürzer nach fehlgeschlagenem Screenshot** (kein Fenster), nicht 4 s tot.
-- **Zwei-Finger-Scroll horizontal** in Browser (Shift-Wheel), nicht nur vertikal.
-- **Text-Drag bricht ab**, wenn die Hand die AXTextArea verlässt — sonst selektiert man in den Chrome daneben.
+- **Shift-Klick.** Faust der zweiten Hand während Pinch = Shift+Klick (Finder/Xcode-Mehrfach).
+- **I-Beam.** Magnet auf AXTextArea zeigt Text-Cursor, nicht den Pfeil.
+- **Peace-Region.** `screencapture -R` wenn kein Fenster unter der Hand.
+- **Rechtsklick-Hold 140 ms vs. Text-Drag:** Ringfinger-Pinch darf keine Auswahl starten.
+- **Horizontal-Invert getrennt.** Safari-History (wheel2) nicht denselben XOR wie Seitenscroll.
 
 ## Größere Erweiterungen
 
@@ -159,7 +171,6 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Zwei-Personen-Szenen.** Wenn Körperpose zwei Torsi sieht, zweite Person nie als Steuerhand.
 - **Gesten-Grammatik.** Sequenzen (Pinch → Flick = Tab wechseln) statt einer Pose = einer Aktion.
 - **Kalman auf Palme 3D**, sobald Tiefe da ist — One-Euro bleibt für 2D.
-- **Click-Lock** für Slider: Pinch halten rastet, Bewegung ohne Zittern am Thumb.
 - **Aegis-Bridge.** Eine Kamera-Session, zwei Consumer — TCC nur einmal.
 - **Blick (wenn das SDK es hergibt)** disambiguiert welches Fenster gemeint ist, bevor AX rät.
 - **Stage-Manager-Spaces.** Ein SpaceMap pro `CGSSpace`, sonst springt der Cursor nach Space-Wechsel.
@@ -229,3 +240,9 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - Text-Pinch wieder als Fenstergriff über dem Textkörper.
 - AX-Hit-Test jeden Frame ohne Cache.
 - Magnet nur auf Button/Slider (Tabs und Menüs daneben klicken).
+- Slider-Magnet nach 0,18 Handbreiten loslassen (Zitter-Drag).
+- Peace-Cooldown 4 s nach fehlgeschlagenem Screenshot.
+- Zwei-Finger nur vertikal (Browser kann nicht seitwärts).
+- Text-Drag über AXButton/Toolbar weiterziehen.
+- Tasten-Clutch nur auf den ersten `keyDown` (Repeat und Modifier durchlassen).
+- Natural-Scroll des Systems ignorieren und Profil doppelt invertieren.

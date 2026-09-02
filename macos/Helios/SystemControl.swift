@@ -39,6 +39,7 @@ final class SystemControl {
     private var magnetCachedAt: Double = 0
     private var magnetCachedAtPoint = CGPoint.zero
     private var magnetCached: CGPoint?
+    private var magnetCachedRole: String?
     /// Markiert eigene CGEvents. Clutch filtert darüber, nicht nur über 120 ms.
     private static let stampMagic: Int64 = 0x48454C49
 
@@ -49,6 +50,11 @@ final class SystemControl {
     var allowsInjection: Bool {
         if fromInstallMedia { return false }
         let now = CACurrentMediaTime()
+        if CoordMath.modifiersBlockInjection(NSEvent.modifierFlags.rawValue) {
+            keyPauseUntil = max(keyPauseUntil, now + CoordMath.keyClutch)
+            injectGraceUntil = max(injectGraceUntil, keyPauseUntil + Self.clutchExitGrace)
+            return false
+        }
         if now < pauseUntil {
             mouseHasControl = true
             injectGraceUntil = pauseUntil + Self.clutchExitGrace
@@ -69,6 +75,7 @@ final class SystemControl {
     var clutchReason: String? {
         if fromInstallMedia { return nil }
         let now = CACurrentMediaTime()
+        if CoordMath.modifiersBlockInjection(NSEvent.modifierFlags.rawValue) { return "Tastatur" }
         if now < pauseUntil { return "Maus" }
         if now < keyPauseUntil { return "Tastatur" }
         if now < injectGraceUntil { return "Nachlauf" }
@@ -93,12 +100,12 @@ final class SystemControl {
     func startClutch() {
         guard monitors.isEmpty else { return }
         let mouse: NSEvent.EventTypeMask = [.leftMouseDragged, .mouseMoved]
-        let keys: NSEvent.EventTypeMask = [.keyDown]
+        let keys: NSEvent.EventTypeMask = [.keyDown, .flagsChanged]
         let noteMouse: (NSEvent) -> Void = { [weak self] e in
             Task { @MainActor in self?.noteHardware(e) }
         }
-        let noteKey: (NSEvent) -> Void = { [weak self] _ in
-            Task { @MainActor in self?.noteKeyboard() }
+        let noteKey: (NSEvent) -> Void = { [weak self] e in
+            Task { @MainActor in self?.noteKeyboard(e) }
         }
         if let g = NSEvent.addGlobalMonitorForEvents(matching: mouse, handler: noteMouse) {
             monitors.append(g)
@@ -107,15 +114,16 @@ final class SystemControl {
             monitors.append(g)
         }
         if let l = NSEvent.addLocalMonitorForEvents(matching: keys, handler: { [weak self] e in
-            Task { @MainActor in self?.noteKeyboard() }
+            Task { @MainActor in self?.noteKeyboard(e) }
             return e
         }) {
             monitors.append(l)
         }
     }
 
-    private func noteKeyboard() {
-        keyPauseUntil = CACurrentMediaTime() + 0.40
+    private func noteKeyboard(_ e: NSEvent) {
+        let mods = CoordMath.modifiersBlockInjection(e.modifierFlags.rawValue)
+        keyPauseUntil = CACurrentMediaTime() + CoordMath.keyClutchSeconds(isRepeat: e.isARepeat, modifiersDown: mods)
     }
 
     private func noteHardware(_ e: NSEvent) {
@@ -187,22 +195,25 @@ final class SystemControl {
     }
 
     @discardableResult
-    func scroll(ticks: Int32) -> ActionResult {
+    func scroll(ticks: Int32, horizontal: Int32 = 0) -> ActionResult {
         guard allowsInjection else { return .fail("Maus hat Vorrang") }
-        guard ticks != 0 else { return .ok("0") }
+        guard ticks != 0 || horizontal != 0 else { return .ok("0") }
         let src = CGEventSource(stateID: .hidSystemState)
         guard let e = CGEvent(
             scrollWheelEvent2Source: src,
             units: .pixel,
-            wheelCount: 1,
+            wheelCount: 2,
             wheel1: ticks,
-            wheel2: 0,
+            wheel2: horizontal,
             wheel3: 0
         ) else {
             return .fail("CGEvent Scroll")
         }
         stamp(e)
         e.post(tap: .cghidEventTap)
+        if horizontal != 0, ticks == 0 {
+            return .ok(String(format: "h%+d", horizontal))
+        }
         return .ok(String(format: "%+d", ticks))
     }
 
@@ -273,6 +284,10 @@ final class SystemControl {
         }
         guard textDragActive else { return }
         let loc = ScreenGeometry.clampQuartz(quartz)
+        if !CoordMath.stillInText(role: axRole(at: loc)) {
+            endTextDrag()
+            return
+        }
         lastPosted = loc
         lastPostAt = CACurrentMediaTime()
         _ = postMouse(.leftMouseDragged, at: loc)
@@ -286,6 +301,7 @@ final class SystemControl {
     }
 
     var isTextDragging: Bool { textDragActive }
+    private(set) var lastMagnetRole: String?
 
     /// Pinch über Text stiehlt kein Fenster — nur die oberen 36 pt (Traffic Lights).
     func onTitleBar(at quartz: CGPoint) -> Bool {
@@ -306,22 +322,25 @@ final class SystemControl {
             point: quartz
            )
         {
+            lastMagnetRole = magnetCachedRole
             return cached
         }
         guard let win = targetWindow(at: quartz, allowFrontmost: false) else {
             magnetCachedAt = now
             magnetCachedAtPoint = quartz
             magnetCached = nil
+            magnetCachedRole = nil
+            lastMagnetRole = nil
             return nil
         }
         let cocoa = ScreenGeometry.cocoa(fromQuartz: quartz)
-        var candidates: [CGPoint] = []
+        var candidates: [(point: CGPoint, role: String)] = []
         for attr in ["AXCloseButton", "AXMinimizeButton", "AXZoomButton"] as [CFString] {
             var btn: CFTypeRef?
             if AXUIElementCopyAttributeValue(win, attr, &btn) == .success, let btn {
                 let el = btn as! AXUIElement
                 if let p = position(of: el), let s = size(of: el) {
-                    candidates.append(CGPoint(x: p.x + s.width / 2, y: p.y + s.height / 2))
+                    candidates.append((CGPoint(x: p.x + s.width / 2, y: p.y + s.height / 2), attr as String))
                 }
             }
         }
@@ -335,23 +354,37 @@ final class SystemControl {
             if let r = role as? String, Self.magnetRoles.contains(r),
                let p = position(of: el), let s = size(of: el)
             {
-                candidates.append(CGPoint(x: p.x + s.width / 2, y: p.y + s.height / 2))
+                candidates.append((CGPoint(x: p.x + s.width / 2, y: p.y + s.height / 2), r))
             }
         }
-        var best: CGPoint?
+        var best: (point: CGPoint, role: String)?
         var bestD = Self.magnetRadius
         for c in candidates {
-            let d = hypot(cocoa.x - c.x, cocoa.y - c.y)
+            let d = hypot(cocoa.x - c.point.x, cocoa.y - c.point.y)
             if d > 0.5, d <= bestD {
                 bestD = d
                 best = c
             }
         }
-        let result = best.map { ScreenGeometry.quartz(fromCocoa: $0) }
+        lastMagnetRole = best?.role
+        magnetCachedRole = best?.role
+        let result = best.map { ScreenGeometry.quartz(fromCocoa: $0.point) }
         magnetCachedAt = now
         magnetCachedAtPoint = quartz
         magnetCached = result
         return result
+    }
+
+    func axRole(at quartz: CGPoint) -> String? {
+        let cocoa = ScreenGeometry.cocoa(fromQuartz: quartz)
+        var hit: AXUIElement?
+        let sys = ax(AXUIElementCreateSystemWide())
+        guard AXUIElementCopyElementAtPosition(sys, Float(cocoa.x), Float(cocoa.y), &hit) == .success,
+              let el = hit
+        else { return nil }
+        var role: CFTypeRef?
+        AXUIElementCopyAttributeValue(el, "AXRole" as CFString, &role)
+        return role as? String
     }
 
     private static let magnetRoles: Set<String> = [

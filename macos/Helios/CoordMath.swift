@@ -68,6 +68,35 @@ enum CoordMath {
     static func nearUnitCenter(u: CGFloat, v: CGFloat, radius: CGFloat = 0.22) -> Bool {
         hypot(u - 0.5, v - 0.5) < radius
     }
+
+    /// 3×3 zeilenweise. Inverse oder nil.
+    static func invert3x3(_ H: [CGFloat]) -> [CGFloat]? {
+        guard H.count == 9 else { return nil }
+        let a = H[0], b = H[1], c = H[2]
+        let d = H[3], e = H[4], f = H[5]
+        let g = H[6], h = H[7], i = H[8]
+        let A = e * i - f * h
+        let B = f * g - d * i
+        let C = d * h - e * g
+        let det = a * A + b * B + c * C
+        guard abs(det) > 1e-12 else { return nil }
+        let s = 1 / det
+        return [
+            A * s, (c * h - b * i) * s, (b * f - c * e) * s,
+            B * s, (a * i - c * g) * s, (c * d - a * f) * s,
+            C * s, (b * g - a * h) * s, (a * e - b * d) * s
+        ]
+    }
+
+    static func apply3x3(_ H: [CGFloat], _ p: CGPoint) -> CGPoint? {
+        guard H.count == 9 else { return nil }
+        let w = H[6] * p.x + H[7] * p.y + H[8]
+        guard abs(w) > 1e-8 else { return nil }
+        return CGPoint(
+            x: (H[0] * p.x + H[1] * p.y + H[2]) / w,
+            y: (H[3] * p.x + H[4] * p.y + H[5]) / w
+        )
+    }
 }
 
 enum FlingKind: Equatable {
@@ -403,9 +432,9 @@ enum CameraPair: String, CaseIterable, Identifiable {
     var detailDE: String {
         switch self {
         case .single: return "Nur die gewählte Quelle. Blickwinkel = diese eine Kamera."
-        case .macPhone: return "Mac von vorn, iPhone zweiter Winkel (Kontinuität oder Desk View)."
-        case .macOsmo: return "Mac von vorn, Osmo Action 3 per USB (Webcam-Modus) seitlich/weit."
-        case .phoneOsmo: return "Kein Mac. iPhone führt, Osmo deckt den toten Winkel."
+        case .macPhone: return "Mac führt. iPhone ergänzt Fingerlage, keine eigenen Aktionen."
+        case .macOsmo: return "Mac führt. Osmo ergänzt Fingerlage aus dem zweiten Winkel, keine eigenen Aktionen."
+        case .phoneOsmo: return "iPhone führt. Osmo ergänzt den toten Winkel, keine eigenen Aktionen."
         }
     }
 }
@@ -427,7 +456,7 @@ enum CameraRig {
         }
     }
 
-    /// Hysterese: Cover nur wenn Lead die Hand verliert oder deutlich schlechter ist.
+    /// Cover wird nie Aktor. Nur Lage/Pinch-Bestätigung am Lead.
     static func useCover(
         leadQ: Double,
         coverQ: Double,
@@ -435,15 +464,26 @@ enum CameraRig {
         coverN: Int,
         usingCover: Bool
     ) -> Bool {
-        if coverN == 0 { return false }
-        if leadN == 0 { return true }
-        if usingCover {
-            return leadQ <= coverQ + GestureMath.rigCoverExit
-        }
-        return coverQ > leadQ + GestureMath.rigCoverEnter && leadQ < 0.40
+        _ = (leadQ, coverQ, leadN, coverN, usingCover)
+        return false
     }
 
     static func mapsDisagree(_ a: CGPoint, _ b: CGPoint, limit: CGFloat = GestureMath.rigDisagreePx) -> Bool {
         hypot(a.x - b.x, a.y - b.y) > limit
+    }
+
+    /// Cover darf den Zeiger leicht ziehen, nie wegspringen.
+    static func blendScreen(_ lead: CGPoint, _ cover: CGPoint) -> CGPoint? {
+        if mapsDisagree(lead, cover) { return nil }
+        return CGPoint(
+            x: lead.x * 0.72 + cover.x * 0.28,
+            y: lead.y * 0.72 + cover.y * 0.28
+        )
+    }
+
+    /// Cover darf Pinch bestätigen, nie erfinden.
+    static func pinchAssist(lead: Double, cover: Double) -> Double {
+        guard lead > 0.28, cover > 0.40 else { return lead }
+        return min(1, 0.70 * lead + 0.30 * cover)
     }
 }

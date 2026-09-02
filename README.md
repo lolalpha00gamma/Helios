@@ -1,4 +1,4 @@
-# Helios **1.6.15**
+# Helios **1.6.16**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,15 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.16
+
+Osmo/Cover hat allein Aktionen ausgelöst (schräger Blickwinkel, falsche Pinzette) — Kalibrierung rutschte weg, ohne dass du etwas getan hast.
+
+- **Mac führt.** Cover ist nur Ergänzung für Finger- und Handlage. Keine eigenen Klicks, Züge, Würfe.
+- Ohne Hand in der Mac-Kamera passiert nichts, auch wenn Osmo etwas sieht.
+- Cover darf Pinch nur **bestätigen**, nicht erfinden. Lage wird gemischt, wenn beide Homographien einig sind; sonst Mac.
+- Cover-Kalibrierung: Pinzette zählt nur, wenn die Mac-Kamera sie auch sieht.
 
 ## Neu in 1.6.15
 

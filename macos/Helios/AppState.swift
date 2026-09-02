@@ -668,45 +668,90 @@ final class AppState: ObservableObject {
         let leadID = camera.selectedID
         let coverID = camera.coverID
         let disp = ScreenGeometry.mainDisplayID
+        let leadMap = SpaceMap.load(cameraID: leadID, displayID: disp) ?? SpaceMap.load(displayID: disp)
+        let coverMap = SpaceMap.load(cameraID: coverID, displayID: disp)
 
         if calibSession.active {
             if !calibSession.cameraID.isEmpty, calibSession.cameraID == coverID {
-                engine.spaceMap = SpaceMap.load(cameraID: coverID, displayID: disp)
-                return cover
+                engine.spaceMap = coverMap
+                usingCover = false
+                return coverForCalib(cover, lead: lead)
             }
-            engine.spaceMap = SpaceMap.load(cameraID: leadID, displayID: disp)
-                ?? SpaceMap.load(displayID: disp)
+            engine.spaceMap = leadMap
+            usingCover = false
             return lead
         }
 
-        let leadQ = lead.map(\.quality).max() ?? 0
-        let coverQ = cover.map(\.quality).max() ?? 0
-        var pick = CameraRig.useCover(
-            leadQ: leadQ,
-            coverQ: coverQ,
-            leadN: lead.count,
-            coverN: cover.count,
-            usingCover: usingCover
-        )
-        let leadMap = SpaceMap.load(cameraID: leadID, displayID: disp) ?? SpaceMap.load(displayID: disp)
-        let coverMap = SpaceMap.load(cameraID: coverID, displayID: disp)
-        if pick, coverMap?.isReady != true { pick = false }
-        if pick, lead.count > 0, cover.count > 0,
-           let lm = leadMap, lm.isReady, let cm = coverMap, cm.isReady
-        {
-            let a = lm.apply(lead[0].palm)
-            let b = cm.apply(cover[0].palm)
-            if CameraRig.mapsDisagree(a, b) {
-                pick = false
+        usingCover = false
+        engine.spaceMap = leadMap
+        if lead.isEmpty || cover.isEmpty { return lead }
+        return refineLeadWithCover(lead: lead, cover: cover, leadMap: leadMap, coverMap: coverMap)
+    }
+
+    /// Cover-Kalibrierung: Palme aus Osmo, Pinzette nur wenn die Lead-Kamera mitmacht.
+    private func coverForCalib(_ cover: [TrackedHand], lead: [TrackedHand]) -> [TrackedHand] {
+        guard !lead.isEmpty else { return [] }
+        let leadPinch = lead.contains { $0.pinchClosed || $0.pinchClosedness > 0.52 || $0.pose == .pinch }
+        guard leadPinch else {
+            return cover.map {
+                var h = $0
+                h.pinchClosed = false
+                h.pinchClosedness = min(h.pinchClosedness, 0.30)
+                return h
             }
         }
-        usingCover = pick
-        if pick {
-            engine.spaceMap = coverMap
-            return cover
+        return cover
+    }
+
+    private func refineLeadWithCover(
+        lead: [TrackedHand],
+        cover: [TrackedHand],
+        leadMap: SpaceMap?,
+        coverMap: SpaceMap?
+    ) -> [TrackedHand] {
+        var out = lead
+        let canMap = leadMap?.isReady == true && coverMap?.isReady == true
+        for i in out.indices {
+            guard let c = matchCover(out[i], cover, leadMap: leadMap, coverMap: coverMap) else { continue }
+            let pinch = CameraRig.pinchAssist(lead: out[i].pinchClosedness, cover: c.pinchClosedness)
+            out[i].pinchClosedness = pinch
+            out[i].pinchClosed = pinch > 0.55
+            out[i].quality = min(1, out[i].quality + 0.10 * c.quality)
+            if canMap, let lm = leadMap, let cm = coverMap {
+                let a = lm.apply(out[i].palm)
+                let b = cm.apply(c.palm)
+                if let blended = CameraRig.blendScreen(a, b), let back = lm.invert(blended) {
+                    out[i].palm = CGPoint(
+                        x: min(max(back.x, 0), 1),
+                        y: min(max(back.y, 0), 1)
+                    )
+                }
+            }
         }
-        engine.spaceMap = leadMap
-        return lead
+        return out
+    }
+
+    private func matchCover(
+        _ lead: TrackedHand,
+        _ cover: [TrackedHand],
+        leadMap: SpaceMap?,
+        coverMap: SpaceMap?
+    ) -> TrackedHand? {
+        if lead.chirality != .unknown {
+            let same = cover.filter { $0.chirality == lead.chirality }
+            if same.count == 1 { return same[0] }
+            if same.count > 1, let lm = leadMap, lm.isReady, let cm = coverMap, cm.isReady {
+                let lp = lm.apply(lead.palm)
+                return same.min {
+                    let da = hypot(cm.apply($0.palm).x - lp.x, cm.apply($0.palm).y - lp.y)
+                    let db = hypot(cm.apply($1.palm).x - lp.x, cm.apply($1.palm).y - lp.y)
+                    return da < db
+                }
+            }
+            return same.first
+        }
+        if cover.count == 1, lead.chirality == .unknown { return cover[0] }
+        return nil
     }
 }
 

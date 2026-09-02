@@ -88,6 +88,12 @@ struct SpaceMap: Codable {
         return ScreenGeometry.clampQuartz(p)
     }
 
+    /// Bildschirm → Kamera-Handfläche. Cover-Lage in Lead-Raum.
+    func invert(_ screen: CGPoint) -> CGPoint? {
+        guard isReady, let H = cachedHomography(), let inv = CoordMath.invert3x3(H) else { return nil }
+        return CoordMath.apply3x3(inv, screen)
+    }
+
     /// Außen absolut (Homographie), innen Relativ-Schritt. `relative` ist schon in Quartz.
     func hybrid(palm: CGPoint, relative: CGPoint, band: CGFloat = GestureMath.hybridBand) -> CGPoint {
         let absP = apply(palm)

@@ -342,7 +342,7 @@ struct HUDView: View {
                     image: state.coverPreview,
                     hands: state.coverHands,
                     label: state.coverRunning
-                        ? "\(state.coverName) · LIVE"
+                        ? "\(state.coverName) · Ergänzung"
                         : (state.coverError ?? "Osmo nicht live"),
                     width: 220,
                     height: 124

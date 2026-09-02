@@ -365,12 +365,44 @@ enum CoordTests {
             fputs("FAIL Cover nicht bei gutem Lead\n", stderr)
             fails += 1
         }
-        if !CameraRig.useCover(leadQ: 0.1, coverQ: 0.7, leadN: 1, coverN: 1, usingCover: false) {
-            fputs("FAIL Cover wenn Lead die Hand fast verliert\n", stderr)
+        if CameraRig.useCover(leadQ: 0.1, coverQ: 0.7, leadN: 1, coverN: 1, usingCover: false) {
+            fputs("FAIL Cover nie Aktor, auch wenn Lead schwach\n", stderr)
             fails += 1
         }
-        if !CameraRig.useCover(leadQ: 0.0, coverQ: 0.4, leadN: 0, coverN: 1, usingCover: false) {
-            fputs("FAIL Cover wenn Lead leer\n", stderr)
+        if CameraRig.useCover(leadQ: 0.0, coverQ: 0.4, leadN: 0, coverN: 1, usingCover: false) {
+            fputs("FAIL Cover nie Aktor wenn Lead leer\n", stderr)
+            fails += 1
+        }
+        if CameraRig.pinchAssist(lead: 0.10, cover: 0.95) > 0.12 {
+            fputs("FAIL Cover erfindet keinen Pinch\n", stderr)
+            fails += 1
+        }
+        if CameraRig.pinchAssist(lead: 0.60, cover: 0.90) <= 0.60 {
+            fputs("FAIL Cover darf Pinch der Lead-Hand bestätigen\n", stderr)
+            fails += 1
+        }
+        if CameraRig.blendScreen(CGPoint(x: 0, y: 0), CGPoint(x: 200, y: 0)) != nil {
+            fputs("FAIL Winkel-Unco nicht mischen\n", stderr)
+            fails += 1
+        }
+        if CameraRig.blendScreen(CGPoint(x: 10, y: 10), CGPoint(x: 20, y: 12)) == nil {
+            fputs("FAIL kleine Lage-Differenz mischen\n", stderr)
+            fails += 1
+        }
+        let ident: [CGFloat] = [1, 0, 0, 0, 1, 0, 0, 0, 1]
+        if let q = CoordMath.apply3x3(ident, CGPoint(x: 0.4, y: 0.7)) {
+            pointEq(q, CGPoint(x: 0.4, y: 0.7), "Homographie Identität")
+        } else {
+            fputs("FAIL apply3x3 Identität\n", stderr)
+            fails += 1
+        }
+        if let inv = CoordMath.invert3x3([2, 0, 1, 0, 3, 4, 0, 0, 1]),
+           let p = CoordMath.apply3x3([2, 0, 1, 0, 3, 4, 0, 0, 1], CGPoint(x: 0.2, y: 0.3)),
+           let back = CoordMath.apply3x3(inv, p)
+        {
+            pointEq(back, CGPoint(x: 0.2, y: 0.3), "Homographie Roundtrip")
+        } else {
+            fputs("FAIL invert3x3 Roundtrip\n", stderr)
             fails += 1
         }
         if CameraRig.mapsDisagree(CGPoint(x: 0, y: 0), CGPoint(x: 40, y: 40)) {

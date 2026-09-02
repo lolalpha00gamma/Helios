@@ -245,7 +245,7 @@ struct ControlPanel: View {
                         Button("Kalibrierung löschen") { state.clearCalibration() }
                             .buttonStyle(.borderless)
                     }
-                    Text("Je Ecke: dein persönlicher Anschlag in DIESER Kamera, nicht der Kamerarand. Jede Quelle hat eigenen Blickwinkel (Mac von vorn, iPhone Kontinuität/Desk View, Osmo weit/seitlich) — die Homographie schluckt Winkel, Weitwinkel und Spiegelung. Bei zwei Kameras: erst Lead 4 Ecken, dann Cover dieselben Bildschirmecken aus der anderen Sicht. Weichen die gemappten Zeiger stark ab (Winkel-Unco), gewinnt die Lead-Kamera.")
+                    Text("Mac (Lead) führt alle Aktionen. Osmo/iPhone ist nur zweite Sicht: bessere Fingerlage, kein eigenes Klicken/Ziehen. Kalibrierung: erst Mac 4 Ecken, dann Cover dieselben Bildschirmecken — Pinzette zählt nur, wenn die Mac-Kamera sie auch sieht. Weichen die gemappten Lagen stark ab, bleibt die Mac-Lage.")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
                 }

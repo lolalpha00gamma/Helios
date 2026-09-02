@@ -57,6 +57,7 @@ jobs:
           swiftc macos/Helios/CoordMath.swift macos/HeliosTests/CoordTests.swift -o /tmp/coordtests
           /tmp/coordtests
           swiftc -framework Vision \
+            macos/Helios/CoordMath.swift \
             macos/Helios/AspectSpace.swift \
             macos/Helios/HandEstimate.swift \
             macos/Helios/EstimateFusion.swift \

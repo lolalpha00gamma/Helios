@@ -1,4 +1,4 @@
-# Helios **1.6.14**
+# Helios **1.6.15**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,10 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.15
+
+Kein Zurückspringen. 1.6.13 hat beim Klick auf die Konsole den Fokus an die App darunter zurückgegeben. Helios aktiviert keine andere App mehr. Die Konsole bleibt, wenn du sie anwählst; SwiftUI holt sie nicht über andere Fenster und schubst dich nicht weg.
 
 ## Neu in 1.6.14
 

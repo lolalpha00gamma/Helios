@@ -88,18 +88,14 @@ struct HeliosApp: App {
     }
 }
 
-/// Konsole bleibt sichtbar, stiehlt aber nicht den Vordergrund.
-/// SwiftUI macht das Fenster bei jedem State-Tick key — das fangen wir ab.
+/// Konsole bleibt stehen. Kein Stehlen nach vorn, kein Zurückschub zu einer anderen App.
 @MainActor
 enum ConsolePolicy {
     private static var hiding = false
     private static var pinned = false
-    /// Nur true, wenn die Konsole selbst angeklickt oder über Menü/Dock geöffnet wurde.
     private static var consoleHeld = false
-    private static var lastOtherPID: pid_t = 0
     private static var observers: [NSObjectProtocol] = []
     private static var clickMonitor: Any?
-    private static var lastYield: TimeInterval = 0
 
     static func isHUD(_ w: NSWindow) -> Bool {
         w is HUDPanel || w.level.rawValue >= Int(CGWindowLevelForKey(.assistiveTechHighWindow))
@@ -115,7 +111,13 @@ enum ConsolePolicy {
                     w.orderOut(nil)
                     return
                 }
-                demoteIfStolen(w)
+                if pointerInConsole(w) {
+                    consoleHeld = true
+                    return
+                }
+                if consoleHeld { return }
+                if w.isKeyWindow { w.resignKey() }
+                if w.isMainWindow { w.resignMain() }
             }
         }
         observers.append(NotificationCenter.default.addObserver(
@@ -124,23 +126,12 @@ enum ConsolePolicy {
         observers.append(NotificationCenter.default.addObserver(
             forName: NSWindow.didBecomeMainNotification, object: nil, queue: .main, using: bounce
         ))
-        observers.append(NotificationCenter.default.addObserver(
-            forName: NSApplication.didBecomeActiveNotification, object: nil, queue: .main
-        ) { _ in
-            Task { @MainActor in
-                dressAll()
-                if !hiding { yieldStolenFocus() }
-            }
-        })
         observers.append(NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
         ) { note in
-            let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
-            let bid = app?.bundleIdentifier
-            let pid = app?.processIdentifier ?? 0
+            let bid = (note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier
             Task { @MainActor in
-                if let bid, bid != Bundle.main.bundleIdentifier, pid != 0 {
-                    lastOtherPID = pid
+                if let bid, bid != Bundle.main.bundleIdentifier {
                     consoleHeld = false
                 }
             }
@@ -152,23 +143,19 @@ enum ConsolePolicy {
             if hud { return }
             Task { @MainActor in
                 pinned = false
+                consoleHeld = false
             }
         })
         if clickMonitor == nil {
             clickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { event in
-                let hud = event.window is HUDPanel
-                if event.window != nil, !hud {
+                let ok = event.window != nil && !(event.window is HUDPanel)
+                if ok {
                     Task { @MainActor in
                         consoleHeld = true
                     }
                 }
                 return event
             }
-        }
-        if let front = NSWorkspace.shared.frontmostApplication,
-           front.bundleIdentifier != Bundle.main.bundleIdentifier
-        {
-            lastOtherPID = front.processIdentifier
         }
         dressAll()
     }
@@ -184,35 +171,10 @@ enum ConsolePolicy {
         w.collectionBehavior.insert([.canJoinAllSpaces, .stationary, .ignoresCycle])
     }
 
-    private static func userChoseConsole() -> Bool {
-        consoleHeld
+    private static func pointerInConsole(_ w: NSWindow) -> Bool {
+        w.frame.contains(NSEvent.mouseLocation)
     }
 
-    private static func demoteIfStolen(_ w: NSWindow) {
-        if hiding {
-            w.orderOut(nil)
-            return
-        }
-        guard !userChoseConsole() else { return }
-        if w.isKeyWindow { w.resignKey() }
-        if w.isMainWindow { w.resignMain() }
-        yieldStolenFocus()
-    }
-
-    private static func yieldStolenFocus() {
-        guard !userChoseConsole() else { return }
-        guard lastOtherPID != 0 else { return }
-        let now = CACurrentMediaTime()
-        if now - lastYield < 0.28 { return }
-        lastYield = now
-        guard let other = NSRunningApplication(processIdentifier: lastOtherPID),
-              !other.isTerminated,
-              other.bundleIdentifier != Bundle.main.bundleIdentifier
-        else { return }
-        other.activate()
-    }
-
-    /// Nur wenn der Schalter „Konsole bei Scharf ausblenden“ an ist.
     static func hide() {
         if pinned { return }
         hiding = true

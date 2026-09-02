@@ -1,4 +1,4 @@
-# Helios **1.6.18**
+# Helios **1.6.19**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,17 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.19
+
+1.6.18 hat Ampel und Luft-Tastatur — Continuity blieb tot, die Steuerhand sprang, die Tastatur feuerte beim Zielen.
+
+- **dt-Cap 200 ms.** Filter, Pinch-Vel und Kalibrier-Hold kappen 125-ms-Frames nicht mehr auf 80 ms.
+- **Steuerhand bleibt Lock-ID.** L/R-Flip teleportiert den Cursor nicht. Pinzette friert, fällt nie auf die andere Hand.
+- **Ampel-Verweilen startet neu**, wenn du weggehst oder nach dem Auslösen wieder kommst.
+- **Heranziehen = Palm-Y** (Hand zu sich), nicht Mittelfinger-Spannweite.
+- **Fling-Fenster × Frame-dt.** 8 fps hat sonst nur ein Sample im 120-ms-Fenster.
+- **Luft-Tastatur:** 0,85 s Zeigen **unten** (nicht 0,40 s irgendwo).
 
 ## Neu in 1.6.18
 

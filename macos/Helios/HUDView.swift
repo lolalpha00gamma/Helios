@@ -461,7 +461,7 @@ struct HUDView: View {
                     Text("LUFT-TASTATUR  ·  PINZETTE TIPPT  ·  FAUST SCHLIESST")
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
                         .foregroundStyle(HeliosTheme.cyan)
-                    Text("Zeigen 0,4 s öffnet")
+                    Text("Zeigen 0,85 s unten öffnet")
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundStyle(.white.opacity(0.7))
                 }

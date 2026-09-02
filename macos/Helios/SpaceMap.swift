@@ -329,7 +329,7 @@ final class CalibrationSession {
     /// Nur Pinzette. Nach jedem Treffer: Hand öffnen und zur nächsten Ecke gehen.
     func feed(palm: CGPoint, now: TimeInterval, confirm: Bool) -> SpaceMap? {
         guard active else { return nil }
-        let dt = lastT == 0 ? 0 : min(now - lastT, 0.08)
+        let dt = lastT == 0 ? 0 : min(now - lastT, GestureMath.sampleDtCap)
         lastT = now
         let moved = lastPalm.map { hypot(palm.x - $0.x, palm.y - $0.y) } ?? 1
         lastPalm = palm

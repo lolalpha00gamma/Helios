@@ -1,8 +1,22 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
-Stand: 2026-09-02. Helios 1.6.14. Erkennung (1.6.0/1.6.1) bleibt; 1.6.2
+Stand: 2026-09-02. Helios 1.6.19. Erkennung (1.6.0/1.6.1) bleibt; 1.6.2
 ist Koordinaten, AX, Threads, HUD. 1.6.14: Pinzette-Lock friert,
 Entropie-Tor, dt-Hochpass, Tisch-Idle, App-Profil, HMM lastRealProb.
+1.6.19: dt-Cap 0,20, preferred Lock-ID, chromeDwell reset, Palm-Y-Zug,
+Fling×dt, Tastatur 0,85 s unten.
+
+## 0. 1.6.19 — Continuity und Steuerhand
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | dt auf 80 ms gekappt | `sampleDtCap` 0,20 |
+| 2 | `preferred()` nur L/R | Lock-ID zuerst |
+| 3 | `pinchActor ?? primary` | freeze `pinchLastHand` |
+| 4 | `chromeDwellKind` undicht | reset leave + fire |
+| 5 | Heranziehen Mittelfinger | Palm-Y `pullToward` |
+| 6 | Fling-Fenster 120 ms leer bei 8 fps | `flingWindowLen` |
+| 7 | Tastatur 0,40 s irgendwo | 0,85 s unten |
 
 ## 0. 1.6.14 — Rest-Logik nach 1.6.13
 

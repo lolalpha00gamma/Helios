@@ -556,6 +556,83 @@ enum CoordTests {
             fails += 1
         }
 
+        if abs(GestureMath.sampleDtCap - 0.20) > 0.001 {
+            fputs("FAIL sampleDtCap 0,20 nicht 0,08\n", stderr)
+            fails += 1
+        }
+        if GestureMath.sampleDt(now: 1.125, last: 1.000) < 0.12 {
+            fputs("FAIL Continuity-dt 125 ms nicht auf 80 ms kappen\n", stderr)
+            fails += 1
+        }
+        if GestureMath.sampleDt(now: 2.0, last: 1.0) > 0.21 {
+            fputs("FAIL dt-Cap 0,20\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchCloseVel(dt: 0.04) > -1.5 {
+            fputs("FAIL 24 fps Close-Vel bleibt −1,6\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchCloseVel(dt: 0.125) <= GestureMath.pinchCloseVel(dt: 0.04) {
+            fputs("FAIL 8 fps Close-Vel weicher (weniger negativ)\n", stderr)
+            fails += 1
+        }
+        if GestureMath.flingWindowLen(medianDt: 0.04) > 0.13 {
+            fputs("FAIL 24 fps Fling-Fenster bleibt 120 ms\n", stderr)
+            fails += 1
+        }
+        if GestureMath.flingWindowLen(medianDt: 0.125) < 0.24 {
+            fputs("FAIL 8 fps Fling-Fenster braucht ≥ 2 Frames\n", stderr)
+            fails += 1
+        }
+        let eightFpsFling: [(t: TimeInterval, x: CGFloat, y: CGFloat)] = [
+            (0.00, 0.50, 0.40),
+            (0.125, 0.50, 0.70)
+        ]
+        if GestureMath.flingFromTrail(eightFpsFling, palmWidth: 0.12, aspect: 16 / 9, centerDead: false) != .none {
+            fputs("FAIL 120-ms-Fenster ist bei 8 fps leer / ein Sample\n", stderr)
+            fails += 1
+        }
+        if GestureMath.flingFromTrail(eightFpsFling, palmWidth: 0.12, aspect: 16 / 9, centerDead: false, windowSec: GestureMath.flingWindowLen(medianDt: 0.125)) != .throwUp {
+            fputs("FAIL Continuity-Fling im 2,5-Frame-Fenster\n", stderr)
+            fails += 1
+        }
+        if GestureMath.preferredID(locked: "T1", liveIDs: ["T1", "T2"], leftID: "T2", rightID: "T1", leftHanded: false) != "T1" {
+            fputs("FAIL preferred bleibt Lock-ID, nicht nur L/R\n", stderr)
+            fails += 1
+        }
+        if GestureMath.preferredID(locked: "T9", liveIDs: ["T1", "T2"], leftID: "T2", rightID: "T1", leftHanded: false) != "T1" {
+            fputs("FAIL tote Lock-ID fällt auf rechte Hand\n", stderr)
+            fails += 1
+        }
+        if GestureMath.preferredID(locked: "T9", liveIDs: ["T1", "T2"], leftID: "T2", rightID: "T1", leftHanded: true) != "T2" {
+            fputs("FAIL Linkshänder ohne Lock nimmt links\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchFollowID(held: true, locked: "T1", liveIDs: ["T2"]) != nil {
+            fputs("FAIL Pinch-Follow nie auf die andere Hand\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pullTowardSelf(startY: 0.55, nowY: 0.40) {
+            fputs("FAIL Palm-Y −0,15 ist Heranziehen\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pullTowardSelf(startY: 0.50, nowY: 0.46) {
+            fputs("FAIL Mini-Y ist kein Heranziehen\n", stderr)
+            fails += 1
+        }
+        if GestureMath.airKeyboardPointHold < 0.80 {
+            fputs("FAIL Tastatur-Hold nicht 0,40 s\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.airKeyboardSummon(v: 0.90) {
+            fputs("FAIL unten ruft Tastatur\n", stderr)
+            fails += 1
+        }
+        if GestureMath.airKeyboardSummon(v: 0.20) {
+            fputs("FAIL oben/Mitte öffnet keine Tastatur\n", stderr)
+            fails += 1
+        }
+
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)
             exit(1)

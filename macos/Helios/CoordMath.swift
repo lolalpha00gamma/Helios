@@ -158,6 +158,58 @@ enum GestureMath {
     static let rigDisagreePx: CGFloat = 140
     static let rigCoverEnter: Double = 0.18
     static let rigCoverExit: Double = 0.12
+    /// Continuity 125 ms darf nicht auf 80 ms gekappt werden — Filter/Vel lügen sonst.
+    static let sampleDtCap: TimeInterval = 0.20
+    /// Palm-Y fällt um so viel (Vision-[0,1]) = zu sich ziehen. Nicht Mittelfinger-Spannweite.
+    static let pullToward: CGFloat = 0.11
+    /// Zeigen so lange unten, bevor die Luft-Tastatur aufgeht. 0,40 s feuerte beim Zielen.
+    static let airKeyboardPointHold: TimeInterval = 0.85
+    /// Quartz-v ≥ dieser Wert (unten) darf die Tastatur rufen. Mitte/oben = Fenster.
+    static let airKeyboardBottom: CGFloat = 0.72
+    /// 24 fps Pinch-Close-Vel. Continuity weicher — ein Frame ist der ganze Close.
+    static let pinchCloseVel24: CGFloat = -1.6
+    static let pinchCloseVel8: CGFloat = -0.90
+    static let pinchOpenVel24: CGFloat = -0.4
+    static let pinchOpenVel8: CGFloat = -0.15
+
+    static func sampleDt(now: TimeInterval, last: TimeInterval, cap: TimeInterval = sampleDtCap) -> TimeInterval {
+        last <= 0 ? 0.04 : min(cap, max(0.008, now - last))
+    }
+
+    static func pinchCloseVel(dt: TimeInterval) -> CGFloat {
+        dt >= 0.10 ? pinchCloseVel8 : pinchCloseVel24
+    }
+
+    static func pinchOpenVel(dt: TimeInterval) -> CGFloat {
+        dt >= 0.10 ? pinchOpenVel8 : pinchOpenVel24
+    }
+
+    /// 24 fps bleibt 120 ms. 8 fps braucht ≥ 2 Frames, sonst ist das Fling-Fenster leer.
+    static func flingWindowLen(medianDt: TimeInterval) -> TimeInterval {
+        let dt = max(0.04, medianDt)
+        return min(0.36, max(flingWindow, dt * 2.5))
+    }
+
+    /// Steuerhand: Lock-ID zuerst, dann L/R. Chirality-Flip teleportiert sonst den Cursor.
+    static func preferredID(
+        locked: String?,
+        liveIDs: [String],
+        leftID: String?,
+        rightID: String?,
+        leftHanded: Bool
+    ) -> String? {
+        if let locked, liveIDs.contains(locked) { return locked }
+        if leftHanded { return leftID ?? rightID ?? liveIDs.first }
+        return rightID ?? leftID ?? liveIDs.first
+    }
+
+    static func airKeyboardSummon(v: CGFloat, band: CGFloat = airKeyboardBottom) -> Bool {
+        v >= band
+    }
+
+    static func pullTowardSelf(startY: CGFloat, nowY: CGFloat, need: CGFloat = pullToward) -> Bool {
+        startY - nowY >= need
+    }
 
     /// Schreibtisch / Wallpaper: fast schirmfüllend, ohne Fenstertitel.
     static func fillsScreen(_ window: CGRect, screen: CGRect, heightSlop: CGFloat = 80) -> Bool {
@@ -208,11 +260,12 @@ enum GestureMath {
         aspect: CGFloat = 16 / 9,
         centerDead: Bool = true,
         afterDrag: Bool = false,
-        screenUV: CGPoint? = nil
+        screenUV: CGPoint? = nil,
+        windowSec: TimeInterval = flingWindow
     ) -> FlingKind {
         guard let last = trail.last else { return .none }
-        let window = trail.filter { last.t - $0.t <= flingWindow }
-        guard let first = window.first, last.t > first.t + 0.04 else { return .none }
+        let slice = trail.filter { last.t - $0.t <= windowSec }
+        guard let first = slice.first, last.t > first.t + 0.04 else { return .none }
         let dt = max(0.04, last.t - first.t)
         let unit = max(0.04, palmWidth)
         let dx = (last.x - first.x) * aspect / unit

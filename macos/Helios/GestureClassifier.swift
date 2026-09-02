@@ -407,14 +407,14 @@ struct PinchGate {
         let dist = dTips ?? ((dProx ?? 1) * 1.12)
         let ratio = dist / scale
         let proxRatio = (dProx ?? dist) / scale
-        let dt = lastT == 0 ? 0.016 : max(0.008, min(0.08, now - lastT))
+        let dt = lastT == 0 ? 0.016 : GestureMath.sampleDt(now: now, last: lastT)
         let vel = (ratio - lastRatio) / CGFloat(dt)
         lastRatio = ratio
         lastT = now
         let closedness = max(0, min(1, (0.52 - min(ratio, proxRatio)) / 0.40))
 
-        let wantClose = closedness > 0.55 || (ratio < 0.44 && vel < -1.6)
-        let wantOpen = ratio > 0.56 && proxRatio > 0.50 && vel > -0.4
+        let wantClose = closedness > 0.55 || (ratio < 0.44 && vel < GestureMath.pinchCloseVel(dt: dt))
+        let wantOpen = ratio > 0.56 && proxRatio > 0.50 && vel > GestureMath.pinchOpenVel(dt: dt)
 
         if dTips == nil {
             if missingSince == 0 { missingSince = now }

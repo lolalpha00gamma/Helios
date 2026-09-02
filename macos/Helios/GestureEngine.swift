@@ -205,6 +205,12 @@ final class GestureEngine {
         chromeKnobs = []
         chromeHot = ""
         chromeDwell = 0
+        chromeDwellSince = nil
+        chromeDwellKind = nil
+        pointSince = nil
+        kbDwellID = nil
+        kbDwellAt = nil
+        fistHideSince = nil
         keyboardVisible = false
         keyboardHits = []
         keyboardHover = ""
@@ -225,7 +231,7 @@ final class GestureEngine {
     }
 
     func tick(hands incoming: [TrackedHand], now: TimeInterval) {
-        sampleDt = lastTickNow > 0 ? min(0.25, max(0.008, now - lastTickNow)) : 0.04
+        sampleDt = GestureMath.sampleDt(now: now, last: lastTickNow)
         lastTickNow = now
         let hands = incoming.filter { $0.joints.count >= 8 && $0.meanConfidence >= 0.18 }
         if hands.isEmpty {
@@ -730,11 +736,17 @@ final class GestureEngine {
     }
 
     private func preferred(_ hands: [TrackedHand]) -> TrackedHand {
-        if leftHanded, let left = hands.first(where: { $0.chirality == .left }) {
-            return left
-        }
-        if !leftHanded, let right = hands.first(where: { $0.chirality == .right }) {
-            return right
+        let left = hands.first(where: { $0.chirality == .left })
+        let right = hands.first(where: { $0.chirality == .right })
+        let id = GestureMath.preferredID(
+            locked: pointerHandID,
+            liveIDs: hands.map(\.id),
+            leftID: left?.id,
+            rightID: right?.id,
+            leftHanded: leftHanded
+        )
+        if let id, let same = hands.first(where: { $0.id == id }) {
+            return same
         }
         return hands.max { a, b in
             (a.joints.values.map(\.confidence).max() ?? 0) < (b.joints.values.map(\.confidence).max() ?? 0)
@@ -749,7 +761,9 @@ final class GestureEngine {
                 return same
             }
             if pinchMissSince == nil { pinchMissSince = CACurrentMediaTime() }
-            return pinchLastHand ?? primary
+            // Freeze. Nie die andere Hand — `primary` wäre der Steuerhand-Diebstahl.
+            if let last = pinchLastHand { return last }
+            return hands.first(where: { $0.id == id }) ?? primary
         }
         pinchLastHand = nil
         if let pinching = hands.filter({ $0.pose == .pinch || $0.pinchClosedness > 0.55 }).min(by: { $0.pinchRatio < $1.pinchRatio }) {
@@ -908,6 +922,7 @@ final class GestureEngine {
                         chromeHot = ""
                         chromeDwell = 0
                         chromeDwellSince = nil
+                        chromeDwellKind = nil
                     }
                     return
                 }
@@ -919,6 +934,7 @@ final class GestureEngine {
             chromeHot = ""
             chromeDwell = 0
             chromeDwellSince = nil
+            chromeDwellKind = nil
             return
         }
         let near = knobs.contains {
@@ -928,6 +944,7 @@ final class GestureEngine {
             chromeHot = ""
             chromeDwell = 0
             chromeDwellSince = nil
+            chromeDwellKind = nil
             return
         }
         guard let hot = knobs.min(by: {
@@ -936,6 +953,7 @@ final class GestureEngine {
             chromeHot = ""
             chromeDwell = 0
             chromeDwellSince = nil
+            chromeDwellKind = nil
             return
         }
         chromeHot = hot.labelDE
@@ -952,6 +970,7 @@ final class GestureEngine {
         if held >= GestureMath.chromeDwellHold {
             fireChrome(hot)
             chromeDwellSince = nil
+            chromeDwellKind = nil
             chromeDwell = 0
             cooldownUntil = now + 0.75
         }
@@ -1035,7 +1054,7 @@ final class GestureEngine {
             pinchPalmMoved = 0
             pinchMissSince = nil
             pinchTrail = [(now, hand.palm.x, hand.palm.y)]
-            pinchSpan0 = space.dist(hand.point(.middleTip) ?? hand.palm, hand.palm) / max(0.04, hand.palmWidth)
+            pinchSpan0 = hand.palm.y
             grabLogged = false
             lastAction = testMode ? "Test: Halten" : "Halten"
         } else if isGrab && pinchHeld {
@@ -1085,10 +1104,9 @@ final class GestureEngine {
             } else if testMode, pinchBecameDrag {
                 lastAction = trashHot ? "Test: Papierkorb" : "Test: Ziehen"
             }
-            let span = space.dist(hand.point(.middleTip) ?? hand.palm, hand.palm) / max(0.04, hand.palmWidth)
-            if let s0 = pinchSpan0, !system.isDragging, span > s0 + 1.4 {
+            if let y0 = pinchSpan0, !system.isDragging, GestureMath.pullTowardSelf(startY: y0, nowY: hand.palm.y) {
                 perform("Heranziehen", confidence: Float(hand.poseProb)) { system.snapFocused(.fill, at: cursor) }
-                pinchSpan0 = span
+                pinchSpan0 = hand.palm.y
                 cooldownUntil = now + 0.5
             }
         } else if !isGrab && pinchHeld {
@@ -1163,7 +1181,8 @@ final class GestureEngine {
             palmWidth: palmWidth,
             aspect: space.aspect,
             afterDrag: afterDrag,
-            screenUV: screenUV
+            screenUV: screenUV,
+            windowSec: GestureMath.flingWindowLen(medianDt: sampleDt)
         )
         guard kind != .none else { return false }
         onLog?("Werfen erkannt", .recognized, Int(confidence * 100))
@@ -1392,9 +1411,10 @@ final class GestureEngine {
     private func driveKeyboard(hands _: [TrackedHand], actor: TrackedHand, now: TimeInterval) {
         let pointing = actor.pose == .point && actor.poseProb >= 0.45
         if !keyboardVisible {
-            if pointing {
+            let v = cursor.map { ScreenGeometry.unitInUnion(quartz: $0).y }
+            if pointing, GestureMath.airKeyboardSummon(v: v ?? -1) {
                 if pointSince == nil { pointSince = now }
-                if now - (pointSince ?? now) >= 0.40 {
+                if now - (pointSince ?? now) >= GestureMath.airKeyboardPointHold {
                     showKeyboard()
                     pointSince = nil
                 } else {

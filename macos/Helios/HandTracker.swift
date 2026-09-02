@@ -215,7 +215,7 @@ final class HandTracker: @unchecked Sendable {
             }
             slot.smoother.space = space
             slot.pinch.setSpace(space)
-            let dt = slot.lastNow == 0 ? 0.016 : max(0.008, min(0.08, now - slot.lastNow))
+            let dt = slot.lastNow == 0 ? 0.016 : GestureMath.sampleDt(now: now, last: slot.lastNow)
             if slot.lastSeen > 0, now - slot.lastSeen > 0.35 {
                 slot.hmm.reset()
                 slot.fusion.reset()

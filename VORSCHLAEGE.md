@@ -1,6 +1,23 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.14**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+Stand: **1.6.19**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.19 erledigt
+
+1.6.18 Ampel/Tastatur — Continuity 8 fps log, Steuerhand sprang, zweite Ampel-Annäherung tot, Mittelfinger zog Fenster, Tastatur feuerte beim Zielen.
+
+1. **dt-Cap 0,20 s** in LandmarkSmoothing, PinchGate, HandTracker, SpaceMap, Engine. 125 ms nicht auf 80 ms.
+2. **`preferredID` Lock zuerst**, dann L/R. Chirality-Flip teleportiert nicht.
+3. **`pinchActor` friert** (`pinchLastHand`), nie `primary` der anderen Hand.
+4. **`chromeDwellKind` reset** beim Verlassen und nach dem Feuern — zweite Annäherung zählt neu.
+5. **Heranziehen = Palm-Y** (`pullToward` 0,11). Mittelfinger-Spannweite ist tot.
+6. **`flingWindowLen(medianDt)`** — 8 fps ≥ 2 Frames.
+7. **Luft-Tastatur 0,85 s unten** (`airKeyboardSummon`). 0,40 s irgendwo ist tot.
+8. MARKETING_VERSION 1.6.19 (Build 49).
+
+## In 1.6.18 erledigt
+
+Ampel 118 px / 80 px, 0,55 s Verweilen. Luft-Tastatur QWERTZ. Totzone 2D (Schrägzug). Wischen weicher.
 
 ## In 1.6.14 erledigt
 
@@ -146,9 +163,15 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Peace-Fortschritt auch in der Konsole**, nicht nur HUD-Ring.
 - **Klick-Tick** optional (system sound), aus by default.
 - **Profil-Override** in der Konsole (Safari voll, Xcode nur Scroll) — Defaults bleiben hart.
-- **Pinzette-Hysterese pro fps** an `sampleDt` koppeln (8 fps 0,45 Handbreiten zu knapp).
 - **Fusion-Temperatur auto** aus Landmark-Qualität, Slider bleibt Override.
 - **CGEvent 1-px Jiggler ignorieren** (manche Mäuse senden Idle-Ticks).
+- **`CMSampleBuffer.presentationTimeStamp` als `now`**, nicht `CACurrentMediaTime` — dt-Jitter zwischen Vision und Display.
+- **Chrome-Dwell nur bei stillstehendem Cursor** (wie Klick), sonst streifst du Schließen beim Zielen.
+- **Dünne Tastatur-Leiste unten** auch wenn zu — Sichtbares Ziel statt „irgendwo zeigen“.
+- **Fling-Vel aus One-Euro-deriv**, nicht Trail-first/last (ein Ausreißer-Frame kippt Dock).
+- **palmArea als z-Proxy** neben Palm-Y für Heranziehen (Hand kommt auf die Kamera zu).
+- **PinchClosedness-EMA** unabhängig vom Pose-Softmax — Faust vs. Pinzette bei 8 fps.
+- **Cover-Pinch nur im Band 0,40–0,55** der Lead-Hand bestätigen, darunter tot.
 
 ## Größere Erweiterungen
 
@@ -176,6 +199,13 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **App-Profil JSON** neben Defaults, damit der Nutzer Xcode doch Scroll erlauben kann ohne Rebuild.
 - **Fling-Richtung an Stage-Manager** (links = recent, nicht nur AX-Snap).
 
+- **Match-Log JSONL** analog Aegis (Tick, Pose, Aktion, dt) für Sitzungs-Replay ohne Xcode.
+- **Per-Display pointerGain** aus `CGDisplayPixelsWide` / mm, nicht ein Slider für Laptop+5K (steht oben, hier der Haken: SpaceMap ist schon per Display).
+- **Zwei-Finger-Doppeltipp** (Index+Mittelfinger kurz) = Doppelklick, ohne zweite Pinzette.
+- **Scroll an Handgelenk-Roll** (MCP-Linie) statt nur Palm-Y, weniger Konflikt mit Heranziehen.
+- **HUD Latenz pro Kamera** (Mac vs Continuity), nicht eine Sparkline.
+- **Kalibrier-Hold skaliert mit dt** schon 1.6.19 — visuelles Quad der vier Anschläge fehlt noch.
+
 ## Nicht tun
 
 - Stimme / Diktat als Geste — kollidiert mit Kill und Peace.
@@ -196,3 +226,11 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - HMM-Hold `next[current]` (verdünnt) als Pose-Prob zurückgeben.
 - Hochpass 0,08 unabhängig von Frame-dt.
 - Per-App-Profil wieder alle Aktionen in Xcode/Safari.
+- dt wieder auf 80 ms kappen (Continuity-Vel lügt).
+- `preferred()` nur L/R, Lock-ID ignorieren.
+- `pinchActor` wieder `?? primary` der anderen Hand.
+- `chromeDwellKind` nach Feuern/Verlassen stehen lassen.
+- Heranziehen wieder über Mittelfinger-Spannweite.
+- Fling-Fenster hart 120 ms bei 8 fps.
+- Luft-Tastatur wieder 0,40 s Zeigen irgendwo.
+- Branch `bugfix` anlegen oder mergen. Nur `main`.

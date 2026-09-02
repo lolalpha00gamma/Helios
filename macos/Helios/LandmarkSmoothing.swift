@@ -28,7 +28,7 @@ struct LandmarkSmoothing {
             previous = joints
             return joints
         }
-        let dt = max(0.008, min(0.08, now - lastT))
+        let dt = GestureMath.sampleDt(now: now, last: lastT)
         var cleaned: [VNHumanHandPoseObservation.JointName: CGPoint] = [:]
         var frameJumps: [CGFloat] = []
         for (name, point) in joints {

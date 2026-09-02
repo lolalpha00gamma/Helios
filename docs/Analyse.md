@@ -1,6 +1,6 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
-Stand: 2026-09-02. Helios 1.6.7. Alle fünf Phasen aus `docs/Erkennung.md`
+Stand: 2026-09-02. Helios 1.6.8. Alle fünf Phasen aus `docs/Erkennung.md`
 laufen gleichzeitig — kein Stufenplan. 1.6.1 kollabiert korrelierte Quellen.
 1.6.2 repariert HMM-Masse, Flick-Smoothing, Körper-Chirality und den Clutch.
 1.6.3: Rechtshänder-Default, Kill vs. Scroll, Dominant-Lock, Vision-Orientierung,
@@ -9,6 +9,9 @@ SpaceMap hybrid, Per-App-Profile. 1.6.4: 9-Punkt-SpaceMap, Profil-Editor.
 1.6.6: Session-Replay, Profil-Katalog JSON.
 1.6.7: driveGrab-Klammer (Fenster folgt), Profil bricht Drag ab, live RMSE,
 Punkt-Skip, Peace-Ring, Clutch-LED, Monitor-Kompass, Palm-Rest, Low-Light-Gate.
+1.6.8: Dominant-Cursor (keine zweite-Hand-Steal), 3D-Peace-Spreizung, Low-Light
+lässt Scroll, Peace-Chip 4 s, Kalibrier-Undo, Clutch-Ring, AX unter der Hand,
+80 ms Drag-Jitter-Floor.
 
 ## 1. Bestand vor der Umstellung (1.5.7)
 

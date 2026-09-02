@@ -72,7 +72,9 @@ final class AppState: ObservableObject {
     @Published var mapRMSE: CGFloat?
     @Published var liveRMSE: CGFloat?
     @Published var clutchReason: String?
+    @Published var clutchRemain: CGFloat = 0
     @Published var peaceProgress: CGFloat = 0
+    @Published var peaceCooldownRemain: CGFloat = 0
     @Published var calibratedDisplays: Set<UInt32> = []
     let calibSession = CalibrationSession()
     private var lastPanel: TimeInterval = 0
@@ -348,6 +350,13 @@ final class AppState: ObservableObject {
         }
     }
 
+    func undoCalibrationPoint() {
+        guard calibSession.active else { return }
+        calibSession.undo()
+        liveRMSE = calibSession.liveRMSE()
+        log.record("Kalibrierung: Punkt zurück", kind: .info)
+    }
+
     func clearCalibration() {
         SpaceMap.clear()
         engine.spaceMap = nil
@@ -447,7 +456,8 @@ final class AppState: ObservableObject {
             hand: engine.cursorHand,
             target: engine.grabTargetName,
             window: focused?.quartzBounds,
-            peace: engine.peaceProgress
+            peace: engine.peaceProgress,
+            clutch: engine.clutchRemain
         )
         frames += 1
         if now - fpsStamp >= 0.5 {
@@ -488,7 +498,9 @@ final class AppState: ObservableObject {
         liveRMSE = calibSession.active ? calibSession.liveRMSE() : nil
         mousePaused = engine.mousePaused
         clutchReason = engine.clutchReason
+        clutchRemain = engine.clutchRemain
         peaceProgress = engine.peaceProgress
+        peaceCooldownRemain = engine.peaceCooldownRemain
         calibratedDisplays = Set(SpaceMap.calibratedIDs())
         grabPhase = engine.grabPhase
         grabTargetName = engine.grabTargetName

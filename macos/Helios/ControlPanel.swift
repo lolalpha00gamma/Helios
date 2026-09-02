@@ -213,6 +213,8 @@ struct ControlPanel: View {
                         }
                         HStack {
                             Button("Diesen Punkt überspringen") { state.skipCalibrationPoint() }
+                            Button("Zurück") { state.undoCalibrationPoint() }
+                                .disabled(!state.calibSession.canUndo)
                             Button("Abbrechen") { state.cancelCalibration() }
                         }
                     } else {
@@ -225,7 +227,7 @@ struct ControlPanel: View {
                         Button("Kalibrierung löschen") { state.clearCalibration() }
                             .buttonStyle(.borderless)
                     }
-                    Text("Je Punkt die Hand dorthin halten, wo für dich die Stelle auf DIESEM Schirm ist. 9 Punkte glätten die Homographie (DLT). Pro Display ein eigenes Gitter. Punkt hinter dem Deckel überspringen.")
+                    Text("Je Punkt die Hand dorthin halten, wo für dich die Stelle auf DIESEM Schirm ist. 9 Punkte glätten die Homographie (DLT). Pro Display ein eigenes Gitter. Punkt hinter dem Deckel überspringen, falschen Punkt zurück.")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
                     HStack(spacing: 8) {
@@ -289,7 +291,7 @@ struct ControlPanel: View {
                 LabeledContent("Aktion", value: state.lastAction)
                 LabeledContent("Latenz", value: String(format: "%.0f ms · %.0f fps", state.latencyMs, state.fps))
                 LatencySpark(values: state.latencyHistory)
-                LabeledContent("Licht", value: state.luma < 0.28 ? "Dunkel — Verstärkung" : state.luma < 0.45 ? "Gedämpft" : "OK")
+                LabeledContent("Licht", value: state.luma < 0.20 ? "Dunkel — nur Scroll" : state.luma < 0.28 ? "Dämmer — Klick gedämpft" : state.luma < 0.45 ? "Gedämpft" : "OK")
                 LabeledContent("Monitore", value: "\(state.screenCount)")
                 LabeledContent("Tiefe", value: state.hasDepth ? "Kanal aktiv" : "nur 3D-Lift")
                 if let app = state.focused {

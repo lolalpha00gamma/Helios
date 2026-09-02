@@ -1,6 +1,19 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.7**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+Stand: **1.6.8**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+
+## In 1.6.8 erledigt
+
+Warum 1.6.7 sich in dunklen Zimmern und mit zwei Händen trotzdem tot anfühlte: `placeCursor(actor)` hat den Dominant-Lock unterlaufen, 3D-Peace hatte keinen Spreizungs-Term, luma < 0,20 hat Scroll mitblockt, und nach Aufnahme war 4 s Stille ohne Chip.
+
+1. **Cursor auf Primary.** Zweite Hand greift/peace’t, stiehlt den Zeiger nicht.
+2. **3D-Peace + Spreizung + Daumen-an-MCP**, analog 2D. Fusion bringt Victory beim Zeigen nicht zurück.
+3. **Low-Light weich.** < 0,20: Klick/Greifen/Peace/Werfen raus, Scroll/Wischen an. 0,20–0,28 nur Klick dämpfen.
+4. **Peace-Cooldown-Chip** 4 s (sonst „tot“).
+5. **Kalibrier-Undo** des letzten Samples/Skips.
+6. **Clutch-Restzeit-Ring** am Cursor, Label mit ms.
+7. **AX unter der Hand.** `beginWindowDrag` fällt nicht auf frontmost, wenn ein CGWindow unter dem Cursor existiert.
+8. **80 ms Pinch-Jitter-Floor** nach Drag-Start (< 4 px kein `updateWindowDrag`).
 
 ## In 1.6.7 erledigt
 
@@ -93,11 +106,10 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 
 ## Nächste Fixes (klein, hoher Nutzen)
 
-- **AX-Fenster unter der Hand, nicht frontmost**, wenn sich Fenster stapeln (Underlap).
-- **Peace-Cooldown sichtbar** (4 s nach Aufnahme — HUD-Chip, sonst denkt man es sei tot).
-- **Kalibrier-Punkt zurück** (Undo des letzten Samples), nicht nur Skip/Cancel.
-- **Clutch-Restzeit** als Ring, nicht nur Label.
-- **Low-Light weich:** luma 0,20–0,28 nur Klick dämpfen, Scroll erlauben.
+- **Hover-Intent 200 ms** auf der Titelleiste, bevor Greifen greift — Pinch über Text stiehlt kein Fenster.
+- **Kalibrier-Wizard auf dem richtigen Display.** HUD-Prompt „dieses Fenster auf den Schirm ziehen, den du meinst“.
+- **Ghost-Cursor bei Clutch.** Zeigen, wo Helios hingehen würde, während die Maus Vorrang hat.
+- **Palm-up vs. palm-down als Modifier.** Handrücken bleibt Rest/Idle; Handfläche ist Scroll.
 
 ## Größere Erweiterungen
 
@@ -132,8 +144,10 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Session-Heatmap.** Palm-Dichte über 5 min als Debug, wo die Homographie wehtut.
 - **Siri-Remote / Stream Deck** als zweiter Kill-Pfad, wenn die Kamera zu ist.
 - **Hands-over-keyboard detector.** Tastatur-Clutch länger, solange Handgelenke über der Tastatur sind (Körperpose).
-- **Pinch-Jitter-Floor nach Drag-Start.** 80 ms kein updateWindowDrag unter 4 px, sonst zittert das AX-Fenster.
-- **Kalibrier-Wizard auf dem richtigen Display.** HUD-Prompt „dieses Fenster auf den Schirm ziehen, den du meinst“.
+- **Pointer-Magnet auf AX-Buttons.** Langsames Pinch rastet auf „Schließen“/Slider, statt 4 px daneben zu klicken.
+- **Auto-Gain aus palmWidth-Histogramm.** Session lernt 40 cm vs. 1,5 m, ohne Desk/Couch-Toggle.
+- **Farbblinden-HUD.** Cyan/Amber zusätzlich mit Form (Ring/Raute), nicht nur Farbe.
+- **Gesten-Makro-Recorder.** Eine Sequenz aufzeichnen, als Profil-Extra speichern.
 
 ## Nicht tun
 
@@ -151,3 +165,7 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - Peace-Logits ohne Daumen- und Spreizungs-Term.
 - `updateWindowDrag` wieder in den begin-if nesten.
 - `dominantLostAt` im Reset vergessen.
+- `placeCursor(pinchActor)` — zweite Hand stiehlt den Zeiger.
+- luma < 0,20 wieder alle Systemaktionen inkl. Scroll.
+- `beginWindowDrag` wieder `?? frontWindow()`, wenn ein CGWindow unter der Hand liegt.
+- 3D-Peace ohne Spreizung (Fusion bringt Victory-on-Point zurück).

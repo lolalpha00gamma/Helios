@@ -64,6 +64,24 @@ enum GestureAction: String, CaseIterable, Codable, Hashable {
     }
 }
 
+/// Low-Light: Scroll bleibt, Klick/Greifen nicht. 0,20–0,28 nur Klick dämpfen.
+enum LowLightGate {
+    static func allows(_ action: GestureAction, luma: CGFloat) -> (ok: Bool, reason: String?) {
+        if luma < 0.20 {
+            switch action {
+            case .scroll, .swipe:
+                return (true, nil)
+            default:
+                return (false, "zu dunkel")
+            }
+        }
+        if luma < 0.28, action == .click {
+            return (false, "gedämpft")
+        }
+        return (true, nil)
+    }
+}
+
 struct ProfileSpec: Codable, Equatable {
     var name: String
     var bundles: [String]
@@ -227,6 +245,8 @@ final class GestureEngine {
     var luma: CGFloat = 1
     var peaceProgress: CGFloat = 0
     var clutchReason: String?
+    var clutchRemain: CGFloat = 0
+    var peaceCooldownRemain: CGFloat = 0
 
     private var fistSince: TimeInterval?
     private var fistLostAt: TimeInterval?
@@ -246,6 +266,7 @@ final class GestureEngine {
     private var swipeTrail: [(t: TimeInterval, x: CGFloat, y: CGFloat)] = []
     private var swipeHandID: String?
     private var cooldownUntil: TimeInterval = 0
+    private var peaceCooldownUntil: TimeInterval = 0
     private var lastArmToggle: TimeInterval = 0
     private var lastLoggedPose: String = ""
     private var lastPoseLog: TimeInterval = 0
@@ -298,6 +319,7 @@ final class GestureEngine {
         swipeTrail.removeAll()
         swipeHandID = nil
         cooldownUntil = 0
+        peaceCooldownUntil = 0
         lastArmToggle = 0
         lastLoggedPose = ""
         lastPoseLog = 0
@@ -327,6 +349,8 @@ final class GestureEngine {
         palmRestSince = nil
         peaceProgress = 0
         clutchReason = nil
+        clutchRemain = 0
+        peaceCooldownRemain = 0
         system.endWindowDrag()
         cursor = nil
         twoHandSpan = nil
@@ -339,8 +363,8 @@ final class GestureEngine {
 
     func tick(hands incoming: [TrackedHand], now: TimeInterval) {
         let hands = incoming.filter { $0.joints.count >= 8 && $0.meanConfidence >= 0.18 }
+        refreshHudTimes(now: now)
         if hands.isEmpty {
-            clutchReason = system.clutchReason
             peaceProgress = 0
             if lastHandSeen > 0, now - lastHandSeen < 0.18, pinchHeld {
                 dragging = pinchHeld
@@ -378,7 +402,6 @@ final class GestureEngine {
         lastHandSeen = now
         lastPalmWidth = hands.map(\.palmWidth).max() ?? lastPalmWidth
         mousePaused = !system.allowsInjection && !system.fromInstallMedia
-        clutchReason = system.clutchReason
         peaceProgress = 0
 
         if system.fromInstallMedia {
@@ -460,6 +483,9 @@ final class GestureEngine {
             if !testMode, !system.isDragging, cursorDidMove, primary.pose != .fist, let p = cursor {
                 system.moveCursor(to: p)
             }
+            if now < peaceCooldownUntil {
+                lastAction = String(format: "Aufnahme-Pause %.0fs", ceil(peaceCooldownUntil - now))
+            }
             updateTrashHot()
             dragging = pinchHeld
             return
@@ -467,10 +493,13 @@ final class GestureEngine {
 
         let scaling = handleTwoPinchScale(hands: hands, now: now)
         let actor = pinchActor(hands, primary: primary)
-        let freezePointer = pinchHeld && !pinchBecameDrag
+        // Dominante Hand behält den Zeiger. Die zweite Hand darf greifen/peace,
+        // stiehlt den Cursor aber nicht — vor 1.6.8 hat placeCursor(actor) das
+        // Dominant-Lock unterlaufen.
+        let freezePointer = pinchHeld && !pinchBecameDrag && actor.id == primary.id
         if !freezePointer {
-            placeCursor(actor)
-            if !testMode, !system.isDragging, cursorDidMove, actor.pose != .fist, let p = cursor {
+            placeCursor(primary)
+            if !testMode, !system.isDragging, cursorDidMove, primary.pose != .fist, let p = cursor {
                 system.moveCursor(to: p)
             }
         }
@@ -548,10 +577,23 @@ final class GestureEngine {
             onLog?("\(name) — Profil \(profile.name)", .blocked, Int(confidence * 100))
             return
         }
-        if systemAction, luma < 0.20, !testMode {
-            lastAction = "\(name) — zu dunkel"
-            onLog?("\(name) — luma \(String(format: "%.2f", Double(luma))) < 0,20", .blocked, Int(confidence * 100))
-            return
+        if systemAction, !testMode {
+            if let kind = GestureAction.from(name: name) {
+                let gate = LowLightGate.allows(kind, luma: luma)
+                if !gate.ok {
+                    lastAction = "\(name) — \(gate.reason ?? "zu dunkel")"
+                    onLog?(
+                        "\(name) — luma \(String(format: "%.2f", Double(luma))) \(gate.reason ?? "dunkel")",
+                        .blocked,
+                        Int(confidence * 100)
+                    )
+                    return
+                }
+            } else if luma < 0.20 {
+                lastAction = "\(name) — zu dunkel"
+                onLog?("\(name) — luma \(String(format: "%.2f", Double(luma))) < 0,20", .blocked, Int(confidence * 100))
+                return
+            }
         }
         if systemAction, confidence < 0.62, !testMode {
             lastAction = "\(name) — unsicher"
@@ -724,6 +766,28 @@ final class GestureEngine {
         }
         lastPreferred = pick
         return pick
+    }
+
+    private func refreshHudTimes(now: TimeInterval) {
+        clutchReason = system.clutchReason
+        clutchRemain = system.clutchRemain
+        peaceCooldownRemain = peaceCooldownUntil > now
+            ? CGFloat(min(1, max(0, (peaceCooldownUntil - now) / 4)))
+            : 0
+    }
+
+    private func mappedPoint(_ hand: TrackedHand) -> CGPoint {
+        adoptMapForCursor()
+        if let map = spaceMap, map.isReady {
+            return map.apply(hand.palm)
+        }
+        return SpaceMap.linear(hand.palm)
+    }
+
+    /// Ziehen folgt der Aktor-Hand. Nur die dominante Hand benutzt den geglätteten Cursor.
+    private func dragPoint(_ hand: TrackedHand) -> CGPoint {
+        if pointerHandID == hand.id, let c = cursor { return c }
+        return mappedPoint(hand)
     }
 
     private func pinchActor(_ hands: [TrackedHand], primary: TrackedHand) -> TrackedHand {
@@ -910,7 +974,7 @@ final class GestureEngine {
             }
             if pinchBecameDrag, !system.isDragging, !testMode, now - lastGrabTry > 0.35 {
                 lastGrabTry = now
-                let at = cursor ?? SpaceMap.linear(hand.palm)
+                let at = dragPoint(hand)
                 perform("Greifen", confidence: Float(hand.poseProb)) {
                     system.beginWindowDrag(at: at)
                 }
@@ -923,8 +987,7 @@ final class GestureEngine {
                 lastAction = "Greifen — \(profile.name) blockt"
                 onLog?("Greifen — Profil \(profile.name) bricht Drag ab", .blocked, Int(hand.poseProb * 100))
             } else if !testMode, system.isDragging {
-                let at = cursor ?? SpaceMap.linear(hand.palm)
-                system.updateWindowDrag(to: at)
+                system.updateWindowDrag(to: dragPoint(hand))
                 lastAction = trashHot ? "Papierkorb" : "Ziehen"
             } else if testMode, pinchBecameDrag {
                 lastAction = trashHot ? "Test: Papierkorb" : "Test: Ziehen"
@@ -1058,6 +1121,7 @@ final class GestureEngine {
                 }
                 peaceSince = nil
                 peaceProgress = 0
+                peaceCooldownUntil = now + 4
                 cooldownUntil = now + 4
             }
         } else {

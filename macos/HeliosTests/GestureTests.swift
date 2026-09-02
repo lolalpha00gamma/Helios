@@ -167,6 +167,26 @@ enum GestureTests {
         twoFinger[.thumbTip] = CGPoint(x: 0.46, y: 0.32)
         ok(GestureClassifier.classify(joints: twoFinger, pinch: 0.22) != .peace, "Daumen-an-MCP ist kein Peace")
 
+        func as3(_ joints: [VNHumanHandPoseObservation.JointName: CGPoint]) -> [VNHumanHandPoseObservation.JointName: Joint3] {
+            var out: [VNHumanHandPoseObservation.JointName: Joint3] = [:]
+            for (k, p) in joints {
+                out[k] = Joint3(x: p.x, y: p.y, z: 0, c: 0.9)
+            }
+            return out
+        }
+        let f3peace = GestureClassifier.features3D(as3(peace), palmWidth: 0.12)
+        ok((f3peace.probs[.peace] ?? 0) > (f3peace.probs[.point] ?? 0), "3D Peace mit Spreizung")
+        let f3point = GestureClassifier.features3D(as3(twoFinger), palmWidth: 0.12)
+        ok((f3point.probs[.peace] ?? 0) < (f3peace.probs[.peace] ?? 0), "3D Daumen-an-MCP senkt Peace")
+
+        ok(LowLightGate.allows(.scroll, luma: 0.10).ok, "Scroll bei luma 0,10")
+        ok(LowLightGate.allows(.swipe, luma: 0.10).ok, "Wischen bei luma 0,10")
+        ok(!LowLightGate.allows(.click, luma: 0.10).ok, "Klick bei luma 0,10 blockt")
+        ok(!LowLightGate.allows(.grab, luma: 0.10).ok, "Greifen bei luma 0,10 blockt")
+        ok(!LowLightGate.allows(.click, luma: 0.24).ok, "Klick bei 0,24 gedämpft")
+        ok(LowLightGate.allows(.scroll, luma: 0.24).ok, "Scroll bei 0,24")
+        ok(LowLightGate.allows(.click, luma: 0.40).ok, "Klick bei 0,40")
+
         let browser = AppGestureProfile.forBundle("com.apple.Safari")
         ok(!browser.allows(.fling), "Safari blockt Werfen by default")
         ok(browser.allows(.swipe), "Safari erlaubt Wischen")

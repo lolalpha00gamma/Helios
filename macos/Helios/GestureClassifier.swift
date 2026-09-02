@@ -292,6 +292,17 @@ enum GestureClassifier {
         f.extensions = ["thumb": thumb, "index": index, "middle": middle, "ring": ring, "little": little]
         f.pinchClosedness = Double(closedness)
         f.pinchRatio = pinch
+        // 2D-Peace braucht Spreizung + Daumen weg von MCP. Ohne das hat 3D-Fusion
+        // Victory beim Zwei-Finger-Point zurückgebracht.
+        let spread3: CGFloat = {
+            guard let a = p(.indexTip), let b = p(.middleTip) else { return 0.12 }
+            return CGFloat(simd_distance(a, b)) / max(0.03, palmWidth)
+        }()
+        let thumbAtMCP: CGFloat = {
+            guard let t = p(.thumbTip), let m = p(.indexMCP) else { return 0 }
+            let d = CGFloat(simd_distance(t, m)) / max(0.03, palmWidth)
+            return max(0, min(1, (0.35 - d) / 0.35))
+        }()
         let logits: [HandPose: Double] = [
             .fist: Double((1 - index) + (1 - middle) + (1 - ring) + (1 - little)),
             .openPalm: Double(index + middle + ring + little),
@@ -301,7 +312,9 @@ enum GestureClassifier {
                 + Double(max(0, 0.50 - thumb)) * 0.7,
             .peace: Double(index + middle) * 2 - Double(ring + little) * 2
                 - Double(max(0, 0.55 - thumb)) * 2.4
-                - Double(max(0, 0.58 - middle)) * 1.6,
+                - Double(max(0, 0.58 - middle)) * 1.6
+                + Double(min(1, max(0, spread3 - 0.16) / 0.20)) * 1.8
+                - Double(thumbAtMCP) * 2.2,
             .thumbsUp: Double(thumb) * 2.8
                 + Double((1 - index) + (1 - middle) + (1 - ring)) * 0.85
                 - Double(closedness) * 1.3,

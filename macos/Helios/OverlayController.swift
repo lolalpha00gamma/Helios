@@ -99,12 +99,13 @@ final class OverlayController {
         hand: String,
         target: String,
         window: CGRect?,
-        peace: CGFloat = 0
+        peace: CGFloat = 0,
+        clutch: CGFloat = 0
     ) {
         for (id, view) in markers {
             guard let panel = panels[id] else { continue }
             view.screenFrame = panel.frame
-            view.apply(cursor: cursor, phase: phase, hand: hand, target: target, window: window, peace: peace)
+            view.apply(cursor: cursor, phase: phase, hand: hand, target: target, window: window, peace: peace, clutch: clutch)
         }
     }
 
@@ -126,6 +127,7 @@ final class HandMarkerView: NSView {
     private let label = CATextLayer()
     private let beam = CAShapeLayer()
     private let peaceRing = CAShapeLayer()
+    private let clutchRing = CAShapeLayer()
     private var lastLocal: CGPoint = CGPoint(x: -999, y: -999)
 
     override init(frame: NSRect) {
@@ -150,6 +152,16 @@ final class HandMarkerView: NSView {
         peaceRing.path = CGPath(ellipseIn: CGRect(x: 4, y: 4, width: 110, height: 110), transform: nil)
         peaceRing.anchorPoint = CGPoint(x: 0.5, y: 0.5)
         peaceRing.strokeColor = CGColor(red: 1, green: 0.72, blue: 0.15, alpha: 1)
+        clutchRing.fillColor = nil
+        clutchRing.lineWidth = 4
+        clutchRing.lineCap = .round
+        clutchRing.strokeStart = 0
+        clutchRing.strokeEnd = 0
+        clutchRing.bounds = CGRect(x: 0, y: 0, width: 142, height: 142)
+        clutchRing.path = CGPath(ellipseIn: CGRect(x: 4, y: 4, width: 134, height: 134), transform: nil)
+        clutchRing.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        clutchRing.strokeColor = CGColor(red: 1, green: 0.72, blue: 0.15, alpha: 0.95)
+        clutchRing.isHidden = true
         core.bounds = CGRect(x: 0, y: 0, width: 14, height: 14)
         core.path = CGPath(ellipseIn: CGRect(x: 0, y: 0, width: 14, height: 14), transform: nil)
         core.anchorPoint = CGPoint(x: 0.5, y: 0.5)
@@ -161,6 +173,7 @@ final class HandMarkerView: NSView {
         label.anchorPoint = CGPoint(x: 0, y: 0.5)
         let host = layer ?? CALayer()
         host.addSublayer(beam)
+        host.addSublayer(clutchRing)
         host.addSublayer(peaceRing)
         host.addSublayer(ring)
         host.addSublayer(core)
@@ -179,7 +192,8 @@ final class HandMarkerView: NSView {
         hand: String,
         target: String,
         window: CGRect?,
-        peace: CGFloat = 0
+        peace: CGFloat = 0,
+        clutch: CGFloat = 0
     ) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -226,6 +240,14 @@ final class HandMarkerView: NSView {
         } else {
             peaceRing.isHidden = true
             peaceRing.strokeEnd = 0
+        }
+        clutchRing.position = local
+        if clutch > 0.02 {
+            clutchRing.isHidden = false
+            clutchRing.strokeEnd = clutch
+        } else {
+            clutchRing.isHidden = true
+            clutchRing.strokeEnd = 0
         }
     }
 }

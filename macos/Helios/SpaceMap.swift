@@ -341,10 +341,23 @@ final class CalibrationSession {
     private(set) var hint = "Pinzette an der Ecke halten"
     private(set) var rejected = false
     private(set) var skipped: Set<CalibSpot> = []
+    private var history: [History] = []
+
+    private enum History {
+        case sample(CalibSpot, CGPoint)
+        case skip(CalibSpot)
+        var spot: CalibSpot {
+            switch self {
+            case .sample(let s, _): return s
+            case .skip(let s): return s
+            }
+        }
+    }
 
     var progress: CGFloat { min(1, hold / 0.9) }
     var remaining: Int { max(0, sequence.count - samples.count - skipped.count) }
     var totalSpots: Int { sequence.count }
+    var canUndo: Bool { active && !history.isEmpty }
     var corner: CalibCorner {
         switch spot {
         case .topLeft: return .topLeft
@@ -364,6 +377,7 @@ final class CalibrationSession {
         hold = 0
         samples.removeAll()
         skipped.removeAll()
+        history.removeAll()
         lastPalm = nil
         lastCapture = 0
         needRelease = false
@@ -381,14 +395,37 @@ final class CalibrationSession {
     /// Punkt hinter dem Deckel / außerhalb der Kamera: überspringen, Homographie aus dem Rest.
     func skip() {
         guard active else { return }
-        skipped.insert(spot)
+        let current = spot
+        skipped.insert(current)
+        history.append(.skip(current))
         hold = 0
         lastPalm = nil
         needRelease = false
         needMove = false
         rejected = false
-        hint = "Übersprungen: \(spot.titleDE)"
+        hint = "Übersprungen: \(current.titleDE)"
         _ = advanceOrFinish()
+    }
+
+    /// Letzten Sample oder Skip zurück. Nur während der Session.
+    func undo() {
+        guard active, let last = history.popLast() else { return }
+        switch last {
+        case .sample(let s, _):
+            samples.removeValue(forKey: s)
+        case .skip(let s):
+            skipped.remove(s)
+        }
+        if let i = sequence.firstIndex(of: last.spot) {
+            seqIndex = i
+            spot = last.spot
+        }
+        hold = 0
+        lastPalm = nil
+        needRelease = false
+        needMove = false
+        rejected = false
+        hint = "Zurück: \(spot.titleDE)"
     }
 
     func liveRMSE() -> CGFloat? {
@@ -489,6 +526,7 @@ final class CalibrationSession {
 
         rejected = false
         samples[spot] = palm
+        history.append(.sample(spot, palm))
         hold = 0
         lastPalm = nil
         lastCapture = now

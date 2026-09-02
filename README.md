@@ -1,4 +1,4 @@
-# Helios **1.6.7**
+# Helios **1.6.8**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,19 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.8
+
+1.6.7 hat das Fenster folgen lassen — die zweite Hand hat trotzdem den Cursor geklaut, 3D-Fusion hat Peace beim Zeigen zurückgebracht, und luma < 0,20 hat Scroll in dunklen Zimmern getötet.
+
+- **Cursor bleibt auf der dominanten Hand.** `placeCursor(primary)` immer. Die zweite Hand greift/peace’t ohne den Zeiger zu stehlen.
+- **3D-Peace wie 2D.** Spreizung und Daumen-an-MCP in `features3D` — Victory ist kein Zwei-Finger-Point mehr.
+- **Low-Light weich.** luma < 0,20 blockt Klick/Greifen/Peace, Scroll und Wischen bleiben. 0,20–0,28 dämpft nur Klick.
+- **Peace-Cooldown-Chip** 4 s im HUD, sonst wirkt die App tot.
+- **Kalibrier-Undo.** Letzten Punkt zurück, nicht nur Skip.
+- **Clutch-Restzeit-Ring** am Cursor (Maus 850 ms / Tastatur 400 ms).
+- **AX unter der Hand.** Greifen fällt nicht mehr auf frontmost, wenn ein CGWindow unter dem Cursor liegt.
+- **80 ms Pinch-Jitter-Floor** nach Drag-Start: unter 4 px kein `updateWindowDrag`.
 
 ## Neu in 1.6.7
 

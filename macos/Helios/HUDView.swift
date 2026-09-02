@@ -89,7 +89,7 @@ struct HUDView: View {
                             .font(.system(size: 12, weight: .bold, design: .monospaced))
                             .foregroundStyle(live > 12 ? HeliosTheme.danger : HeliosTheme.cyan)
                     }
-                    Text("Nur Pinzette bestätigt. Punkt hinter dem Deckel: überspringen.")
+                    Text("Nur Pinzette bestätigt. Punkt hinter dem Deckel: überspringen. Falscher Punkt: zurück.")
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(HeliosTheme.amber)
                 }
@@ -222,7 +222,9 @@ struct HUDView: View {
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(HeliosTheme.amber)
             } else if let clutch = state.clutchReason {
-                Text(clutch == "Maus" ? "MAUS HAT VORRANG" : "TASTATUR 400 MS")
+                Text(clutch == "Maus"
+                     ? String(format: "MAUS %.0f ms", state.clutchRemain * 850)
+                     : String(format: "TASTATUR %.0f ms", state.clutchRemain * 400))
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
@@ -251,6 +253,13 @@ struct HUDView: View {
                 Text(String(format: "AUFNAHME %.0f%%", state.peaceProgress * 100))
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(HeliosTheme.amber)
+            } else if state.peaceCooldownRemain > 0.02 {
+                Text(String(format: "AUFNAHME %.0fs", state.peaceCooldownRemain * 4))
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .foregroundStyle(HeliosTheme.void)
+                    .background(HeliosTheme.amber)
             }
             Spacer()
             monitorCompass

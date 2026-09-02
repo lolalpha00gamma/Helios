@@ -20,6 +20,8 @@ struct ActionResult {
 final class SystemControl {
     private var dragElement: AXUIElement?
     private var dragGrabOffset: CGPoint = .zero
+    private var dragBeganAt: TimeInterval = 0
+    private var dragBeganQuartz: CGPoint?
     private var lastClick: TimeInterval = 0
     private var lastKey: TimeInterval = 0
     private var lastPosted: CGPoint?
@@ -55,6 +57,18 @@ final class SystemControl {
         if CACurrentMediaTime() < pauseUntil { return "Maus" }
         if CACurrentMediaTime() < keyPauseUntil { return "Tastatur" }
         return nil
+    }
+
+    /// Restzeit 0…1 für den Clutch-Ring (Maus 850 ms, Tastatur 400 ms).
+    var clutchRemain: CGFloat {
+        let now = CACurrentMediaTime()
+        if now < pauseUntil {
+            return CGFloat(min(1, max(0, (pauseUntil - now) / 0.85)))
+        }
+        if now < keyPauseUntil {
+            return CGFloat(min(1, max(0, (keyPauseUntil - now) / 0.40)))
+        }
+        return 0
     }
 
     func startClutch() {
@@ -177,7 +191,7 @@ final class SystemControl {
     func beginWindowDrag(at quartz: CGPoint? = nil) -> ActionResult {
         guard allowsInjection else { return .fail("Maus hat Vorrang — Steuerung pausiert") }
         let loc = quartz ?? lastPosted ?? NSEvent.mouseLocation.screenFlipped
-        guard let win = targetWindow(at: loc) ?? frontWindow() else {
+        guard let win = targetWindow(at: loc, allowFrontmost: false) else {
             if AppInstall.needsCopy {
                 return .fail("Läuft nicht aus Programme")
             }
@@ -188,6 +202,8 @@ final class SystemControl {
         let cocoa = ScreenGeometry.cocoa(fromQuartz: loc)
         dragGrabOffset = CGPoint(x: cocoa.x - pos.x, y: cocoa.y - pos.y)
         lastPosted = loc
+        dragBeganAt = CACurrentMediaTime()
+        dragBeganQuartz = loc
         return .ok("Greifen")
     }
 
@@ -198,6 +214,12 @@ final class SystemControl {
         }
         guard let win = dragElement else { return }
         let loc = quartz ?? lastPosted ?? NSEvent.mouseLocation.screenFlipped
+        // 80 ms nach Griff: Bewegungen unter 4 px sind Pinch-Jitter, kein Zug.
+        if CACurrentMediaTime() - dragBeganAt < 0.08, let start = dragBeganQuartz,
+           hypot(loc.x - start.x, loc.y - start.y) < 4
+        {
+            return
+        }
         lastPosted = loc
         let cocoa = ScreenGeometry.cocoa(fromQuartz: loc)
         let dest = CGPoint(x: cocoa.x - dragGrabOffset.x, y: cocoa.y - dragGrabOffset.y)
@@ -209,6 +231,7 @@ final class SystemControl {
 
     func endWindowDrag() {
         dragElement = nil
+        dragBeganQuartz = nil
     }
 
     var isDragging: Bool { dragElement != nil }
@@ -402,15 +425,18 @@ final class SystemControl {
         return true
     }
 
-    private func targetWindow(at point: CGPoint? = nil) -> AXUIElement? {
+    private func targetWindow(at point: CGPoint? = nil, allowFrontmost: Bool = true) -> AXUIElement? {
         let loc = point ?? lastPosted ?? NSEvent.mouseLocation.screenFlipped
         if let win = window(at: loc), pid(of: win) != TargetProbe.selfPID {
             return win
         }
-        guard let t = TargetProbe.windowAt(quartz: loc, skipSelf: true) ?? TargetProbe.frontmost(skipSelf: true) else {
-            return nil
+        if let t = TargetProbe.windowAt(quartz: loc, skipSelf: true) {
+            return axWindow(pid: t.pid, bounds: t.quartzBounds)
         }
-        return axWindow(pid: t.pid, bounds: t.quartzBounds)
+        // Greifen: nie frontmost, wenn unter der Hand ein anderes CGWindow liegt.
+        // Minimize/Snap dürfen weiter das Fokusfenster nehmen.
+        guard allowFrontmost else { return nil }
+        return frontWindow()
     }
 
     private func frontWindow() -> AXUIElement? {

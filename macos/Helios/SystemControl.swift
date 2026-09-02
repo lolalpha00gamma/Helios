@@ -175,17 +175,20 @@ final class SystemControl {
     }
 
     @discardableResult
-    func click(shift: Bool = false) -> ActionResult {
+    func click(shift: Bool = false, command: Bool = false, option: Bool = false) -> ActionResult {
         let now = CACurrentMediaTime()
         guard now - lastClick > 0.12 else { return .fail("Klick-Pause") }
         lastClick = now
         guard allowsInjection else { return .fail("Maus hat Vorrang") }
         let loc = lastPosted ?? NSEvent.mouseLocation.screenFlipped
-        let flags: CGEventFlags = shift ? .maskShift : []
+        var flags: CGEventFlags = []
+        if shift { flags.insert(.maskShift) }
+        if command { flags.insert(.maskCommand) }
+        if option { flags.insert(.maskAlternate) }
         guard postMouse(.leftMouseDown, at: loc, flags: flags), postMouse(.leftMouseUp, at: loc, flags: flags) else {
             return .fail("CGEvent Klick")
         }
-        return .ok(shift ? "Shift-Klick" : "Klick")
+        return .ok(CoordMath.clickName(shift: shift, command: command, option: option))
     }
 
     @discardableResult

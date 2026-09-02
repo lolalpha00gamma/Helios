@@ -275,7 +275,16 @@ struct ControlPanel: View {
                         }
                         .toggleStyle(.checkbox)
                         .disabled(app.bundleId.isEmpty)
-                        Text("Browser default an (wie Natural-Scroll). Finder aus.")
+                        Toggle(isOn: Binding(
+                            get: { state.engine.profile.invertHorizontal },
+                            set: { state.setInvertHorizontal($0) }
+                        )) {
+                            Text("Horizontal invertieren")
+                                .font(.system(size: 11))
+                        }
+                        .toggleStyle(.checkbox)
+                        .disabled(app.bundleId.isEmpty)
+                        Text("Browser default vertikal an, wheel2 aus. Terminal wheel2 an.")
                             .font(.system(size: 10))
                             .foregroundStyle(.secondary)
                     } else {

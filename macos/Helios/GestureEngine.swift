@@ -87,12 +87,14 @@ struct ProfileSpec: Codable, Equatable {
     var bundles: [String]
     var allowed: [String]?
     var invertScroll: Bool?
+    var invertHorizontal: Bool?
 }
 
 struct ProfileOverride: Codable, Equatable {
     var extra: [String] = []
     var blocked: [String] = []
     var invertScroll: Bool?
+    var invertHorizontal: Bool?
 }
 
 struct AppGestureProfile: Equatable {
@@ -100,6 +102,7 @@ struct AppGestureProfile: Equatable {
     var allowed: Set<GestureAction>?
     var bundleId: String = ""
     var invertScroll = false
+    var invertHorizontal = false
 
     static let standard = AppGestureProfile(name: "Standard", allowed: nil)
 
@@ -116,24 +119,39 @@ struct AppGestureProfile: Equatable {
           "com.apple.Safari.WebApp"
         ],
         "allowed": ["click", "scroll", "swipe", "rightClick", "dwell", "peace"],
-        "invertScroll": true
+        "invertScroll": true,
+        "invertHorizontal": false
       },
       {
         "name": "Finder",
         "bundles": ["com.apple.finder"],
         "allowed": ["click", "scroll", "grab", "fling", "rightClick", "dwell", "peace", "thumbs"],
-        "invertScroll": false
+        "invertScroll": false,
+        "invertHorizontal": false
       },
       {
         "name": "Xcode",
         "bundles": ["com.apple.dt.Xcode"],
         "allowed": ["click", "scroll", "rightClick", "dwell"],
-        "invertScroll": false
+        "invertScroll": false,
+        "invertHorizontal": false
+      },
+      {
+        "name": "Terminal",
+        "bundles": [
+          "com.apple.Terminal",
+          "com.googlecode.iterm2",
+          "net.kovidgoyal.kitty",
+          "com.github.wez.wezterm"
+        ],
+        "allowed": ["click", "scroll", "rightClick", "dwell", "peace"],
+        "invertScroll": false,
+        "invertHorizontal": true
       }
     ]
     """
 
-    private static func catalog() -> [(ids: [String], name: String, allowed: Set<GestureAction>, invertScroll: Bool)] {
+    private static func catalog() -> [(ids: [String], name: String, allowed: Set<GestureAction>, invertScroll: Bool, invertHorizontal: Bool)] {
         let specs: [ProfileSpec]
         if let data = UserDefaults.standard.data(forKey: "helios.profiles.json"),
            let decoded = try? JSONDecoder().decode([ProfileSpec].self, from: data),
@@ -145,7 +163,7 @@ struct AppGestureProfile: Equatable {
         }
         return specs.map { spec in
             let set = Set((spec.allowed ?? []).compactMap(GestureAction.init(rawValue:)))
-            return (spec.bundles, spec.name, set, spec.invertScroll ?? false)
+            return (spec.bundles, spec.name, set, spec.invertScroll ?? false, spec.invertHorizontal ?? false)
         }
     }
 
@@ -157,12 +175,13 @@ struct AppGestureProfile: Equatable {
                 name: row.name,
                 allowed: row.allowed.isEmpty ? nil : row.allowed,
                 bundleId: id,
-                invertScroll: row.invertScroll
+                invertScroll: row.invertScroll,
+                invertHorizontal: row.invertHorizontal
             )
             break
         }
         let pack = loadOverrides()[id] ?? ProfileOverride()
-        if pack.extra.isEmpty, pack.blocked.isEmpty, pack.invertScroll == nil { return base }
+        if pack.extra.isEmpty, pack.blocked.isEmpty, pack.invertScroll == nil, pack.invertHorizontal == nil { return base }
         var set = base.allowed ?? Set(GestureAction.allCases)
         for raw in pack.extra {
             if let a = GestureAction(rawValue: raw) { set.insert(a) }
@@ -175,7 +194,8 @@ struct AppGestureProfile: Equatable {
             name: tagged,
             allowed: set,
             bundleId: id,
-            invertScroll: pack.invertScroll ?? base.invertScroll
+            invertScroll: pack.invertScroll ?? base.invertScroll,
+            invertHorizontal: pack.invertHorizontal ?? base.invertHorizontal
         )
     }
 
@@ -206,6 +226,17 @@ struct AppGestureProfile: Equatable {
         var all = loadOverrides()
         var pack = all[bundle] ?? ProfileOverride()
         pack.invertScroll = on
+        all[bundle] = pack
+        if let data = try? JSONEncoder().encode(all) {
+            UserDefaults.standard.set(data, forKey: "helios.profileOverrides")
+        }
+    }
+
+    static func setInvertHorizontal(bundle: String, on: Bool) {
+        guard !bundle.isEmpty else { return }
+        var all = loadOverrides()
+        var pack = all[bundle] ?? ProfileOverride()
+        pack.invertHorizontal = on
         all[bundle] = pack
         if let data = try? JSONEncoder().encode(all) {
             UserDefaults.standard.set(data, forKey: "helios.profileOverrides")
@@ -1135,7 +1166,7 @@ final class GestureEngine {
             if !pinchBecameDrag, !system.isDragging, !system.isTextDragging {
                 applyMagnet(at: dragPoint(hand))
                 if CoordMath.clickLockHolds(moved: moved, role: system.lastMagnetRole) {
-                    lastAction = "Slider"
+                    lastAction = CoordMath.magnetLabel(system.lastMagnetRole)
                 }
             }
             let span = space.dist(hand.point(.middleTip) ?? hand.palm, hand.palm) / max(0.04, hand.palmWidth)
@@ -1175,11 +1206,15 @@ final class GestureEngine {
                 lastAction = testMode ? "Test: Loslassen" : "Loslassen"
                 onLog?("Loslassen", testMode ? .blocked : .executed, Int(hand.poseProb * 100))
             } else if held >= 0.07, held < 0.55 {
-                let shift = CoordMath.shiftClick(
-                    otherFist: hands.contains { $0.id != hand.id && $0.pose == .fist }
+                let other = hands.filter { $0.id != hand.id }
+                let mods = CoordMath.clickFlags(
+                    otherFist: other.contains { $0.pose == .fist },
+                    otherPeace: other.contains { $0.pose == .peace },
+                    otherPoint: other.contains { $0.pose == .point }
                 )
-                perform(shift ? "Shift-Klick" : "Klick", need: .input, confidence: Float(max(hand.poseProb, hand.pinchClosedness))) {
-                    system.click(shift: shift)
+                let name = CoordMath.clickName(shift: mods.shift, command: mods.command, option: mods.option)
+                perform(name, need: .input, confidence: Float(max(hand.poseProb, hand.pinchClosedness))) {
+                    system.click(shift: mods.shift, command: mods.command, option: mods.option)
                 }
             } else if held < 0.07 {
                 lastAction = "zu kurz"
@@ -1279,15 +1314,19 @@ final class GestureEngine {
             let held = now - (peaceSince ?? now)
             peaceProgress = CGFloat(min(1, max(0, held / need)))
             if held > need {
-                let target = focused
+                let loc = cursor ?? ScreenGeometry.quartz(fromCocoa: NSEvent.mouseLocation)
+                let under = TargetProbe.windowAt(quartz: loc, skipSelf: true)
                 let ok = perform("Aufnahme", need: .capture, confidence: Float(hand.poseProb)) {
-                    if let t = target, t.quartzBounds.width > 8 {
+                    if let t = under, t.quartzBounds.width > 8 {
                         return system.screenshotFocused(windowID: t.windowID, bounds: t.quartzBounds)
                     }
-                    let loc = cursor ?? ScreenGeometry.quartz(fromCocoa: NSEvent.mouseLocation)
                     let screen = ScreenGeometry.screenContaining(quartz: loc) ?? NSScreen.screens.first
                     let quartzScreen = screen.map { ScreenGeometry.quartzRect(fromCocoa: $0.frame) } ?? .zero
-                    let region = CoordMath.peaceRegion(around: loc, screen: quartzScreen)
+                    let region = CoordMath.peaceCaptureBounds(
+                        window: nil,
+                        cursor: loc,
+                        screen: quartzScreen
+                    )
                     return system.screenshotFocused(windowID: 0, bounds: region)
                 }
                 peaceSince = nil
@@ -1380,6 +1419,7 @@ final class GestureEngine {
             scrollAnchor = nil
             return
         }
+        let peaceOnly = open.count < 2 && !peace.isEmpty
         let y = actors.map(\.palm.y).reduce(0, +) / CGFloat(actors.count)
         let x = actors.map(\.palm.x).reduce(0, +) / CGFloat(actors.count)
         let unit = max(0.04, (actors[0].palmWidth + (actors.count > 1 ? actors[1].palmWidth : actors[0].palmWidth)) / 2)
@@ -1391,6 +1431,10 @@ final class GestureEngine {
         let dx = (x - a.x) / unit
         let dt = now - a.t
         guard dt >= 0.05 else { return }
+        // Peace stillhalten ist Aufnahme, kein Tick. Zwei offene Palmen bleiben frei.
+        if peaceOnly, !CoordMath.peaceScrollMoves(moved: hypot(dx, dy)) {
+            return
+        }
         let axis = CoordMath.scrollDelta(dx: dx, dy: dy)
         let gain = 2.2 / max(0.06, unit)
         var vTicks = Int32(max(-24, min(24, -axis.vertical * gain)))
@@ -1399,7 +1443,13 @@ final class GestureEngine {
             UserDefaults.standard.object(forKey: "com.apple.swipescrolldirection")
         )
         vTicks = CoordMath.signedScrollTicks(vTicks, profileInverts: profile.invertScroll, natural: natural)
-        hTicks = CoordMath.signedScrollTicks(hTicks, profileInverts: profile.invertScroll, natural: natural, horizontal: true)
+        hTicks = CoordMath.signedScrollTicks(
+            hTicks,
+            profileInverts: profile.invertScroll,
+            natural: natural,
+            horizontal: true,
+            invertHorizontal: profile.invertHorizontal
+        )
         guard vTicks != 0 || hTicks != 0 else { return }
         let conf = Float(actors.map(\.poseProb).min() ?? 0)
         perform("Scroll", need: .input, confidence: conf) { system.scroll(ticks: vTicks, horizontal: hTicks) }
@@ -1490,6 +1540,6 @@ final class GestureEngine {
         cursorSmooth = snapped
         system.adoptPosted(snapped)
         system.moveCursor(to: snapped)
-        lastAction = "Magnet"
+        lastAction = CoordMath.magnetLabel(system.lastMagnetRole)
     }
 }

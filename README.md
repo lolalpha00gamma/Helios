@@ -1,4 +1,4 @@
-# Helios **1.6.13**
+# Helios **1.6.14**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,17 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.14
+
+1.6.13 hat Magnet-HID und Shift-Klick — Peace stillhalten hat trotzdem gescrollt (Jitter × Gain ≈ Ticks), der Screenshot traf das Vordergrund-Fenster, Pinch auf Schließen wurde zum Titelleisten-Drag, und der HUD sagte nur „Magnet“.
+
+- **Peace-Scroll-Deadzone 0,12 Handbreiten.** Stillhalten ist Aufnahme, kein `lastScrollAt`. Zwei offene Palmen bleiben frei.
+- **Screenshot unter dem Cursor.** `TargetProbe.windowAt`, nicht `focused`. Ohne Fenster: 16:9-Region um den Zeiger.
+- **Click-Lock auf Magnet-Rollen.** Schließen/Mini/Zoom/Checkbox/Radio/Tab/Knopf kleben bis 0,30 Handbreiten.
+- **Cmd/Opt-Klick.** Peace der zweiten Hand = Cmd, Point = Opt. Faust bleibt Shift.
+- **Magnet-Chip.** „SCHLIESSEN“ / „SLIDER“ / „KNOPF“, nicht nur Magnet.
+- **Per-App invertHorizontal.** Terminal XOR't wheel2, Safari nicht. Toggle im Profil-Editor.
 
 ## Neu in 1.6.13
 
@@ -195,10 +206,9 @@ Erkennung ist nicht mehr nur 2D. Vier Quellen laufen parallel und werden fusioni
 | Zwei Pinzetten | Skalieren |
 | Offene Hand **schnell** waagerecht wischen | App wechseln |
 | Zwei offene Hände vertikal | Scroll |
-| Zwei Finger (Peace) vertikal, zweite Hand ruht | Scroll (eine Hand) |
-| Zwei Finger (Peace) klar waagerecht | Horizontal-Scroll (`wheel2`) |
+| Zwei Finger (Peace) stillhalten (~0,9 s) | Fensteraufnahme unter dem Cursor. Jitter < 0,12 Handbreiten scrollt nicht |
+| Zwei Finger (Peace) bewegen (Deadzone 0,12) | Scroll. Klar waagerecht = `wheel2` |
 | Offene Hand 1 s still (optional) | Dwell-Klick |
-| Peace halten (~0,9 s, 1,2 s nach Scroll) | Fensteraufnahme. Fehlschlag 0,8 s Pause, Treffer 4 s |
 | Daumen hoch | App hervorholen |
 | Beide Handflächen (~0,8 s) | Not-Aus → Idle (erst Faust macht wieder scharf) |
 

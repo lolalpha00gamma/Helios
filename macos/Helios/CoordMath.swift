@@ -12,11 +12,18 @@ enum CoordMath {
     /// AX-Hit-Test nicht jeden Frame systemweit.
     static let magnetCache: Double = 0.03
     static let textSelectHandwidths: CGFloat = 0.08
-    /// Pinch auf Slider: unter so vielen Handbreiten klebt der Magnet, kein Zitter-Drag.
+    /// Pinch auf Magnet-Ziele: unter so vielen Handbreiten klebt der Magnet, kein Zitter-Drag.
     static let clickLockHandwidths: CGFloat = 0.30
     static let peaceCooldownOk: Double = 4
     static let peaceCooldownFail: Double = 0.80
-    static let clickLockRoles: Set<String> = ["AXSlider", "AXIncrementor"]
+    /// Peace-als-Scroll: unter so vielen Handbreiten ist es Hold (Aufnahme), kein Tick.
+    static let peaceScrollDeadzone: CGFloat = 0.12
+    /// Traffic-Lights, Toggles, Slider, Tabs — Pinch-Zitter darf kein Fenster-Drag werden.
+    static let clickLockRoles: Set<String> = [
+        "AXSlider", "AXIncrementor", "AXCheckBox", "AXRadioButton",
+        "AXCloseButton", "AXMinimizeButton", "AXZoomButton",
+        "AXTab", "AXMenuItem", "AXButton", "AXPopUpButton", "AXDisclosureTriangle"
+    ]
     static let textRoles: Set<String> = [
         "AXTextArea", "AXTextField", "AXTextView", "AXWebArea", "AXStaticText"
     ]
@@ -99,6 +106,11 @@ enum CoordMath {
         return 0.90
     }
 
+    /// Peace-Hand stillhalten ist Aufnahme, kein Zwei-Finger-Scroll.
+    static func peaceScrollMoves(moved: CGFloat, deadzone: CGFloat = peaceScrollDeadzone) -> Bool {
+        moved >= deadzone
+    }
+
     /// Trackpad-Nachlauf: Ticks klingen in `window` s linear ab.
     static func scrollCoastTicks(last: Int32, elapsed: Double, window: Double = scrollCoast) -> Int32 {
         guard last != 0, elapsed >= 0, elapsed < window else { return 0 }
@@ -125,10 +137,27 @@ enum CoordMath {
         succeeded ? peaceCooldownOk : peaceCooldownFail
     }
 
-    /// Slider/Stepper: kleine Palm-Zitter sind kein Drag.
+    /// Slider/Stepper/Traffic-Lights/Toggles: kleine Palm-Zitter sind kein Drag.
     static func clickLockHolds(moved: CGFloat, role: String?) -> Bool {
         guard let role, clickLockRoles.contains(role) else { return false }
         return moved < clickLockHandwidths
+    }
+
+    /// HUD-Chip für den AX-Magnet. Nicht das generische „Magnet“.
+    static func magnetLabel(_ role: String?) -> String {
+        switch role {
+        case "AXCloseButton": return "Schließen"
+        case "AXMinimizeButton": return "Mini"
+        case "AXZoomButton": return "Zoom"
+        case "AXSlider", "AXIncrementor": return "Slider"
+        case "AXCheckBox": return "Checkbox"
+        case "AXRadioButton": return "Radio"
+        case "AXTab": return "Tab"
+        case "AXMenuItem": return "Menü"
+        case "AXButton", "AXPopUpButton": return "Knopf"
+        case "AXDisclosureTriangle": return "Dreieck"
+        default: return "Magnet"
+        }
     }
 
     /// Text-Drag bleibt in Text/Web. Chrome daneben bricht ab.
@@ -155,10 +184,21 @@ enum CoordMath {
     }
 
     /// Profil-Invert gilt für Natural-an. Natural-aus dreht nochmal, sonst doppelt falsch.
-    /// Horizontal (wheel2 / Safari-History) nimmt den Profil-XOR nicht — sonst geht Zurück vorwärts.
-    static func signedScrollTicks(_ ticks: Int32, profileInverts: Bool, natural: Bool, horizontal: Bool = false) -> Int32 {
+    /// Horizontal (wheel2) nimmt den vertikalen Profil-XOR nicht — sonst geht Safari-Zurück vorwärts.
+    /// `invertHorizontal` ist der eigene Toggle (Terminal braucht ihn, Safari nicht).
+    static func signedScrollTicks(
+        _ ticks: Int32,
+        profileInverts: Bool,
+        natural: Bool,
+        horizontal: Bool = false,
+        invertHorizontal: Bool = false
+    ) -> Int32 {
         var t = ticks
-        if profileInverts, !horizontal { t = -t }
+        if horizontal {
+            if invertHorizontal { t = -t }
+        } else if profileInverts {
+            t = -t
+        }
         if !natural { t = -t }
         return t
     }
@@ -194,6 +234,27 @@ enum CoordMath {
     /// Faust der zweiten Hand während Pinch = Shift+Klick.
     static func shiftClick(otherFist: Bool) -> Bool {
         otherFist
+    }
+
+    /// Zweite Hand: Faust = Shift, Peace = Cmd, Point = Opt. Faust gewinnt bei Kollision.
+    static func clickFlags(otherFist: Bool, otherPeace: Bool, otherPoint: Bool) -> (shift: Bool, command: Bool, option: Bool) {
+        if otherFist { return (true, false, false) }
+        if otherPeace { return (false, true, false) }
+        if otherPoint { return (false, false, true) }
+        return (false, false, false)
+    }
+
+    static func clickName(shift: Bool, command: Bool, option: Bool) -> String {
+        if command { return "Cmd-Klick" }
+        if option { return "Opt-Klick" }
+        if shift { return "Shift-Klick" }
+        return "Klick"
+    }
+
+    /// Fenster unter dem Cursor, sonst 16:9-Region. Nicht das Vordergrund-Fenster.
+    static func peaceCaptureBounds(window: CGRect?, cursor: CGPoint, screen: CGRect) -> CGRect {
+        if let window, window.width > 8, window.height > 8 { return window }
+        return peaceRegion(around: cursor, screen: screen)
     }
 
     /// Peace-Fallback: Region um den Cursor, nicht der ganze Schirm.

@@ -238,7 +238,12 @@ enum GestureTests {
         let browser = AppGestureProfile.forBundle("com.apple.Safari")
         ok(!browser.allows(.fling), "Safari blockt Werfen by default")
         ok(browser.allows(.swipe), "Safari erlaubt Wischen")
-        ok((try? JSONDecoder().decode([ProfileSpec].self, from: Data(AppGestureProfile.bundledJSON.utf8)))?.count ?? 0 >= 3, "Profil-Katalog JSON")
+        ok(!browser.invertHorizontal, "Safari wheel2 nicht XOR")
+        ok(browser.invertScroll, "Safari vertikal invertiert")
+        let term = AppGestureProfile.forBundle("com.apple.Terminal")
+        ok(term.invertHorizontal, "Terminal wheel2 XOR")
+        ok(!term.invertScroll, "Terminal vertikal roh")
+        ok((try? JSONDecoder().decode([ProfileSpec].self, from: Data(AppGestureProfile.bundledJSON.utf8)))?.count ?? 0 >= 4, "Profil-Katalog JSON inkl. Terminal")
 
         if fails > 0 {
             fputs("\(fails) GestureTests fehlgeschlagen\n", stderr)

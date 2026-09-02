@@ -336,6 +336,14 @@ final class AppState: ObservableObject {
         log.record("Profil \(profileName): Scroll \(on ? "invertiert" : "normal")", kind: .info)
     }
 
+    func setInvertHorizontal(_ on: Bool) {
+        guard let id = focused?.bundleId, !id.isEmpty else { return }
+        AppGestureProfile.setInvertHorizontal(bundle: id, on: on)
+        engine.profile = AppGestureProfile.forBundle(id)
+        profileName = engine.profile.name
+        log.record("Profil \(profileName): Horizontal \(on ? "invertiert" : "normal")", kind: .info)
+    }
+
     func reloadSpaceMap() {
         screenCount = NSScreen.screens.count
         let loc = engine.cursor ?? ScreenGeometry.quartz(fromCocoa: NSEvent.mouseLocation)

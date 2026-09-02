@@ -1,6 +1,17 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.13**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+Stand: **1.6.14**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+
+## In 1.6.14 erledigt
+
+Warum 1.6.13 Peace, Traffic-Lights und Modifier trotzdem falsch anfühlte: `driveScroll` hat Peace-Jitter von ~0,01 bei Gain ≈ 18 in Ticks verwandelt und `lastScrollAt` gesetzt — `peaceHoldSeconds` blieb `nil`. `drivePeace` hat `focused` (Vordergrund) aufgenommen, nicht das Fenster unter dem Cursor. Click-Lock galt nur Slider/Incrementor, Pinch auf Schließen wurde nach 0,18 Handbreiten zum Titelleisten-Drag. `click()` kannte nur Shift. Magnet-HUD sagte „Magnet“.
+
+1. **Peace-Scroll-Deadzone 0,12.** Stillhalten feuert keine Ticks, `lastScrollAt` bleibt alt, Aufnahme läuft.
+2. **Screenshot unter dem Cursor.** `TargetProbe.windowAt`, Fallback 16:9-Region. Nicht frontmost.
+3. **Click-Lock Magnet-Rollen.** Schließen/Mini/Zoom/Checkbox/Radio/Tab/Knopf bis 0,30 Handbreiten.
+4. **Cmd/Opt-Klick.** Peace der zweiten Hand = Cmd, Point = Opt, Faust = Shift.
+5. **Magnet-Chip Rolle.** `magnetLabel` — SCHLIESSEN / SLIDER / KNOPF.
+6. **invertHorizontal per App.** Terminal XOR't wheel2, Safari nicht. Toggle im Profil.
 
 ## In 1.6.13 erledigt
 
@@ -163,12 +174,12 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 
 ## Nächste Fixes (klein, hoher Nutzen)
 
-- **Cmd/Opt-Klick.** Peace der zweiten Hand = Cmd+Klick, Point = Opt+Klick — analog Shift-Faust.
-- **Click-Lock auch AXCheckBox / AXRadioButton.** Toggle-Zitter sonst als Drag.
-- **Per-App invertHorizontal.** Terminal braucht wheel2-XOR, Safari nicht — eigener Toggle.
 - **System-Cursor verstecken** solange Scharf (optional, Trackpad-Clutch holt ihn zurück).
-- **Peace-Region folgt dem Fenster**, wenn eins unter der Hand liegt, sonst 16:9 um den Cursor (Region sitzt schon).
-- **Magnet-Rolle im HUD-Chip.** „SCHLIESSEN“ / „SLIDER“, nicht nur „Magnet“.
+- **HUD Chord-Vorschau.** Zweite Hand Peace/Point zeigt „CMD“ / „OPT“ am Cursor, bevor der Pinch aufgeht.
+- **Peace-Deadzone · palmWidth.** Große Hand (Couch) > 0,12, kleine (Desk) feiner — analog Scroll-Gain.
+- **AXPress statt HID** auf AXButton unter Magnet — zuverlässiger als Pixel-Klick auf Traffic Lights.
+- **Cmd-Drag im Finder.** Peace der zweiten Hand während Pinch-Drag = Option-Copy, nicht Verschieben.
+- **Screenshot-Dateiname mit Bundle.** `Helios-Safari-….png`, nicht nur Zeitstempel.
 
 ## Größere Erweiterungen
 
@@ -222,11 +233,15 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Clutch-Statistik im HUD.** Wie oft Maus vs. Geste in den letzten 60 s — Gain zu hoch, wenn Clutch dauernd feuert.
 - **Kalibrier-Heatmap nach 9 Punkten.** Welche Zelle RMSE > 12 px hat, dort nochmal.
 - **Bezel-Warp.** Unkalibrierter Nachbarschirm interpoliert den Cursor über die Naht.
-- **Modifier-Chord der zweiten Hand.** Faust=Shift sitzt; Peace=Cmd, Point=Opt als Extra.
+- **Modifier-Chord der zweiten Hand.** Faust=Shift, Peace=Cmd, Point=Opt sitzt (1.6.14); HUD-Vorschau fehlt.
 - **AXPress statt HID** auf AXButton unter Magnet — zuverlässiger als Pixel-Klick auf Traffic Lights.
 - **Scroll-Richtung live aus Frontmost-Bundle**, nicht nur beim Profil-Wechsel (Safari-Tab in Stage Manager).
 - **Ghost-Cursor während Clutch klickt nicht nach.** Sitzt schon; HUD darf „klickbereit in N ms“ zeigen.
 - **Text-Drag Startpunkt = Magnet-I-Beam**, nicht Palm-Mitte — sonst beginnt die Auswahl ein Wort daneben.
+- **Peace-Hold-Ring dunkel**, solange Deadzone aktiv — sonst wirkt Scroll „tot“, obwohl Aufnahme zählt.
+- **Finder-Cmd-Drag.** Zweite Hand Peace während Ziehen = Kopie.
+- **Traffic-Light AXPress.** Close/Mini/Zoom per AX, nicht HID-Pixel.
+- **Kalibrier-RMSE-Zelle antippen** im HUD, um nur den schlechten Punkt zu wiederholen.
 
 ## Nicht tun
 
@@ -274,3 +289,9 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - Safari-Invert auch auf wheel2 (History geht rückwärts).
 - Peace ohne Fenster als Fullscreen-screencapture.
 - Text-HID-Down im selben Frame wie Pinch-Start.
+- Peace-Jitter unter 0,12 Handbreiten als Scroll (setzt lastScrollAt, Aufnahme tot).
+- Screenshot immer `focused` / frontmost, wenn ein CGWindow unter dem Cursor liegt.
+- Click-Lock nur AXSlider/Incrementor (Traffic-Lights starten Fenster-Drag).
+- `click()` ohne Cmd/Opt der zweiten Hand.
+- Magnet-HUD immer „Magnet“, ohne AX-Rolle.
+- Safari invertHorizontal (History geht rückwärts). Terminal-Toggle unterschlagen.

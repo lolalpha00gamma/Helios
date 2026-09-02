@@ -1,6 +1,6 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
-Stand: 2026-09-02. Helios 1.6.13. Alle fünf Phasen aus `docs/Erkennung.md`
+Stand: 2026-09-02. Helios 1.6.14. Alle fünf Phasen aus `docs/Erkennung.md`
 laufen gleichzeitig — kein Stufenplan. 1.6.1 kollabiert korrelierte Quellen.
 1.6.2 repariert HMM-Masse, Flick-Smoothing, Körper-Chirality und den Clutch.
 1.6.3: Rechtshänder-Default, Kill vs. Scroll, Dominant-Lock, Vision-Orientierung,
@@ -25,6 +25,9 @@ flagsChanged/Repeat, Magnet-Cache hält die AX-Rolle.
 1.6.13: Magnet setzt lastPosted (HID trifft), Peace-Cooldown Restsekunden,
 Rechtsklick schluckt Pinch, wheel2 ohne Profil-XOR, Shift-Klick, I-Beam,
 Peace-Region -R, Text-Dwell 80 ms.
+1.6.14: Peace-Scroll-Deadzone 0,12 (Hold ≠ Tick), Screenshot Fenster unter Cursor,
+Click-Lock Traffic-Lights/Toggles, Cmd/Opt-Klick, Magnet-Chip Rolle,
+invertHorizontal per App (Terminal ja, Safari nein).
 
 ## 1. Bestand vor der Umstellung (1.5.7)
 

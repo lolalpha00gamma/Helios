@@ -112,8 +112,9 @@ enum ConsolePolicy {
         observers.append(NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification, object: nil, queue: .main
         ) { note in
-            MainActor.assumeIsolated {
-                guard let w = note.object as? NSWindow, !isHUD(w) else { return }
+            let hud = note.object is HUDPanel
+            if hud { return }
+            Task { @MainActor in
                 pinned = false
             }
         })

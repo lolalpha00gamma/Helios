@@ -163,6 +163,8 @@ struct HUDView: View {
                 .shadow(color: HeliosTheme.cyan.opacity(0.8), radius: 8)
             statusPill
             grabPill
+            clutchLED
+            peaceRing
             if !state.permissionBanner.isEmpty {
                 Text(state.permissionBanner.uppercased())
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
@@ -183,7 +185,7 @@ struct HUDView: View {
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(HeliosTheme.amber)
             } else if state.mode == .armed && !state.mapReady && !state.testMode {
-                Text("RELATIV — KALIBRIEREN FÜR ABSOLUT")
+                Text("RELATIV — KALIBRIEREN · AUSSEN ABSOLUT")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(HeliosTheme.amber)
             } else if state.mode == .armed && state.engineCursor == nil {
@@ -272,6 +274,23 @@ struct HUDView: View {
             .foregroundStyle(phase == .grab || phase == .hold ? HeliosTheme.void : col)
             .background(phase == .grab || phase == .hold ? HeliosTheme.amber : col.opacity(0.15))
             .overlay(Rectangle().stroke(col, lineWidth: 1.5))
+    }
+
+    private var clutchLED: some View {
+        Circle()
+            .fill(state.mousePaused ? HeliosTheme.amber : HeliosTheme.ok)
+            .frame(width: 8, height: 8)
+            .shadow(color: (state.mousePaused ? HeliosTheme.amber : HeliosTheme.ok).opacity(0.8), radius: 4)
+            .help(state.mousePaused ? "Maus hat Vorrang" : "Helios steuert")
+    }
+
+    private var peaceRing: some View {
+        Circle()
+            .trim(from: 0, to: max(0.02, state.peaceProgress))
+            .stroke(HeliosTheme.amber, style: StrokeStyle(lineWidth: 3, lineCap: .round))
+            .frame(width: 16, height: 16)
+            .rotationEffect(.degrees(-90))
+            .opacity(state.peaceProgress > 0 ? 1 : 0)
     }
 
     private var cheatSheet: some View {

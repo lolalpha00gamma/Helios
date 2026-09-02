@@ -110,6 +110,7 @@ final class HandTracker: @unchecked Sendable {
     private let lock = NSLock()
     var lastFusion: FusionDebug?
     var depthAvailable = false
+    var fusionTemperature: Double = 0.75
 
     func reset() {
         lock.lock()
@@ -172,7 +173,12 @@ final class HandTracker: @unchecked Sendable {
             }
             guard raw.count >= 8 else { continue }
             var chirality = obs.chirality
-            if chirality == .unknown {
+            let palm = GestureClassifier.palmCenter(raw)
+            if let voted = bodyChirality(palm: palm, body: bodyPts) {
+                if chirality == .unknown || chirality != voted {
+                    chirality = voted
+                }
+            } else if chirality == .unknown {
                 let wx = raw[.wrist]?.x ?? 0.5
                 if mirrored {
                     chirality = wx < 0.5 ? .left : .right
@@ -180,7 +186,7 @@ final class HandTracker: @unchecked Sendable {
                     chirality = wx < 0.5 ? .right : .left
                 }
             }
-            obsList.append(RawObs(raw: raw, conf: conf, chirality: chirality, palm: GestureClassifier.palmCenter(raw)))
+            obsList.append(RawObs(raw: raw, conf: conf, chirality: chirality, palm: palm))
         }
 
         let assigned = assign(obsList, space: space, now: now)
@@ -247,6 +253,7 @@ final class HandTracker: @unchecked Sendable {
             eT.palmWidth = feat2D.palmWidth
             eT.palmVariance = 0.006
 
+            slot.fusion.temperature = fusionTemperature
             let (fused, dbg) = slot.fusion.fuse([e2, e3, eDepth, eT], dt: dt)
             let hmmOut = slot.hmm.step(
                 emission: fused.probabilities,
@@ -356,6 +363,25 @@ final class HandTracker: @unchecked Sendable {
         if ang > 1.05 { return 0.35 }
         if ang > 0.7 { return 0.7 }
         return 1
+    }
+
+    /// Körperpose stimmt L/R ab, wenn Vision die Hände tauscht.
+    /// Nur klare Sieger: näher an einem Handgelenk, Abstand-Verhältnis < 0,72.
+    private func bodyChirality(
+        palm: CGPoint,
+        body: [VNHumanBodyPoseObservation.JointName: VNRecognizedPoint]
+    ) -> VNChirality? {
+        func pt(_ name: VNHumanBodyPoseObservation.JointName) -> CGPoint? {
+            guard let p = body[name], p.confidence > 0.20 else { return nil }
+            return CGPoint(x: p.location.x, y: p.location.y)
+        }
+        guard let left = pt(.leftWrist), let right = pt(.rightWrist) else { return nil }
+        let dl = hypot(palm.x - left.x, palm.y - left.y)
+        let dr = hypot(palm.x - right.x, palm.y - right.y)
+        let nearest = min(dl, dr)
+        let farthest = max(dl, dr)
+        guard farthest > 1e-4, nearest / farthest < 0.72 else { return nil }
+        return dl < dr ? .left : .right
     }
 }
 

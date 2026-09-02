@@ -30,11 +30,35 @@ enum CalibCorner: Int, CaseIterable, Codable {
 /// Homographie Kamera-Handfläche → Bildschirm (Quartz). Nur Mapping, keine Erkennung.
 struct SpaceMap: Codable {
     var palms: [XY]
+    var displayID: UInt32 = 0
 
     var isReady: Bool { palms.count == 4 }
 
-    static func screenCorners() -> [CGPoint] {
-        let q = ScreenGeometry.quartzRect(fromCocoa: ScreenGeometry.cocoaUnion)
+    enum CodingKeys: String, CodingKey {
+        case palms, displayID
+    }
+
+    init(palms: [XY], displayID: UInt32 = 0) {
+        self.palms = palms
+        self.displayID = displayID
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        palms = try c.decode([XY].self, forKey: .palms)
+        displayID = try c.decodeIfPresent(UInt32.self, forKey: .displayID) ?? 0
+    }
+
+    static func screenCorners(displayID: CGDirectDisplayID = 0) -> [CGPoint] {
+        let frame: CGRect
+        if displayID != 0,
+           let screen = NSScreen.screens.first(where: { ScreenGeometry.displayID(of: $0) == displayID })
+        {
+            frame = screen.frame
+        } else {
+            frame = ScreenGeometry.cocoaUnion
+        }
+        let q = ScreenGeometry.quartzRect(fromCocoa: frame)
         return [
             CGPoint(x: q.minX + 8, y: q.minY + 8),
             CGPoint(x: q.maxX - 8, y: q.minY + 8),
@@ -61,12 +85,24 @@ struct SpaceMap: Codable {
         return ScreenGeometry.clampQuartz(p)
     }
 
+    /// Außen absolut (Homographie), innen Relativ-Schritt. `relative` ist schon in Quartz.
+    func hybrid(palm: CGPoint, relative: CGPoint, band: CGFloat = GestureMath.hybridBand) -> CGPoint {
+        let absP = apply(palm)
+        let uv = ScreenGeometry.unitInUnion(quartz: absP)
+        let w = CoordMath.edgeAbsoluteWeight(u: uv.x, v: uv.y, band: band)
+        let p = CGPoint(
+            x: w * absP.x + (1 - w) * relative.x,
+            y: w * absP.y + (1 - w) * relative.y
+        )
+        return ScreenGeometry.clampQuartz(p)
+    }
+
     func homography() -> [CGFloat]? {
         cachedHomography()
     }
 
     private func cachedHomography() -> [CGFloat]? {
-        HomographyStore.get(palms)
+        HomographyStore.get(palms, displayID: displayID)
     }
 
     /// 4 Punktpaare, h22 = 1, 8×8 Gauss.
@@ -117,19 +153,34 @@ struct SpaceMap: Codable {
         return b
     }
 
-    static func load() -> SpaceMap? {
+    static func storageKey(displayID: CGDirectDisplayID) -> String {
+        displayID == 0 ? "helios.spaceMap" : "helios.spaceMap.\(displayID)"
+    }
+
+    static func load(displayID: CGDirectDisplayID = 0) -> SpaceMap? {
+        if displayID != 0,
+           let data = UserDefaults.standard.data(forKey: storageKey(displayID: displayID)),
+           let map = try? JSONDecoder().decode(SpaceMap.self, from: data)
+        {
+            return map
+        }
         guard let data = UserDefaults.standard.data(forKey: "helios.spaceMap") else { return nil }
         return try? JSONDecoder().decode(SpaceMap.self, from: data)
     }
 
     func save() {
-        if let data = try? JSONEncoder().encode(self) {
-            UserDefaults.standard.set(data, forKey: "helios.spaceMap")
+        guard let data = try? JSONEncoder().encode(self) else { return }
+        UserDefaults.standard.set(data, forKey: "helios.spaceMap")
+        if displayID != 0 {
+            UserDefaults.standard.set(data, forKey: Self.storageKey(displayID: displayID))
         }
     }
 
     static func clear() {
         UserDefaults.standard.removeObject(forKey: "helios.spaceMap")
+        for screen in NSScreen.screens {
+            UserDefaults.standard.removeObject(forKey: storageKey(displayID: ScreenGeometry.displayID(of: screen)))
+        }
         HomographyStore.clear()
     }
 }
@@ -137,25 +188,29 @@ struct SpaceMap: Codable {
 private enum HomographyStore {
     private static let lock = NSLock()
     private static var palms: [XY] = []
+    private static var displayID: UInt32 = 0
     private static var H: [CGFloat]?
 
-    static func get(_ src: [XY]) -> [CGFloat]? {
+    static func get(_ src: [XY], displayID: UInt32) -> [CGFloat]? {
         lock.lock()
         defer { lock.unlock() }
-        if src == palms, let H { return H }
+        if src == palms, displayID == Self.displayID, let H { return H }
         guard src.count == 4 else {
             palms = src
+            Self.displayID = displayID
             H = nil
             return nil
         }
-        H = SpaceMap.homography(from: src.map(\.point), to: SpaceMap.screenCorners())
+        H = SpaceMap.homography(from: src.map(\.point), to: SpaceMap.screenCorners(displayID: displayID))
         palms = src
+        Self.displayID = displayID
         return H
     }
 
     static func clear() {
         lock.lock()
         palms = []
+        displayID = 0
         H = nil
         lock.unlock()
     }
@@ -175,6 +230,7 @@ final class CalibrationSession {
     private var needMove = false
     private(set) var hint = "Pinzette an der Ecke halten"
     private(set) var rejected = false
+    private var targetDisplay: CGDirectDisplayID = 0
 
     var progress: CGFloat { min(1, hold / 0.9) }
     var remaining: Int { 4 - samples.count }
@@ -190,6 +246,7 @@ final class CalibrationSession {
         needMove = false
         rejected = false
         lastT = 0
+        targetDisplay = ScreenGeometry.mainDisplayID
         hint = "Ecke oben links: dein Anschlag, nicht der Kamerarand. Pinzette 1 s."
     }
 
@@ -199,7 +256,7 @@ final class CalibrationSession {
     }
 
     func targetQuartz() -> CGPoint {
-        SpaceMap.screenCorners()[corner.rawValue]
+        SpaceMap.screenCorners(displayID: targetDisplay)[corner.rawValue]
     }
 
     /// Nur Pinzette. Nach jedem Treffer: Hand öffnen und zur nächsten Ecke gehen.
@@ -275,7 +332,7 @@ final class CalibrationSession {
             rejected = true
             return nil
         }
-        let map = SpaceMap(palms: pts.map(XY.init))
+        let map = SpaceMap(palms: pts.map(XY.init), displayID: targetDisplay)
         map.save()
         active = false
         hint = "Fertig"

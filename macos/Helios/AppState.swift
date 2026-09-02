@@ -38,7 +38,7 @@ final class AppState: ObservableObject {
     @Published var showCheats = true
     @Published var testMode = false
     @Published var protocolMode = true
-    @Published var leftHanded = true
+    @Published var leftHanded = false
     @Published var showJointLabels = true
     @Published var showOutline = false
     @Published var showTrashZone = true
@@ -68,6 +68,8 @@ final class AppState: ObservableObject {
     @Published var fusion: FusionDebug?
     @Published var hasDepth = false
     @Published var permissionBanner = ""
+    @Published var fusionTemperature: Double = 0.75
+    @Published var peaceProgress: CGFloat = 0
     let calibSession = CalibrationSession()
     private var lastPanel: TimeInterval = 0
     private var didStart = false
@@ -85,7 +87,7 @@ final class AppState: ObservableObject {
         overlay.attach(state: self)
         engine.startInputClutch()
         engine.calibration = calibSession
-        engine.spaceMap = SpaceMap.load()
+        engine.spaceMap = SpaceMap.load(displayID: ScreenGeometry.mainDisplayID)
         mapReady = engine.spaceMap?.isReady == true
         ConsolePolicy.installGuard()
         Permissions.onDemand = { [weak self] kind in
@@ -317,6 +319,12 @@ final class AppState: ObservableObject {
         Prefs.pointerGain = g
     }
 
+    func setFusionTemperature(_ t: Double) {
+        fusionTemperature = min(1.4, max(0.35, t))
+        tracker.fusionTemperature = fusionTemperature
+        Prefs.fusionTemperature = fusionTemperature
+    }
+
     func setDwellEnabled(_ on: Bool) {
         dwellEnabled = on
         engine.dwellEnabled = on
@@ -338,12 +346,14 @@ final class AppState: ObservableObject {
         showPreviewChip = Prefs.showPreviewChip
         dwellEnabled = Prefs.dwellEnabled
         hideConsoleWhenArmed = Prefs.hideConsoleWhenArmed
+        fusionTemperature = Prefs.fusionTemperature
         engine.leftHanded = leftHanded
         engine.pointerGain = CGFloat(pointerGain)
         engine.protocolMode = protocolMode
         engine.testMode = testMode
         engine.dwellEnabled = dwellEnabled
         engine.hideConsoleWhenArmed = hideConsoleWhenArmed
+        tracker.fusionTemperature = fusionTemperature
         cameraDevices = CameraSession.discover()
         selectedCameraID = UserDefaults.standard.string(forKey: "helios.cameraID")
             ?? cameraDevices.first?.id ?? ""
@@ -386,6 +396,11 @@ final class AppState: ObservableObject {
         engine.spaceMap = nil
         mapReady = false
         log.record("Kalibrierung gelöscht — Relativ-Zeiger", kind: .info)
+    }
+
+    func reloadSpaceMap() {
+        engine.spaceMap = SpaceMap.load(displayID: ScreenGeometry.mainDisplayID)
+        mapReady = engine.spaceMap?.isReady == true
     }
 
     private func overlayVisible() {
@@ -482,6 +497,7 @@ final class AppState: ObservableObject {
         mousePaused = engine.mousePaused
         grabPhase = engine.grabPhase
         grabTargetName = engine.grabTargetName
+        peaceProgress = engine.peaceProgress
         self.hands = hands
         fusion = hands.first?.fusion ?? tracker.lastFusion
         hasDepth = camera.hasDepth
@@ -528,7 +544,7 @@ private final class ApplySlot: @unchecked Sendable {
 
 enum Prefs {
     static var leftHanded: Bool {
-        get { UserDefaults.standard.object(forKey: "helios.leftHanded") as? Bool ?? true }
+        get { UserDefaults.standard.object(forKey: "helios.leftHanded") as? Bool ?? false }
         set { UserDefaults.standard.set(newValue, forKey: "helios.leftHanded") }
     }
     static var dwellEnabled: Bool {
@@ -588,5 +604,12 @@ enum Prefs {
     static var hideConsoleWhenArmed: Bool {
         get { UserDefaults.standard.object(forKey: "helios.hideConsole") as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "helios.hideConsole") }
+    }
+    static var fusionTemperature: Double {
+        get {
+            let v = UserDefaults.standard.double(forKey: "helios.fusionTemp")
+            return v == 0 ? 0.75 : min(1.4, max(0.35, v))
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.fusionTemp") }
     }
 }

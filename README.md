@@ -1,4 +1,4 @@
-# Helios **1.6.6**
+# Helios **1.6.7**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,18 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.7
+
+Die rechte Hand war die Steuerhand — im Code stand trotzdem `leftHanded = true`. Vision hat L/R oft getauscht, die Kalibrierung hat in der Bildschirmmitte gezittert, und bei wenigen fps hat Helios die eigene Mausbewegung als „Maus hat Vorrang“ gewertet.
+
+- **Rechtshänder default.** Neue Installationen und leeres Pref: rechte Hand steuert. Linkshänder-Schalter bleibt.
+- **Körperpose stimmt L/R ab.** `VNDetectHumanBodyPose` votiert über die Handgelenke, wenn Vision die Hände vertauscht. `forearmGate` dämpft weiter die Qualität.
+- **SpaceMap hybrid.** Nur die äußeren 15 % absolut (Ecken erreichbar), innen Trackpad-Relativ — kein Homographie-Zittern in der Mitte. Kalibrierung merkt die Display-ID.
+- **Maus-Clutch ignoriert eigene Events.** 48 px / 120 ms um den letzten `CGEvent`. Delta ≈ 0 zählt nicht als Hardware.
+- **Pointer-Beschleunigung** (quadratisch): Feinzielen bleibt langsam, Schwung wird schneller.
+- **Fling-Totzone am Schirmmittelpunkt**, sobald kalibriert — nicht mehr Kamerabild-Mitte.
+- **Aktions-Log 62 %** (war Text „70 %“ bei Tor 0,62). Fusion-Temperatur als Inspector-Slider. Peace-Ring + Clutch-LED im HUD.
 
 ## Neu in 1.6.6
 

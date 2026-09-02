@@ -37,7 +37,7 @@ final class GestureEngine {
     var twoHandSpan: CGFloat?
     var testMode = false
     var protocolMode = true
-    var leftHanded = true
+    var leftHanded = false
     var pointerGain: CGFloat = 1.6
     var spaceMap: SpaceMap?
     var calibration: CalibrationSession?
@@ -53,6 +53,7 @@ final class GestureEngine {
     var chromeHot = ""
     var hideConsoleWhenArmed = true
     var clapWake = false
+    var peaceProgress: CGFloat = 0
 
     private var fistSince: TimeInterval?
     private var fistLostAt: TimeInterval?
@@ -174,6 +175,7 @@ final class GestureEngine {
         lastTwoHands = 0
         lastClapFire = 0
         lastAction = "Reset"
+        peaceProgress = 0
     }
 
     func tick(hands incoming: [TrackedHand], now: TimeInterval) {
@@ -218,6 +220,7 @@ final class GestureEngine {
             grabTargetName = ""
             chromeKnobs = []
             chromeHot = ""
+            peaceProgress = 0
             if mode == .armed, lastHandSeen > 0, now - lastHandSeen >= GestureMath.deadMan {
                 mode = .idle
                 mustRearm = true
@@ -400,7 +403,7 @@ final class GestureEngine {
     ) {
         if systemAction, confidence < 0.62, !testMode {
             lastAction = "\(name) — unsicher"
-            onLog?("\(name) — Pose < 70 %", .blocked, Int(confidence * 100))
+            onLog?("\(name) — Pose < 62 %", .blocked, Int(confidence * 100))
             return
         }
         let conf = Int(confidence * 100)
@@ -620,36 +623,16 @@ final class GestureEngine {
 
     private func actorMapped(_ hand: TrackedHand) -> CGPoint {
         let palm = hand.palm
-        if let map = spaceMap, map.isReady {
-            let q = map.apply(palm)
-            if pointerHandID != hand.id {
-                pointerHandID = hand.id
-                lastPalm = palm
-                palmSlow = palm
-                cursorSmooth = q
-                cursorDidMove = true
-                return q
-            }
-            let prev = lastPalm ?? palm
-            lastPalm = palm
-            let dxv = palm.x - prev.x
-            let dyv = palm.y - prev.y
-            if abs(dxv) < GestureMath.palmDead, abs(dyv) < GestureMath.palmDead {
-                cursorDidMove = false
-                return cursorSmooth ?? q
-            }
-            cursorDidMove = true
-            let from = cursorSmooth ?? q
-            let a: CGFloat = 0.55
-            let s = CGPoint(x: a * q.x + (1 - a) * from.x, y: a * q.y + (1 - a) * from.y)
-            cursorSmooth = s
-            return s
-        }
-        cursorDidMove = false
         if pointerHandID != hand.id {
             pointerHandID = hand.id
             lastPalm = palm
             palmSlow = palm
+            if let map = spaceMap, map.isReady {
+                let q = map.apply(palm)
+                cursorSmooth = q
+                cursorDidMove = true
+                return q
+            }
             let start = ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
             cursorSmooth = start
             return start
@@ -668,7 +651,25 @@ final class GestureEngine {
         let dead = GestureMath.palmDead
         if abs(dx) < dead { dx = 0 }
         if abs(dy) < dead { dy = 0 }
+
+        if let map = spaceMap, map.isReady {
+            let q = map.apply(palm)
+            if dx == 0 && dy == 0 {
+                cursorDidMove = false
+                return cursorSmooth ?? q
+            }
+            cursorDidMove = true
+            let from = cursorSmooth ?? q
+            let stepped = ScreenGeometry.stepCursor(from: from, dPalm: CGPoint(x: dx, y: dy), gain: pointerGain)
+            let mixed = map.hybrid(palm: palm, relative: stepped)
+            let a: CGFloat = 0.55
+            let s = CGPoint(x: a * mixed.x + (1 - a) * from.x, y: a * mixed.y + (1 - a) * from.y)
+            cursorSmooth = s
+            return s
+        }
+
         if dx == 0 && dy == 0 {
+            cursorDidMove = false
             return cursorSmooth ?? ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
         }
         cursorDidMove = true
@@ -902,11 +903,16 @@ final class GestureEngine {
             return true
         }
         guard pinchTrail.count >= 2 else { return false }
+        let screenUV: CGPoint? = {
+            guard spaceMap?.isReady == true, let c = cursor else { return nil }
+            return ScreenGeometry.unitInUnion(quartz: c)
+        }()
         let kind = GestureMath.flingFromTrail(
             pinchTrail,
             palmWidth: palmWidth,
             aspect: space.aspect,
-            afterDrag: afterDrag
+            afterDrag: afterDrag,
+            screenUV: screenUV
         )
         guard kind != .none else { return false }
         onLog?("Werfen erkannt", .recognized, Int(confidence * 100))
@@ -994,10 +1000,13 @@ final class GestureEngine {
         // Öffnen geht durch Zwei-Finger. Peace nur allein, nicht beim Aufmachen.
         if otherOpen || hand.openScore >= 3 || hand.pose != .peace || hand.poseProb < 0.50 {
             peaceSince = nil
+            peaceProgress = 0
             return
         }
         if peaceSince == nil { peaceSince = now }
-        if now - (peaceSince ?? now) > GestureMath.peaceHold {
+        let held = now - (peaceSince ?? now)
+        peaceProgress = CGFloat(min(1, held / GestureMath.peaceHold))
+        if held > GestureMath.peaceHold {
             let target = focused
             perform("Aufnahme", need: .capture, confidence: Float(hand.poseProb)) {
                 if let t = target, t.quartzBounds.width > 8 {
@@ -1007,6 +1016,7 @@ final class GestureEngine {
                 return system.screenshotFocused(windowID: 0, bounds: b)
             }
             peaceSince = nil
+            peaceProgress = 0
             cooldownUntil = now + 4
         }
     }

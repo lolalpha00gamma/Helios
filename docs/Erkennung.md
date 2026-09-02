@@ -1,6 +1,6 @@
 # Erkennung — implementiert (kein Phasenplan)
 
-Stand: 2026-09-02, Helios 1.6.6. Alle fünf Phasen aus dem
+Stand: 2026-09-02, Helios 1.6.7. Alle fünf Phasen aus dem
 Konsolidierungsdokument laufen gleichzeitig. Fällt eine Quelle aus, geht
 ihr Fusionsgewicht auf 0. Korrelierte Quellen (Lift/Zeit ≈ 2D) werden
 kollabiert, sonst flacht die Pose unter das Aktions-Tor.
@@ -39,7 +39,9 @@ Ist echte Tiefe da, fällt das Lift-Gewicht auf 0.06. Überlappen Lift oder
 Zeit die 2D-Verteilung zu mehr als 80 %, fällt ihr Rohgewicht auf 22 % —
 sonst ist die Fusion drei Stimmen desselben Fehlers.
 
-Softmax-Temperatur 0.75. Aktions-Tor 62 %.
+Softmax-Temperatur default 0,75 (Inspector-Slider). Aktions-Tor 62 %.
+Default Steuerhand: **rechts**. Körperpose votiert L/R, wenn Vision tauscht.
+Kalibrierter Zeiger: äußere 15 % Homographie, innen Relativ + Beschleunigung.
 
 ## Aktions-Sicherheit (aus 1.5.7, bleibt)
 

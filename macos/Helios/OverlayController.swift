@@ -40,6 +40,7 @@ final class OverlayController {
         ) { [weak self] _ in
             Task { @MainActor in
                 self?.rebuild()
+                self?.state?.reloadSpaceMap()
             }
         }
     }

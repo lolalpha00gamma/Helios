@@ -237,6 +237,55 @@ enum CoordTests {
             fails += 1
         }
 
+        let edgeIn = CoordMath.edgeAbsoluteWeight(u: 0.5, v: 0.5, band: 0.15)
+        if edgeIn > 0.01 {
+            fputs("FAIL Hybrid-Mitte muss relativ sein (\(edgeIn))\n", stderr)
+            fails += 1
+        }
+        let edgeOut = CoordMath.edgeAbsoluteWeight(u: 0.02, v: 0.5, band: 0.15)
+        if edgeOut < 0.85 {
+            fputs("FAIL Hybrid-Rand muss absolut sein (\(edgeOut))\n", stderr)
+            fails += 1
+        }
+        let accelSlow = CoordMath.pointerAccelScale(magnitude: 0.004)
+        let accelFast = CoordMath.pointerAccelScale(magnitude: 0.05)
+        if accelSlow >= accelFast {
+            fputs("FAIL Pointer-Accel: langsam muss kleiner als schnell sein \(accelSlow) vs \(accelFast)\n", stderr)
+            fails += 1
+        }
+        if accelSlow > 0.7 {
+            fputs("FAIL Mini-Zucken darf nicht beschleunigen (\(accelSlow))\n", stderr)
+            fails += 1
+        }
+        if !CoordMath.nearUnitCenter(u: 0.50, v: 0.50) {
+            fputs("FAIL Bildschirmmitte ist tot\n", stderr)
+            fails += 1
+        }
+        if CoordMath.nearUnitCenter(u: 0.90, v: 0.10) {
+            fputs("FAIL Ecke ist keine Totzone\n", stderr)
+            fails += 1
+        }
+        let midFling: [(t: TimeInterval, x: CGFloat, y: CGFloat)] = [
+            (0.00, 0.20, 0.20),
+            (0.08, 0.20, 0.40)
+        ]
+        if GestureMath.flingFromTrail(midFling, palmWidth: 0.12, centerDead: true, screenUV: CGPoint(x: 0.50, y: 0.50)) != .none {
+            fputs("FAIL kalibrierte Totzone am Schirmmittelpunkt, nicht Kameramitte\n", stderr)
+            fails += 1
+        }
+        if GestureMath.clutchOwnRadius < 40 {
+            fputs("FAIL Clutch-Radius gegen eigene Events zu klein\n", stderr)
+            fails += 1
+        }
+        if GestureMath.clutchOwnWindow < 0.08 {
+            fputs("FAIL Clutch-Fenster gegen eigene Events zu kurz\n", stderr)
+            fails += 1
+        }
+        if GestureMath.hybridBand < 0.10 || GestureMath.hybridBand > 0.25 {
+            fputs("FAIL Hybrid-Band 15 %\n", stderr)
+            fails += 1
+        }
+
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)
             exit(1)

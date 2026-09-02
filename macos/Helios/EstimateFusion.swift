@@ -12,6 +12,8 @@ final class EstimateFusion {
         .depth: 0.32,
         .temporal: 0.16
     ]
+    /// Inspector-Slider. 0,75 ist der 1.6.1-Default; niedriger = spitzer, höher = weicher.
+    var temperature: Double = 0.75
     private var reliability: [EstimateSource: Double] = [
         .geometry2D: 1, .lift3D: 1, .depth: 1, .temporal: 1
     ]
@@ -72,7 +74,7 @@ final class EstimateFusion {
         }
         let keys = HandPose.allCases
         let logits = keys.map { logp[$0] ?? -20 }
-        let sm = JointGeom.softmax(logits, temperature: 0.75)
+        let sm = JointGeom.softmax(logits, temperature: max(0.35, min(1.4, temperature)))
         var probs: [HandPose: Double] = [:]
         for (i, k) in keys.enumerated() { probs[k] = sm[i] }
 

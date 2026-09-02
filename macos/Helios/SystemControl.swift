@@ -89,13 +89,18 @@ final class SystemControl {
 
     private func noteHardware(_ e: NSEvent) {
         guard e.type == .leftMouseDragged || e.type == .mouseMoved else { return }
+        let now = CACurrentMediaTime()
+        // Eigene CGEvents (moveCursor) kommen als mouseMoved zurück — bei <12 fps
+        // war der Sprung > 10 px und hat Helios selbst pausiert.
+        if lastPostAt > 0, now - lastPostAt < GestureMath.clutchOwnWindow { return }
         let d = hypot(e.deltaX, e.deltaY)
-        guard d > 3.5 else { return }
+        if d < 0.5 { return }
         if let posted = lastPosted {
             let nowLoc = NSEvent.mouseLocation.screenFlipped
-            if hypot(nowLoc.x - posted.x, nowLoc.y - posted.y) < 10 { return }
+            if hypot(nowLoc.x - posted.x, nowLoc.y - posted.y) < GestureMath.clutchOwnRadius { return }
         }
-        seize(CACurrentMediaTime())
+        guard d > 3.5 else { return }
+        seize(now)
     }
 
     private func seize(_ now: TimeInterval) {

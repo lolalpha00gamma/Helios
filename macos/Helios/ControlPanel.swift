@@ -40,7 +40,7 @@ struct ControlPanel: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Linkshänder")
                         .font(.system(size: 13, weight: .semibold))
-                    Text("Linke Hand steuert Position und Greifen.")
+                    Text("Standard aus — rechte Hand steuert. Nur einschalten, wenn du mit links greifst.")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
@@ -190,12 +190,32 @@ struct ControlPanel: View {
                         }
                         .buttonStyle(.borderless)
                     }
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Fusion-Temperatur")
+                            Spacer()
+                            Text(String(format: "%.2f", state.fusionTemperature))
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(HeliosTheme.cyan)
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { state.fusionTemperature },
+                                set: { state.setFusionTemperature($0) }
+                            ),
+                            in: 0.35...1.40,
+                            step: 0.05
+                        )
+                        Text("Debug. 0,75 Default. Niedriger = Pose spitzer (leichter über 62 %), höher = weicher.")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
 
             GroupBox("Kalibrierung") {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(state.mapReady ? "Ecken gespeichert — Handfläche = Bildschirm." : "Noch nicht kalibriert — Zeiger relativ.")
+                    Text(state.mapReady ? "Ecken gespeichert — außen absolut, innen relativ (Trackpad)." : "Noch nicht kalibriert — Zeiger relativ.")
                         .font(.system(size: 11))
                         .foregroundStyle(state.mapReady ? HeliosTheme.cyan : .secondary)
                     if state.calibActive {
@@ -211,7 +231,7 @@ struct ControlPanel: View {
                         Button("Kalibrierung löschen") { state.clearCalibration() }
                             .buttonStyle(.borderless)
                     }
-                    Text("Je Ecke: dein persönlicher Anschlag, nicht der Kamerarand. Kommst du nicht tiefer ohne das Bild zu verlassen — genau dort bestätigen. Homographie spannt diesen Bereich auf den ganzen Schirm.")
+                    Text("Je Ecke: dein persönlicher Anschlag, nicht der Kamerarand. Gilt für diesen Monitor. Innen folgt der Zeiger relativ (kein Zittern in der Mitte), die äußeren 15 % bleiben absolut, damit du die Ecken erreichst.")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
                 }
@@ -237,7 +257,7 @@ struct ControlPanel: View {
 
             Text(state.testMode
                  ? "Testmodus: Gesten werden erkannt, das System bleibt unangetastet."
-                 : "Live · Linke Handfläche = Position. 2× klatschen (sichtbar, kein Mikrofon) weckt Helios im Hintergrund. Pinzette/Faust greift das Fenster unter der Markierung. Offene Hand wischen = App. Beide offen = Not-Aus (bleibt Idle).")
+                 : "Live · \(state.leftHanded ? "Linke" : "Rechte") Handfläche = Position. 2× klatschen (sichtbar, kein Mikrofon) weckt Helios im Hintergrund. Pinzette/Faust greift das Fenster unter der Markierung. Offene Hand wischen = App. Beide offen = Not-Aus (bleibt Idle).")
                 .font(.system(size: 11))
                 .foregroundStyle(.tertiary)
         }

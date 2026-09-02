@@ -1,6 +1,17 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.6**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+Stand: **1.6.7**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+
+## In 1.6.7 erledigt
+
+Warum es sich tot anfühlte: `leftHanded = true` (Prefs-Fallback auch), Vision L/R ohne Körper-Vote, kalibrierte Homographie 100 % absolut (Mitte zittert), Clutch hat eigene `mouseMoved` bei <12 fps als Hardware gewertet, linearer Gain, Fling-Totzone an der Kameramitte, Log „70 %“ bei Tor 62 %.
+
+- Default **Rechtshänder**. Prefs-Fallback `false`.
+- **Körperpose-Vote** für Chirality (`leftWrist`/`rightWrist`, Verhältnis < 0,72).
+- **SpaceMap hybrid** äußere 15 % absolut / innen Relativ. **Per-Display-ID**.
+- **Clutch:** 48 px + 120 ms um letzten eigenen CGEvent, Delta < 0,5 ignoriert.
+- **Pointer-Accel** (quadratisch). Fling-Totzone am **Schirmmittelpunkt** wenn kalibriert.
+- Fusion-Temperatur Slider. Peace-Ring, Clutch-LED. Log „Pose < 62 %“.
 
 ## In 1.6.6 erledigt
 
@@ -80,17 +91,13 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 ## Nächste Fixes (klein, hoher Nutzen)
 
 - **Per-App-Profile.** Safari: nur Klick/Scroll. Finder: Werfen/Papierkorb. Xcode: aus.
-- **Kalibrierung merken pro Display-ID**, nicht nur ein Homography für alle Schirme.
-- **SpaceMap hybrid:** nur in den äußeren 15 % absolut, innen Trackpad-Relativ.
-- **Maus-Clutch ignoriert eigene CGEvents** härter (delta=0 Filter) — bei <12 fps kann `mouseMoved` Helios selbst pausieren.
-- **Chirality über Körperpose**, wenn Vision L/R vertauscht (`VNDetectHumanBodyPose`) — `forearmGate` existiert, L/R-Vote noch nicht.
 - **Zwei-Pinzetten Skalieren** an gegenüberliegenden Fensterkanten, nicht am Palmenabstand.
-- **Pointer-Beschleunigung** wie Trackpad (nichtlinear), damit Feinzielen in der Bildschirmmitte nicht zittert.
 - **Session-Replay** der Landmark-CSV direkt im HUD, Frame für Frame — ohne Xcode.
-- **Fusion-Temperatur** als Inspector-Slider (Debug), nicht hart 0,75.
-- **Fling-Totzone am Bildschirm-Mittelpunkt**, sobald kalibriert (jetzt: Kamerabild-Mitte).
-- Default nicht wieder `leftHanded = true`.
 - **Zwei Sessions parallel** (Mac + Desk View oder Mac + Osmo), Vision nur auf der führenden.
+- **Clutch nur globale Hardware** — Local-Monitor ganz weglassen (eigene Events kommen lokal an).
+- **Kalibrier-Quad sichtbar** als dünnes Viereck der vier Anschläge, nicht nur Ecken-Marken.
+- **Handflächen-Norm pro Track** (palmWidth-EMA), damit Fling/Wischen bei Zoom der Webcam stabil bleibt.
+- **Peace-Fortschritt auch in der Konsole**, nicht nur HUD-Ring.
 
 ## Größere Erweiterungen
 
@@ -106,6 +113,9 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Umgebungslicht → HUD.** Bei dunklem Schreibtisch Overlay dämpfen, nicht den Bildinhalt überstrahlen.
 - **Hand-Velocity-Prior** im HMM (schnelle Faust ist kein Pinch).
 - **Zwei-Personen-Szenen.** Wenn Körperpose zwei Torsi sieht, zweite Hand nie als Steuerhand.
+- **Hover-Dwell nur über AX-Knöpfen**, nicht frei auf dem Schreibtisch.
+- **Pinzette-Hysterese pro fps.** Bei 8 fps 0,45 Handbreiten zu knapp — an Frame-dt koppeln.
+- **Desk-View als zweite Karte**, nicht als Steuerkamera (Aufsicht für Kill/Klatschen).
 
 ## Nicht tun
 

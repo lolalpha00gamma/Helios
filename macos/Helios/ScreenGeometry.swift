@@ -72,12 +72,15 @@ enum ScreenGeometry {
     }
 
     /// Relativ: Handbewegung → Cursor. Hand heben = neu ansetzen (Trackpad).
+    /// Nichtlinear: Feinzielen in der Mitte, Schwung am Rand.
     static func stepCursor(from quartz: CGPoint, dPalm: CGPoint, gain: CGFloat) -> CGPoint {
         let u = cocoaUnion
         let g = max(0.4, gain)
+        let mag = hypot(dPalm.x, dPalm.y)
+        let accel = CoordMath.pointerAccelScale(magnitude: mag)
         var p = quartz
-        p.x += dPalm.x * u.width * g
-        p.y -= dPalm.y * u.height * g
+        p.x += dPalm.x * u.width * g * accel
+        p.y -= dPalm.y * u.height * g * accel
         return clampQuartz(p)
     }
 
@@ -113,5 +116,19 @@ enum ScreenGeometry {
     static func displayID(of screen: NSScreen) -> CGDirectDisplayID {
         let key = NSDeviceDescriptionKey("NSScreenNumber")
         return (screen.deviceDescription[key] as? CGDirectDisplayID) ?? 0
+    }
+
+    static var mainDisplayID: CGDirectDisplayID {
+        NSScreen.main.map { displayID(of: $0) } ?? 0
+    }
+
+    /// Cursor in Union-Norm [0,1], Y Quartz (oben = 0).
+    static func unitInUnion(quartz: CGPoint) -> CGPoint {
+        let r = quartzRect(fromCocoa: cocoaUnion)
+        guard r.width > 1, r.height > 1 else { return CGPoint(x: 0.5, y: 0.5) }
+        return CGPoint(
+            x: (quartz.x - r.minX) / r.width,
+            y: (quartz.y - r.minY) / r.height
+        )
     }
 }

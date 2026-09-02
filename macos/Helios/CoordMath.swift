@@ -39,6 +39,28 @@ enum CoordMath {
         )
         return CGRect(x: topLeft.x, y: topLeft.y, width: quartz.width, height: quartz.height)
     }
+
+    /// 1 am Rand (äußere `band`), 0 innen. Kalibrierter Zeiger: außen absolut, innen relativ.
+    static func edgeAbsoluteWeight(u: CGFloat, v: CGFloat, band: CGFloat = 0.15) -> CGFloat {
+        let b = min(0.45, max(0.04, band))
+        func edge(_ t: CGFloat) -> CGFloat {
+            if t <= b { return 1 - t / b }
+            if t >= 1 - b { return (t - (1 - b)) / b }
+            return 0
+        }
+        return min(1, max(edge(u), edge(v)))
+    }
+
+    /// Trackpad-Beschleunigung: Mini-Zucken bleibt langsam, Wisch wird schneller.
+    static func pointerAccelScale(magnitude: CGFloat) -> CGFloat {
+        let mag = max(0, magnitude)
+        let t = min(1, mag / 0.038)
+        return 0.48 + 1.42 * t * t
+    }
+
+    static func nearUnitCenter(u: CGFloat, v: CGFloat, radius: CGFloat = 0.22) -> Bool {
+        hypot(u - 0.5, v - 0.5) < radius
+    }
 }
 
 enum FlingKind: Equatable {
@@ -79,6 +101,9 @@ enum GestureMath {
     static let chromeLoupe: CGFloat = 64
     static let calibMinArea: CGFloat = 0.012
     static let calibCornerSep: CGFloat = 0.06
+    static let hybridBand: CGFloat = 0.15
+    static let clutchOwnRadius: CGFloat = 48
+    static let clutchOwnWindow: TimeInterval = 0.12
 
     /// Schreibtisch / Wallpaper: fast schirmfüllend, ohne Fenstertitel.
     static func fillsScreen(_ window: CGRect, screen: CGRect, heightSlop: CGFloat = 80) -> Bool {
@@ -122,12 +147,14 @@ enum GestureMath {
 
     /// Letzte `flingWindow` Sekunden in Handbreiten, nicht first→last über das Halten.
     /// `x/y` sind Vision-[0,1]; `aspect` = w/h macht x isotrop.
+    /// `screenUV` = Cursor in Union-Norm [0,1], wenn kalibriert — Totzone dann am Schirmmittelpunkt.
     static func flingFromTrail(
         _ trail: [(t: TimeInterval, x: CGFloat, y: CGFloat)],
         palmWidth: CGFloat,
         aspect: CGFloat = 16 / 9,
         centerDead: Bool = true,
-        afterDrag: Bool = false
+        afterDrag: Bool = false,
+        screenUV: CGPoint? = nil
     ) -> FlingKind {
         guard let last = trail.last else { return .none }
         let window = trail.filter { last.t - $0.t <= flingWindow }
@@ -139,8 +166,9 @@ enum GestureMath {
         let dist = hypot(dx, dy)
         let speed = dist / CGFloat(dt)
         if centerDead {
-            let fromCenter = hypot(last.x - 0.5, last.y - 0.5)
-            if fromCenter < flingCenter, dist < flingMinDist * 1.7 {
+            let u = screenUV?.x ?? last.x
+            let v = screenUV?.y ?? last.y
+            if CoordMath.nearUnitCenter(u: u, v: v, radius: flingCenter), dist < flingMinDist * 1.7 {
                 return .none
             }
         }

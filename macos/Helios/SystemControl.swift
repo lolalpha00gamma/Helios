@@ -236,6 +236,15 @@ final class SystemControl {
 
     var isDragging: Bool { dragElement != nil }
 
+    /// Pinch über Text stiehlt kein Fenster — nur die oberen 36 pt (Traffic Lights).
+    func onTitleBar(at quartz: CGPoint) -> Bool {
+        guard let win = targetWindow(at: quartz, allowFrontmost: false) else { return false }
+        guard let pos = position(of: win), let size = size(of: win) else { return false }
+        let cocoa = ScreenGeometry.cocoa(fromQuartz: quartz)
+        return CoordMath.cocoaInTitleBar(point: cocoa, windowPos: pos, windowSize: size)
+    }
+
+
     @discardableResult
     func resizeFocused(scale: CGFloat) -> ActionResult {
         guard let win = targetWindow(), let size = size(of: win), let pos = position(of: win) else {

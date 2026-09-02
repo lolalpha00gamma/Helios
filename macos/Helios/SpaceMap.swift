@@ -384,7 +384,7 @@ final class CalibrationSession {
         needMove = false
         rejected = false
         lastT = 0
-        hint = "Punkt \(spot.titleDE): Hand hin, Pinzette 1 s halten"
+        hint = "Zieh das HUD auf den Schirm, den du meinst. Dann \(spot.titleDE): Hand hin, Pinzette 1 s."
     }
 
     func cancel() {

@@ -227,7 +227,7 @@ struct ControlPanel: View {
                         Button("Kalibrierung löschen") { state.clearCalibration() }
                             .buttonStyle(.borderless)
                     }
-                    Text("Je Punkt die Hand dorthin halten, wo für dich die Stelle auf DIESEM Schirm ist. 9 Punkte glätten die Homographie (DLT). Pro Display ein eigenes Gitter. Punkt hinter dem Deckel überspringen, falschen Punkt zurück.")
+                    Text("Zuerst das HUD auf den Schirm ziehen, den du kalibrieren willst. Je Punkt die Hand dorthin halten, wo für dich die Stelle auf DIESEM Schirm ist. 9 Punkte glätten die Homographie (DLT). Pro Display ein eigenes Gitter. Punkt hinter dem Deckel überspringen, falschen Punkt zurück.")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
                     HStack(spacing: 8) {

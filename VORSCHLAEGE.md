@@ -1,6 +1,16 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.8**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+Stand: **1.6.9**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+
+## In 1.6.9 erledigt
+
+Warum 1.6.8 sich nach der Maus und über Text trotzdem falsch anfühlte: `mousePaused` hat nur das Label gesetzt, `driveGrab` lief weiter, Pinch während Clutch wurde zum Klick. Pinch + 0,18 Handbreiten über Safari-Text hat das Fenster gegriffen. Palm-unten hat 0,6 s gewartet und trotzdem mitgescrollt.
+
+1. **Clutch schluckt Pinch.** Kein Folge-Klick/Drag nach „Maus hat Vorrang“. Finger müssen erst wieder offen sein.
+2. **Hover-Intent 200 ms Titelleiste (36 pt).** Pinch über Text stiehlt kein Fenster.
+3. **Ghost-Cursor.** Gestrichelter Ring „GEIST“ während Clutch, nicht wie ein live Cursor.
+4. **Kalibrier-Log 9 Punkte** (nicht „4 Ecken“). HUD-Prompt: Fenster auf den gemeinten Schirm ziehen.
+5. **Palm-unten raus aus Zwei-Hand-Scroll.** Rest-Hand zählt nicht als Scroll-Partner.
 
 ## In 1.6.8 erledigt
 
@@ -106,10 +116,10 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 
 ## Nächste Fixes (klein, hoher Nutzen)
 
-- **Hover-Intent 200 ms** auf der Titelleiste, bevor Greifen greift — Pinch über Text stiehlt kein Fenster.
-- **Kalibrier-Wizard auf dem richtigen Display.** HUD-Prompt „dieses Fenster auf den Schirm ziehen, den du meinst“.
-- **Ghost-Cursor bei Clutch.** Zeigen, wo Helios hingehen würde, während die Maus Vorrang hat.
-- **Palm-up vs. palm-down als Modifier.** Handrücken bleibt Rest/Idle; Handfläche ist Scroll.
+- **Clutch-Exit-Grace 150 ms.** Nach Maus-Ende nicht sofort injizieren — Finger zittern oft noch.
+- **Ein-Hand-Zwei-Finger-Scroll**, wenn die zweite Hand palm-unten ruht.
+- **HUD automatisch auf den kalibrierten Schirm.** Nach Display-Prompt das Overlay-Panel dorthin legen, nicht nur den Text zeigen.
+- **Micro-Dwell auf AX-Buttons** nach Hover-Intent (Schließen/Slider), 4 px Magnet.
 
 ## Größere Erweiterungen
 
@@ -148,6 +158,11 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Auto-Gain aus palmWidth-Histogramm.** Session lernt 40 cm vs. 1,5 m, ohne Desk/Couch-Toggle.
 - **Farbblinden-HUD.** Cyan/Amber zusätzlich mit Form (Ring/Raute), nicht nur Farbe.
 - **Gesten-Makro-Recorder.** Eine Sequenz aufzeichnen, als Profil-Extra speichern.
+- **Bezel-Warp.** Unkalibrierter Nachbarschirm interpoliert den Cursor über die Naht, statt Relativsprung.
+- **Pinch-auf-Text = Textauswahl**, sobald Hover-Intent das Fenster nicht mehr stiehlt (AX selected-text).
+- **Ruhe-Pose als Modifier-Lock.** Palm-unten an der nicht-dominanten Hand = Scroll-only, Klick tot.
+- **Kalibrier-Heatmap nach 9 Punkten.** Welche Zelle RMSE > 12 px hat, dort nochmal.
+- **Clutch-Statistik.** Wie oft Maus vs. Geste gewinnt — Gain zu hoch, wenn Clutch dauernd feuert.
 
 ## Nicht tun
 
@@ -169,3 +184,7 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - luma < 0,20 wieder alle Systemaktionen inkl. Scroll.
 - `beginWindowDrag` wieder `?? frontWindow()`, wenn ein CGWindow unter der Hand liegt.
 - 3D-Peace ohne Spreizung (Fusion bringt Victory-on-Point zurück).
+- Pinch während Clutch als Klick nach der Pause.
+- `beginWindowDrag` über Textkörper, ohne Titelleisten-Hover.
+- Palm-unten in denselben Scroll-Pool wie offene Handflächen.
+- Kalibrier-Log wieder „4 Ecken“ nach 9-Punkt-DLT.

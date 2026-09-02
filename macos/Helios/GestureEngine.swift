@@ -293,6 +293,10 @@ final class GestureEngine {
     private var twoPinchLeftX: CGFloat?
     private var twoPinchRightX: CGFloat?
     private var palmRestSince: TimeInterval?
+    /// Nach Clutch: Pinch nicht als Klick werten, bis die Finger wieder offen sind.
+    private var pinchArmedAfterClutch = true
+    /// Hover-Intent: Pinch muss 200 ms auf der Titelleiste sitzen, bevor AX greift.
+    private var titleBarSince: TimeInterval?
     private let system = SystemControl()
     var onLog: ((String, ProtocolKind, Int?) -> Void)?
     var focused: FocusedTarget?
@@ -347,6 +351,8 @@ final class GestureEngine {
         twoPinchLeftX = nil
         twoPinchRightX = nil
         palmRestSince = nil
+        pinchArmedAfterClutch = true
+        titleBarSince = nil
         peaceProgress = 0
         clutchReason = nil
         clutchRemain = 0
@@ -414,7 +420,15 @@ final class GestureEngine {
         }
 
         if mousePaused {
-            lastAction = "Maus hat Vorrang"
+            lastAction = system.clutchReason == "Tastatur" ? "Tastatur hat Vorrang" : "Maus hat Vorrang"
+            swallowPinchFromClutch()
+            let actor = preferred(hands, now: now)
+            placeCursor(actor)
+            cursorHand = actor.sideDE
+            dragging = false
+            grabPhase = .follow
+            grabTargetName = focused?.appName ?? ""
+            return
         }
 
         if let cal = calibration, cal.active {
@@ -423,7 +437,8 @@ final class GestureEngine {
             if let done = cal.feed(palm: actor.palm, now: now, confirm: confirm) {
                 spaceMap = done
                 lastAction = "Kalibrierung fertig"
-                onLog?("Kalibrierung · 4 Ecken", .executed, 100)
+                let n = done.palms.count
+                onLog?(n >= 9 ? "Kalibrierung · 9 Punkte" : "Kalibrierung · \(n) Punkte", .executed, 100)
                 pinchHeld = false
                 pinchBecameDrag = false
                 cooldownUntil = now + 1.1
@@ -564,6 +579,22 @@ final class GestureEngine {
         pointerOrigin = nil
         cursorDidMove = false
     }
+
+    /// Clutch hat den Pinch unterbrochen — Loslassen danach ist kein Klick.
+    private func swallowPinchFromClutch() {
+        if pinchHeld || pinchBecameDrag || system.isDragging {
+            pinchHeld = false
+            pinchBecameDrag = false
+            pinchTrail.removeAll()
+            pinchSpan0 = nil
+            grabLogged = false
+            trashHot = false
+            titleBarSince = nil
+            system.endWindowDrag()
+        }
+        pinchArmedAfterClutch = false
+    }
+
 
     private func perform(
         _ name: String,
@@ -955,6 +986,13 @@ final class GestureEngine {
         let isGrab = pinchHeld
             ? (closed || (fisting && ratio < 0.55))
             : (closed || (fisting && ratio < 0.34))
+        if !pinchArmedAfterClutch {
+            if isGrab {
+                lastAction = "Maus frei — Finger öffnen"
+                return
+            }
+            pinchArmedAfterClutch = true
+        }
         if isGrab && !pinchHeld {
             pinchHeld = true
             pinchBecameDrag = false
@@ -962,6 +1000,7 @@ final class GestureEngine {
             pinchTrail = [(now, hand.palm.x, hand.palm.y)]
             pinchSpan0 = space.dist(hand.point(.middleTip) ?? hand.palm, hand.palm) / max(0.04, hand.palmWidth)
             grabLogged = false
+            titleBarSince = nil
             lastAction = testMode ? "Test: Halten" : "Halten"
         } else if isGrab && pinchHeld {
             pinchTrail.append((now, hand.palm.x, hand.palm.y))
@@ -972,11 +1011,21 @@ final class GestureEngine {
                 // Safari keinen Fehlklick feuert — beginWindowDrag läuft über perform().
                 if moved > 0.18 { pinchBecameDrag = true }
             }
-            if pinchBecameDrag, !system.isDragging, !testMode, now - lastGrabTry > 0.35 {
-                lastGrabTry = now
-                let at = dragPoint(hand)
-                perform("Greifen", confidence: Float(hand.poseProb)) {
-                    system.beginWindowDrag(at: at)
+            let at = dragPoint(hand)
+            if pinchBecameDrag, !system.isDragging, !testMode {
+                if system.onTitleBar(at: at) {
+                    if titleBarSince == nil { titleBarSince = now }
+                    if now - (titleBarSince ?? now) >= 0.20, now - lastGrabTry > 0.35 {
+                        lastGrabTry = now
+                        perform("Greifen", confidence: Float(hand.poseProb)) {
+                            system.beginWindowDrag(at: at)
+                        }
+                    } else if titleBarSince != nil, now - (titleBarSince ?? now) < 0.20 {
+                        lastAction = "Titelleiste …"
+                    }
+                } else {
+                    titleBarSince = nil
+                    lastAction = "Halten — Titelleiste für Fenster"
                 }
             }
             // Drag muss jeden Frame folgen — nicht nur im Frame, der beginWindowDrag
@@ -1008,6 +1057,7 @@ final class GestureEngine {
             pinchSpan0 = nil
             grabLogged = false
             trashHot = false
+            titleBarSince = nil
             if !testMode { system.endWindowDrag() }
             if flung {
                 cooldownUntil = now + 0.4
@@ -1151,9 +1201,9 @@ final class GestureEngine {
         }
         let wrist = hand.point(.wrist) ?? hand.palm
         let tip = hand.point(.middleTip) ?? hand.palm
-        let pointingDown = tip.y + 0.06 < wrist.y
-        let open = hand.openScore >= 3 && (hand.pose == .openPalm || hand.pose == .unknown)
-        if open, pointingDown, hand.poseProb >= 0.45 {
+        if GestureClassifier.palmDown(wrist: wrist, tip: tip, openScore: hand.openScore, pose: hand.pose),
+           hand.poseProb >= 0.45
+        {
             if palmRestSince == nil { palmRestSince = now }
             if now - (palmRestSince ?? now) >= 0.60 {
                 mode = .idle
@@ -1176,7 +1226,14 @@ final class GestureEngine {
             scrollAnchor = nil
             return
         }
-        let open = hands.filter { $0.openScore >= 3 }
+        let open = hands.filter {
+            $0.openScore >= 3 && !GestureClassifier.palmDown(
+                wrist: $0.point(.wrist) ?? $0.palm,
+                tip: $0.point(.middleTip) ?? $0.palm,
+                openScore: $0.openScore,
+                pose: $0.pose
+            )
+        }
         guard open.count >= 2 else {
             scrollAnchor = nil
             return

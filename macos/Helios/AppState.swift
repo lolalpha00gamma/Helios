@@ -295,7 +295,12 @@ final class AppState: ObservableObject {
         let id = NSScreen.main.map { ScreenGeometry.displayID(of: $0) }
         calibSession.start(ninePoint: ninePoint, displayID: id)
         engine.calibration = calibSession
-        log.record(ninePoint ? "Kalibrierung: 9-Punkt-Gitter" : "Kalibrierung: vier Ecken", kind: .info)
+        log.record(
+            ninePoint
+                ? "Kalibrierung: HUD auf den Schirm ziehen, dann 9-Punkt-Gitter"
+                : "Kalibrierung: HUD auf den Schirm ziehen, dann vier Ecken",
+            kind: .info
+        )
     }
 
     func setProfileAction(_ action: GestureAction, on: Bool) {

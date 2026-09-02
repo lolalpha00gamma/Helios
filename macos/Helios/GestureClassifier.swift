@@ -67,6 +67,13 @@ enum GestureClassifier {
         return scale
     }
 
+    /// Vision y: Ursprung unten. Finger zur Bildkante unten (Rest) → Spitze unter dem Handgelenk.
+    static func palmDown(wrist: CGPoint, tip: CGPoint, openScore: Int, pose: HandPose) -> Bool {
+        let pointingDown = tip.y + 0.06 < wrist.y
+        let open = openScore >= 3 && (pose == .openPalm || pose == .unknown)
+        return open && pointingDown
+    }
+
     static func pinchRatio(
         joints: [VNHumanHandPoseObservation.JointName: CGPoint],
         pinch: CGFloat,

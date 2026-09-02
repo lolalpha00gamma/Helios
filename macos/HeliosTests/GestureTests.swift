@@ -187,6 +187,34 @@ enum GestureTests {
         ok(LowLightGate.allows(.scroll, luma: 0.24).ok, "Scroll bei 0,24")
         ok(LowLightGate.allows(.click, luma: 0.40).ok, "Klick bei 0,40")
 
+        ok(
+            GestureClassifier.palmDown(
+                wrist: CGPoint(x: 0.50, y: 0.50),
+                tip: CGPoint(x: 0.50, y: 0.20),
+                openScore: 4,
+                pose: .openPalm
+            ),
+            "Finger nach unten = Rest, kein Scroll"
+        )
+        ok(
+            !GestureClassifier.palmDown(
+                wrist: CGPoint(x: 0.50, y: 0.20),
+                tip: CGPoint(x: 0.50, y: 0.70),
+                openScore: 4,
+                pose: .openPalm
+            ),
+            "Finger nach oben = Scroll-Hand"
+        )
+        ok(
+            !GestureClassifier.palmDown(
+                wrist: CGPoint(x: 0.50, y: 0.50),
+                tip: CGPoint(x: 0.50, y: 0.20),
+                openScore: 1,
+                pose: .fist
+            ),
+            "Faust ist kein Palm-Rest"
+        )
+
         let browser = AppGestureProfile.forBundle("com.apple.Safari")
         ok(!browser.allows(.fling), "Safari blockt Werfen by default")
         ok(browser.allows(.swipe), "Safari erlaubt Wischen")

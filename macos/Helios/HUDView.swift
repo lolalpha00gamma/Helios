@@ -76,6 +76,11 @@ struct HUDView: View {
                     Text("KALIBRIERUNG")
                         .font(.system(size: 13, weight: .bold, design: .monospaced))
                         .foregroundStyle(HeliosTheme.amber)
+                    if state.calibSession.samples.isEmpty {
+                        Text("Zieh dieses HUD auf den Schirm, den du meinst")
+                            .font(.system(size: 15, weight: .bold, design: .monospaced))
+                            .foregroundStyle(HeliosTheme.amber)
+                    }
                     Text("Punkt \(state.calibCorner)   ·   \(state.calibSession.samples.count)/\(state.calibSession.totalSpots)")
                         .font(.system(size: 22, weight: .bold, design: .monospaced))
                         .foregroundStyle(HeliosTheme.cyan)
@@ -350,6 +355,7 @@ struct HUDView: View {
                 .foregroundStyle(HeliosTheme.cyan)
             Text("Faust halten     Scharf")
             Text("Pinzette halten  Fenster unter der Hand ziehen")
+            Text("Pinzette auf Titelleiste  200 ms → Greifen")
             Text("Pinzette / Faust Greifen · Klick")
             Text("Werfen oben      Wegwerfen")
             Text("Werfen unten     Minimieren")

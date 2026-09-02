@@ -207,7 +207,9 @@ final class HandMarkerView: NSView {
         lastLocal = local
         let grab = phase == .grab
         let hold = phase == .hold
+        let ghost = clutch > 0.02
         let col: CGColor = {
+            if ghost { return CGColor(red: 1, green: 0.72, blue: 0.15, alpha: 0.45) }
             switch phase {
             case .grab, .hold: return CGColor(red: 1, green: 0.72, blue: 0.15, alpha: 1)
             case .follow: return CGColor(red: 0.25, green: 0.9, blue: 1, alpha: 1)
@@ -215,11 +217,18 @@ final class HandMarkerView: NSView {
             }
         }()
         ring.strokeColor = col
+        ring.lineDashPattern = ghost ? [6, 5] : nil
+        ring.opacity = ghost ? 0.55 : 1
         ring.position = local
         core.fillColor = col
+        core.opacity = ghost ? 0.35 : 1
         core.position = local
         label.foregroundColor = col
-        label.string = "\(phase.labelDE)  \(hand.uppercased())" + (grab && !target.isEmpty ? "  \(target.uppercased())" : "")
+        if ghost {
+            label.string = "GEIST  \(hand.uppercased())"
+        } else {
+            label.string = "\(phase.labelDE)  \(hand.uppercased())" + (grab && !target.isEmpty ? "  \(target.uppercased())" : "")
+        }
         label.position = CGPoint(x: local.x + 52, y: local.y)
         if grab, let wr = window, ScreenGeometry.intersects(quartz: wr, screen: screenFrame) {
             let r = ScreenGeometry.localRect(quartz: wr, on: screenFrame)

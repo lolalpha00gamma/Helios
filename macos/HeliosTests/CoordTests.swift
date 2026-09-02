@@ -19,6 +19,13 @@ enum CoordTests {
         eq(a.y, b.y, msg + " y")
     }
 
+    static func ok(_ cond: Bool, _ msg: String) {
+        if !cond {
+            fputs("FAIL \(msg)\n", stderr)
+            fails += 1
+        }
+    }
+
     static func main() {
         let primaryH: CGFloat = 1080
         pointEq(
@@ -62,6 +69,15 @@ enum CoordTests {
         let axHit = CoordMath.cocoa(fromQuartz: quartzCursor, primaryMaxY: primaryH)
         eq(axHit.x, 200, "AX hit-test x")
         eq(axHit.y, primaryH - 100, "AX hit-test y (nicht Quartz)")
+
+        let pos = CGPoint(x: 100, y: 200)
+        let size = CGSize(width: 800, height: 600)
+        let bar = CoordMath.titleBar(windowPos: pos, windowSize: size)
+        eq(bar.height, 36, "Titelleiste 36 pt")
+        eq(bar.origin.y, 200 + 600 - 36, "Titelleiste oben (Cocoa)")
+        ok(CoordMath.cocoaInTitleBar(point: CGPoint(x: 140, y: 200 + 600 - 10), windowPos: pos, windowSize: size), "Traffic-Lights-Zone")
+        ok(!CoordMath.cocoaInTitleBar(point: CGPoint(x: 140, y: 200 + 300), windowPos: pos, windowSize: size), "Textkörper nicht Titelleiste")
+        ok(!CoordMath.cocoaInTitleBar(point: CGPoint(x: 50, y: 200 + 600 - 10), windowPos: pos, windowSize: size), "links neben dem Fenster")
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

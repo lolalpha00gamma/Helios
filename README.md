@@ -1,4 +1,4 @@
-# Helios **1.6.8**
+# Helios **1.6.9**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,16 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.9
+
+1.6.8 hat den Cursor auf der dominanten Hand gelassen — Pinch während der Maus-Pause wurde danach trotzdem zum Klick, Pinch über Text hat das Fenster gestohlen, und Palm-unten hat mitgescrollt.
+
+- **Clutch schluckt den Pinch.** Finger zu während „Maus hat Vorrang“ → nach der Pause kein Klick/Drag, bis die Hand wieder offen ist.
+- **Hover-Intent 200 ms auf der Titelleiste.** Pinch + 0,18 Handbreiten über Text startet kein AX-Drag. Nur die oberen 36 pt (Traffic Lights).
+- **Ghost-Cursor.** Während Clutch gestrichelter Ring „GEIST“ — zeigt, wohin Helios würde, ohne wie ein live Cursor auszusehen.
+- **Kalibrier-Log sagt 9 Punkte**, nicht „4 Ecken“. Wizard: HUD zuerst auf den gemeinten Schirm ziehen.
+- **Palm-unten zählt nicht zum Zwei-Hand-Scroll.** Handrücken-Rest 0,6 s blockt nicht mehr den Scroll der anderen Hand.
 
 ## Neu in 1.6.8
 

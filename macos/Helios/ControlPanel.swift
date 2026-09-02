@@ -38,7 +38,7 @@ struct ControlPanel: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Linkshänder")
                         .font(.system(size: 13, weight: .semibold))
-                    Text("Linke Hand steuert Position und Greifen.")
+                    Text("Dominante Hand. Standard: rechts — sonst folgt der Cursor der falschen Hand.")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
@@ -168,6 +168,24 @@ struct ControlPanel: View {
                             state.engine.recenterPointer()
                         }
                         .buttonStyle(.borderless)
+                        HStack {
+                            Text("Fusion-Temperatur")
+                            Spacer()
+                            Text(String(format: "%.2f", state.fusionTemperature))
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(HeliosTheme.cyan)
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { state.fusionTemperature },
+                                set: { state.setFusionTemperature($0) }
+                            ),
+                            in: 0.35...1.20,
+                            step: 0.05
+                        )
+                        Text("Niedriger = schärfere Pose, höher = weicher. 0,75 ist der Default.")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
@@ -205,7 +223,7 @@ struct ControlPanel: View {
                 LabeledContent("Monitore", value: "\(state.screenCount)")
                 LabeledContent("Tiefe", value: state.hasDepth ? "Kanal aktiv" : "nur 3D-Lift")
                 if let app = state.focused {
-                    LabeledContent("App", value: app.appName)
+                    LabeledContent("App", value: "\(app.appName) · \(state.profileName)")
                 }
                 if state.hands.isEmpty {
                     Text("Keine Hand im Bild — Handfläche zur Kamera, guter Kontrast.")
@@ -217,7 +235,7 @@ struct ControlPanel: View {
             Spacer()
             Text(state.testMode
                  ? "Testmodus: Gesten werden erkannt, das System bleibt unangetastet."
-                 : "Live · Linke Handfläche = Position. Pinzette/Faust greift das Fenster unter der Markierung. Offene Hand wischen = App. Beide offen = Not-Aus (bleibt Idle).")
+                 : "Live · \(state.leftHanded ? "Linke" : "Rechte") Hand = Position. Pinzette greift. Wischen = App. Beide still offen = Not-Aus. Safari blockt Werfen.")
                 .font(.system(size: 11))
                 .foregroundStyle(.tertiary)
         }

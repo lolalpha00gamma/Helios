@@ -17,6 +17,7 @@ final class EstimateFusion {
     ]
     private var errEMA: [EstimateSource: Double] = [:]
     private let minW: Double = 0.02
+    var temperature: Double = 0.75
 
     func reset() {
         for s in EstimateSource.allCases {
@@ -72,7 +73,7 @@ final class EstimateFusion {
         }
         let keys = HandPose.allCases
         let logits = keys.map { logp[$0] ?? -20 }
-        let sm = JointGeom.softmax(logits, temperature: 0.75)
+        let sm = JointGeom.softmax(logits, temperature: max(0.35, min(1.4, temperature)))
         var probs: [HandPose: Double] = [:]
         for (i, k) in keys.enumerated() { probs[k] = sm[i] }
 

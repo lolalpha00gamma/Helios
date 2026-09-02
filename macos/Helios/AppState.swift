@@ -38,7 +38,7 @@ final class AppState: ObservableObject {
     @Published var showCheats = true
     @Published var testMode = false
     @Published var protocolMode = true
-    @Published var leftHanded = true
+    @Published var leftHanded = false
     @Published var showJointLabels = true
     @Published var showOutline = true
     @Published var showTrashZone = true
@@ -62,6 +62,8 @@ final class AppState: ObservableObject {
     @Published var grabTargetName = ""
     @Published var fusion: FusionDebug?
     @Published var hasDepth = false
+    @Published var fusionTemperature: Double = 0.75
+    @Published var profileName = "Standard"
     let calibSession = CalibrationSession()
     private var lastPanel: TimeInterval = 0
     private var didStart = false
@@ -137,6 +139,11 @@ final class AppState: ObservableObject {
     func pollFocus() {
         focused = engine.cursor.flatMap { TargetProbe.windowAt(quartz: $0) } ?? FocusTracker.poll()
         engine.focused = focused
+        let nextProfile = AppGestureProfile.forBundle(focused?.bundleId ?? "")
+        if engine.profile != nextProfile {
+            engine.profile = nextProfile
+            profileName = nextProfile.name
+        }
         trashHot = engine.trashHot
         killFlash = engine.killFlash
     }
@@ -163,7 +170,8 @@ final class AppState: ObservableObject {
                 pixelBuffer: vision,
                 now: t0,
                 mirrored: cam.isMirrored,
-                depth: cam.latestDepth
+                depth: cam.latestDepth,
+                orientation: cam.frameOrientation
             )
             let visMs = (CACurrentMediaTime() - t0) * 1000
             let endToEnd = (CACurrentMediaTime() - arrived) * 1000
@@ -246,11 +254,21 @@ final class AppState: ObservableObject {
         showTrashZone = Prefs.showTrashZone
         showPreviewChip = Prefs.showPreviewChip
         dwellEnabled = Prefs.dwellEnabled
+        fusionTemperature = Prefs.fusionTemperature
         engine.leftHanded = leftHanded
         engine.pointerGain = CGFloat(pointerGain)
         engine.protocolMode = protocolMode
         engine.testMode = testMode
         engine.dwellEnabled = dwellEnabled
+        engine.fusionTemperature = fusionTemperature
+        tracker.fusionTemperature = fusionTemperature
+    }
+
+    func setFusionTemperature(_ t: Double) {
+        fusionTemperature = t
+        engine.fusionTemperature = t
+        tracker.fusionTemperature = t
+        Prefs.fusionTemperature = t
     }
 
     func startCalibration() {
@@ -348,12 +366,14 @@ final class AppState: ObservableObject {
         self.hands = hands
         fusion = hands.first?.fusion ?? tracker.lastFusion
         hasDepth = camera.hasDepth
+        camera.setHandsPresent(!hands.isEmpty)
+        profileName = engine.profile.name
     }
 }
 
 enum Prefs {
     static var leftHanded: Bool {
-        get { UserDefaults.standard.object(forKey: "helios.leftHanded") as? Bool ?? true }
+        get { UserDefaults.standard.object(forKey: "helios.leftHanded") as? Bool ?? false }
         set { UserDefaults.standard.set(newValue, forKey: "helios.leftHanded") }
     }
     static var dwellEnabled: Bool {
@@ -402,5 +422,12 @@ enum Prefs {
     static var showPreviewChip: Bool {
         get { UserDefaults.standard.object(forKey: "helios.preview") as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "helios.preview") }
+    }
+    static var fusionTemperature: Double {
+        get {
+            let v = UserDefaults.standard.double(forKey: "helios.fusionT")
+            return v == 0 ? 0.75 : min(1.4, max(0.35, v))
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.fusionT") }
     }
 }

@@ -29,6 +29,16 @@ enum SpaceMapTests {
             fputs("FAIL scale \(q)\n", stderr)
             exit(1)
         }
+        let palms = [XY(x: 0.2, y: 0.2), XY(x: 0.8, y: 0.2), XY(x: 0.8, y: 0.8), XY(x: 0.2, y: 0.8)]
+        let smap = SpaceMap(palms: palms)
+        if smap.edgeWeight(CGPoint(x: 0.5, y: 0.5)) >= 0.05 {
+            fputs("FAIL SpaceMap innen relativ\n", stderr)
+            exit(1)
+        }
+        if smap.edgeWeight(CGPoint(x: 0.21, y: 0.5)) <= 0.8 {
+            fputs("FAIL SpaceMap Rand absolut\n", stderr)
+            exit(1)
+        }
         print("SpaceMapTests OK")
     }
 

@@ -1,6 +1,20 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.2**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+Stand: **1.6.3**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+
+## In 1.6.3 erledigt
+
+Warum 1.6.2 sich trotzdem falsch anfühlte: Default Linkshänder, Kill fraß Scroll, zweite Hand stahl den Cursor, Safari-Werfen schloss Fenster.
+
+1. **`leftHanded` Default false.** UserDefaults ohne Key war `true` — die Mehrheit hat mit der falschen Hand den Cursor geführt.
+2. **Kill vs. Scroll.** Zwei offene Hände mit vertikaler Geschwindigkeit > 0,7 Handbreiten/s sind Scroll, kein Not-Aus. Still halten 0,8 s bleibt Kill. Die ersten 0,35 s belegen den Tick nicht; die Nachlauf-Sperre ist 0,18 s.
+3. **Dominant-Hand-Lock** nach 1,2 s. Der Timer läuft durch (nicht pro Frame zurückgesetzt). Die zweite Hand pincht nicht den Zeiger weg; sie darf weiter scrollen/skalieren/killen.
+4. **Vision-Orientierung** aus `videoRotationAngle` der Capture-Connection, nicht hart `.up`. Continuity/geklapptes MacBook kippt Yaw nicht mehr.
+5. **SpaceMap hybrid.** Äußere 15 % der Kalibrier-Quad absolut (Homographie), innen Trackpad-Relativ.
+6. **Zwei-Pinzetten an Fensterkanten.** Links/rechts ziehen die AX-Kanten, nicht isotrop um die Palme.
+7. **Per-App-Profile.** Safari/Chrome: kein Werfen/Greifen (sonst schließt ein Flick das Fenster). Wischen = App-Wechsel bleibt. Finder: Werfen an. Xcode: nur Klick/Scroll/Rechtsklick.
+8. **Adaptive Kamera-FPS.** Idle 8 fps, Hand im Bild native 24–30.
+9. **Fusion-Temperatur** als Inspector-Slider (0,35…1,20), Default 0,75.
 
 ## In 1.6.2 erledigt
 
@@ -35,15 +49,16 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 
 ## Nächste Fixes (klein, hoher Nutzen)
 
-- **Per-App-Profile.** Safari: nur Klick/Scroll. Finder: Werfen/Papierkorb. Xcode: aus.
 - **Kalibrierung merken pro Display-ID**, nicht nur ein Homography für alle Schirme.
-- **SpaceMap hybrid:** nur in den äußeren 15 % absolut, innen Trackpad-Relativ.
-- **Zwei-Pinzetten an Fensterkanten** (links/rechts die AX-Kante ziehen), nicht nur isotrop skalieren.
+- **9-Punkt-Kalibrier-Gitter** (einmal, pro Display), statt nur 4 Ecken.
 - **Session-Replay** der Landmark-CSV direkt im HUD, Frame für Frame — ohne Xcode.
-- **Fusion-Temperatur** als Inspector-Slider (Debug), nicht hart 0,75.
-- **Adaptive Kamera-FPS.** Idle 8 fps, sobald eine Hand da ist 24–30. Spart thermisch, ohne Dropout zu fühlen.
-- **Dominant-Hand-Lock** nach 2 s: zweite Hand darf scrollen/skalieren, nie den Cursor stehlen.
-- **9-Punkt-Kalibrier-Gitter** (einmal, pro Display), statt nur SpaceMap aus ein paar Samples.
+- **Profil-Editor.** Nutzer darf Safari-Werfen wieder anmachen; Defaults bleiben konservativ.
+- **Hover-Hysterese am Dominant-Lock.** 200 ms, bevor die zweite Hand den Cursor kriegt, wenn die erste weg ist.
+- **Scroll-Gain** an palmWidth koppeln — große Hände scrollen zu grob.
+- **Peace vs. Point.** Zwei Finger plus Daumen-an-MCP wird noch als Peace gelesen.
+- **Tasten-Clutch.** 400 ms nach echter Tastatur keine Gesten-Injektion — sonst landet ein Pinch im gerade getippten Feld.
+- **Kill-Abbrechen.** Faust + offene zweite Hand bricht den 0,8-s-Not-Aus ab, ohne Idle zu erzwingen.
+- **Profil-Bundle-Liste** als JSON neben dem Binary, nicht hart im Switch.
 
 ## Größere Erweiterungen
 
@@ -63,6 +78,10 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Click-Lock** für Slider: Pinch halten rastet, Bewegung ohne Zittern am Thumb.
 - **Aegis-Bridge.** Eine Kamera-Session, zwei Consumer — TCC nur einmal.
 - **Blick (wenn das SDK es hergibt)** disambiguiert welches Fenster gemeint ist, bevor AX rät.
+- **HID-Filter für eigene Events** über `CGEventSourceStateID` statt Zeitfenster — Clutch wird unempfindlich gegen fps.
+- **Pro-Display Homography** als 3×3-Feld in UserDefaults, keyed by `CGDirectDisplayID`.
+- **Stage-Manager-Spaces.** Ein SpaceMap pro `CGSSpace`, sonst springt der Cursor nach Space-Wechsel.
+- **Continuity-Desk-View.** Wenn die iPhone-Kamera als Continuity hängt, HUD-Vorschau spiegeln wie die Frontkamera.
 
 ## Nicht tun
 
@@ -74,3 +93,5 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - Aktions-Tor wieder auf 70 % ohne die Fusion zu schärfen.
 - HMM-Übergänge wieder unnormiert (Masse sickerte, Pose < 62 %).
 - Idle-Median als Flick-Cap.
+- `leftHanded` wieder default true.
+- Kill bei zwei offenen Händen unabhängig von Bewegung (frisst Scroll).

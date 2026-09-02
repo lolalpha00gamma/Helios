@@ -1,6 +1,7 @@
 import CoreMedia
 import CoreVideo
 import Foundation
+import ImageIO
 import Vision
 
 struct TrackedJoint {
@@ -110,6 +111,7 @@ final class HandTracker: @unchecked Sendable {
     private let lock = NSLock()
     var lastFusion: FusionDebug?
     var depthAvailable = false
+    var fusionTemperature: Double = 0.75
 
     func reset() {
         lock.lock()
@@ -122,7 +124,8 @@ final class HandTracker: @unchecked Sendable {
         pixelBuffer: CVPixelBuffer,
         now: TimeInterval,
         mirrored: Bool = true,
-        depth: DepthSample? = nil
+        depth: DepthSample? = nil,
+        orientation: CGImagePropertyOrientation = .up
     ) -> [TrackedHand] {
         lock.lock()
         defer { lock.unlock() }
@@ -133,7 +136,7 @@ final class HandTracker: @unchecked Sendable {
 
         let handler = VNImageRequestHandler(
             cvPixelBuffer: pixelBuffer,
-            orientation: .up,
+            orientation: orientation,
             options: [.ciContext: MetalHub.ci]
         )
         do {
@@ -141,7 +144,7 @@ final class HandTracker: @unchecked Sendable {
         } catch {
             _ = try? VNImageRequestHandler(
                 cvPixelBuffer: pixelBuffer,
-                orientation: .up,
+                orientation: orientation,
                 options: [.ciContext: MetalHub.ci]
             ).perform([request])
         }
@@ -200,6 +203,7 @@ final class HandTracker: @unchecked Sendable {
                 slot.fusion.reset()
                 slot.temporal.reset()
             }
+            slot.fusion.temperature = fusionTemperature
 
             let smoothed = slot.smoother.apply(obs.raw, now: now)
             let pinchState = slot.pinch.update(raw: smoothed, conf: obs.conf, now: now)

@@ -184,6 +184,19 @@ final class SystemControl {
     }
 
     @discardableResult
+    func nudgeWindow(dLeft: CGFloat, dRight: CGFloat) -> ActionResult {
+        guard let win = targetWindow(), let size = size(of: win), let pos = position(of: win) else {
+            return .fail("Kein Fenster zum Skalieren")
+        }
+        let nx = pos.x + dLeft
+        let nw = max(280, size.width - dLeft + dRight)
+        guard setPosition(win, CGPoint(x: nx, y: pos.y)), setSize(win, CGSize(width: nw, height: size.height)) else {
+            return .fail("AX Kante")
+        }
+        return .ok(String(format: "Kanten %+0.f/%+0.f", dLeft, dRight))
+    }
+
+    @discardableResult
     func minimizeFocused() -> ActionResult {
         guard let win = targetWindow() else { return .fail("Kein Fenster") }
         return pressButton(win, "AXMinimizeButton" as CFString)

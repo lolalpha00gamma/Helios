@@ -29,6 +29,57 @@ enum GrabPhase: String {
     }
 }
 
+enum GestureAction: String {
+    case click, scroll, swipe, fling, grab, scale, peace, thumbs, dwell, rightClick
+
+    static func from(name: String) -> GestureAction? {
+        switch name {
+        case "Klick": return .click
+        case "Scroll": return .scroll
+        case "Nächste App", "Vorherige App": return .swipe
+        case "Wegwerfen", "Minimieren", "Links andocken", "Rechts andocken": return .fling
+        case "Greifen", "Heranziehen": return .grab
+        case "Skalieren": return .scale
+        case "Aufnahme": return .peace
+        case "Hervorholen": return .thumbs
+        case "Dwell-Klick": return .dwell
+        case "Rechtsklick": return .rightClick
+        default: return nil
+        }
+    }
+}
+
+struct AppGestureProfile: Equatable {
+    var name: String
+    var allowed: Set<GestureAction>?
+
+    static let standard = AppGestureProfile(name: "Standard", allowed: nil)
+
+    static func forBundle(_ id: String) -> AppGestureProfile {
+        switch id {
+        case "com.apple.Safari", "com.google.Chrome", "com.google.Chrome.canary",
+             "org.mozilla.firefox", "company.thebrowser.Browser", "com.apple.Safari.WebApp":
+            return AppGestureProfile(
+                name: "Browser",
+                allowed: [.click, .scroll, .swipe, .rightClick, .dwell, .peace]
+            )
+        case "com.apple.finder":
+            return AppGestureProfile(
+                name: "Finder",
+                allowed: [.click, .scroll, .grab, .fling, .rightClick, .dwell, .peace, .thumbs]
+            )
+        case "com.apple.dt.Xcode":
+            return AppGestureProfile(name: "Xcode", allowed: [.click, .scroll, .rightClick, .dwell])
+        default:
+            return .standard
+        }
+    }
+
+    func allows(_ action: GestureAction) -> Bool {
+        allowed?.contains(action) ?? true
+    }
+}
+
 @MainActor
 final class GestureEngine {
     var mode: EngineMode = .idle
@@ -37,7 +88,7 @@ final class GestureEngine {
     var twoHandSpan: CGFloat?
     var testMode = false
     var protocolMode = true
-    var leftHanded = true
+    var leftHanded = false
     var pointerGain: CGFloat = 1.6
     var spaceMap: SpaceMap?
     var calibration: CalibrationSession?
@@ -49,6 +100,8 @@ final class GestureEngine {
     var cursorHand: String = "—"
     var mousePaused = false
     var dwellEnabled = false
+    var profile = AppGestureProfile.standard
+    var fusionTemperature: Double = 0.75
 
     private var fistSince: TimeInterval?
     private var fistLostAt: TimeInterval?
@@ -86,6 +139,11 @@ final class GestureEngine {
     private var ringPinchSince: TimeInterval?
     private var dwellSince: TimeInterval?
     private var dwellPalm: CGPoint?
+    private var killSample: (t: TimeInterval, y: CGFloat)?
+    private var dominantLockID: String?
+    private var dominantLockSince: TimeInterval?
+    private var twoPinchLeftX: CGFloat?
+    private var twoPinchRightX: CGFloat?
     private let system = SystemControl()
     var onLog: ((String, ProtocolKind, Int?) -> Void)?
     var focused: FocusedTarget?
@@ -131,6 +189,11 @@ final class GestureEngine {
         ringPinchSince = nil
         dwellSince = nil
         dwellPalm = nil
+        killSample = nil
+        dominantLockID = nil
+        dominantLockSince = nil
+        twoPinchLeftX = nil
+        twoPinchRightX = nil
         system.endWindowDrag()
         cursor = nil
         twoHandSpan = nil
@@ -193,7 +256,7 @@ final class GestureEngine {
         }
 
         if let cal = calibration, cal.active {
-            let actor = preferred(hands)
+            let actor = preferred(hands, now: now)
             let confirm = actor.pinchClosed || actor.pose == .pinch
             if let done = cal.feed(palm: actor.palm, now: now, confirm: confirm) {
                 spaceMap = done
@@ -210,7 +273,7 @@ final class GestureEngine {
             return
         }
 
-        let primary = preferred(hands)
+        let primary = preferred(hands, now: now)
         let live = mode == .armed || testMode
 
         if protocolMode, now - lastPoseLog > 0.28 {
@@ -333,6 +396,11 @@ final class GestureEngine {
         systemAction: Bool = true,
         _ body: () -> ActionResult
     ) {
+        if systemAction, let kind = GestureAction.from(name: name), !profile.allows(kind), !testMode {
+            lastAction = "\(name) — \(profile.name) blockt"
+            onLog?("\(name) — Profil \(profile.name)", .blocked, Int(confidence * 100))
+            return
+        }
         if systemAction, confidence < 0.62, !testMode {
             lastAction = "\(name) — unsicher"
             onLog?("\(name) — Pose < 62 %", .blocked, Int(confidence * 100))
@@ -368,6 +436,20 @@ final class GestureEngine {
                 mode = .idle
                 return true
             }
+            let y = open.map(\.palm.y).reduce(0, +) / CGFloat(open.count)
+            let unit = max(0.04, (open[0].palmWidth + open[1].palmWidth) / 2)
+            var moving = false
+            if let prev = killSample {
+                let dt = max(0.001, now - prev.t)
+                let speed = abs(y - prev.y) / unit / CGFloat(dt)
+                if dt >= 0.016, speed > 0.7 { moving = true }
+            }
+            killSample = (now, y)
+            // Vertikal unterwegs = Scroll, kein Not-Aus. Sonst frisst Kill jeden Zwei-Hand-Scroll.
+            if moving {
+                palmSince = nil
+                return false
+            }
             if palmSince == nil { palmSince = now }
             lastPalmSeen = now
             let held = now - (palmSince ?? now)
@@ -390,10 +472,14 @@ final class GestureEngine {
                 cooldownUntil = now + 0.8
                 return true
             }
-            lastAction = "Not-Aus halten"
-            return true
+            if held >= 0.35 {
+                lastAction = "Not-Aus halten"
+                return true
+            }
+            return false
         }
-        if now - lastPalmSeen < 0.28, palmSince != nil {
+        killSample = nil
+        if now - lastPalmSeen < 0.18, palmSince != nil {
             return true
         }
         palmSince = nil
@@ -437,19 +523,40 @@ final class GestureEngine {
         }
     }
 
-    private func preferred(_ hands: [TrackedHand]) -> TrackedHand {
-        if leftHanded, let left = hands.first(where: { $0.chirality == .left }) {
-            return left
+    private func preferred(_ hands: [TrackedHand], now: TimeInterval) -> TrackedHand {
+        // Lock-Timer darf nicht pro Frame zurückgesetzt werden — sonst greift der Lock nie.
+        if let id = dominantLockID,
+           let locked = hands.first(where: { $0.id == id }),
+           now - (dominantLockSince ?? now) >= 1.2
+        {
+            return locked
         }
-        if !leftHanded, let right = hands.first(where: { $0.chirality == .right }) {
-            return right
+        let pick: TrackedHand = {
+            if leftHanded, let left = hands.first(where: { $0.chirality == .left }) {
+                return left
+            }
+            if !leftHanded, let right = hands.first(where: { $0.chirality == .right }) {
+                return right
+            }
+            return hands.max { a, b in
+                (a.joints.values.map(\.confidence).max() ?? 0) < (b.joints.values.map(\.confidence).max() ?? 0)
+            } ?? hands[0]
+        }()
+        if dominantLockID != pick.id {
+            dominantLockID = pick.id
+            dominantLockSince = now
         }
-        return hands.max { a, b in
-            (a.joints.values.map(\.confidence).max() ?? 0) < (b.joints.values.map(\.confidence).max() ?? 0)
-        } ?? hands[0]
+        return pick
     }
 
     private func pinchActor(_ hands: [TrackedHand], primary: TrackedHand) -> TrackedHand {
+        // Dominante Hand behält den Cursor. Zweite Hand pincht nicht den Zeiger weg.
+        if pinchHeld, hands.contains(where: { $0.id == primary.id }) {
+            return hands.first(where: { $0.id == primary.id }) ?? primary
+        }
+        if primary.pose == .pinch || primary.pinchClosedness > 0.55 || primary.pose == .fist {
+            return primary
+        }
         if pinchHeld {
             return hands.min { a, b in a.pinchRatio < b.pinchRatio } ?? primary
         }
@@ -465,17 +572,30 @@ final class GestureEngine {
     private func actorMapped(_ hand: TrackedHand) -> CGPoint {
         if let map = spaceMap, map.isReady {
             cursorDidMove = true
-            let q = map.apply(hand.palm)
+            let qAbs = map.apply(hand.palm)
+            let edge = map.edgeWeight(hand.palm)
             if pointerHandID != hand.id {
                 pointerHandID = hand.id
                 lastPalm = hand.palm
-                cursorSmooth = q
-                return q
+                cursorSmooth = qAbs
+                return qAbs
             }
+            let prevPalm = lastPalm ?? hand.palm
             lastPalm = hand.palm
-            let from = cursorSmooth ?? q
+            var dx = hand.palm.x - prevPalm.x
+            var dy = hand.palm.y - prevPalm.y
+            let dead: CGFloat = 0.003
+            if abs(dx) < dead { dx = 0 }
+            if abs(dy) < dead { dy = 0 }
+            let from = cursorSmooth ?? qAbs
+            let stepped = ScreenGeometry.stepCursor(from: from, dPalm: CGPoint(x: dx, y: dy), gain: pointerGain)
+            // Äußere 15 %: Homographie. Innen: Trackpad-Relativ. Blend dazwischen.
+            let mixed = CGPoint(
+                x: edge * qAbs.x + (1 - edge) * stepped.x,
+                y: edge * qAbs.y + (1 - edge) * stepped.y
+            )
             let a: CGFloat = 0.86
-            let s = CGPoint(x: a * q.x + (1 - a) * from.x, y: a * q.y + (1 - a) * from.y)
+            let s = CGPoint(x: a * mixed.x + (1 - a) * from.x, y: a * mixed.y + (1 - a) * from.y)
             cursorSmooth = s
             return s
         }
@@ -518,6 +638,8 @@ final class GestureEngine {
         guard pinches.count >= 2 else {
             twoHandSpan = nil
             twoPinchSince = nil
+            twoPinchLeftX = nil
+            twoPinchRightX = nil
             return false
         }
         // Gegenüberliegende Bildhälften, nicht zwei Pinzetten an einer Palme.
@@ -525,20 +647,35 @@ final class GestureEngine {
         guard let lo = xs.first, let hi = xs.last, hi - lo >= 0.22 else {
             twoHandSpan = nil
             twoPinchSince = nil
+            twoPinchLeftX = nil
+            twoPinchRightX = nil
             return false
         }
         if twoPinchSince == nil { twoPinchSince = now }
         // Während der Bestätigung den Tick belegen, sonst feuern Klick/Wischen.
         guard now - (twoPinchSince ?? now) >= 0.35 else { return true }
-        let unit = max(0.04, (pinches[0].palmWidth + pinches[1].palmWidth) / 2)
-        let span = space.dist(pinches[0].palm, pinches[1].palm) / unit
-        if let old = twoHandSpan, abs(span - old) > 0.28, now >= cooldownUntil {
+        let left = pinches.min(by: { $0.palm.x < $1.palm.x })!
+        let right = pinches.max(by: { $0.palm.x < $1.palm.x })!
+        let unit = max(0.04, (left.palmWidth + right.palmWidth) / 2)
+        let span = space.dist(left.palm, right.palm) / unit
+        if twoPinchLeftX == nil {
+            twoPinchLeftX = left.palm.x
+            twoPinchRightX = right.palm.x
+            twoHandSpan = span
+            return true
+        }
+        let dLeft = (left.palm.x - (twoPinchLeftX ?? left.palm.x)) / unit
+        let dRight = (right.palm.x - (twoPinchRightX ?? right.palm.x)) / unit
+        twoPinchLeftX = left.palm.x
+        twoPinchRightX = right.palm.x
+        if (abs(dLeft) > 0.06 || abs(dRight) > 0.06), now >= cooldownUntil {
             let conf = Float(pinches.map(\.poseProb).min() ?? 0)
+            let screenW = ScreenGeometry.cocoaUnion.width
             perform("Skalieren", confidence: conf) {
-                system.resizeFocused(scale: span > old ? 1.05 : 0.95)
+                system.nudgeWindow(dLeft: dLeft * screenW * 0.22, dRight: dRight * screenW * 0.22)
             }
             twoHandSpan = span
-            cooldownUntil = now + 0.28
+            cooldownUntil = now + 0.08
             return true
         }
         twoHandSpan = span

@@ -3,6 +3,7 @@ import AppKit
 import CoreImage
 import CoreMedia
 import Foundation
+import ImageIO
 import QuartzCore
 
 final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
@@ -34,6 +35,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     private let ring = GPUFrameRing()
     private var mirroredFlag = false
     var isMirrored: Bool { mirroredFlag }
+    private(set) var frameOrientation: CGImagePropertyOrientation = .up
     private let handlerLock = NSLock()
     private var frameHandler: ((CVPixelBuffer, NSImage?, CGFloat, TimeInterval) -> Void)?
     let depthTap = DepthCapture()
@@ -88,7 +90,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             kCVPixelBufferMetalCompatibilityKey as String: true,
             kCVPixelBufferIOSurfacePropertiesKey as String: [:] as CFDictionary
         ]
-        let sink = FrameSink { [weak self] buffer in
+        let sink = FrameSink { [weak self] buffer, orient in
+            self?.frameOrientation = orient
             self?.accept(buffer)
         }
         tap = sink
@@ -140,8 +143,42 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         return discovered.first ?? AVCaptureDevice.default(for: .video)
     }
 
+    private var lastDevice: AVCaptureDevice?
+    private var handsPresent = true
+
+    /// Idle 8 fps, Hand im Bild 24–30. Nicht jeden Frame umschalten.
+    func setHandsPresent(_ on: Bool) {
+        guard on != handsPresent else { return }
+        handsPresent = on
+        cameraQueue.async { [weak self] in
+            self?.applyFrameRate()
+        }
+    }
+
+    private func applyFrameRate() {
+        guard let device = lastDevice else { return }
+        var locked = false
+        _ = HeliosCatch({
+            do { try device.lockForConfiguration() } catch { return }
+            locked = true
+            if let range = device.activeFormat.videoSupportedFrameRateRanges.max(by: {
+                $0.maxFrameRate < $1.maxFrameRate
+            }) {
+                let high = range.minFrameDuration
+                let low = CMTime(value: 1, timescale: 8)
+                let dur = self.handsPresent ? high : (range.maxFrameDuration.seconds > 0.12 ? low : high)
+                device.activeVideoMinFrameDuration = dur
+                device.activeVideoMaxFrameDuration = dur
+            }
+        }, nil)
+        if locked {
+            HeliosCatch({ device.unlockForConfiguration() }, nil)
+        }
+    }
+
     /// Format + Framerate nur mit Werten aus dem unterstützten Bereich, plus NSException-Fang.
     private func configureDevice(_ device: AVCaptureDevice) {
+        lastDevice = device
         var locked = false
         var err: NSError?
         _ = HeliosCatch({
@@ -158,7 +195,9 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             if let range = device.activeFormat.videoSupportedFrameRateRanges.max(by: {
                 $0.maxFrameRate < $1.maxFrameRate
             }) {
-                let dur = range.minFrameDuration
+                let high = range.minFrameDuration
+                let low = CMTime(value: 1, timescale: 8)
+                let dur = self.handsPresent ? high : (range.maxFrameDuration.seconds > 0.12 ? low : high)
                 device.activeVideoMinFrameDuration = dur
                 device.activeVideoMaxFrameDuration = dur
             }
@@ -334,13 +373,33 @@ private final class FramePump: @unchecked Sendable {
 }
 
 private final class FrameSink: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
-    let emit: (CMSampleBuffer) -> Void
-    init(emit: @escaping (CMSampleBuffer) -> Void) { self.emit = emit }
+    let emit: (CMSampleBuffer, CGImagePropertyOrientation) -> Void
+    init(emit: @escaping (CMSampleBuffer, CGImagePropertyOrientation) -> Void) { self.emit = emit }
     func captureOutput(
         _ output: AVCaptureOutput,
         didOutput sampleBuffer: CMSampleBuffer,
         from connection: AVCaptureConnection
     ) {
-        emit(sampleBuffer)
+        emit(sampleBuffer, Self.orientation(of: connection))
+    }
+
+    static func orientation(of connection: AVCaptureConnection) -> CGImagePropertyOrientation {
+        let angle: CGFloat
+        if #available(macOS 14.0, *) {
+            angle = connection.videoRotationAngle
+        } else {
+            switch connection.videoOrientation {
+            case .portrait: angle = 90
+            case .portraitUpsideDown: angle = 270
+            case .landscapeRight: angle = 180
+            default: angle = 0
+            }
+        }
+        switch Int(((angle.truncatingRemainder(dividingBy: 360)) + 360).truncatingRemainder(dividingBy: 360).rounded()) {
+        case 90: return .right
+        case 180: return .down
+        case 270: return .left
+        default: return .up
+        }
     }
 }

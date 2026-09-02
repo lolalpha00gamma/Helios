@@ -132,6 +132,16 @@ enum GestureTests {
         let sameSideB = CGPoint(x: 0.28, y: 0.42)
         ok(AspectSpace.hd720.dist(sameSideA, sameSideB) < 0.15, "zwei Hände links bleiben trennbar")
 
+        var hmmFast = PoseHMM()
+        var emP: [HandPose: Double] = [:]
+        for k in HandPose.allCases { emP[k] = 0.05 }
+        emP[.pinch] = 0.7
+        emP[.openPalm] = 0.15
+        let slow = hmmFast.step(emission: emP, pinchClosedness: 0.8, now: 1, dt: 0.016, palmSpeed: 0.2)
+        var hmmFlick = PoseHMM()
+        let fast = hmmFlick.step(emission: emP, pinchClosedness: 0.8, now: 1, dt: 0.016, palmSpeed: 3.5)
+        ok(fast.pinch <= slow.pinch + 0.01, "Velocity-Prior dämpft Pinch bei schnellem Wisch")
+
         if fails > 0 {
             fputs("\(fails) GestureTests fehlgeschlagen\n", stderr)
             exit(1)

@@ -61,6 +61,23 @@ struct SpaceMap: Codable {
         return ScreenGeometry.clampQuartz(p)
     }
 
+    /// 0 innen (relativ), 1 in den äußeren 15 % der Kalibrier-Quad (absolut).
+    func edgeWeight(_ palm: CGPoint) -> CGFloat {
+        guard palms.count == 4 else { return 1 }
+        let xs = palms.map(\.x)
+        let ys = palms.map(\.y)
+        guard let minX = xs.min(), let maxX = xs.max(),
+              let minY = ys.min(), let maxY = ys.max() else { return 1 }
+        let w = max(1e-4, maxX - minX)
+        let h = max(1e-4, maxY - minY)
+        let u = (palm.x - minX) / w
+        let v = (palm.y - minY) / h
+        let m = min(u, v, 1 - u, 1 - v)
+        if m >= 0.15 { return 0 }
+        if m <= 0 { return 1 }
+        return 1 - m / 0.15
+    }
+
     func homography() -> [CGFloat]? {
         guard palms.count == 4 else { return nil }
         return SpaceMap.homography(from: palms.map(\.point), to: Self.screenCorners())

@@ -1,4 +1,4 @@
-# Helios **1.6.2**
+# Helios **1.6.3**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,19 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.3
+
+1.6.2 hat Fusion und HMM repariert — die App hat trotzdem mit der falschen Hand gesteuert, Kill hat Scroll geschluckt, und ein Flick in Safari hat das Fenster geschlossen.
+
+- **Rechtshänder ist Default.** `leftHanded` war `true` ohne UserDefaults-Key.
+- **Kill vs. Scroll.** Zwei offene Hände, die sich vertikal bewegen, sind Scroll. Still halten 0,8 s bleibt Not-Aus. Die ersten 0,35 s belegen den Tick nicht.
+- **Dominant-Hand-Lock** nach 1,2 s (Timer läuft durch, nicht pro Frame zurück). Zweite Hand pincht den Zeiger nicht weg.
+- **Vision-Orientierung** aus `videoRotationAngle`, nicht hart `.up`.
+- **SpaceMap hybrid:** außen 15 % Homographie, innen Trackpad-Relativ.
+- **Per-App-Profile.** Safari/Chrome: kein Werfen/Greifen (Flick schließt sonst das Fenster). Wischen = App-Wechsel bleibt. Finder: Werfen an.
+- **Zwei-Pinzetten** ziehen AX-Kanten, nicht isotrop um die Palme.
+- Adaptive Kamera-FPS (Idle 8, Hand 24–30), Fusion-Temperatur im Inspector.
 
 ## Neu in 1.6.2
 

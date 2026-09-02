@@ -1,6 +1,19 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.10**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+Stand: **1.6.11**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+
+## In 1.6.11 erledigt
+
+Warum 1.6.10 nach der Maus den Cursor hält, aber Peace trotzdem Screenshots beim Scrollen macht, der HUD-Chip Nachlauf als Tastatur zeigt, Scroll hart stirbt und Pinch über Text nichts selektiert: `driveScroll` hat `peaceSince` geleert, `drivePeace` hat ihn im selben Frame neu gestartet. HUD hat nur Maus/Tastatur. Scroll-Ticks endeten am Lift. AX-Hit-Test jeden Frame, nur Button/Slider.
+
+1. **Peace-Hold nach Scroll.** `nil` in den ersten 400 ms, dann 1,2 s, sonst 0,9 s.
+2. **HUD-Chip Nachlauf.** `CoordMath.clutchChip` — nicht TASTATUR×400.
+3. **Scroll-Coast 180 ms.**
+4. **Warp-Guard 80 px** auf den ersten zwei Post-Clutch-Frames.
+5. **Textauswahl** ab 0,08 Handbreiten über dem Textkörper (HID, nicht AX-Fenster).
+6. **Magnet-Rollen + 30 ms Cache.** Tab/Menü/Stepper.
+7. **HUD-Pin im Focus-Poll.** Konsole wandert, Overlay folgt.
+8. **Screenshot auf Cursor-Schirm.**
 
 ## In 1.6.10 erledigt
 
@@ -126,10 +139,10 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 
 ## Nächste Fixes (klein, hoher Nutzen)
 
-- **Scroll-Inertia 180 ms** nach Zwei-Finger-Lift, analog Trackpad — sonst stirbt der Schwung hart.
-- **Pinch-auf-Text = Textauswahl**, sobald Hover-Intent das Fenster nicht mehr stiehlt (AX selected-text).
-- **Warp-Guard.** Erstes Post-Clutch-Frame mit Δ > 80 px verwerfen, selbst wenn Resync versagt.
-- **Magnet-Rollen erweitern.** AXTab, AXMenuItem, AXIncrementor — nicht nur Button/Slider.
+- **Click-Lock für Slider.** Pinch halten rastet, Bewegung ohne Zittern am Thumb — Magnet sitzt, der Zug zittert noch.
+- **Peace-Cooldown kürzer nach fehlgeschlagenem Screenshot** (kein Fenster), nicht 4 s tot.
+- **Zwei-Finger-Scroll horizontal** in Browser (Shift-Wheel), nicht nur vertikal.
+- **Text-Drag bricht ab**, wenn die Hand die AXTextArea verlässt — sonst selektiert man in den Chrome daneben.
 
 ## Größere Erweiterungen
 
@@ -164,21 +177,23 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Session-Heatmap.** Palm-Dichte über 5 min als Debug, wo die Homographie wehtut.
 - **Siri-Remote / Stream Deck** als zweiter Kill-Pfad, wenn die Kamera zu ist.
 - **Hands-over-keyboard detector.** Tastatur-Clutch länger, solange Handgelenke über der Tastatur sind (Körperpose).
-- **Pointer-Magnet auf AX-Buttons.** Langsames Pinch rastet auf „Schließen“/Slider, statt 4 px daneben zu klicken.
 - **Auto-Gain aus palmWidth-Histogramm.** Session lernt 40 cm vs. 1,5 m, ohne Desk/Couch-Toggle.
 - **Farbblinden-HUD.** Cyan/Amber zusätzlich mit Form (Ring/Raute), nicht nur Farbe.
 - **Gesten-Makro-Recorder.** Eine Sequenz aufzeichnen, als Profil-Extra speichern.
 - **Bezel-Warp.** Unkalibrierter Nachbarschirm interpoliert den Cursor über die Naht, statt Relativsprung.
-- **Pinch-auf-Text = Textauswahl**, sobald Hover-Intent das Fenster nicht mehr stiehlt (AX selected-text).
 - **Ruhe-Pose als Modifier-Lock.** Palm-unten an der nicht-dominanten Hand = Scroll-only, Klick tot.
 - **Kalibrier-Heatmap nach 9 Punkten.** Welche Zelle RMSE > 12 px hat, dort nochmal.
 - **Clutch-Statistik.** Wie oft Maus vs. Geste gewinnt — Gain zu hoch, wenn Clutch dauernd feuert.
 - **Scroll-Gain aus palmWidth-Histogramm der Peace-Hand**, analog Desk/Couch.
-- **Nachlauf-Chip in der Top-Bar**, nicht nur Cursor-Ring — sonst wirkt 150 ms wie Totzeit.
 - **Kalibrier-Schirm merken.** Nach Reconfig HUD wieder auf denselben Display-ID, nicht neu raten.
-- **Zwei-Finger vs. Peace-Aufnahme.** Längerer Hold (1,2 s) für Screenshot, wenn Scroll in den letzten 400 ms feuerte.
-- **AX-Hit-Test Cache 30 ms**, Magnet nicht jeden Frame systemweit.
-- **Konsolen-Fenster-Move** pinnt HUD live mit, nicht nur beim Kalibrier-Start.
+- **Edge-Rail während Text-Drag aus.** Sonst dockt eine Auswahl am Bildschirmrand.
+- **Pinch-Klick vs. Text: Dwell 80 ms** bevor HID-Down, sonst Doppelklick-Ghost in Inputs.
+- **AX-SelectedText lesen** nach Text-Drag, in die Zwischenablage nur auf Extra-Geste (nicht still).
+- **Scroll-Coast an palmeWidth.** Große Peace-Hand = längerer Nachlauf, kleine = kürzer.
+- **HUD-Kompass blinkt**, wenn der Konsolen-Schirm keine SpaceMap hat und der Cursor dort ankommt.
+- **Rechtsklick-Hold 140 ms vs. Text-Drag:** Ringfinger-Pinch darf keine Auswahl starten.
+- **Mission-Control drei Finger** hinter Extra-Schalter, sobald Peace/Scroll entzerrt ist.
+- **Per-App Text-Drag aus.** Terminal/Xcode-Vim: Pinch bleibt Klick, keine Selection.
 
 ## Nicht tun
 
@@ -208,3 +223,9 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - Injektion im ersten Frame nach `pauseUntil` ohne 150 ms Grace.
 - HUD-Chrome hart an `NSScreen.main` klemmen, wenn die Konsole auf einem anderen Schirm sitzt.
 - Peace-Hold während aktivem Zwei-Finger-Scroll als Aufnahme feuern.
+- Nachlauf-Chip wieder als TASTATUR labeln.
+- Scroll ohne 180 ms Coast (stirbt hart).
+- Warp-Guard weglassen und Palm-Integral nach Clutch wieder durchlassen.
+- Text-Pinch wieder als Fenstergriff über dem Textkörper.
+- AX-Hit-Test jeden Frame ohne Cache.
+- Magnet nur auf Button/Slider (Tabs und Menüs daneben klicken).

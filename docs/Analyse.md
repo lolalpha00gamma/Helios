@@ -1,6 +1,6 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
-Stand: 2026-09-02. Helios 1.6.10. Alle fünf Phasen aus `docs/Erkennung.md`
+Stand: 2026-09-02. Helios 1.6.11. Alle fünf Phasen aus `docs/Erkennung.md`
 laufen gleichzeitig — kein Stufenplan. 1.6.1 kollabiert korrelierte Quellen.
 1.6.2 repariert HMM-Masse, Flick-Smoothing, Körper-Chirality und den Clutch.
 1.6.3: Rechtshänder-Default, Kill vs. Scroll, Dominant-Lock, Vision-Orientierung,
@@ -16,6 +16,9 @@ lässt Scroll, Peace-Chip 4 s, Kalibrier-Undo, Clutch-Ring, AX unter der Hand,
 Ghost-Cursor, Kalibrier-Log 9 Punkte + HUD-Prompt, Palm-unten raus aus Scroll.
 1.6.10: Clutch-Exit-Grace 150 ms + Pointer-Resync (kein Warp), Ein-Hand-Zwei-Finger-
 Scroll, HUD auf Konsolen-Schirm, 4 px AX-Magnet.
+1.6.11: Peace-Hold nach Scroll (kein Screenshot mittendrin), Nachlauf-Chip korrekt,
+Scroll-Coast 180 ms, Warp-Guard 80 px, Pinch-auf-Text = HID-Auswahl, Magnet-Cache
+30 ms + Tab/Menü, HUD folgt der Konsole, Screenshot auf Cursor-Schirm.
 
 ## 1. Bestand vor der Umstellung (1.5.7)
 

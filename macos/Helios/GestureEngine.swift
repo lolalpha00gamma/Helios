@@ -297,6 +297,13 @@ final class GestureEngine {
     private var pinchArmedAfterClutch = true
     /// Hover-Intent: Pinch muss 200 ms auf der Titelleiste sitzen, bevor AX greift.
     private var titleBarSince: TimeInterval?
+    /// Nach Clutch: erstes Palm-Integral verwerfen, sonst Warp.
+    private var warpGuardFrames = 0
+    private var wasClutch = false
+    /// Zwei-Finger-Scroll-Nachlauf.
+    private var lastScrollAt: TimeInterval = 0
+    private var lastScrollTicks: Int32 = 0
+    private var pinchStartQuartz: CGPoint?
     private let system = SystemControl()
     var onLog: ((String, ProtocolKind, Int?) -> Void)?
     var focused: FocusedTarget?
@@ -353,11 +360,17 @@ final class GestureEngine {
         palmRestSince = nil
         pinchArmedAfterClutch = true
         titleBarSince = nil
+        warpGuardFrames = 0
+        wasClutch = false
+        lastScrollAt = 0
+        lastScrollTicks = 0
+        pinchStartQuartz = nil
         peaceProgress = 0
         clutchReason = nil
         clutchRemain = 0
         peaceCooldownRemain = 0
         system.endWindowDrag()
+        system.endTextDrag()
         cursor = nil
         twoHandSpan = nil
         trashHot = false
@@ -376,6 +389,7 @@ final class GestureEngine {
                 dragging = pinchHeld
                 return
             }
+            coastScroll(now: now)
             releasePointer()
             fistSince = nil
             fistLostAt = nil
@@ -386,8 +400,10 @@ final class GestureEngine {
             swipeTrail.removeAll()
             swipeHandID = nil
             if system.isDragging { system.endWindowDrag() }
+            if system.isTextDragging { system.endTextDrag() }
             pinchHeld = false
             pinchBecameDrag = false
+            pinchStartQuartz = nil
             twoPinchSince = nil
             scrollAnchor = nil
             ringPinchSince = nil
@@ -420,6 +436,7 @@ final class GestureEngine {
         }
 
         if mousePaused {
+            wasClutch = true
             lastAction = system.clutchReason == "Tastatur"
                 ? "Tastatur hat Vorrang"
                 : (system.clutchReason == "Nachlauf" ? "Nachlauf 150 ms" : "Maus hat Vorrang")
@@ -431,6 +448,10 @@ final class GestureEngine {
             grabPhase = .follow
             grabTargetName = focused?.appName ?? ""
             return
+        }
+        if wasClutch {
+            wasClutch = false
+            warpGuardFrames = 2
         }
 
         if let cal = calibration, cal.active {
@@ -552,6 +573,7 @@ final class GestureEngine {
         mode = .idle
         mustRearm = true
         system.endWindowDrag()
+        system.endTextDrag()
         lastAction = "Idle"
         onLog?(testMode ? "Idle (Test)" : "Manuell Idle", .info, nil)
     }
@@ -592,7 +614,9 @@ final class GestureEngine {
             grabLogged = false
             trashHot = false
             titleBarSince = nil
+            pinchStartQuartz = nil
             system.endWindowDrag()
+            system.endTextDrag()
         }
         pinchArmedAfterClutch = false
     }
@@ -873,8 +897,9 @@ final class GestureEngine {
             )
             let a: CGFloat = 0.86
             let s = CGPoint(x: a * mixed.x + (1 - a) * from.x, y: a * mixed.y + (1 - a) * from.y)
-            cursorSmooth = s
-            return s
+            let out = applyWarpGuard(from: from, to: s)
+            cursorSmooth = out
+            return out
         }
         cursorDidMove = false
         let palm = hand.palm
@@ -900,8 +925,16 @@ final class GestureEngine {
         let stepped = ScreenGeometry.stepCursor(from: from, dPalm: CGPoint(x: dx, y: dy), gain: pointerGain)
         let a: CGFloat = 0.8
         let s = CGPoint(x: a * stepped.x + (1 - a) * from.x, y: a * stepped.y + (1 - a) * from.y)
-        cursorSmooth = s
-        return s
+        let out = applyWarpGuard(from: from, to: s)
+        cursorSmooth = out
+        return out
+    }
+
+    /// Erstes Post-Clutch-Frame: Δ > 80 px ist Warp, Hardware-Cursor bleibt.
+    private func applyWarpGuard(from: CGPoint, to: CGPoint) -> CGPoint {
+        guard warpGuardFrames > 0 else { return to }
+        warpGuardFrames -= 1
+        return CoordMath.warpGuarded(from: from, to: to)
     }
 
     private func placeCursor(_ hand: TrackedHand) {
@@ -1015,19 +1048,40 @@ final class GestureEngine {
             pinchSpan0 = space.dist(hand.point(.middleTip) ?? hand.palm, hand.palm) / max(0.04, hand.palmWidth)
             grabLogged = false
             titleBarSince = nil
+            pinchStartQuartz = dragPoint(hand)
             lastAction = testMode ? "Test: Halten" : "Halten"
             applyMagnet(at: dragPoint(hand))
         } else if isGrab && pinchHeld {
             pinchTrail.append((now, hand.palm.x, hand.palm.y))
             pinchTrail.removeAll { now - $0.t > 0.5 }
+            var moved: CGFloat = 0
             if let first = pinchTrail.first {
-                let moved = space.dist(hand.palm, CGPoint(x: first.x, y: first.y)) / max(0.04, hand.palmWidth)
+                moved = space.dist(hand.palm, CGPoint(x: first.x, y: first.y)) / max(0.04, hand.palmWidth)
                 // Bewegung ohne Profil-Greifen: trotzdem Drag-Intent, damit
                 // Safari keinen Fehlklick feuert — beginWindowDrag läuft über perform().
                 if moved > 0.18 { pinchBecameDrag = true }
             }
             let at = dragPoint(hand)
-            if pinchBecameDrag, !system.isDragging, !testMode {
+            if pinchStartQuartz == nil { pinchStartQuartz = at }
+            // Textauswahl: Pinch über dem Textkörper, nicht der Titelleiste.
+            if !testMode, !system.isDragging, !system.isTextDragging,
+               let start = pinchStartQuartz,
+               GestureClassifier.textSelectMoved(moved),
+               !system.onTitleBar(at: start),
+               now - lastGrabTry > 0.12
+            {
+                lastGrabTry = now
+                perform("Klick", need: .input, confidence: Float(max(hand.poseProb, hand.pinchClosedness))) {
+                    let began = system.beginTextDrag(at: start)
+                    if began.ok { system.updateTextDrag(to: at) }
+                    return began
+                }
+            }
+            if !testMode, system.isTextDragging {
+                system.updateTextDrag(to: at)
+                lastAction = "Textauswahl"
+            }
+            if pinchBecameDrag, !system.isDragging, !system.isTextDragging, !testMode {
                 if system.onTitleBar(at: at) {
                     if titleBarSince == nil { titleBarSince = now }
                     if now - (titleBarSince ?? now) >= 0.20, now - lastGrabTry > 0.35 {
@@ -1040,7 +1094,11 @@ final class GestureEngine {
                     }
                 } else {
                     titleBarSince = nil
-                    lastAction = "Halten — Titelleiste für Fenster"
+                    if !system.isTextDragging {
+                        lastAction = GestureClassifier.textSelectMoved(moved)
+                            ? "Textauswahl …"
+                            : "Halten — Titelleiste für Fenster"
+                    }
                 }
             }
             // Drag muss jeden Frame folgen — nicht nur im Frame, der beginWindowDrag
@@ -1055,12 +1113,14 @@ final class GestureEngine {
                 lastAction = trashHot ? "Papierkorb" : "Ziehen"
             } else if testMode, pinchBecameDrag {
                 lastAction = trashHot ? "Test: Papierkorb" : "Test: Ziehen"
+            } else if testMode, GestureClassifier.textSelectMoved(moved), !system.onTitleBar(at: at) {
+                lastAction = "Test: Textauswahl"
             }
-            if !pinchBecameDrag, !system.isDragging {
+            if !pinchBecameDrag, !system.isDragging, !system.isTextDragging {
                 applyMagnet(at: dragPoint(hand))
             }
             let span = space.dist(hand.point(.middleTip) ?? hand.palm, hand.palm) / max(0.04, hand.palmWidth)
-            if let s0 = pinchSpan0, !system.isDragging, span > s0 + 1.4 {
+            if let s0 = pinchSpan0, !system.isDragging, !system.isTextDragging, span > s0 + 1.4 {
                 perform("Heranziehen", confidence: Float(hand.poseProb)) { system.snapFocused(.fill) }
                 pinchSpan0 = span
                 cooldownUntil = now + 0.5
@@ -1068,6 +1128,7 @@ final class GestureEngine {
         } else if !isGrab && pinchHeld {
             let flung = resolveFling(now: now, confidence: Float(hand.poseProb), palmWidth: hand.palmWidth)
             let wasDrag = pinchBecameDrag
+            let wasText = system.isTextDragging
             let held = now - pinchBeganAt
             pinchHeld = false
             pinchBecameDrag = false
@@ -1076,7 +1137,17 @@ final class GestureEngine {
             grabLogged = false
             trashHot = false
             titleBarSince = nil
-            if !testMode { system.endWindowDrag() }
+            pinchStartQuartz = nil
+            if !testMode {
+                if wasText {
+                    system.endTextDrag()
+                    lastAction = "Textauswahl"
+                    onLog?("Textauswahl", .executed, Int(hand.poseProb * 100))
+                    cooldownUntil = now + 0.12
+                    return
+                }
+                system.endWindowDrag()
+            }
             if flung {
                 cooldownUntil = now + 0.4
                 return
@@ -1175,16 +1246,23 @@ final class GestureEngine {
 
     private func drivePeace(_ hand: TrackedHand, now: TimeInterval) {
         if hand.pose == .peace, hand.poseProb >= 0.50 {
+            guard let need = CoordMath.peaceHoldSeconds(sinceScroll: now - lastScrollAt) else {
+                peaceSince = nil
+                peaceProgress = 0
+                return
+            }
             if peaceSince == nil { peaceSince = now }
             let held = now - (peaceSince ?? now)
-            peaceProgress = CGFloat(min(1, max(0, held / 0.90)))
-            if held > 0.90 {
+            peaceProgress = CGFloat(min(1, max(0, held / need)))
+            if held > need {
                 let target = focused
                 perform("Aufnahme", need: .capture, confidence: Float(hand.poseProb)) {
                     if let t = target, t.quartzBounds.width > 8 {
                         return system.screenshotFocused(windowID: t.windowID, bounds: t.quartzBounds)
                     }
-                    let b = NSScreen.main.map { ScreenGeometry.quartzRect(fromCocoa: $0.frame) } ?? .zero
+                    let loc = cursor ?? ScreenGeometry.quartz(fromCocoa: NSEvent.mouseLocation)
+                    let screen = ScreenGeometry.screenContaining(quartz: loc) ?? NSScreen.screens.first
+                    let b = screen.map { ScreenGeometry.quartzRect(fromCocoa: $0.frame) } ?? .zero
                     return system.screenshotFocused(windowID: 0, bounds: b)
                 }
                 peaceSince = nil
@@ -1230,6 +1308,7 @@ final class GestureEngine {
                 onLog?("Handrücken 0,6 s → Idle, kein Not-Aus", .info, Int(hand.poseProb * 100))
                 palmRestSince = nil
                 system.endWindowDrag()
+                system.endTextDrag()
             } else {
                 lastAction = "Ruhe …"
             }
@@ -1243,6 +1322,7 @@ final class GestureEngine {
     private func driveScroll(hands: [TrackedHand], now: TimeInterval) {
         guard !pinchHeld else {
             scrollAnchor = nil
+            lastScrollTicks = 0
             return
         }
         func isRest(_ h: TrackedHand) -> Bool {
@@ -1269,6 +1349,7 @@ final class GestureEngine {
         ) {
             actors = peace
         } else {
+            coastScroll(now: now)
             scrollAnchor = nil
             return
         }
@@ -1288,8 +1369,20 @@ final class GestureEngine {
         let conf = Float(actors.map(\.poseProb).min() ?? 0)
         perform("Scroll", need: .input, confidence: conf) { system.scroll(ticks: ticks) }
         scrollAnchor = (now, y)
+        lastScrollAt = now
+        lastScrollTicks = ticks
         peaceSince = nil
         peaceProgress = 0
+    }
+
+    /// Trackpad-Nachlauf 180 ms, sonst stirbt der Schwung hart am Lift.
+    private func coastScroll(now: TimeInterval) {
+        let ticks = CoordMath.scrollCoastTicks(last: lastScrollTicks, elapsed: now - lastScrollAt)
+        if ticks != 0 {
+            perform("Scroll", need: .input, confidence: 0.70) { system.scroll(ticks: ticks) }
+        } else {
+            lastScrollTicks = 0
+        }
     }
 
     /// Pinzette + Ringfinger, Mittel nicht gestreckt. Kurzer Halt → Rechtsklick statt Ziehen.

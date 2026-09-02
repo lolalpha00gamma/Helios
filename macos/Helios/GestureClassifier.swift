@@ -82,6 +82,11 @@ enum GestureClassifier {
         return resting >= 1 || hands == 1
     }
 
+    /// Pinch über Text (nicht Titelleiste) nach so vielen Handbreiten = Auswahl, kein Fenster.
+    static func textSelectMoved(_ handwidths: CGFloat) -> Bool {
+        handwidths >= CoordMath.textSelectHandwidths
+    }
+
     static func pinchRatio(
         joints: [VNHumanHandPoseObservation.JointName: CGPoint],
         pinch: CGFloat,

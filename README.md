@@ -1,4 +1,4 @@
-# Helios **1.6.10**
+# Helios **1.6.11**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,19 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.11
+
+1.6.10 hat den Cursor nach der Maus nicht mehr gewarpt — Peace hat trotzdem nach 0,9 s Scroll ein Screenshot gemacht, der HUD-Chip hat „Nachlauf“ als Tastatur gelabelt, Scroll starb hart am Lift, und Pinch über Text hat nur „Titelleiste halten“ gesagt.
+
+- **Peace vs. Scroll.** Während der letzten 400 ms Scroll zählt Peace nicht. Danach 1,2 s Hold, sonst 0,9 s. Zwei-Finger-Scroll macht keine Aufnahme mehr.
+- **Nachlauf-Chip.** HUD sagt `NACHLAUF 150 ms`, nicht `TASTATUR ×400`.
+- **Scroll-Inertia 180 ms.** Zwei-Finger-Lift rollt aus, analog Trackpad.
+- **Warp-Guard 80 px.** Erstes Post-Clutch-Frame mit Sprung verwerfen, falls Resync versagt.
+- **Pinch-auf-Text = Auswahl.** HID-Drag über dem Textkörper, nicht Fenstergriff. Safari-Profil blockt weiter AX-Drag.
+- **Magnet + Cache.** AXTab / AXMenuItem / AXIncrementor, Hit-Test 30 ms.
+- **HUD folgt der Konsole.** `pinHUDToConsole` im Focus-Poll, nicht nur beim Kalibrier-Start.
+- **Screenshot-Fallback** auf den Schirm unter dem Cursor, nicht `NSScreen.main`.
 
 ## Neu in 1.6.10
 

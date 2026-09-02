@@ -231,6 +231,9 @@ enum GestureTests {
             !GestureClassifier.twoFingerScroll(peace: 0, openPalms: 1, resting: 1, hands: 2),
             "offene Hand + Rest ist kein Zwei-Finger-Scroll"
         )
+        ok(GestureClassifier.textSelectMoved(0.08), "0,08 Handbreiten = Textauswahl")
+        ok(GestureClassifier.textSelectMoved(0.20), "0,20 Handbreiten bleibt Text")
+        ok(!GestureClassifier.textSelectMoved(0.04), "unter 0,08 kein Text-Drag")
 
         let browser = AppGestureProfile.forBundle("com.apple.Safari")
         ok(!browser.allows(.fling), "Safari blockt Werfen by default")

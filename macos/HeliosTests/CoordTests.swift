@@ -91,6 +91,60 @@ enum CoordTests {
         ok(!CoordMath.clutchInjects(now: 1.10, clutchEndedAt: 1.00, grace: 0.15), "Clutch-Grace hält 150 ms")
         ok(CoordMath.clutchInjects(now: 1.16, clutchEndedAt: 1.00, grace: 0.15), "Clutch-Grace vorbei")
 
+        let warpHit = CoordMath.warpGuarded(from: CGPoint(x: 10, y: 10), to: CGPoint(x: 200, y: 10))
+        pointEq(warpHit, CGPoint(x: 10, y: 10), "Warp > 80 px verwerfen")
+        let warpOk = CoordMath.warpGuarded(from: CGPoint(x: 10, y: 10), to: CGPoint(x: 50, y: 10))
+        pointEq(warpOk, CGPoint(x: 50, y: 10), "Warp unter 80 px durch")
+
+        let nachlauf = CoordMath.clutchChip(reason: "Nachlauf", remain: 1)
+        ok(nachlauf.label == "NACHLAUF", "Nachlauf-Chip nicht TASTATUR")
+        eq(nachlauf.ms, 150, "Nachlauf 150 ms")
+        let kbd = CoordMath.clutchChip(reason: "Tastatur", remain: 0.5)
+        ok(kbd.label == "TASTATUR", "Tastatur-Chip")
+        eq(kbd.ms, 200, "Tastatur 400 ms · 0,5")
+        let maus = CoordMath.clutchChip(reason: "Maus", remain: 1)
+        ok(maus.label == "MAUS", "Maus-Chip")
+        eq(maus.ms, 850, "Maus 850 ms")
+
+        ok(CoordMath.peaceHoldSeconds(sinceScroll: 0.20) == nil, "Peace tot während Scroll")
+        ok(CoordMath.peaceHoldSeconds(sinceScroll: 0.80) == 1.20, "Peace 1,2 s nach Scroll")
+        ok(CoordMath.peaceHoldSeconds(sinceScroll: 2.00) == 0.90, "Peace 0,9 s idle")
+
+        ok(CoordMath.scrollCoastTicks(last: 10, elapsed: 0) == 10, "Coast t=0 voll")
+        ok(CoordMath.scrollCoastTicks(last: 10, elapsed: 0.09) == 5, "Coast halb")
+        ok(CoordMath.scrollCoastTicks(last: 10, elapsed: 0.18) == 0, "Coast tot bei window")
+        ok(CoordMath.scrollCoastTicks(last: 10, elapsed: 0.30) == 0, "Coast tot danach")
+        ok(CoordMath.scrollCoastTicks(last: 0, elapsed: 0.01) == 0, "Coast ohne Ticks")
+        ok(CoordMath.scrollCoastTicks(last: -8, elapsed: 0.09) == -4, "Coast vorzeichen")
+
+        ok(
+            CoordMath.magnetCacheHit(
+                cachedAt: 1.0,
+                cachedAtPoint: .zero,
+                now: 1.02,
+                point: CGPoint(x: 3, y: 0)
+            ),
+            "Magnet-Cache 20 ms 3 px"
+        )
+        ok(
+            !CoordMath.magnetCacheHit(
+                cachedAt: 1.0,
+                cachedAtPoint: .zero,
+                now: 1.05,
+                point: .zero
+            ),
+            "Magnet-Cache tot nach 50 ms"
+        )
+        ok(
+            !CoordMath.magnetCacheHit(
+                cachedAt: 1.0,
+                cachedAtPoint: .zero,
+                now: 1.01,
+                point: CGPoint(x: 20, y: 0)
+            ),
+            "Magnet-Cache tot bei 20 px"
+        )
+
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)
             exit(1)

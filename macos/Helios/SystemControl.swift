@@ -22,6 +22,7 @@ final class SystemControl {
     private var dragGrabOffset: CGPoint = .zero
     private var dragBeganAt: TimeInterval = 0
     private var dragBeganQuartz: CGPoint?
+    private var textDragActive = false
     private var lastClick: TimeInterval = 0
     private var lastKey: TimeInterval = 0
     private var lastPosted: CGPoint?
@@ -35,6 +36,9 @@ final class SystemControl {
     static let magnetRadius: CGFloat = 4
     private(set) var mouseHasControl = false
     private let axQ = DispatchQueue(label: "helios.ax", qos: .userInteractive)
+    private var magnetCachedAt: Double = 0
+    private var magnetCachedAtPoint = CGPoint.zero
+    private var magnetCached: CGPoint?
     /// Markiert eigene CGEvents. Clutch filtert darüber, nicht nur über 120 ms.
     private static let stampMagic: Int64 = 0x48454C49
 
@@ -251,6 +255,38 @@ final class SystemControl {
 
     var isDragging: Bool { dragElement != nil }
 
+    @discardableResult
+    func beginTextDrag(at quartz: CGPoint) -> ActionResult {
+        guard allowsInjection else { return .fail("Maus hat Vorrang") }
+        let loc = ScreenGeometry.clampQuartz(quartz)
+        lastPosted = loc
+        lastPostAt = CACurrentMediaTime()
+        guard postMouse(.leftMouseDown, at: loc) else { return .fail("CGEvent Text") }
+        textDragActive = true
+        return .ok("Textauswahl")
+    }
+
+    func updateTextDrag(to quartz: CGPoint) {
+        guard allowsInjection else {
+            endTextDrag()
+            return
+        }
+        guard textDragActive else { return }
+        let loc = ScreenGeometry.clampQuartz(quartz)
+        lastPosted = loc
+        lastPostAt = CACurrentMediaTime()
+        _ = postMouse(.leftMouseDragged, at: loc)
+    }
+
+    func endTextDrag() {
+        guard textDragActive else { return }
+        let loc = lastPosted ?? NSEvent.mouseLocation.screenFlipped
+        _ = postMouse(.leftMouseUp, at: loc)
+        textDragActive = false
+    }
+
+    var isTextDragging: Bool { textDragActive }
+
     /// Pinch über Text stiehlt kein Fenster — nur die oberen 36 pt (Traffic Lights).
     func onTitleBar(at quartz: CGPoint) -> Bool {
         guard let win = targetWindow(at: quartz, allowFrontmost: false) else { return false }
@@ -259,9 +295,25 @@ final class SystemControl {
         return CoordMath.cocoaInTitleBar(point: cocoa, windowPos: pos, windowSize: size)
     }
 
-    /// 4 px Magnet auf AX-Schließen / Mini / Zoom / Slider. Quartz-Ziel oder nil.
+    /// 4 px Magnet auf AX-Schließen / Mini / Zoom / Slider / Tab / Menü. Quartz-Ziel oder nil.
     func magnetQuartz(at quartz: CGPoint) -> CGPoint? {
-        guard let win = targetWindow(at: quartz, allowFrontmost: false) else { return nil }
+        let now = CACurrentMediaTime()
+        if let cached = magnetCached,
+           CoordMath.magnetCacheHit(
+            cachedAt: magnetCachedAt,
+            cachedAtPoint: magnetCachedAtPoint,
+            now: now,
+            point: quartz
+           )
+        {
+            return cached
+        }
+        guard let win = targetWindow(at: quartz, allowFrontmost: false) else {
+            magnetCachedAt = now
+            magnetCachedAtPoint = quartz
+            magnetCached = nil
+            return nil
+        }
         let cocoa = ScreenGeometry.cocoa(fromQuartz: quartz)
         var candidates: [CGPoint] = []
         for attr in ["AXCloseButton", "AXMinimizeButton", "AXZoomButton"] as [CFString] {
@@ -295,12 +347,16 @@ final class SystemControl {
                 best = c
             }
         }
-        guard let cocoaTarget = best else { return nil }
-        return ScreenGeometry.quartz(fromCocoa: cocoaTarget)
+        let result = best.map { ScreenGeometry.quartz(fromCocoa: $0) }
+        magnetCachedAt = now
+        magnetCachedAtPoint = quartz
+        magnetCached = result
+        return result
     }
 
     private static let magnetRoles: Set<String> = [
-        "AXButton", "AXSlider", "AXCheckBox", "AXPopUpButton", "AXDisclosureTriangle"
+        "AXButton", "AXSlider", "AXCheckBox", "AXPopUpButton", "AXDisclosureTriangle",
+        "AXTab", "AXMenuItem", "AXIncrementor", "AXRadioButton"
     ]
 
 

@@ -227,9 +227,8 @@ struct HUDView: View {
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(HeliosTheme.amber)
             } else if let clutch = state.clutchReason {
-                Text(clutch == "Maus"
-                     ? String(format: "MAUS %.0f ms", state.clutchRemain * 850)
-                     : String(format: "TASTATUR %.0f ms", state.clutchRemain * 400))
+                let chip = CoordMath.clutchChip(reason: clutch, remain: state.clutchRemain)
+                Text(String(format: "%@ %.0f ms", chip.label, chip.ms))
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)

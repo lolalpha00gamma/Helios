@@ -166,6 +166,7 @@ final class AppState: ObservableObject {
         }
         trashHot = engine.trashHot
         killFlash = engine.killFlash
+        pinHUDToConsole()
     }
 
     func startCamera() async {

@@ -1,4 +1,4 @@
-# Helios **1.6.0**
+# Helios **1.5.8**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -19,19 +19,17 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
 
-## Neu in 1.6.0
+## Neu in 1.5.8
 
-Erkennung ist nicht mehr nur 2D. Vier Quellen laufen parallel und werden fusioniert.
-Details: [docs/Erkennung.md](./docs/Erkennung.md), Analyse und GitHub-Abgleich: [docs/Analyse.md](./docs/Analyse.md).
+1.5.7 kompiliert nicht: Fusion-Dateien und `AspectSpace` fehlten im Xcode-Target, `LandmarkSmoothing` rief sie trotzdem. Jetzt im Target, und die Fusion ist **verdrahtet** (2D + 3D-Lift + Temporal → HMM).
 
-- **Isotroper Raum.** Vision-x/y sind unabhängig [0,1] — Abstände laufen in x′ = x·(w/h).
-- **Track-ID statt Chiralität.** Zwei Hände auf derselben Bildseite überschreiben sich nicht mehr.
-- **Gelenkwinkel + Softmax** statt Radialabstand und binärer Kanten.
-- **3D-Lift** über MANO-Knochenlängen (jede Webcam) plus echte Tiefe, wo das Format sie hat.
-- **Zeitnetz** 12 Frames, optional `HeliosTemporal.mlmodel`; sonst Heuristik.
-- **HMM in Sekunden**, PinchGate 32/55 ms, Ausreißer 3,5·Median.
-- **Systemaktionen ab Pose 70 %.** Schwellen in Handbreiten (Wisch 0,85, Wurf 2,6 hw/s).
-- 1.5.7-Sicherheit bleibt: Not-Aus 0,8 s, Scharf-Ruhe 0,7 s, Peace 0,9 s, Flick-Wischen.
+- **Dropout 180 ms.** Ein verlorener Vision-Frame beendet Drag nicht mehr mit einem Fehlklick.
+- **Pinch-Timeout.** Occludierte Spitzen halten die Pinzette 0,32 s, nicht ewig.
+- **Not-Aus / Zwei-Pinzetten** bewegen den Cursor weiter.
+- **Scroll** (zwei offene Hände vertikal), **Rechtsklick** (Pinzette + Ring), **Dwell-Klick** (optional).
+- HUD: Idle-Banner nach Not-Aus, Latenz-Sparkline, Fusion-Streifen.
+
+Details: [VORSCHLAEGE.md](./VORSCHLAEGE.md).
 
 ## Neu in 1.5.7
 
@@ -39,13 +37,14 @@ Fenster trafen oft das falsche Ziel: AX-Hit-Test und Snap liefen in Quartz-Y sta
 
 - **AX in Cocoa.** `AXUIElementCopyElementAtPosition` und `AXPosition` bekommen Cocoa-Koordinaten.
 - **Snap auf `visibleFrame`.** Andocken/Füllen nutzt den Cocoa-sichtbaren Bereich, nicht das geflippte Quartz-Rect.
-- **Wischen = Flick.** Nur schnell, waagerecht. Langsames Cursor-Führen wechselt keine App.
+- **Wischen = Flick.** Nur schnell, waagerecht, `dx > 0.20`, `speed > 0.85`. Langsames Cursor-Führen wechselt keine App.
 - **Scharf-Ruhe 0,7 s.** Die Arming-Faust startet kein Halten/Klick.
 - **Cooldown bewegt den Cursor weiter.** Nur Aktionen pausieren.
 - **Not-Aus 0,8 s, openScore ≥ 4.** Kein Kill durch zwei lockere Hände.
 - **Zwei Pinzetten belegen den Tick** schon in der 0,35 s-Bestätigung.
 - **Maus-Clutch** hört auch `mouseMoved`.
 - **Peace 0,9 s.** Weniger Fehl-Screenshots.
+- **Chirality eindeutig.** Zwei Hände teilen sich keinen Smoother mehr.
 
 ## Gesten
 
@@ -62,6 +61,9 @@ Fenster trafen oft das falsche Ziel: AX-Hit-Test und Snap liefen in Quartz-Y sta
 | Pinzette + zu sich ziehen | Fenster füllen |
 | Zwei Pinzetten | Skalieren |
 | Offene Hand **schnell** waagerecht wischen | App wechseln |
+| Zwei offene Hände vertikal | Scroll |
+| Pinzette + Ringfinger kurz | Rechtsklick |
+| Offene Hand 1 s still (optional) | Dwell-Klick |
 | Peace halten (~0,9 s) | Fensteraufnahme auf den Schreibtisch |
 | Daumen hoch | App hervorholen |
 | Beide Handflächen (~0,8 s) | Not-Aus → Idle (erst Faust macht wieder scharf) |

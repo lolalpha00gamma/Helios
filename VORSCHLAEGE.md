@@ -1,6 +1,14 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.4**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+Stand: **1.6.5**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+
+## In 1.6.5 erledigt
+
+- App-Umriss ist kein Fenster: Standard aus, nur Greifen, kein Schreibtisch, keine Höhen-Animation.
+- Konsole kommt nach Scharf nicht zurück (Key/Main-Wächter).
+- Wischen landet nicht per ⌘⇥ im System-Umschalter.
+- Zwei-Pinzetten-Skalieren ohne Höhen-Pumpe (0,55 + Gegenrichtungs-Sperre).
+- Konsolen-Höhe nicht mehr vom Inhalt getrieben.
 
 ## In 1.6.4 erledigt (Sitzung 2026-09-02)
 

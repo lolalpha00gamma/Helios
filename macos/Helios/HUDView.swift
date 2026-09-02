@@ -14,10 +14,12 @@ struct HUDView: View {
                 }
 
                 if state.showOutline, let target = state.focused,
+                   (state.grabPhase == .hold || state.grabPhase == .grab),
                    target.quartzBounds.width > 40,
                    ScreenGeometry.intersects(quartz: target.quartzBounds, screen: screenFrame)
                 {
                     windowOutline(target)
+                        .transaction { $0.animation = nil }
                 }
 
                 if state.calibActive {
@@ -199,10 +201,12 @@ struct HUDView: View {
                 Text(app.appName.uppercased())
                     .font(HeliosTheme.mono)
                     .foregroundStyle(HeliosTheme.cyan)
+                    .lineLimit(1)
             }
             Text(state.lastAction.uppercased())
                 .font(HeliosTheme.mono)
                 .foregroundStyle(HeliosTheme.amber)
+                .lineLimit(1)
             Spacer()
             Text("\(NSScreen.screens.count) MON")
                 .font(HeliosTheme.mono)
@@ -213,6 +217,8 @@ struct HUDView: View {
         }
         .padding(.horizontal, 22)
         .padding(.vertical, 10)
+        .frame(height: 48)
+        .clipped()
         .background(
             RoundedRectangle(cornerRadius: 4)
                 .fill(HeliosTheme.panel)

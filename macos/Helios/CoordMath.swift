@@ -70,13 +70,27 @@ enum GestureMath {
     static let pinchClickMaxHold: TimeInterval = 0.90
     static let pinchClickStillPx: CGFloat = 14
     static let pinchLockMiss: TimeInterval = 0.22
-    static let twoPinchConfirm: TimeInterval = 0.08
-    static let twoPinchClosed: CGFloat = 0.42
+    static let twoPinchConfirm: TimeInterval = 0.12
+    static let twoPinchClosed: CGFloat = 0.55
+    static let twoPinchScaleNeed: CGFloat = 0.55
+    static let twoPinchReverseMul: CGFloat = 1.8
     static let peaceHold: TimeInterval = 1.10
     static let chromeMagnet: CGFloat = 28
     static let chromeLoupe: CGFloat = 64
     static let calibMinArea: CGFloat = 0.012
     static let calibCornerSep: CGFloat = 0.06
+
+    /// Schreibtisch / Wallpaper: fast schirmfüllend, ohne Fenstertitel.
+    static func fillsScreen(_ window: CGRect, screen: CGRect, heightSlop: CGFloat = 80) -> Bool {
+        abs(window.midX - screen.midX) < 8
+            && abs(window.midY - screen.midY) < 8
+            && abs(window.width - screen.width) < 16
+            && abs(window.height - screen.height) < heightSlop
+    }
+
+    static func isWallpaperTitle(_ title: String) -> Bool {
+        title.isEmpty || title == "Desktop" || title == "Schreibtisch"
+    }
 
     /// Letzte `flingWindow` Sekunden in Handbreiten, nicht first→last über das Halten.
     /// `x/y` sind Vision-[0,1]; `aspect` = w/h macht x isotrop.

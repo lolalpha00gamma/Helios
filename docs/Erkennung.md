@@ -1,6 +1,6 @@
 # Erkennung — implementiert (kein Phasenplan)
 
-Stand: 2026-09-02, Helios 1.6.4. Alle fünf Phasen aus dem
+Stand: 2026-09-02, Helios 1.6.5. Alle fünf Phasen aus dem
 Konsolidierungsdokument laufen gleichzeitig. Fällt eine Quelle aus, geht
 ihr Fusionsgewicht auf 0. Korrelierte Quellen (Lift/Zeit ≈ 2D) werden
 kollabiert, sonst flacht die Pose unter das Aktions-Tor.
@@ -47,10 +47,11 @@ Not-Aus 0,8 s und openScore ≥ 4, Kill-Grace 0,14 s. Scharf-Ruhe 0,7 s
 (Faust wird kein Klick). Peace 1,1 s, nur Steuerhand, andere Hand nicht offen.
 Cooldown bewegt den Cursor weiter, blockt nur Aktionen. Wischen ist ein Flick
 (0,08–0,40 s, 0,85 Handbreiten, waagerecht, offene Steuerhand), plus Mute 0,75 s
-nach Pinzette und Gegenrichtungs-Sperre 1,1 s. Werfen aus den letzten 120 ms;
+nach Pinzette und Gegenrichtungs-Sperre 1,1 s. Kein ⌘⇥-Fallback. Werfen aus den letzten 120 ms;
 nach echtem Zug 2,4× Schwelle. Dead-Man 8 s ohne Hand → Idle. Relativ-Zeiger:
 Palm-Hochpass gegen Atem. Pinzette-Actor ist die Hand, die das Gate geschlossen
-hat. Klick wenn still (< 0,45 Handbreiten).
+hat. Klick wenn still (< 0,45 Handbreiten). Zwei-Pinzetten-Skalieren ab 0,55 Handbreiten,
+Gegenrichtung 1,8×.
 
 ## Core ML
 

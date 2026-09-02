@@ -5,8 +5,10 @@ struct ControlPanel: View {
 
     var body: some View {
         HSplitView {
-            left
-                .frame(minWidth: 280, idealWidth: 310)
+            ScrollView {
+                left
+            }
+            .frame(minWidth: 280, idealWidth: 310)
             preview
                 .frame(minWidth: 440)
             inspector
@@ -143,7 +145,12 @@ struct ControlPanel: View {
                     Toggle("Kamera-Chip", isOn: $state.showPreviewChip)
                     Toggle("Gelenk-Beschriftung", isOn: $state.showJointLabels)
                     Toggle("Gestenhilfe", isOn: $state.showCheats)
-                    Toggle("App-Umriss", isOn: $state.showOutline)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Toggle("App-Umriss", isOn: $state.showOutline)
+                        Text("Nur beim Greifen: Cyan-Rahmen um das Zielfenster. Kein eigenes Fenster, kein App-Wechsel. Standard aus.")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
                     Toggle("Papierkorb-Zone", isOn: $state.showTrashZone)
                     Toggle(isOn: Binding(
                         get: { state.hideConsoleWhenArmed },
@@ -228,7 +235,6 @@ struct ControlPanel: View {
                 }
             }
 
-            Spacer()
             Text(state.testMode
                  ? "Testmodus: Gesten werden erkannt, das System bleibt unangetastet."
                  : "Live · Linke Handfläche = Position. Pinzette/Faust greift das Fenster unter der Markierung. Offene Hand wischen = App. Beide offen = Not-Aus (bleibt Idle).")

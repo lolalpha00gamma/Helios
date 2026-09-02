@@ -1,4 +1,4 @@
-# Helios **1.6.4**
+# Helios **1.6.5**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,16 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.5
+
+Der cyanfarbene Rahmen war **kein eigenes Fenster** — er markierte das Fenster unter der Hand. Standard an, plus Schreibtisch-Hintergrund = Umriss über den ganzen Monitor, SwiftUI interpolierte die Höhe, Wischen ohne zweite App schickte ⌘⇥. Die Konsole (selbst mit Cyan-Rahmen um die Kamera) kam nach SwiftUI-Updates wieder nach vorn. Zwei Pinzetten haben bei 0,28 Handbreiten Zittern die Fensterhöhe gepumpt.
+
+- **App-Umriss aus.** Einmalig zurückgesetzt. Nur noch beim Greifen/Halten, wenn du ihn einschaltest. Schreibtisch/Wallpaper wird nie umrandet. Keine Animation zwischen Fenstern.
+- **Konsole bleibt weg.** Nach Scharf: `orderOut` plus Wächter gegen `didBecomeKey` / `didBecomeMain`. SwiftUI darf sie nicht zurückholen. Menüleiste → Konsole.
+- **Keine ⌘⇥-Krücke** mehr, wenn nur eine App offen ist — das war der System-Umschalter.
+- **Skalieren** braucht 0,55 Handbreiten, Gegenrichtung 1,8× — Höhe pumpt nicht mehr.
+- Konsole: linke Spalte scrollt, Fenster wächst nicht mit dem Inhalt.
 
 ## Neu in 1.6.4
 
@@ -107,7 +117,7 @@ Erkennung ist nicht mehr nur 2D. Vier Quellen laufen parallel und werden fusioni
 
 **Testmodus** (⌘T): Erkennung anzeigen, keine Systemaktionen.
 
-Aktive App bekommt einen Umriss. HUD liegt auf jedem Monitor. Keine Stimme.
+Aktive App bekommt nur beim Greifen einen Umriss, und nur wenn der Schalter an ist (Standard aus). HUD liegt auf jedem Monitor. Keine Stimme.
 
 Bei Scharf blendet Helios die Konsole aus (Menüleiste holt sie zurück), damit die anderen Apps sichtbar bleiben.
 
@@ -123,7 +133,7 @@ Eine Quelle gleichzeitig, Picker in der Konsole.
 | Osmo Action 3 | USB-C, am Gerät **Webcam** einschalten. Taucht als Extern auf. Weitwinkel, **keine** Tiefe. |
 | LiDAR (iPhone 12 Pro+) | Nur wenn Kontinuität ein `supportedDepthDataFormats` liefert. Dann hängt `DepthCapture` den Kanal an — Fusion nutzt echte z. Viele Continuity-Formate haben **keine** Tiefe. |
 
-Zwei Kameras gleichzeitig (Mac + iPhone oder Mac + Osmo) sind möglich als zwei `AVCaptureSession`s, aber Continuity ist oft exklusiv und Vision auf zwei Streams sprengt das Budget. Nicht in 1.6.4.
+Zwei Kameras gleichzeitig (Mac + iPhone oder Mac + Osmo) sind möglich als zwei `AVCaptureSession`s, aber Continuity ist oft exklusiv und Vision auf zwei Streams sprengt das Budget. Nicht in 1.6.5.
 
 ## Bau
 

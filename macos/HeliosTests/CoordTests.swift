@@ -191,6 +191,31 @@ enum CoordTests {
             fputs("FAIL Kalibrierung muss kleinen Anschlag akzeptieren\n", stderr)
             fails += 1
         }
+        if GestureMath.twoPinchScaleNeed < 0.4 {
+            fputs("FAIL Skalieren darf nicht bei 0,28 Handbreiten pumpen\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoPinchReverseMul < 1.5 {
+            fputs("FAIL Gegenrichtung beim Skalieren braucht extra Weg\n", stderr)
+            fails += 1
+        }
+        let desk = CGRect(x: 0, y: 0, width: 1440, height: 900)
+        if !GestureMath.fillsScreen(CGRect(x: 0, y: 0, width: 1440, height: 900), screen: desk) {
+            fputs("FAIL schirmfüllend erkennen\n", stderr)
+            fails += 1
+        }
+        if GestureMath.fillsScreen(CGRect(x: 100, y: 80, width: 800, height: 600), screen: desk) {
+            fputs("FAIL normales Fenster ist kein Schreibtisch\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.isWallpaperTitle("") || !GestureMath.isWallpaperTitle("Schreibtisch") {
+            fputs("FAIL Schreibtisch-Titel\n", stderr)
+            fails += 1
+        }
+        if GestureMath.isWallpaperTitle("Dokumente") {
+            fputs("FAIL Finder-Ordner ist kein Wallpaper\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

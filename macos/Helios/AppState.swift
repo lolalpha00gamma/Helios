@@ -40,7 +40,7 @@ final class AppState: ObservableObject {
     @Published var protocolMode = true
     @Published var leftHanded = true
     @Published var showJointLabels = true
-    @Published var showOutline = true
+    @Published var showOutline = false
     @Published var showTrashZone = true
     @Published var luma: CGFloat = 1
     @Published var focused: FocusedTarget?
@@ -76,6 +76,8 @@ final class AppState: ObservableObject {
     private var lastArmedConsole: EngineMode = .idle
     private var cancellables: Set<AnyCancellable> = []
     private var focusTick = 0
+    private var focusHoldID: CGWindowID = 0
+    private var focusHoldCount = 0
 
     func start() {
         if didStart { return }
@@ -85,6 +87,7 @@ final class AppState: ObservableObject {
         engine.calibration = calibSession
         engine.spaceMap = SpaceMap.load()
         mapReady = engine.spaceMap?.isReady == true
+        ConsolePolicy.installGuard()
         Permissions.onDemand = { [weak self] kind in
             self?.permissionBanner = "Rechte: \(kind.title) — Systemeinstellungen"
             self?.log.record("Rechte fehlen: \(kind.title)", kind: .blocked)
@@ -164,11 +167,61 @@ final class AppState: ObservableObject {
     }
 
     func pollFocus() {
-        focused = engine.cursor.flatMap { TargetProbe.windowAt(quartz: $0) } ?? FocusTracker.poll()
+        let sticky = engine.grabPhase == .grab || engine.grabPhase == .hold
+        let raw: FocusedTarget?
+        if let c = engine.cursor {
+            raw = TargetProbe.windowAt(quartz: c)
+        } else if sticky, let prev = focused {
+            raw = TargetProbe.window(id: prev.windowID) ?? prev
+        } else {
+            raw = nil
+        }
+        let next: FocusedTarget?
+        if sticky {
+            next = quietBounds(raw ?? focused)
+            focusHoldCount = 2
+            focusHoldID = next?.windowID ?? 0
+        } else if let raw {
+            if raw.windowID == focused?.windowID {
+                focusHoldID = raw.windowID
+                focusHoldCount = 2
+                next = quietBounds(raw)
+            } else if raw.windowID == focusHoldID {
+                focusHoldCount += 1
+                next = focusHoldCount >= 2 ? raw : focused
+            } else {
+                focusHoldID = raw.windowID
+                focusHoldCount = 1
+                next = focused
+            }
+        } else {
+            focusHoldCount = 0
+            focusHoldID = 0
+            next = nil
+        }
+        if focused != next {
+            focused = next
+        }
         engine.focused = focused
         trashHot = engine.trashHot
         killFlash = engine.killFlash
     }
+
+    /// Subpixel-/Shadow-Sprünge der CGWindowList nicht in die HUD-Höhe durchreichen.
+    private func quietBounds(_ incoming: FocusedTarget?) -> FocusedTarget? {
+        guard let incoming, let old = focused, old.windowID == incoming.windowID else {
+            return incoming
+        }
+        let a = old.quartzBounds
+        let b = incoming.quartzBounds
+        if abs(a.minX - b.minX) < 4, abs(a.minY - b.minY) < 4,
+           abs(a.width - b.width) < 4, abs(a.height - b.height) < 4
+        {
+            return old
+        }
+        return incoming
+    }
+
 
     func startCamera() async {
         let ok = await Permissions.requestCamera()
@@ -390,10 +443,18 @@ final class AppState: ObservableObject {
             chromeKnobs = engine.chromeKnobs
             chromeHot = engine.chromeHot
         }
-        if hideConsoleWhenArmed, engine.mode == .armed, lastArmedConsole != .armed, !testMode {
-            ConsolePolicy.hide()
+        if hideConsoleWhenArmed, engine.mode == .armed, !testMode {
+            if lastArmedConsole != .armed {
+                ConsolePolicy.hide()
+            } else {
+                ConsolePolicy.enforce()
+            }
         }
         lastArmedConsole = engine.mode
+        let stickyGrab = engine.grabPhase == .grab || engine.grabPhase == .hold
+        if stickyGrab || now - lastPanel >= 0.09 {
+            pollFocus()
+        }
         guard now - lastPanel >= 0.09 else { return }
         lastPanel = now
         self.luma = luma
@@ -501,7 +562,14 @@ enum Prefs {
         set { UserDefaults.standard.set(newValue, forKey: "helios.cheats") }
     }
     static var showOutline: Bool {
-        get { UserDefaults.standard.object(forKey: "helios.outline") as? Bool ?? true }
+        get {
+            if !UserDefaults.standard.bool(forKey: "helios.outline.offByDefault") {
+                UserDefaults.standard.set(true, forKey: "helios.outline.offByDefault")
+                UserDefaults.standard.set(false, forKey: "helios.outline")
+                return false
+            }
+            return UserDefaults.standard.object(forKey: "helios.outline") as? Bool ?? false
+        }
         set { UserDefaults.standard.set(newValue, forKey: "helios.outline") }
     }
     static var showTrashZone: Bool {

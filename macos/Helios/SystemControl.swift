@@ -335,6 +335,14 @@ final class SystemControl {
                 if pid == 0 || pid == selfPID || seen.contains(pid) { continue }
                 let layer = item[kCGWindowLayer as String] as? Int ?? 0
                 guard layer == 0 else { continue }
+                guard let dict = item[kCGWindowBounds as String] as? [String: CGFloat] else { continue }
+                let r = CGRect(
+                    x: dict["X"] ?? 0,
+                    y: dict["Y"] ?? 0,
+                    width: dict["Width"] ?? 0,
+                    height: dict["Height"] ?? 0
+                )
+                if TargetProbe.isWallpaper(item: item, bounds: r, pid: pid) { continue }
                 guard let app = NSRunningApplication(processIdentifier: pid),
                       app.activationPolicy == .regular,
                       !app.isTerminated
@@ -344,8 +352,7 @@ final class SystemControl {
             }
         }
         guard ordered.count >= 2 else {
-            _ = chord(key: 0x30, flags: forward ? .maskCommand : [.maskCommand, .maskShift])
-            return ordered.isEmpty ? .fail("Keine andere App") : activate(ordered[0])
+            return .fail("Keine andere App")
         }
         let idx = forward ? 1 : ordered.count - 1
         return activate(ordered[idx])

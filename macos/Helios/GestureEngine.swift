@@ -72,6 +72,7 @@ final class GestureEngine {
     private var grabLogged = false
     private var lastGrabTry: TimeInterval = 0
     private var twoPinchSince: TimeInterval?
+    private var lastScaleSign: CGFloat = 0
     private var swipeTrail: [(t: TimeInterval, x: CGFloat, y: CGFloat)] = []
     private var swipeHandID: String?
     private var cooldownUntil: TimeInterval = 0
@@ -124,6 +125,7 @@ final class GestureEngine {
         grabLogged = false
         lastGrabTry = 0
         twoPinchSince = nil
+        lastScaleSign = 0
         swipeTrail.removeAll()
         swipeHandID = nil
         swipeMuteUntil = 0
@@ -189,6 +191,8 @@ final class GestureEngine {
             pinchPalmMoved = 0
             pinchMissSince = nil
             twoPinchSince = nil
+            lastScaleSign = 0
+            twoHandSpan = nil
             scrollAnchor = nil
             ringPinchSince = nil
             dwellSince = nil
@@ -591,6 +595,7 @@ final class GestureEngine {
             }
             twoHandSpan = nil
             twoPinchSince = nil
+            lastScaleSign = 0
             return false
         }
         if twoPinchSince == nil { twoPinchSince = now }
@@ -607,16 +612,24 @@ final class GestureEngine {
         guard now - (twoPinchSince ?? now) >= GestureMath.twoPinchConfirm else { return true }
         let unit = max(0.04, (pinches[0].palmWidth + pinches[1].palmWidth) / 2)
         let span = space.dist(pinches[0].palm, pinches[1].palm) / unit
-        if let old = twoHandSpan, abs(span - old) > 0.28, now >= cooldownUntil {
-            let conf = Float(pinches.map(\.poseProb).min() ?? 0)
-            perform("Skalieren", confidence: conf) {
-                system.resizeFocused(scale: span > old ? 1.05 : 0.95)
+        if let old = twoHandSpan, now >= cooldownUntil {
+            let d = span - old
+            let reversing = lastScaleSign != 0 && d * lastScaleSign < 0
+            let need = GestureMath.twoPinchScaleNeed * (reversing ? GestureMath.twoPinchReverseMul : 1)
+            if abs(d) > need {
+                let conf = Float(pinches.map(\.poseProb).min() ?? 0)
+                perform("Skalieren", confidence: conf) {
+                    system.resizeFocused(scale: d > 0 ? 1.05 : 0.95)
+                }
+                lastScaleSign = d > 0 ? 1 : -1
+                twoHandSpan = span
+                cooldownUntil = now + 0.28
+                return true
             }
-            twoHandSpan = span
-            cooldownUntil = now + 0.28
-            return true
         }
-        twoHandSpan = span
+        if twoHandSpan == nil {
+            twoHandSpan = span
+        }
         return true
     }
 

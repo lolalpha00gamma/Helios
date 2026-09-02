@@ -45,4 +45,16 @@ enum CoordMath {
     ) -> Bool {
         titleBar(windowPos: windowPos, windowSize: windowSize, height: height).contains(point)
     }
+
+    /// Micro-Dwell-Magnet: sitzt `from` in `radius` von `toward`, rastet ein.
+    static func magnetSnap(from: CGPoint, toward: CGPoint, radius: CGFloat = 4) -> CGPoint? {
+        let d = hypot(from.x - toward.x, from.y - toward.y)
+        guard d > 0.5, d <= radius else { return nil }
+        return toward
+    }
+
+    /// Clutch-Nachlauf: Injektion bleibt tot, bis `endedAt + grace`.
+    static func clutchInjects(now: Double, clutchEndedAt: Double, grace: Double = 0.15) -> Bool {
+        now >= clutchEndedAt + grace
+    }
 }

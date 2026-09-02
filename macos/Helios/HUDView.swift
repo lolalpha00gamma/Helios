@@ -77,7 +77,7 @@ struct HUDView: View {
                         .font(.system(size: 13, weight: .bold, design: .monospaced))
                         .foregroundStyle(HeliosTheme.amber)
                     if state.calibSession.samples.isEmpty {
-                        Text("Zieh dieses HUD auf den Schirm, den du meinst")
+                        Text("HUD auf dem Konsolen-Schirm — Fenster dorthin ziehen, den du meinst")
                             .font(.system(size: 15, weight: .bold, design: .monospaced))
                             .foregroundStyle(HeliosTheme.amber)
                     }

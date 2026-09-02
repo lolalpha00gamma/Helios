@@ -420,10 +420,12 @@ final class GestureEngine {
         }
 
         if mousePaused {
-            lastAction = system.clutchReason == "Tastatur" ? "Tastatur hat Vorrang" : "Maus hat Vorrang"
+            lastAction = system.clutchReason == "Tastatur"
+                ? "Tastatur hat Vorrang"
+                : (system.clutchReason == "Nachlauf" ? "Nachlauf 150 ms" : "Maus hat Vorrang")
             swallowPinchFromClutch()
             let actor = preferred(hands, now: now)
-            placeCursor(actor)
+            resyncPointer(actor)
             cursorHand = actor.sideDE
             dragging = false
             grabPhase = .follow
@@ -907,6 +909,18 @@ final class GestureEngine {
         cursorHand = hand.sideDE
     }
 
+    /// Während Clutch/Nachlauf nicht integrieren. lastPalm/cursorSmooth würden
+    /// sonst nach der Pause den Hardware-Zeiger um die Palm-Deltas der Pause warpen.
+    private func resyncPointer(_ hand: TrackedHand) {
+        lastPalm = hand.palm
+        pointerHandID = hand.id
+        let hw = ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
+        cursorSmooth = hw
+        cursor = hw
+        cursorDidMove = false
+        cursorHand = hand.sideDE
+    }
+
     private func adoptMapForCursor() {
         let loc = cursor ?? ScreenGeometry.quartz(fromCocoa: NSEvent.mouseLocation)
         guard let screen = ScreenGeometry.screenContaining(quartz: loc) else { return }
@@ -1002,6 +1016,7 @@ final class GestureEngine {
             grabLogged = false
             titleBarSince = nil
             lastAction = testMode ? "Test: Halten" : "Halten"
+            applyMagnet(at: dragPoint(hand))
         } else if isGrab && pinchHeld {
             pinchTrail.append((now, hand.palm.x, hand.palm.y))
             pinchTrail.removeAll { now - $0.t > 0.5 }
@@ -1040,6 +1055,9 @@ final class GestureEngine {
                 lastAction = trashHot ? "Papierkorb" : "Ziehen"
             } else if testMode, pinchBecameDrag {
                 lastAction = trashHot ? "Test: Papierkorb" : "Test: Ziehen"
+            }
+            if !pinchBecameDrag, !system.isDragging {
+                applyMagnet(at: dragPoint(hand))
             }
             let span = space.dist(hand.point(.middleTip) ?? hand.palm, hand.palm) / max(0.04, hand.palmWidth)
             if let s0 = pinchSpan0, !system.isDragging, span > s0 + 1.4 {
@@ -1221,25 +1239,41 @@ final class GestureEngine {
     }
 
     /// Zwei offene Hände vertikal — getrennt vom waagerechten Flick-Wischen.
+    /// Ein-Hand-Zwei-Finger (Peace), wenn die andere Hand ruht oder fehlt.
     private func driveScroll(hands: [TrackedHand], now: TimeInterval) {
         guard !pinchHeld else {
             scrollAnchor = nil
             return
         }
-        let open = hands.filter {
-            $0.openScore >= 3 && !GestureClassifier.palmDown(
-                wrist: $0.point(.wrist) ?? $0.palm,
-                tip: $0.point(.middleTip) ?? $0.palm,
-                openScore: $0.openScore,
-                pose: $0.pose
+        func isRest(_ h: TrackedHand) -> Bool {
+            GestureClassifier.palmDown(
+                wrist: h.point(.wrist) ?? h.palm,
+                tip: h.point(.middleTip) ?? h.palm,
+                openScore: h.openScore,
+                pose: h.pose
             )
         }
-        guard open.count >= 2 else {
+        let rest = hands.filter(isRest)
+        let open = hands.filter {
+            $0.openScore >= 3 && !isRest($0)
+        }
+        let peace = hands.filter { $0.pose == .peace && $0.poseProb >= 0.45 }
+        let actors: [TrackedHand]
+        if open.count >= 2 {
+            actors = open
+        } else if GestureClassifier.twoFingerScroll(
+            peace: peace.count,
+            openPalms: open.count,
+            resting: rest.count,
+            hands: hands.count
+        ) {
+            actors = peace
+        } else {
             scrollAnchor = nil
             return
         }
-        let y = open.map(\.palm.y).reduce(0, +) / CGFloat(open.count)
-        let unit = max(0.04, (open[0].palmWidth + open[1].palmWidth) / 2)
+        let y = actors.map(\.palm.y).reduce(0, +) / CGFloat(actors.count)
+        let unit = max(0.04, (actors[0].palmWidth + (actors.count > 1 ? actors[1].palmWidth : actors[0].palmWidth)) / 2)
         guard let a = scrollAnchor else {
             scrollAnchor = (now, y)
             return
@@ -1247,14 +1281,15 @@ final class GestureEngine {
         let dy = (y - a.y) / unit
         let dt = now - a.t
         guard dt >= 0.05, abs(dy) > 0.10 else { return }
-        // unit 0,12 → ~18 Ticks wie bisher; große Palme (nah) scrollt feiner.
         let gain = 2.2 / max(0.06, unit)
         var ticks = Int32(max(-24, min(24, -dy * gain)))
         if profile.invertScroll { ticks = -ticks }
         guard ticks != 0 else { return }
-        let conf = Float(open.map(\.poseProb).min() ?? 0)
+        let conf = Float(actors.map(\.poseProb).min() ?? 0)
         perform("Scroll", need: .input, confidence: conf) { system.scroll(ticks: ticks) }
         scrollAnchor = (now, y)
+        peaceSince = nil
+        peaceProgress = 0
     }
 
     /// Pinzette + Ringfinger, Mittel nicht gestreckt. Kurzer Halt → Rechtsklick statt Ziehen.
@@ -1307,5 +1342,13 @@ final class GestureEngine {
         } else {
             lastAction = "Dwell …"
         }
+    }
+
+    /// 4 px AX-Magnet auf Schließen/Slider, solange Pinch stillhält.
+    private func applyMagnet(at quartz: CGPoint) {
+        guard !testMode, let snapped = system.magnetQuartz(at: quartz) else { return }
+        cursor = snapped
+        cursorSmooth = snapped
+        lastAction = "Magnet"
     }
 }

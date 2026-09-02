@@ -1,4 +1,4 @@
-# Helios **1.6.9**
+# Helios **1.6.10**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,16 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.10
+
+1.6.9 hat Pinch während Clutch geschluckt — nach der Pause hat `placeCursor` den Zeiger trotzdem um die Palm-Deltas der Pause gewarpt, Zwei-Hand-Scroll brauchte zwei offene Palmen, und das HUD-Chrome klebte an `NSScreen.main`.
+
+- **Clutch-Exit-Grace 150 ms.** Nach Maus/Tastatur bleibt Injektion tot; HUD sagt „Nachlauf“.
+- **Pointer-Resync.** Während Clutch kein Palm-Integral — der Hardware-Cursor bleibt, kein Warp danach.
+- **Ein-Hand-Zwei-Finger-Scroll.** Peace (Zeigefinger+Mittel), zweite Hand palm-unten oder fehlt.
+- **HUD auf dem Konsolen-Schirm.** Kalibrierung nimmt den Schirm des Helios-Fensters, nicht den Menüleisten-Hauptbildschirm.
+- **4 px AX-Magnet.** Stillgehaltener Pinch rastet auf Schließen/Mini/Zoom/Slider.
 
 ## Neu in 1.6.9
 
@@ -148,6 +158,7 @@ Erkennung ist nicht mehr nur 2D. Vier Quellen laufen parallel und werden fusioni
 | Zwei Pinzetten | Skalieren |
 | Offene Hand **schnell** waagerecht wischen | App wechseln |
 | Zwei offene Hände vertikal | Scroll |
+| Zwei Finger (Peace) vertikal, zweite Hand ruht | Scroll (eine Hand) |
 | Offene Hand 1 s still (optional) | Dwell-Klick |
 | Peace halten (~0,9 s) | Fensteraufnahme auf den Schreibtisch |
 | Daumen hoch | App hervorholen |

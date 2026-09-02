@@ -21,6 +21,8 @@ final class OverlayController {
     private weak var state: AppState?
     private var screenObs: NSObjectProtocol?
     private var attached = false
+    /// HUD-Chrome auf Konsole/Kalibrier-Schirm, nicht hart NSScreen.main.
+    private var preferredPrimaryID: CGDirectDisplayID?
 
     func attach(state: AppState) {
         self.state = state
@@ -38,6 +40,12 @@ final class OverlayController {
         }
     }
 
+    func setPrimaryDisplay(_ id: CGDirectDisplayID?) {
+        if preferredPrimaryID == id { return }
+        preferredPrimaryID = id
+        if state != nil { rebuild() }
+    }
+
     func rebuild() {
         guard let state else { return }
         let screens = NSScreen.screens
@@ -49,7 +57,7 @@ final class OverlayController {
             hostings[id] = nil
             markers[id] = nil
         }
-        let mainID = NSScreen.main.map { ScreenGeometry.displayID(of: $0) }
+        let mainID = preferredPrimaryID ?? NSScreen.main.map { ScreenGeometry.displayID(of: $0) }
         for screen in screens {
             let id = ScreenGeometry.displayID(of: screen)
             let root = HUDRoot(state: state, screenFrame: screen.frame, isPrimary: id == mainID)

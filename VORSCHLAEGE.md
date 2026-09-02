@@ -1,6 +1,16 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.9**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+Stand: **1.6.10**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+
+## In 1.6.10 erledigt
+
+Warum 1.6.9 nach der Maus den Cursor trotzdem warpt, mit einer Hand nicht scrollt und das HUD auf dem falschen Schirm liegt: `placeCursor` hat während `mousePaused` `lastPalm`/`cursorSmooth` weiterintegriert. `allowsInjection` wurde im Frame nach `pauseUntil` wieder true. `driveScroll` wollte zwei offene Palmen. Overlay-Chrome hing an `NSScreen.main`. Pinch neben dem Schließen-Knopf hat um 4 px daneben geklickt.
+
+1. **Clutch-Exit-Grace 150 ms.** Injektion bleibt tot; HUD „Nachlauf“.
+2. **Pointer-Resync.** Während Clutch Hardware-Cursor, keine Palm-Deltas.
+3. **Ein-Hand-Zwei-Finger-Scroll.** Peace, zweite Hand palm-unten oder fehlt.
+4. **HUD auf Konsolen-Schirm.** Kalibrierung nimmt den Schirm des Helios-Fensters.
+5. **4 px AX-Magnet.** Stillgehaltener Pinch rastet auf Schließen/Mini/Zoom/Slider.
 
 ## In 1.6.9 erledigt
 
@@ -116,10 +126,10 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 
 ## Nächste Fixes (klein, hoher Nutzen)
 
-- **Clutch-Exit-Grace 150 ms.** Nach Maus-Ende nicht sofort injizieren — Finger zittern oft noch.
-- **Ein-Hand-Zwei-Finger-Scroll**, wenn die zweite Hand palm-unten ruht.
-- **HUD automatisch auf den kalibrierten Schirm.** Nach Display-Prompt das Overlay-Panel dorthin legen, nicht nur den Text zeigen.
-- **Micro-Dwell auf AX-Buttons** nach Hover-Intent (Schließen/Slider), 4 px Magnet.
+- **Scroll-Inertia 180 ms** nach Zwei-Finger-Lift, analog Trackpad — sonst stirbt der Schwung hart.
+- **Pinch-auf-Text = Textauswahl**, sobald Hover-Intent das Fenster nicht mehr stiehlt (AX selected-text).
+- **Warp-Guard.** Erstes Post-Clutch-Frame mit Δ > 80 px verwerfen, selbst wenn Resync versagt.
+- **Magnet-Rollen erweitern.** AXTab, AXMenuItem, AXIncrementor — nicht nur Button/Slider.
 
 ## Größere Erweiterungen
 
@@ -163,6 +173,12 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Ruhe-Pose als Modifier-Lock.** Palm-unten an der nicht-dominanten Hand = Scroll-only, Klick tot.
 - **Kalibrier-Heatmap nach 9 Punkten.** Welche Zelle RMSE > 12 px hat, dort nochmal.
 - **Clutch-Statistik.** Wie oft Maus vs. Geste gewinnt — Gain zu hoch, wenn Clutch dauernd feuert.
+- **Scroll-Gain aus palmWidth-Histogramm der Peace-Hand**, analog Desk/Couch.
+- **Nachlauf-Chip in der Top-Bar**, nicht nur Cursor-Ring — sonst wirkt 150 ms wie Totzeit.
+- **Kalibrier-Schirm merken.** Nach Reconfig HUD wieder auf denselben Display-ID, nicht neu raten.
+- **Zwei-Finger vs. Peace-Aufnahme.** Längerer Hold (1,2 s) für Screenshot, wenn Scroll in den letzten 400 ms feuerte.
+- **AX-Hit-Test Cache 30 ms**, Magnet nicht jeden Frame systemweit.
+- **Konsolen-Fenster-Move** pinnt HUD live mit, nicht nur beim Kalibrier-Start.
 
 ## Nicht tun
 
@@ -188,3 +204,7 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - `beginWindowDrag` über Textkörper, ohne Titelleisten-Hover.
 - Palm-unten in denselben Scroll-Pool wie offene Handflächen.
 - Kalibrier-Log wieder „4 Ecken“ nach 9-Punkt-DLT.
+- `placeCursor` während Clutch (warpt den Zeiger nach der Pause).
+- Injektion im ersten Frame nach `pauseUntil` ohne 150 ms Grace.
+- HUD-Chrome hart an `NSScreen.main` klemmen, wenn die Konsole auf einem anderen Schirm sitzt.
+- Peace-Hold während aktivem Zwei-Finger-Scroll als Aufnahme feuern.

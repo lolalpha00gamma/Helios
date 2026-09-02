@@ -215,6 +215,23 @@ enum GestureTests {
             "Faust ist kein Palm-Rest"
         )
 
+        ok(
+            GestureClassifier.twoFingerScroll(peace: 1, openPalms: 0, resting: 1, hands: 2),
+            "Peace + Rest-Hand = Ein-Hand-Scroll"
+        )
+        ok(
+            GestureClassifier.twoFingerScroll(peace: 1, openPalms: 0, resting: 0, hands: 1),
+            "Peace allein = Ein-Hand-Scroll"
+        )
+        ok(
+            !GestureClassifier.twoFingerScroll(peace: 1, openPalms: 2, resting: 0, hands: 2),
+            "zwei offene Palmen bleiben Zwei-Hand-Scroll"
+        )
+        ok(
+            !GestureClassifier.twoFingerScroll(peace: 0, openPalms: 1, resting: 1, hands: 2),
+            "offene Hand + Rest ist kein Zwei-Finger-Scroll"
+        )
+
         let browser = AppGestureProfile.forBundle("com.apple.Safari")
         ok(!browser.allows(.fling), "Safari blockt Werfen by default")
         ok(browser.allows(.swipe), "Safari erlaubt Wischen")

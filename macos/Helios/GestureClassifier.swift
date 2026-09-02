@@ -67,11 +67,19 @@ enum GestureClassifier {
         return scale
     }
 
-    /// Vision y: Ursprung unten. Finger zur Bildkante unten (Rest) → Spitze unter dem Handgelenk.
+    /// Finger nach unten = Rest, kein Scroll.
     static func palmDown(wrist: CGPoint, tip: CGPoint, openScore: Int, pose: HandPose) -> Bool {
         let pointingDown = tip.y + 0.06 < wrist.y
         let open = openScore >= 3 && (pose == .openPalm || pose == .unknown)
         return open && pointingDown
+    }
+
+    /// Ein-Hand-Zwei-Finger-Scroll, wenn die zweite Hand ruht oder fehlt.
+    /// Zwei offene Palmen bleiben der Zwei-Hand-Pfad (`openPalms >= 2`).
+    static func twoFingerScroll(peace: Int, openPalms: Int, resting: Int, hands: Int) -> Bool {
+        guard openPalms < 2 else { return false }
+        guard peace >= 1 else { return false }
+        return resting >= 1 || hands == 1
     }
 
     static func pinchRatio(

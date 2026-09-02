@@ -79,6 +79,18 @@ enum CoordTests {
         ok(!CoordMath.cocoaInTitleBar(point: CGPoint(x: 140, y: 200 + 300), windowPos: pos, windowSize: size), "Textkörper nicht Titelleiste")
         ok(!CoordMath.cocoaInTitleBar(point: CGPoint(x: 50, y: 200 + 600 - 10), windowPos: pos, windowSize: size), "links neben dem Fenster")
 
+        let magnetHit = CoordMath.magnetSnap(
+            from: CGPoint(x: 100, y: 100),
+            toward: CGPoint(x: 103, y: 101),
+            radius: 4
+        )
+        ok(magnetHit == CGPoint(x: 103, y: 101), "Magnet rastet in 4 px")
+        ok(CoordMath.magnetSnap(from: CGPoint(x: 0, y: 0), toward: CGPoint(x: 10, y: 0), radius: 4) == nil, "Magnet außerhalb")
+        ok(CoordMath.magnetSnap(from: CGPoint(x: 5, y: 5), toward: CGPoint(x: 5, y: 5), radius: 4) == nil, "Magnet nicht auf dem Punkt selbst")
+
+        ok(!CoordMath.clutchInjects(now: 1.10, clutchEndedAt: 1.00, grace: 0.15), "Clutch-Grace hält 150 ms")
+        ok(CoordMath.clutchInjects(now: 1.16, clutchEndedAt: 1.00, grace: 0.15), "Clutch-Grace vorbei")
+
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)
             exit(1)

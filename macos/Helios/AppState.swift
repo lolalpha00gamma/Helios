@@ -76,6 +76,7 @@ final class AppState: ObservableObject {
     @Published var peaceProgress: CGFloat = 0
     @Published var peaceCooldownRemain: CGFloat = 0
     @Published var calibratedDisplays: Set<UInt32> = []
+    @Published var hudDisplayID: UInt32?
     let calibSession = CalibrationSession()
     private var lastPanel: TimeInterval = 0
     private var didStart = false
@@ -88,6 +89,7 @@ final class AppState: ObservableObject {
         if didStart { return }
         didStart = true
         overlay.attach(state: self)
+        pinHUDToConsole()
         engine.startInputClutch()
         engine.calibration = calibSession
         engine.spaceMap = SpaceMap.load()
@@ -292,15 +294,29 @@ final class AppState: ObservableObject {
     func startCalibration(ninePoint: Bool = true) {
         hudVisible = true
         overlayVisible()
-        let id = NSScreen.main.map { ScreenGeometry.displayID(of: $0) }
+        pinHUDToConsole()
+        let id = hudDisplayID ?? consoleScreen().map { ScreenGeometry.displayID(of: $0) }
         calibSession.start(ninePoint: ninePoint, displayID: id)
         engine.calibration = calibSession
         log.record(
             ninePoint
-                ? "Kalibrierung: HUD auf den Schirm ziehen, dann 9-Punkt-Gitter"
-                : "Kalibrierung: HUD auf den Schirm ziehen, dann vier Ecken",
+                ? "Kalibrierung: HUD sitzt auf dem Konsolen-Schirm, 9-Punkt-Gitter"
+                : "Kalibrierung: HUD sitzt auf dem Konsolen-Schirm, vier Ecken",
             kind: .info
         )
+    }
+
+    func consoleScreen() -> NSScreen? {
+        let named = NSApp.windows.first {
+            $0.identifier?.rawValue == "konsole" || $0.title == "Helios"
+        }?.screen
+        return named ?? NSApp.keyWindow?.screen ?? NSScreen.main
+    }
+
+    func pinHUDToConsole() {
+        let id = consoleScreen().map { ScreenGeometry.displayID(of: $0) }
+        hudDisplayID = id
+        overlay.setPrimaryDisplay(id)
     }
 
     func setProfileAction(_ action: GestureAction, on: Bool) {

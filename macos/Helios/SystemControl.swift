@@ -29,6 +29,10 @@ final class SystemControl {
     private var pauseUntil: TimeInterval = 0
     private var keyPauseUntil: TimeInterval = 0
     private var monitors: [Any] = []
+    private var injectGraceUntil: TimeInterval = 0
+    /// Nach Maus/Tastatur-Ende nicht sofort injizieren — Finger zittern oft noch.
+    static let clutchExitGrace: TimeInterval = 0.15
+    static let magnetRadius: CGFloat = 4
     private(set) var mouseHasControl = false
     private let axQ = DispatchQueue(label: "helios.ax", qos: .userInteractive)
     /// Markiert eigene CGEvents. Clutch filtert darüber, nicht nur über 120 ms.
@@ -40,11 +44,17 @@ final class SystemControl {
 
     var allowsInjection: Bool {
         if fromInstallMedia { return false }
-        if CACurrentMediaTime() < pauseUntil {
+        let now = CACurrentMediaTime()
+        if now < pauseUntil {
             mouseHasControl = true
+            injectGraceUntil = pauseUntil + Self.clutchExitGrace
             return false
         }
-        if CACurrentMediaTime() < keyPauseUntil {
+        if now < keyPauseUntil {
+            injectGraceUntil = max(injectGraceUntil, keyPauseUntil + Self.clutchExitGrace)
+            return false
+        }
+        if now < injectGraceUntil {
             return false
         }
         mouseHasControl = false
@@ -54,12 +64,14 @@ final class SystemControl {
     /// Sichtbar im HUD: warum Injektion gerade steht.
     var clutchReason: String? {
         if fromInstallMedia { return nil }
-        if CACurrentMediaTime() < pauseUntil { return "Maus" }
-        if CACurrentMediaTime() < keyPauseUntil { return "Tastatur" }
+        let now = CACurrentMediaTime()
+        if now < pauseUntil { return "Maus" }
+        if now < keyPauseUntil { return "Tastatur" }
+        if now < injectGraceUntil { return "Nachlauf" }
         return nil
     }
 
-    /// Restzeit 0…1 für den Clutch-Ring (Maus 850 ms, Tastatur 400 ms).
+    /// Restzeit 0…1 für den Clutch-Ring (Maus 850 ms, Tastatur 400 ms, Nachlauf 150 ms).
     var clutchRemain: CGFloat {
         let now = CACurrentMediaTime()
         if now < pauseUntil {
@@ -67,6 +79,9 @@ final class SystemControl {
         }
         if now < keyPauseUntil {
             return CGFloat(min(1, max(0, (keyPauseUntil - now) / 0.40)))
+        }
+        if now < injectGraceUntil {
+            return CGFloat(min(1, max(0, (injectGraceUntil - now) / Self.clutchExitGrace)))
         }
         return 0
     }
@@ -243,6 +258,50 @@ final class SystemControl {
         let cocoa = ScreenGeometry.cocoa(fromQuartz: quartz)
         return CoordMath.cocoaInTitleBar(point: cocoa, windowPos: pos, windowSize: size)
     }
+
+    /// 4 px Magnet auf AX-Schließen / Mini / Zoom / Slider. Quartz-Ziel oder nil.
+    func magnetQuartz(at quartz: CGPoint) -> CGPoint? {
+        guard let win = targetWindow(at: quartz, allowFrontmost: false) else { return nil }
+        let cocoa = ScreenGeometry.cocoa(fromQuartz: quartz)
+        var candidates: [CGPoint] = []
+        for attr in ["AXCloseButton", "AXMinimizeButton", "AXZoomButton"] as [CFString] {
+            var btn: CFTypeRef?
+            if AXUIElementCopyAttributeValue(win, attr, &btn) == .success, let btn {
+                let el = btn as! AXUIElement
+                if let p = position(of: el), let s = size(of: el) {
+                    candidates.append(CGPoint(x: p.x + s.width / 2, y: p.y + s.height / 2))
+                }
+            }
+        }
+        var hit: AXUIElement?
+        let sys = ax(AXUIElementCreateSystemWide())
+        if AXUIElementCopyElementAtPosition(sys, Float(cocoa.x), Float(cocoa.y), &hit) == .success,
+           let el = hit
+        {
+            var role: CFTypeRef?
+            AXUIElementCopyAttributeValue(el, "AXRole" as CFString, &role)
+            if let r = role as? String, Self.magnetRoles.contains(r),
+               let p = position(of: el), let s = size(of: el)
+            {
+                candidates.append(CGPoint(x: p.x + s.width / 2, y: p.y + s.height / 2))
+            }
+        }
+        var best: CGPoint?
+        var bestD = Self.magnetRadius
+        for c in candidates {
+            let d = hypot(cocoa.x - c.x, cocoa.y - c.y)
+            if d > 0.5, d <= bestD {
+                bestD = d
+                best = c
+            }
+        }
+        guard let cocoaTarget = best else { return nil }
+        return ScreenGeometry.quartz(fromCocoa: cocoaTarget)
+    }
+
+    private static let magnetRoles: Set<String> = [
+        "AXButton", "AXSlider", "AXCheckBox", "AXPopUpButton", "AXDisclosureTriangle"
+    ]
 
 
     @discardableResult

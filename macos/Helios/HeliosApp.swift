@@ -98,7 +98,7 @@ enum ConsolePolicy {
     static func installGuard() {
         guard observers.isEmpty else { return }
         let bounce: (Notification) -> Void = { note in
-            Task { @MainActor in
+            MainActor.assumeIsolated {
                 guard hiding, !pinned, let w = note.object as? NSWindow, !isHUD(w) else { return }
                 w.orderOut(nil)
             }
@@ -112,7 +112,7 @@ enum ConsolePolicy {
         observers.append(NotificationCenter.default.addObserver(
             forName: NSWindow.willCloseNotification, object: nil, queue: .main
         ) { note in
-            Task { @MainActor in
+            MainActor.assumeIsolated {
                 guard let w = note.object as? NSWindow, !isHUD(w) else { return }
                 pinned = false
             }

@@ -1,7 +1,9 @@
 import CoreGraphics
 import Vision
 
-/// One-Euro-Filter plus Ausreißerabwehr (3,5 · Median-Sprung, 10 Frames).
+/// One-Euro-Filter plus Ausreißerabwehr (3,5 · Median-Sprung **dieses** Frames).
+/// 80 Frames Idle-History als Cap hat Flicks als Ausreißer behandelt und
+/// die Bewegung abgeschliffen — genau dann, wenn Track-ID und Wischen sie brauchen.
 struct LandmarkSmoothing {
     private var previous: [VNHumanHandPoseObservation.JointName: CGPoint] = [:]
     private var deriv: [VNHumanHandPoseObservation.JointName: CGPoint] = [:]
@@ -36,17 +38,20 @@ struct LandmarkSmoothing {
                 frameJumps.append(space.dist(old, point) / CGFloat(dt))
             }
         }
-        let med = JointGeom.median(jumps + frameJumps)
-        let cap = max(0.8, 3.5 * med)
+        // Cap aus dem aktuellen Frame. History nur, wenn der Frame zu dünn ist.
+        let medFrame = JointGeom.median(frameJumps)
+        let medHist = JointGeom.median(jumps)
+        let med = frameJumps.count >= 4 ? medFrame : (medFrame > 0 ? medFrame : medHist)
+        let cap = max(1.2, 3.5 * max(med, 0.15))
         for (name, point) in joints {
             if let old = previous[name] {
                 let speed = space.dist(old, point) / CGFloat(dt)
-                if speed > cap, med > 0.05 {
+                if speed > cap, med > 0.08 {
                     let isoOld = space.iso(old)
                     let isoNew = space.iso(point)
                     let v = deriv[name] ?? .zero
                     let pred = CGPoint(x: isoOld.x + v.x * dt, y: isoOld.y + v.y * dt)
-                    let blend = CGPoint(x: pred.x * 0.7 + isoNew.x * 0.3, y: pred.y * 0.7 + isoNew.y * 0.3)
+                    let blend = CGPoint(x: pred.x * 0.55 + isoNew.x * 0.45, y: pred.y * 0.55 + isoNew.y * 0.45)
                     cleaned[name] = space.fromIso(blend)
                 } else {
                     cleaned[name] = point
@@ -56,7 +61,7 @@ struct LandmarkSmoothing {
             }
         }
         jumps.append(contentsOf: frameJumps)
-        if jumps.count > 80 { jumps.removeFirst(jumps.count - 80) }
+        if jumps.count > 40 { jumps.removeFirst(jumps.count - 40) }
 
         var out: [VNHumanHandPoseObservation.JointName: CGPoint] = [:]
         out.reserveCapacity(cleaned.count)

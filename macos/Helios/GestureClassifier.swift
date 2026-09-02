@@ -287,7 +287,9 @@ enum GestureClassifier {
             .pinch: Double(closedness) * 4.0,
             .point: Double(index) * 3 - Double(middle + ring) * 1.4,
             .peace: Double(index + middle) * 2 - Double(ring + little) * 2,
-            .thumbsUp: Double(thumb) * 2.5,
+            .thumbsUp: Double(thumb) * 2.8
+                + Double((1 - index) + (1 - middle) + (1 - ring)) * 0.85
+                - Double(closedness) * 1.3,
             .unknown: 0.3
         ]
         let keys = HandPose.allCases

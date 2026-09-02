@@ -86,6 +86,7 @@ private struct TrackSlot {
     var lastSeen: TimeInterval = 0
     var lastZ: [VNHumanHandPoseObservation.JointName: CGFloat] = [:]
     var lastNow: TimeInterval = 0
+    var lastVel: CGPoint = .zero
 }
 
 final class HandTracker: @unchecked Sendable {
@@ -173,6 +174,11 @@ final class HandTracker: @unchecked Sendable {
                     chirality = wx < 0.5 ? .right : .left
                 }
             }
+            chirality = voteChirality(
+                wrist: raw[.wrist],
+                vision: chirality,
+                body: bodyPts
+            )
             obsList.append(RawObs(raw: raw, conf: conf, chirality: chirality, palm: GestureClassifier.palmCenter(raw)))
         }
 
@@ -245,7 +251,8 @@ final class HandTracker: @unchecked Sendable {
                 emission: fused.probabilities,
                 pinchClosedness: fused.pinchClosedness,
                 now: now,
-                dt: dt
+                dt: dt,
+                palmSpeed: Double(vel / max(0.04, feat2D.palmWidth))
             )
             lastFusion = dbg
 
@@ -263,6 +270,11 @@ final class HandTracker: @unchecked Sendable {
             }
 
             slot.chirality = obs.chirality
+            let prevPalm = slot.lastPalm
+            slot.lastVel = CGPoint(
+                x: (fused.palm.x - prevPalm.x) / CGFloat(max(0.008, dt)),
+                y: (fused.palm.y - prevPalm.y) / CGFloat(max(0.008, dt))
+            )
             slot.lastPalm = fused.palm
             slot.lastSeen = now
             slot.lastNow = now
@@ -306,19 +318,41 @@ final class HandTracker: @unchecked Sendable {
         var pairs: [(o: Int, t: Int, d: CGFloat)] = []
         for (oi, o) in obs.enumerated() {
             for (ti, tr) in live {
-                var d = space.dist(o.palm, tr.lastPalm)
-                if o.chirality == tr.chirality { d -= 0.04 }
+                let dt = max(0.008, min(0.12, now - tr.lastSeen))
+                let pred = CGPoint(
+                    x: tr.lastPalm.x + tr.lastVel.x * dt,
+                    y: tr.lastPalm.y + tr.lastVel.y * dt
+                )
+                var d = space.dist(o.palm, pred)
+                if o.chirality == tr.chirality { d -= 0.06 }
                 pairs.append((oi, ti, d))
             }
         }
         for p in pairs.sorted(by: { $0.d < $1.d }) {
             if usedO.contains(p.o) || usedT.contains(p.t) { continue }
-            if p.d > 0.42 { continue }
+            if p.d > 0.55 { continue }
             result[p.o] = p.t
             usedO.insert(p.o)
             usedT.insert(p.t)
         }
         return result
+    }
+
+    /// Körperpose bricht Vision-L/R, wenn ein Handgelenk klar näher an einer Hand ist.
+    private func voteChirality(
+        wrist: CGPoint?,
+        vision: VNChirality,
+        body: [VNHumanBodyPoseObservation.JointName: VNRecognizedPoint]
+    ) -> VNChirality {
+        guard let wrist,
+              let lw = body[.leftWrist], lw.confidence > 0.18,
+              let rw = body[.rightWrist], rw.confidence > 0.18
+        else { return vision }
+        let l = hypot(wrist.x - lw.location.x, wrist.y - lw.location.y)
+        let r = hypot(wrist.x - rw.location.x, wrist.y - rw.location.y)
+        if l + 0.07 < r { return .left }
+        if r + 0.07 < l { return .right }
+        return vision
     }
 
     private func forearmGate(

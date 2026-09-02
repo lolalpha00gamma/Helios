@@ -79,12 +79,24 @@ enum ScreenGeometry {
     }
 
     /// Relativ: Handbewegung → Cursor. Hand heben = neu ansetzen (Trackpad).
+    /// Nichtlinear wie ein Trackpad: kleine Sprünge dämpfen (Feinzielen),
+    /// große beschleunigen (Flicks). Linearer Gain hat in der Mitte gezittert
+    /// und am Rand gekriecht.
     static func stepCursor(from quartz: CGPoint, dPalm: CGPoint, gain: CGFloat) -> CGPoint {
         let u = cocoaUnion
         let g = max(0.4, gain)
+        let mag = hypot(dPalm.x, dPalm.y)
+        let accel: CGFloat
+        if mag < 0.004 {
+            accel = 0.38
+        } else if mag < 0.018 {
+            accel = 0.38 + (mag - 0.004) / 0.014 * 0.62
+        } else {
+            accel = 1.0 + min(1.35, (mag - 0.018) * 22)
+        }
         var p = quartz
-        p.x += dPalm.x * u.width * g
-        p.y -= dPalm.y * u.height * g
+        p.x += dPalm.x * u.width * g * accel
+        p.y -= dPalm.y * u.height * g * accel
         return clampQuartz(p)
     }
 

@@ -1,4 +1,4 @@
-# Helios **1.6.1**
+# Helios **1.6.2**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,16 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.2
+
+1.6.1 hat Fusion und Tor repariert — die Pose kam trotzdem selten über 62 %, Flicks starben im Smoother, und die falsche Hand hat `forearmGate` gefüttert.
+
+- **HMM normiert**, Velocity-Prior gegen Fehl-Pinch, Gate = max(committed, best). Umschalten 18/38 ms.
+- **Smoothing-Cap aus dem aktuellen Frame**, nicht 80 Frames Idle. Flicks bleiben Flicks.
+- **Körperpose stimmt L/R ab.** Track-Zuordnung mit Palm-Velocity.
+- **Trackpad-Beschleunigung**, Zwei-Pinzetten nur gegenüberliegend, Clutch ignoriert eigene CGEvents 120 ms.
+- Log sagt **62 %**, nicht 70 %.
 
 ## Neu in 1.6.1
 

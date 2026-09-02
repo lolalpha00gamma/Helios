@@ -1,7 +1,8 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
-Stand: 2026-09-02. Helios 1.6.1. Alle fünf Phasen aus `docs/Erkennung.md`
+Stand: 2026-09-02. Helios 1.6.2. Alle fünf Phasen aus `docs/Erkennung.md`
 laufen gleichzeitig — kein Stufenplan. 1.6.1 kollabiert korrelierte Quellen.
+1.6.2 repariert HMM-Masse, Flick-Smoothing, Körper-Chirality und den Clutch.
 
 ## 1. Bestand vor der Umstellung (1.5.7)
 

@@ -335,7 +335,7 @@ final class GestureEngine {
     ) {
         if systemAction, confidence < 0.62, !testMode {
             lastAction = "\(name) — unsicher"
-            onLog?("\(name) — Pose < 70 %", .blocked, Int(confidence * 100))
+            onLog?("\(name) — Pose < 62 %", .blocked, Int(confidence * 100))
             return
         }
         let conf = Int(confidence * 100)
@@ -516,6 +516,13 @@ final class GestureEngine {
     private func handleTwoPinchScale(hands: [TrackedHand], now: TimeInterval) -> Bool {
         let pinches = hands.filter { $0.pose == .pinch }
         guard pinches.count >= 2 else {
+            twoHandSpan = nil
+            twoPinchSince = nil
+            return false
+        }
+        // Gegenüberliegende Bildhälften, nicht zwei Pinzetten an einer Palme.
+        let xs = pinches.map(\.palm.x).sorted()
+        guard let lo = xs.first, let hi = xs.last, hi - lo >= 0.22 else {
             twoHandSpan = nil
             twoPinchSince = nil
             return false

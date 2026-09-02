@@ -57,8 +57,10 @@ final class SystemControl {
     private func noteHardware(_ e: NSEvent) {
         guard e.type == .leftMouseDragged || e.type == .mouseMoved else { return }
         let now = CACurrentMediaTime()
-        if now - lastPostAt < 0.08 { return }
         let d = hypot(e.deltaX, e.deltaY)
+        // Eigene CGEvents kommen als mouseMoved zurück. Kurz nach dem Post
+        // ignorieren, außer der Delta ist klar eine echte Hardware-Maus.
+        if now - lastPostAt < 0.12, d <= 9 { return }
         guard d > 3.5 else { return }
         seize(now)
     }

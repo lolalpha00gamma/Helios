@@ -1,6 +1,6 @@
 # Erkennung — implementiert (kein Phasenplan)
 
-Stand: 2026-09-02, Helios 1.6.1. Alle fünf Phasen aus dem
+Stand: 2026-09-02, Helios 1.6.3. Alle fünf Phasen aus dem
 Konsolidierungsdokument laufen gleichzeitig. Fällt eine Quelle aus, geht
 ihr Fusionsgewicht auf 0. Korrelierte Quellen (Lift/Zeit ≈ 2D) werden
 kollabiert, sonst flacht die Pose unter das Aktions-Tor.
@@ -43,9 +43,11 @@ Softmax-Temperatur 0.75. Aktions-Tor 62 %.
 
 ## Aktions-Sicherheit (aus 1.5.7, bleibt)
 
-Not-Aus 0,8 s und openScore ≥ 4. Scharf-Ruhe 0,7 s (Faust wird kein Klick).
-Peace 0,9 s. Cooldown bewegt den Cursor weiter, blockt nur Aktionen.
-Wischen ist ein Flick (0,08–0,40 s, 0,85 Handbreiten, waagerecht).
+Not-Aus 0,8 s und openScore ≥ 4, Kill-Grace 0,14 s. Scharf-Ruhe 0,7 s
+(Faust wird kein Klick). Peace 0,9 s. Cooldown bewegt den Cursor weiter,
+blockt nur Aktionen. Wischen ist ein Flick (0,08–0,40 s, 0,85 Handbreiten,
+waagerecht, offene Hand). Werfen aus den letzten 120 ms in Handbreiten.
+Dead-Man 8 s ohne Hand → Idle. Relativ-Zeiger: Palm-Hochpass gegen Atem.
 
 ## Core ML
 

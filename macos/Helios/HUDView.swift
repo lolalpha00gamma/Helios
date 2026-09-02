@@ -178,6 +178,10 @@ struct HUDView: View {
                 Text("MAUS HAT VORRANG")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(HeliosTheme.amber)
+            } else if state.mode == .armed && !state.mapReady && !state.testMode {
+                Text("RELATIV — KALIBRIEREN FÜR ABSOLUT")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(HeliosTheme.amber)
             } else if state.mode == .armed && state.engineCursor == nil {
                 Text("MAUS FREI — HAND IN DIE KAMERA")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))

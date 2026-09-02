@@ -3,6 +3,7 @@ import AppKit
 import CoreImage
 import CoreMedia
 import Foundation
+import ImageIO
 import QuartzCore
 
 final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
@@ -42,6 +43,17 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     private func setMirrored(_ v: Bool) {
         handlerLock.lock()
         mirroredFlag = v
+        handlerLock.unlock()
+    }
+    private var visionOrientationFlag: CGImagePropertyOrientation = .up
+    var visionOrientation: CGImagePropertyOrientation {
+        handlerLock.lock()
+        defer { handlerLock.unlock() }
+        return visionOrientationFlag
+    }
+    private func setVisionOrientation(_ v: CGImagePropertyOrientation) {
+        handlerLock.lock()
+        visionOrientationFlag = v
         handlerLock.unlock()
     }
     private var frameHandler: ((CVPixelBuffer, NSImage?, CGFloat, TimeInterval) -> Void)?
@@ -116,9 +128,11 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         session.commitConfiguration()
 
         configureDevice(device)
+        applyCaptureGeometry()
 
         var startErr: NSError?
         _ = HeliosCatch({ self.session.startRunning() }, &startErr)
+        applyCaptureGeometry()
         if let startErr {
             DispatchQueue.main.async { self.errorMessage = startErr.localizedDescription }
         }
@@ -147,6 +161,32 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             return builtIn
         }
         return discovered.first ?? AVCaptureDevice.default(for: .video)
+    }
+
+    /// Nach dem Format: `videoRotationAngle` statt deprecated `videoOrientation`.
+    private func applyCaptureGeometry() {
+        HeliosCatch({
+            if let conn = self.output.connection(with: .video) {
+                self.setVisionOrientation(Self.visionOrientation(from: conn))
+            } else {
+                self.setVisionOrientation(.up)
+            }
+        }, nil)
+    }
+
+    private static func visionOrientation(from conn: AVCaptureConnection) -> CGImagePropertyOrientation {
+        if #available(macOS 14.0, *) {
+            let angle = conn.videoRotationAngle
+            let wrapped = Int(((angle.truncatingRemainder(dividingBy: 360)) + 360)
+                .truncatingRemainder(dividingBy: 360).rounded())
+            switch wrapped {
+            case 90: return .right
+            case 180: return .down
+            case 270: return .left
+            default: return .up
+            }
+        }
+        return .up
     }
 
     /// Format + Framerate nur mit Werten aus dem unterstützten Bereich, plus NSException-Fang.

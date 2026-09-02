@@ -185,7 +185,8 @@ final class AppState: ObservableObject {
                 pixelBuffer: vision,
                 now: t0,
                 mirrored: cam.isMirrored,
-                depth: cam.latestDepth
+                depth: cam.latestDepth,
+                orientation: cam.visionOrientation
             )
             let visMs = (CACurrentMediaTime() - t0) * 1000
             let endToEnd = (CACurrentMediaTime() - arrived) * 1000

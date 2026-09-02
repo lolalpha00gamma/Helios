@@ -78,6 +78,7 @@ final class GestureEngine {
     private var cursorSmooth: CGPoint?
     private var lastPalm: CGPoint?
     private var pointerHandID: String?
+    private var palmSlow: CGPoint?
     private var swipeGraceUntil: TimeInterval = 0
     private var armedQuietUntil: TimeInterval = 0
     private var cursorDidMove = false
@@ -122,6 +123,7 @@ final class GestureEngine {
         cursorSmooth = nil
         lastPalm = nil
         pointerHandID = nil
+        palmSlow = nil
         swipeGraceUntil = 0
         armedQuietUntil = 0
         cursorDidMove = false
@@ -169,9 +171,13 @@ final class GestureEngine {
             dragging = false
             grabPhase = .none
             grabTargetName = ""
-            if mustRearm {
+            if mode == .armed, lastHandSeen > 0, now - lastHandSeen >= GestureMath.deadMan {
                 mode = .idle
-                lastAction = "Not-Aus"
+                mustRearm = true
+                lastAction = "Keine Hand — Idle"
+                onLog?("\(Int(GestureMath.deadMan)) s ohne Hand → Idle", .info, nil)
+            } else if mustRearm {
+                mode = .idle
             }
             return
         }
@@ -317,6 +323,7 @@ final class GestureEngine {
 
     func recenterPointer() {
         lastPalm = nil
+        palmSlow = nil
         pointerHandID = nil
         cursorSmooth = nil
     }
@@ -324,6 +331,7 @@ final class GestureEngine {
     private func releasePointer() {
         cursor = nil
         lastPalm = nil
+        palmSlow = nil
         pointerHandID = nil
         cursorSmooth = nil
         pointerOrigin = nil
@@ -400,7 +408,7 @@ final class GestureEngine {
             lastAction = "Not-Aus halten"
             return true
         }
-        if now - lastPalmSeen < 0.28, palmSince != nil {
+        if now - lastPalmSeen < GestureMath.killGrace, palmSince != nil {
             return true
         }
         palmSince = nil
@@ -470,36 +478,53 @@ final class GestureEngine {
     }
 
     private func actorMapped(_ hand: TrackedHand) -> CGPoint {
+        let palm = hand.palm
         if let map = spaceMap, map.isReady {
-            cursorDidMove = true
-            let q = map.apply(hand.palm)
+            let q = map.apply(palm)
             if pointerHandID != hand.id {
                 pointerHandID = hand.id
-                lastPalm = hand.palm
+                lastPalm = palm
+                palmSlow = palm
                 cursorSmooth = q
+                cursorDidMove = true
                 return q
             }
-            lastPalm = hand.palm
+            let prev = lastPalm ?? palm
+            lastPalm = palm
+            let dxv = palm.x - prev.x
+            let dyv = palm.y - prev.y
+            if abs(dxv) < GestureMath.palmDead, abs(dyv) < GestureMath.palmDead {
+                cursorDidMove = false
+                return cursorSmooth ?? q
+            }
+            cursorDidMove = true
             let from = cursorSmooth ?? q
-            let a: CGFloat = 0.86
+            let a: CGFloat = 0.55
             let s = CGPoint(x: a * q.x + (1 - a) * from.x, y: a * q.y + (1 - a) * from.y)
             cursorSmooth = s
             return s
         }
         cursorDidMove = false
-        let palm = hand.palm
         if pointerHandID != hand.id {
             pointerHandID = hand.id
             lastPalm = palm
+            palmSlow = palm
             let start = ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
             cursorSmooth = start
             return start
         }
         let prevPalm = lastPalm ?? palm
         lastPalm = palm
-        var dx = palm.x - prevPalm.x
-        var dy = palm.y - prevPalm.y
-        let dead: CGFloat = 0.003
+        let slowA = GestureMath.palmHighpass
+        let oldSlow = palmSlow ?? palm
+        let newSlow = CGPoint(
+            x: oldSlow.x + slowA * (palm.x - oldSlow.x),
+            y: oldSlow.y + slowA * (palm.y - oldSlow.y)
+        )
+        palmSlow = newSlow
+        var dx = (palm.x - newSlow.x) - (prevPalm.x - oldSlow.x)
+        var dy = (palm.y - newSlow.y) - (prevPalm.y - oldSlow.y)
+        let dead = GestureMath.palmDead
         if abs(dx) < dead { dx = 0 }
         if abs(dy) < dead { dy = 0 }
         if dx == 0 && dy == 0 {
@@ -639,42 +664,32 @@ final class GestureEngine {
         }
     }
 
-    private func resolveFling(now: TimeInterval, confidence: Float, palmWidth: CGFloat) -> Bool {
-        let unit = max(0.04, palmWidth)
+    private func resolveFling(now _: TimeInterval, confidence: Float, palmWidth: CGFloat) -> Bool {
         if trashHot {
             perform("Wegwerfen", confidence: confidence) { system.throwAway(finder: focused?.isFinder == true) }
             return true
         }
-        guard let last = pinchTrail.last, let first = pinchTrail.first, last.t > first.t + 0.04 else {
+        guard pinchTrail.count >= 2 else { return false }
+        let kind = GestureMath.flingFromTrail(
+            pinchTrail,
+            palmWidth: palmWidth,
+            aspect: space.aspect
+        )
+        guard kind != .none else { return false }
+        onLog?("Werfen erkannt", .recognized, Int(confidence * 100))
+        switch kind {
+        case .throwUp:
+            perform("Wegwerfen", confidence: confidence) { system.throwAway(finder: focused?.isFinder == true) }
+        case .minimize:
+            perform("Minimieren", confidence: confidence) { system.minimizeFocused() }
+        case .dockLeft:
+            perform("Links andocken", confidence: confidence) { system.snapFocused(.left, at: cursor) }
+        case .dockRight:
+            perform("Rechts andocken", confidence: confidence) { system.snapFocused(.right, at: cursor) }
+        case .none:
             return false
         }
-        let dt = max(0.04, last.t - first.t)
-        let delta = space.vec(CGPoint(x: first.x, y: first.y), CGPoint(x: last.x, y: last.y))
-        let dx = delta.x / unit
-        let dy = delta.y / unit
-        let vx = dx / dt
-        let vy = dy / dt
-        let speed = hypot(vx, vy)
-        let dist = hypot(dx, dy)
-        guard speed > 2.6 && dist > 0.55 else { return false }
-        onLog?("Werfen erkannt", .recognized, Int(confidence * 100))
-        if abs(dy) >= abs(dx) && dy > 0.55 {
-            perform("Wegwerfen", confidence: confidence) { system.throwAway(finder: focused?.isFinder == true) }
-            return true
-        }
-        if abs(dy) >= abs(dx) && dy < -0.35 {
-            perform("Minimieren", confidence: confidence) { system.minimizeFocused() }
-            return true
-        }
-        if dx < -0.50 {
-            perform("Links andocken", confidence: confidence) { system.snapFocused(.left, at: cursor) }
-            return true
-        }
-        if dx > 0.50 {
-            perform("Rechts andocken", confidence: confidence) { system.snapFocused(.right, at: cursor) }
-            return true
-        }
-        return false
+        return true
     }
 
     private func driveSwipe(hands: [TrackedHand], now: TimeInterval) {
@@ -683,7 +698,7 @@ final class GestureEngine {
             swipeHandID = nil
             return
         }
-        let open = hands.filter { $0.pose == .openPalm || $0.openScore >= 2 }
+        let open = hands.filter { $0.pose == .openPalm || $0.openScore >= GestureMath.swipeOpenNeed }
         let hand = open.max { a, b in a.openScore < b.openScore }
         guard let hand else {
             // Gnadenfrist nur für dieselbe Track-ID, nie eine Faust.
@@ -748,7 +763,7 @@ final class GestureEngine {
     private func driveThumbs(_ hand: TrackedHand, now: TimeInterval) {
         if hand.pose == .thumbsUp, hand.poseProb >= 0.50 {
             if thumbsSince == nil { thumbsSince = now }
-            if now - (thumbsSince ?? now) > 0.5 {
+            if now - (thumbsSince ?? now) > GestureMath.thumbsHold {
                 perform("Hervorholen", need: .none, confidence: Float(hand.poseProb)) { system.unhideFront() }
                 thumbsSince = nil
                 cooldownUntil = now + 3

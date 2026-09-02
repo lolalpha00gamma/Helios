@@ -1,6 +1,23 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.2**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+Stand: **1.6.3**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+
+## In 1.6.3 erledigt (aus 1.5.8 `bugfix`, nicht nochmal mergen)
+
+`bugfix` / PR #1 war 1.5.8 gegen 1.5.7. `main` ist 1.6.2 — Fusion, Handbreiten, Flick, Dropout. Roh mergen würde das zerlegen.
+
+| 1.5.8 | 1.6.2 vorher | 1.6.3 |
+|---|---|---|
+| Fling-Fenster 120 ms | first→last über 0,5 s Trail (Bug) | Fenster, in **Handbreiten** |
+| Totzone Bildmitte | fehlte | nur Mini-Zucken; Wurf aus der Mitte bleibt |
+| Dead-Man 8 s | nur 180 ms Dropout | 8 s → Idle + Rearm |
+| Palm-Hochpass + Dead 0,012 | Dead 0,003, kein Hochpass | Hochpass am Relativ-Zeiger, Totzone auch SpaceMap |
+| Wischen `openScore ≥ 3` | `≥ 2` (Peace wischte) | ≥ 3, Flick-Zahlen aus 1.6.1 |
+| Kill-Grace 0,14 s | 0,28 s hart | 0,14 s |
+| `videoRotationAngle` | Vision immer `.up` | Winkel nach dem Format |
+| HUD Kalibrierung fehlt | fehlte | Zeile in der Top-Bar, Relativ läuft |
+| Peace 0,80 / Clutch 1,2 s | Peace 0,90 / Clutch 0,85 | **behalten** — 1.6.x ist hier besser |
+| CI auf `bugfix` | — | **nicht** — nur `main` |
 
 ## In 1.6.2 erledigt
 
@@ -44,6 +61,9 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Pointer-Beschleunigung** wie Trackpad (nichtlinear), damit Feinzielen in der Bildschirmmitte nicht zittert.
 - **Session-Replay** der Landmark-CSV direkt im HUD, Frame für Frame — ohne Xcode.
 - **Fusion-Temperatur** als Inspector-Slider (Debug), nicht hart 0,75.
+- **Pinch bleibt an der Hand, die das Gate geschlossen hat** — `pinchActor` nimmt sonst `min(pinchRatio)` über beide.
+- **Fling-Totzone am Bildschirm-Mittelpunkt**, sobald kalibriert (jetzt: Kamerabild-Mitte).
+- Default nicht wieder `leftHanded = true`.
 
 ## Größere Erweiterungen
 
@@ -68,3 +88,6 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - Fusion-Dateien wieder aus dem Target nehmen.
 - Lift3D und Temporal wieder als unabhängige Voter mit Gewicht ≥ 0,25.
 - Aktions-Tor wieder auf 70 % ohne die Fusion zu schärfen.
+- `tick` bei Cooldown wieder komplett returnen — der Cursor muss laufen.
+- Faust nachträglich zur Pinzette ummappen.
+- PR #1 / Branch `bugfix` mergen — 1.6.3 hat die fehlenden Stücke, der Branch ist 1.5.7.

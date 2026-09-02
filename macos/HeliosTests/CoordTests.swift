@@ -86,6 +86,48 @@ enum CoordTests {
         eq(local2.minY, 80, "localRect 2. Schirm oben = quartz.minY")
         eq(local2.height, 300, "localRect 2. Schirm h")
 
+        let holdThenFlick: [(t: TimeInterval, x: CGFloat, y: CGFloat)] = [
+            (0.00, 0.50, 0.40),
+            (0.40, 0.50, 0.41),
+            (0.80, 0.50, 0.42),
+            (0.92, 0.50, 0.52),
+            (1.00, 0.50, 0.70)
+        ]
+        let kind = GestureMath.flingFromTrail(holdThenFlick, palmWidth: 0.12, aspect: 16 / 9, centerDead: false)
+        if kind != .throwUp {
+            fputs("FAIL Werfen aus letztem 120-ms-Fenster, nicht Mittel übers Halten: \(kind)\n", stderr)
+            fails += 1
+        }
+        let whole = GestureMath.classifyFling(dx: 0, dy: 0.30 / 0.12, speed: (0.30 / 0.12) / 1.0, dist: 0.30 / 0.12)
+        if whole != .none {
+            fputs("FAIL dasselbe über 1 s Halten ist zu langsam\n", stderr)
+            fails += 1
+        }
+        let twitch: [(t: TimeInterval, x: CGFloat, y: CGFloat)] = [
+            (0.00, 0.50, 0.50),
+            (0.08, 0.52, 0.51)
+        ]
+        if GestureMath.flingFromTrail(twitch, palmWidth: 0.12) != .none {
+            fputs("FAIL Mini-Zucken in der Mitte dockt nicht\n", stderr)
+            fails += 1
+        }
+        if GestureMath.deadMan < 6 {
+            fputs("FAIL Dead-Man mindestens 6 s\n", stderr)
+            fails += 1
+        }
+        if GestureMath.swipeOpenNeed < 3 {
+            fputs("FAIL Wischen braucht offene Hand, nicht Peace\n", stderr)
+            fails += 1
+        }
+        if GestureMath.palmDead < 0.01 {
+            fputs("FAIL Palm-Deadzone gegen Atem\n", stderr)
+            fails += 1
+        }
+        if GestureMath.killGrace > 0.18 {
+            fputs("FAIL Not-Aus-Grace nicht 0,28 s\n", stderr)
+            fails += 1
+        }
+
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)
             exit(1)

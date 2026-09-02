@@ -1,6 +1,7 @@
 import CoreMedia
 import CoreVideo
 import Foundation
+import ImageIO
 import Vision
 
 struct TrackedJoint {
@@ -121,7 +122,8 @@ final class HandTracker: @unchecked Sendable {
         pixelBuffer: CVPixelBuffer,
         now: TimeInterval,
         mirrored: Bool = true,
-        depth: DepthSample? = nil
+        depth: DepthSample? = nil,
+        orientation: CGImagePropertyOrientation = .up
     ) -> [TrackedHand] {
         lock.lock()
         defer { lock.unlock() }
@@ -132,7 +134,7 @@ final class HandTracker: @unchecked Sendable {
 
         let handler = VNImageRequestHandler(
             cvPixelBuffer: pixelBuffer,
-            orientation: .up,
+            orientation: orientation,
             options: [.ciContext: MetalHub.ci]
         )
         do {
@@ -140,7 +142,7 @@ final class HandTracker: @unchecked Sendable {
         } catch {
             _ = try? VNImageRequestHandler(
                 cvPixelBuffer: pixelBuffer,
-                orientation: .up,
+                orientation: orientation,
                 options: [.ciContext: MetalHub.ci]
             ).perform([request])
         }

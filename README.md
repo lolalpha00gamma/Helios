@@ -1,4 +1,4 @@
-# Helios **1.6.2**
+# Helios **1.6.3**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,17 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.3
+
+PR `bugfix` (1.5.8 Fling-Fenster / Dead-Man / Palm-Hochpass) war nie in `main`. 1.6.0–1.6.2 haben Fusion und AX, aber Werfen mittelte weiter den ganzen Pinch-Trail.
+
+- **Werfen aus 120 ms.** Ziehen + Ruck zählt, nicht der Mittelwert über das Halten. Mini-Zucken in der Bildmitte dockt nicht — ein echter Wurf aus der Mitte schon. Schwellen bleiben Handbreiten.
+- **Dead-Man 8 s.** Keine Hand → Idle, Faust muss neu scharf schalten. Der 180-ms-Dropout bleibt für kurze Verluste.
+- **Palm-Hochpass + Totzone 0,012.** Relativ-Zeiger folgt der Geste, nicht dem Atem. SpaceMap teilt die Totzone, glättet weicher (0,55).
+- **Wischen nur offene Hand** (`openScore ≥ 3`) — Peace wechselt keine Apps. Flick-Schwellen aus 1.6.1 bleiben.
+- **Kill-Grace 0,14 s.** Zweite Hand am Bildrand ist kein Not-Aus.
+- **Kamera-Winkel** über `videoRotationAngle`. HUD: „Relativ — kalibrieren für absolut“, ohne den Zeiger zu blocken.
 
 ## Neu in 1.6.2
 

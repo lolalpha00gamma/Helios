@@ -1394,7 +1394,7 @@ final class GestureEngine {
     private func showKeyboard() {
         keyboardVisible = true
         lastAction = "Tastatur in der Luft"
-        onLog?("Luft-Tastatur an — Zeigen, Pinzette tippt. Faust schließt.", .info, nil)
+        onLog?("Luft-Tastatur an — Taste anvisieren, 0,12 s Verweilen tippt. Faust schließt.", .info, nil)
     }
 
     private func hideKeyboard() {
@@ -1451,17 +1451,12 @@ final class GestureEngine {
             kbDwellAt = now
         }
         let held = now - (kbDwellAt ?? now)
-        keyboardDwell = CGFloat(min(1, held / 0.32))
-        let pinching = actor.pinchClosed || actor.pose == .pinch || actor.pinchClosedness > 0.52
-        if pinching, held >= 0.05 {
-            typeAir(key)
-            kbDwellID = nil
-            kbDwellAt = now + 8
-            cooldownUntil = now + 0.16
-        } else if !pinching, held >= 0.32 {
+        keyboardDwell = CGFloat(min(1, held / GestureMath.keyboardDwell))
+        if now < cooldownUntil { return }
+        if held >= GestureMath.keyboardDwell {
             typeAir(key)
             kbDwellAt = now
-            cooldownUntil = now + 0.16
+            cooldownUntil = now + GestureMath.keyboardRepeat
         }
     }
 

@@ -632,6 +632,46 @@ enum CoordTests {
             fputs("FAIL oben/Mitte öffnet keine Tastatur\n", stderr)
             fails += 1
         }
+        if GestureMath.keyboardDwell > 0.18 {
+            fputs("FAIL Tastatur-Dwell muss unter 0,18 s bleiben\n", stderr)
+            fails += 1
+        }
+        if GestureMath.flipLeft(true, mirrored: true) != false {
+            fputs("FAIL Spiegel dreht links nach rechts\n", stderr)
+            fails += 1
+        }
+        if GestureMath.flipLeft(true, mirrored: false) != true {
+            fputs("FAIL ohne Spiegel bleibt links\n", stderr)
+            fails += 1
+        }
+        let throwUp = GestureMath.drillMatch(
+            action: "throwUp",
+            poses: ["pinch", "pinch", "openPalm"],
+            sides: ["Rechts"],
+            pinchMax: 0.8,
+            dx: 0.02,
+            dy: 0.22,
+            openMax: 2,
+            twoHands: false
+        )
+        if !throwUp.ok {
+            fputs("FAIL Wurf hoch erkannt\n", stderr)
+            fails += 1
+        }
+        let swipeL = GestureMath.drillMatch(
+            action: "swipeLeft",
+            poses: ["openPalm"],
+            sides: ["Rechts"],
+            pinchMax: 0.1,
+            dx: -0.2,
+            dy: 0.02,
+            openMax: 4,
+            twoHands: false
+        )
+        if !swipeL.ok {
+            fputs("FAIL Wischen links erkannt\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

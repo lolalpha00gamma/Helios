@@ -12,6 +12,7 @@ final class AppState: ObservableObject {
     let engine = GestureEngine()
     let log = AuditLog()
     let recorder = SessionRecorder()
+    let drill = ActionDrill()
     private let overlay = OverlayController()
     private var permTimer: Timer?
     private var frames: Int = 0
@@ -119,6 +120,9 @@ final class AppState: ObservableObject {
         }
         loadPrefs()
         log.objectWillChange
+            .sink { [weak self] in self?.objectWillChange.send() }
+            .store(in: &cancellables)
+        drill.objectWillChange
             .sink { [weak self] in self?.objectWillChange.send() }
             .store(in: &cancellables)
         $hudVisible.sink { Prefs.hudVisible = $0 }.store(in: &cancellables)
@@ -559,6 +563,36 @@ final class AppState: ObservableObject {
         log.record("Gesten-Filmstreifen in die Zwischenablage", kind: .info)
     }
 
+    private var drillSavedTest: Bool?
+
+    func startDrill() {
+        drillSavedTest = testMode
+        setTestMode(true)
+        engine.forceArm()
+        overlayVisible()
+        drill.start()
+        log.record("Aktionskalibrierung — 12 Gesten × 3, Timer, kein Systemeingriff.", kind: .info)
+    }
+
+    func cancelDrill() {
+        drill.cancel()
+        if let saved = drillSavedTest {
+            setTestMode(saved)
+            drillSavedTest = nil
+        }
+        log.record("Aktionskalibrierung abgebrochen", kind: .info)
+    }
+
+    func copyDrillForGrok() {
+        drill.copyForGrok()
+        log.record("Aktionskalibrierung in die Zwischenablage — in Grok einfügen.", kind: .info)
+    }
+
+    func exportDrill() {
+        drill.exportFiles()
+        log.record("Aktionskalibrierung exportiert", kind: .info)
+    }
+
     fileprivate func apply(
         hands: [TrackedHand],
         latency: Double,
@@ -567,6 +601,13 @@ final class AppState: ObservableObject {
         luma: CGFloat
     ) {
         engine.tick(hands: hands, now: now)
+        if drill.running || drill.phase == .countdown || drill.phase == .capture || drill.phase == .rest {
+            drill.tick(hands: hands, now: now)
+        }
+        if drill.phase == .done, let saved = drillSavedTest {
+            setTestMode(saved)
+            drillSavedTest = nil
+        }
         if let done = calibSession.consumeFinished() {
             let name = cameraDevices.first(where: { $0.id == done })?.name ?? (done.isEmpty ? deviceName : done)
             log.record("Kalibrierung \(name) — Homographie nimmt Blickwinkel, Weitwinkel und Spiegelung auf.", kind: .info)

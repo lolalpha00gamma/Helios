@@ -26,6 +26,10 @@ struct HUDView: View {
                     calibOverlay
                 }
 
+                if isPrimary, state.drill.phase != .idle {
+                    drillOverlay
+                }
+
                 chromeLoupe
 
                 if isPrimary {
@@ -315,6 +319,7 @@ struct HUDView: View {
             Text("Pinzette ziehen  Fenster")
             Text("Werfen nur Ruck  Dock / Mini")
             Text("Zeigen 0,4 s     Tastatur")
+            Text("Taste verweilen  Tippen")
             Text("Offene Hand wischen  App")
             Text("Zwei Hände        zwei Zeiger")
             Text("Pinzette + Ring  Rechtsklick")
@@ -382,6 +387,61 @@ struct HUDView: View {
                 .font(.system(size: 9, weight: .medium, design: .monospaced))
                 .foregroundStyle(HeliosTheme.cyan)
                 .padding(6)
+        }
+    }
+
+    @ViewBuilder
+    private var drillOverlay: some View {
+        let d = state.drill
+        ZStack {
+            HeliosTheme.void.opacity(0.45)
+            VStack(spacing: 14) {
+                Text("AKTIONSKALIBRIERUNG")
+                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                    .foregroundStyle(HeliosTheme.cyan)
+                Text("\(d.stepLabel)  ·  \(d.current.titleDE.uppercased())")
+                    .font(.system(size: 28, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.white)
+                Text("Wiederholung \(min(d.repeatIndex + 1, 3)) / 3")
+                    .font(.system(size: 16, weight: .bold, design: .monospaced))
+                    .foregroundStyle(HeliosTheme.amber)
+                Text(d.current.hint)
+                    .font(.system(size: 14, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.9))
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 640)
+                if d.phase == .countdown {
+                    Text("\(max(1, d.countdown))")
+                        .font(.system(size: 96, weight: .bold, design: .monospaced))
+                        .foregroundStyle(HeliosTheme.cyan)
+                } else if d.phase == .capture {
+                    Text("AUFNAHME")
+                        .font(.system(size: 22, weight: .bold, design: .monospaced))
+                        .foregroundStyle(HeliosTheme.void)
+                        .padding(.horizontal, 18)
+                        .padding(.vertical, 8)
+                        .background(HeliosTheme.amber)
+                    Text(String(format: "%.1f s", d.captureLeft))
+                        .font(.system(size: 28, weight: .bold, design: .monospaced))
+                        .foregroundStyle(HeliosTheme.amber)
+                } else if d.phase == .rest || d.phase == .done {
+                    Text(d.lastEvidence)
+                        .font(.system(size: 16, weight: .bold, design: .monospaced))
+                        .foregroundStyle(HeliosTheme.cyan)
+                        .multilineTextAlignment(.center)
+                }
+                ProgressView(value: d.progress)
+                    .tint(HeliosTheme.cyan)
+                    .frame(width: 360)
+                if d.phase == .done {
+                    Text("FERTIG — IN DER KONSOLE FÜR GROK KOPIEREN")
+                        .font(.system(size: 13, weight: .bold, design: .monospaced))
+                        .foregroundStyle(HeliosTheme.amber)
+                }
+            }
+            .padding(28)
+            .background(HeliosTheme.panel)
+            .overlay(Rectangle().stroke(HeliosTheme.cyan.opacity(0.5), lineWidth: 1))
         }
     }
 
@@ -458,10 +518,10 @@ struct HUDView: View {
                     .position(x: r.midX, y: r.midY)
                 }
                 VStack(spacing: 4) {
-                    Text("LUFT-TASTATUR  ·  PINZETTE TIPPT  ·  FAUST SCHLIESST")
+                    Text("LUFT-TASTATUR  ·  0,12 s VERWEILEN TIPPT  ·  FAUST SCHLIESST")
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
                         .foregroundStyle(HeliosTheme.cyan)
-                    Text("Zeigen 0,85 s unten öffnet")
+                    Text("Taste halten — kein Pinzetten")
                         .font(.system(size: 10, design: .monospaced))
                         .foregroundStyle(.white.opacity(0.7))
                 }

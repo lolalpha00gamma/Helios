@@ -1,4 +1,4 @@
-# Helios **1.6.19**
+# Helios **1.6.20**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -19,6 +19,14 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
 
+## Neu in 1.6.20
+
+Schneller tippen, L/R am Spiegel, Aktionskalibrierung für Grok.
+
+- **Tippen:** Taste 0,12 s halten reicht. Keine Pinzette.
+- **Links/Rechts:** Frontkamera-Spiegel dreht Vision um — deine rechte Hand ist wieder rechts.
+- **Aktionskalibrierung:** 12 Gesten × 3, Countdown + 2 s Aufnahme. Testmodus, kein Fensterzugriff. „Für Grok kopieren“ legt Markdown in die Zwischenablage.
+
 ## Neu in 1.6.19
 
 1.6.18 hat Ampel und Luft-Tastatur — Continuity blieb tot, die Steuerhand sprang, die Tastatur feuerte beim Zielen.
@@ -28,7 +36,7 @@ Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Da
 - **Ampel-Verweilen startet neu**, wenn du weggehst oder nach dem Auslösen wieder kommst.
 - **Heranziehen = Palm-Y** (Hand zu sich), nicht Mittelfinger-Spannweite.
 - **Fling-Fenster × Frame-dt.** 8 fps hat sonst nur ein Sample im 120-ms-Fenster.
-- **Luft-Tastatur:** 0,85 s Zeigen **unten** (nicht 0,40 s irgendwo).
+- **Luft-Tastatur:** Zeigen 0,85 s **unten** öffnet. Tippen per Verweilen.
 
 ## Neu in 1.6.18
 

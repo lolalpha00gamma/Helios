@@ -149,6 +149,8 @@ enum GestureMath {
     static let swipeMinSpeed: CGFloat = 1.8
     static let swipeMinDt: TimeInterval = 0.06
     static let swipeMaxDt: TimeInterval = 0.55
+    static let keyboardDwell: TimeInterval = 0.12
+    static let keyboardRepeat: TimeInterval = 0.20
     static let calibMinArea: CGFloat = 0.012
     static let calibCornerSep: CGFloat = 0.06
     static let hybridBand: CGFloat = 0.15
@@ -454,6 +456,68 @@ enum GestureMath {
         if pinchHeld { return false }
         guard palmsY.count >= 2 else { return false }
         return palmsY.allSatisfy { $0 < tablePalmY } && stillHW < tableStillHW
+    }
+
+    static func flipLeft(_ isLeft: Bool, mirrored: Bool) -> Bool {
+        mirrored ? !isLeft : isLeft
+    }
+
+    static func trailDelta(xs: [Double], ys: [Double], dt: Double) -> (dx: Double, dy: Double, speed: Double) {
+        guard let x0 = xs.first, let x1 = xs.last, let y0 = ys.first, let y1 = ys.last else {
+            return (0, 0, 0)
+        }
+        let dx = x1 - x0
+        let dy = y1 - y0
+        return (dx, dy, hypot(dx, dy) / max(0.05, dt))
+    }
+
+    static func drillMatch(
+        action: String,
+        poses: [String],
+        sides: [String],
+        pinchMax: Double,
+        dx: Double,
+        dy: Double,
+        openMax: Int,
+        twoHands: Bool
+    ) -> (ok: Bool, text: String) {
+        let has = { (p: String) in poses.contains(p) }
+        switch action {
+        case "openRight":
+            let ok = sides.contains(where: { $0 == "Rechts" || $0 == "right" }) && (has("openPalm") || openMax >= 3)
+            return (ok, ok ? "rechte offene Hand" : "keine rechte offene Hand")
+        case "openLeft":
+            let ok = sides.contains(where: { $0 == "Links" || $0 == "left" }) && (has("openPalm") || openMax >= 3)
+            return (ok, ok ? "linke offene Hand" : "keine linke offene Hand")
+        case "pinch":
+            let ok = has("pinch") || pinchMax > 0.55
+            return (ok, ok ? String(format: "Pinzette %.0f %%", pinchMax * 100) : "keine Pinzette")
+        case "drag":
+            let ok = (has("pinch") || pinchMax > 0.45) && abs(dx) > 0.08
+            return (ok, ok ? String(format: "Zug dx %.2f", dx) : "kein seitlicher Zug")
+        case "throwUp":
+            let ok = dy > 0.10 && (has("pinch") || pinchMax > 0.4)
+            return (ok, ok ? String(format: "hoch dy +%.2f", dy) : "kein Wurf nach oben")
+        case "throwDown":
+            let ok = dy < -0.10 && (has("pinch") || pinchMax > 0.4)
+            return (ok, ok ? String(format: "runter dy %.2f", dy) : "kein Wurf nach unten")
+        case "swipeLeft":
+            let ok = dx < -0.10 && (has("openPalm") || openMax >= 3)
+            return (ok, ok ? String(format: "wischen L dx %.2f", dx) : "kein Wischen nach links")
+        case "swipeRight":
+            let ok = dx > 0.10 && (has("openPalm") || openMax >= 3)
+            return (ok, ok ? String(format: "wischen R dx %.2f", dx) : "kein Wischen nach rechts")
+        case "fist":
+            return (has("fist"), has("fist") ? "Faust" : "keine Faust")
+        case "point":
+            return (has("point"), has("point") ? "Zeigen" : "kein Zeigen")
+        case "peace":
+            return (has("peace"), has("peace") ? "Zwei Finger" : "kein Peace")
+        case "clap":
+            return (twoHands, twoHands ? "zwei Hände im Bild" : "keine zwei Hände")
+        default:
+            return (false, "unbekannte Aktion")
+        }
     }
 }
 

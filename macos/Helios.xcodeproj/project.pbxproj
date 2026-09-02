@@ -40,6 +40,7 @@
 		AA0000000000000000000076 /* DepthCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000086 /* DepthCapture.swift */; };
 		AA0000000000000000000077 /* FusionStrip.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000087 /* FusionStrip.swift */; };
 		AA0000000000000000000078 /* AirKeyboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000088 /* AirKeyboard.swift */; };
+		AA0000000000000000000079 /* ActionDrill.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000089 /* ActionDrill.swift */; };
 		AA000000000000000000003E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000004E /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
@@ -83,6 +84,7 @@
 		AA0000000000000000000086 /* DepthCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepthCapture.swift; sourceTree = "<group>"; };
 		AA0000000000000000000087 /* FusionStrip.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FusionStrip.swift; sourceTree = "<group>"; };
 		AA0000000000000000000088 /* AirKeyboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AirKeyboard.swift; sourceTree = "<group>"; };
+		AA0000000000000000000089 /* ActionDrill.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ActionDrill.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -141,6 +143,7 @@
 				AA0000000000000000000086 /* DepthCapture.swift */,
 				AA0000000000000000000087 /* FusionStrip.swift */,
 				AA0000000000000000000088 /* AirKeyboard.swift */,
+				AA0000000000000000000089 /* ActionDrill.swift */,
 				AA0000000000000000000053 /* ScreenGeometry.swift */,
 				AA0000000000000000000054 /* FocusTracker.swift */,
 				AA0000000000000000000055 /* HeliosTry.m */,
@@ -260,6 +263,7 @@
 				AA0000000000000000000076 /* DepthCapture.swift in Sources */,
 				AA0000000000000000000077 /* FusionStrip.swift in Sources */,
 				AA0000000000000000000078 /* AirKeyboard.swift in Sources */,
+				AA0000000000000000000079 /* ActionDrill.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -310,7 +314,7 @@
 				CODE_SIGN_ENTITLEMENTS = Helios.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 49;
+				CURRENT_PROJECT_VERSION = 50;
 				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -322,7 +326,7 @@
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.6.19;
+				MARKETING_VERSION = 1.6.20;
 				PRODUCT_BUNDLE_IDENTIFIER = app.helios.control;
 				PRODUCT_NAME = Helios;
 				SDKROOT = macosx;
@@ -342,7 +346,7 @@
 				CODE_SIGN_ENTITLEMENTS = Helios.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 49;
+				CURRENT_PROJECT_VERSION = 50;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
@@ -355,7 +359,7 @@
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.6.19;
+				MARKETING_VERSION = 1.6.20;
 				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_BUNDLE_IDENTIFIER = app.helios.control;
 				PRODUCT_NAME = Helios;

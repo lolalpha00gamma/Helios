@@ -189,6 +189,10 @@ final class HandTracker: @unchecked Sendable {
             }
             guard raw.count >= 8 else { continue }
             var chirality = obs.chirality
+            if mirrored {
+                if chirality == .left { chirality = .right }
+                else if chirality == .right { chirality = .left }
+            }
             let palm = GestureClassifier.palmCenter(raw)
             if let voted = bodyChirality(palm: palm, body: bodyPts, vision: chirality) {
                 chirality = voted

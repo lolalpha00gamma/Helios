@@ -90,7 +90,7 @@ struct ControlPanel: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Luft-Tastatur")
                         .font(.system(size: 13, weight: .semibold))
-                    Text("Zeigen 0,4 s öffnet QWERTZ in der Luft. Pinzette tippt, Faust schließt.")
+                    Text("Zeigen 0,4 s öffnet QWERTZ in der Luft. Taste 0,12 s halten tippt — ohne Pinzette. Faust schließt.")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
@@ -262,6 +262,33 @@ struct ControlPanel: View {
                             .buttonStyle(.borderless)
                     }
                     Text("Mac (Lead) führt alle Aktionen. Osmo/iPhone ist nur zweite Sicht: bessere Fingerlage, kein eigenes Klicken/Ziehen. Kalibrierung: erst Mac 4 Ecken, dann Cover dieselben Bildschirmecken — Pinzette zählt nur, wenn die Mac-Kamera sie auch sieht. Weichen die gemappten Lagen stark ab, bleibt die Mac-Lage.")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            GroupBox("Aktionskalibrierung") {
+                VStack(alignment: .leading, spacing: 8) {
+                    if state.drill.phase == .idle {
+                        Button("Übung starten — 12 Gesten × 3") { state.startDrill() }
+                            .buttonStyle(.borderedProminent)
+                    } else {
+                        Text(state.drill.status)
+                            .font(.system(size: 12, design: .monospaced))
+                            .foregroundStyle(HeliosTheme.amber)
+                        Text("\(state.drill.current.titleDE) · Wiederholung \(min(state.drill.repeatIndex + 1, 3))/3")
+                            .font(.system(size: 13, weight: .semibold))
+                        ProgressView(value: state.drill.progress)
+                        HStack {
+                            Button("Abbrechen") { state.cancelDrill() }
+                            if state.drill.phase == .done || !state.drill.trials.isEmpty {
+                                Button("Für Grok kopieren") { state.copyDrillForGrok() }
+                                    .buttonStyle(.borderedProminent)
+                                Button("Dateien…") { state.exportDrill() }
+                            }
+                        }
+                    }
+                    Text("Countdown, dann 2 s Aufnahme, drei Wiederholungen. Kein Klick/Fensterzugriff. Danach hier kopieren und in diesen Chat einfügen.")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
                 }

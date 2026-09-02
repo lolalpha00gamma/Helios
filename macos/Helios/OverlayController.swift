@@ -93,15 +93,35 @@ final class OverlayController {
         }
     }
 
+    func detach() {
+        if let screenObs {
+            NotificationCenter.default.removeObserver(screenObs)
+            self.screenObs = nil
+        }
+        attached = false
+        for panel in panels.values {
+            panel.orderOut(nil)
+            panel.close()
+        }
+        panels.removeAll()
+        hostings.removeAll()
+        markers.removeAll()
+    }
+
     func mark(
         cursor: CGPoint?,
         phase: GrabPhase,
         hand: String,
         target: String,
-        window: CGRect?
+        window: CGRect?,
+        showReticle: Bool = true
     ) {
         for (id, view) in markers {
             guard let panel = panels[id] else { continue }
+            if !showReticle {
+                view.isHidden = true
+                continue
+            }
             view.screenFrame = panel.frame
             view.apply(cursor: cursor, phase: phase, hand: hand, target: target, window: window)
         }

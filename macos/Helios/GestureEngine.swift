@@ -311,6 +311,10 @@ final class GestureEngine {
         system.startClutch()
     }
 
+    func stopInputClutch() {
+        system.stopClutch()
+    }
+
     func recenterPointer() {
         lastPalm = nil
         pointerHandID = nil
@@ -345,6 +349,9 @@ final class GestureEngine {
             return
         }
         let r = body()
+        if r.skipped {
+            return
+        }
         if r.ok {
             lastAction = name
             onLog?("\(name) · \(r.detail)", .executed, conf)
@@ -598,7 +605,7 @@ final class GestureEngine {
             }
             let span = space.dist(hand.point(.middleTip) ?? hand.palm, hand.palm) / max(0.04, hand.palmWidth)
             if let s0 = pinchSpan0, !system.isDragging, span > s0 + 1.4 {
-                perform("Heranziehen", confidence: Float(hand.poseProb)) { system.snapFocused(.fill) }
+                perform("Heranziehen", confidence: Float(hand.poseProb)) { system.snapFocused(.fill, at: cursor) }
                 pinchSpan0 = span
                 cooldownUntil = now + 0.5
             }
@@ -624,6 +631,9 @@ final class GestureEngine {
                 perform("Klick", need: .input, confidence: Float(max(hand.poseProb, hand.pinchClosedness))) { system.click() }
             } else if held < 0.07 {
                 lastAction = "zu kurz"
+            } else {
+                lastAction = "gehalten — kein Zug"
+                onLog?("Pinzette gehalten, keine Aktion", .info, Int(hand.poseProb * 100))
             }
             cooldownUntil = now + 0.12
         }
@@ -657,11 +667,11 @@ final class GestureEngine {
             return true
         }
         if dx < -0.50 {
-            perform("Links andocken", confidence: confidence) { system.snapFocused(.left) }
+            perform("Links andocken", confidence: confidence) { system.snapFocused(.left, at: cursor) }
             return true
         }
         if dx > 0.50 {
-            perform("Rechts andocken", confidence: confidence) { system.snapFocused(.right) }
+            perform("Rechts andocken", confidence: confidence) { system.snapFocused(.right, at: cursor) }
             return true
         }
         return false
@@ -675,8 +685,14 @@ final class GestureEngine {
         }
         let open = hands.filter { $0.pose == .openPalm || $0.openScore >= 2 }
         let hand = open.max { a, b in a.openScore < b.openScore }
-            ?? (now < swipeGraceUntil ? hands.first : nil)
         guard let hand else {
+            // Gnadenfrist nur für dieselbe Track-ID, nie eine Faust.
+            if now < swipeGraceUntil, let id = swipeHandID,
+               let same = hands.first(where: { $0.id == id }),
+               same.pose != .fist
+            {
+                return
+            }
             swipeTrail.removeAll()
             swipeHandID = nil
             return

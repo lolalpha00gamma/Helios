@@ -30,13 +30,11 @@ enum ScreenGeometry {
     }
 
     static func local(quartz: CGPoint, on screen: CGRect) -> CGPoint {
-        let c = cocoa(fromQuartz: quartz)
-        return CGPoint(x: c.x - screen.minX, y: screen.maxY - c.y)
+        CoordMath.localPoint(quartz: quartz, screen: screen, primaryMaxY: primaryCocoaMaxY)
     }
 
     static func localRect(quartz: CGRect, on screen: CGRect) -> CGRect {
-        let topLeft = local(quartz: CGPoint(x: quartz.minX, y: quartz.maxY), on: screen)
-        return CGRect(x: topLeft.x, y: topLeft.y, width: quartz.width, height: quartz.height)
+        CoordMath.localRect(quartz: quartz, screen: screen, primaryMaxY: primaryCocoaMaxY)
     }
 
     static func contains(quartz: CGPoint, screen: CGRect, pad: CGFloat = 24) -> Bool {
@@ -47,11 +45,6 @@ enum ScreenGeometry {
     static func intersects(quartz: CGRect, screen: CGRect) -> Bool {
         let r = localRect(quartz: quartz, on: screen)
         return r.intersects(CGRect(origin: .zero, size: screen.size))
-    }
-
-    static func trashLocal(on screen: CGRect) -> CGRect {
-        let s: CGFloat = 138
-        return CGRect(x: screen.width - s - 24, y: screen.height - s - 24, width: s, height: s)
     }
 
     static func trashLocal(screen: NSScreen) -> CGRect {

@@ -1,8 +1,22 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.1**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+Stand: **1.6.2**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+
+## In 1.6.2 erledigt
+
+Koordinaten, AX, Threads, HUD — nicht die Erkennung (die war 1.6.0/1.6.1).
+
+1. **localRect** nimmt Quartz-minY als Overlay-oben. Umriss, Greifstrahl, `intersects` lagen eine Fensterhöhe zu tief. Tests decken Haupt- und Zweitbildschirm ab.
+2. **AX ohne Force-Cast.** `CFGetTypeID` vor jedem `AXUIElement`/`AXValue`.
+3. **Main nicht blockieren.** `screencapture` und Finder-AppleScript vom Hauptthread, xattr beim Start auf Utility-Queue. Fensterzug koalesziert (letzter Punkt, Timeout auch am Drag-Element).
+4. **dlopen einmal.** Installationsort/Translokation gecacht, nicht pro Cursor-Frame.
+5. **PinchGate und HMM** resetten beim Handverlust. Kalibrier-Hold nur mit Pinzette.
+6. **Export** löscht keinen bestehenden Ordner rekursiv.
+7. **mirroredFlag** hinter demselben Lock wie der Frame-Handler. `apply()` koalesziert wie FramePump (letzter Stand, Vision-Zeitstempel).
+8. **README** zeigt auf `lolalpha00gamma/Helios`. Homographie gecacht. Rechte-Demand ohne modalen Alert. Klick-Pause und Pinzette-ohne-Zug sind kein Fehler im Protokoll. `snapFocused` am Engine-Cursor. Wischen nimmt keine Faust. Vision-Revision gepinnt, `usesCPUOnly` weg. Luma über CIAreaAverage. Toter Code (HandBeacon, Reticle, missionControl) raus. Fadenkreuz steuert den Hand-Marker. permTimer und Clutch-Monitore werden beim Beenden abgemeldet. Maus-Clutch auch bei `mouseMoved`.
 
 ## In 1.6.1 erledigt
+
 
 1. **Korrelierte Fusion.** Lift3D und Temporal-Heuristik sind dieselben 2D-Punkte (plus klebriges z-Vorzeichen). 1.6.0 hat sie als unabhängige Stimmen gepoolt → flaches Softmax → Pose < 70 % → `perform()` hat *jede* Systemaktion blockiert. Jetzt: 2D führt (0,62), Lift/Zeit kollabieren bei >80 % Überlappung, Softmax-Temperatur 0,75, Tor 62 %.
 2. **Kein Chirality-Doppel-Flip.** Der Frontkamera-Buffer ist schon `isVideoMirrored`. Ein zweiter L/R-Tausch hat Linkshänder die rechte Hand als Steuerhand gegeben. Unbekannt fällt auf Bildposition, gespiegelt vs. ungespiegelt getrennt.

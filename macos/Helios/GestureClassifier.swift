@@ -2,7 +2,74 @@ import CoreGraphics
 import simd
 import Vision
 
+enum FingerKind: String, CaseIterable, Identifiable {
+    case thumb, index, middle, ring, little
+
+    var id: String { rawValue }
+
+    var labelDE: String {
+        switch self {
+        case .thumb: return "Daumen"
+        case .index: return "Zeige"
+        case .middle: return "Mittel"
+        case .ring: return "Ring"
+        case .little: return "Klein"
+        }
+    }
+
+    var shortDE: String {
+        switch self {
+        case .thumb: return "D"
+        case .index: return "Z"
+        case .middle: return "M"
+        case .ring: return "R"
+        case .little: return "K"
+        }
+    }
+
+    var tip: VNHumanHandPoseObservation.JointName {
+        switch self {
+        case .thumb: return .thumbTip
+        case .index: return .indexTip
+        case .middle: return .middleTip
+        case .ring: return .ringTip
+        case .little: return .littleTip
+        }
+    }
+
+    var pip: VNHumanHandPoseObservation.JointName {
+        switch self {
+        case .thumb: return .thumbIP
+        case .index: return .indexPIP
+        case .middle: return .middlePIP
+        case .ring: return .ringPIP
+        case .little: return .littlePIP
+        }
+    }
+
+    var mcp: VNHumanHandPoseObservation.JointName {
+        switch self {
+        case .thumb: return .thumbMP
+        case .index: return .indexMCP
+        case .middle: return .middleMCP
+        case .ring: return .ringMCP
+        case .little: return .littleMCP
+        }
+    }
+
+    var chain: [VNHumanHandPoseObservation.JointName] {
+        switch self {
+        case .thumb: return [.wrist, .thumbCMC, .thumbMP, .thumbIP, .thumbTip]
+        case .index: return [.wrist, .indexMCP, .indexPIP, .indexDIP, .indexTip]
+        case .middle: return [.wrist, .middleMCP, .middlePIP, .middleDIP, .middleTip]
+        case .ring: return [.wrist, .ringMCP, .ringPIP, .ringDIP, .ringTip]
+        case .little: return [.wrist, .littleMCP, .littlePIP, .littleDIP, .littleTip]
+        }
+    }
+}
+
 enum HandPose: String, Equatable, CaseIterable, Hashable {
+
     case unknown
     case fist
     case openPalm

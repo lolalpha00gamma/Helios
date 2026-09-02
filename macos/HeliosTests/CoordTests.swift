@@ -63,6 +63,29 @@ enum CoordTests {
         eq(axHit.x, 200, "AX hit-test x")
         eq(axHit.y, primaryH - 100, "AX hit-test y (nicht Quartz)")
 
+        // Overlay: Quartz-minY ist die obere Kante, nicht maxY.
+        let screen = CGRect(x: 0, y: 0, width: 1920, height: 1080)
+        let win = CGRect(x: 100, y: 80, width: 400, height: 300)
+        let local = CoordMath.localRect(quartz: win, screen: screen, primaryMaxY: primaryH)
+        eq(local.minX, 100, "localRect x")
+        eq(local.minY, 80, "localRect oben = quartz.minY, nicht maxY")
+        eq(local.height, 300, "localRect h")
+        eq(local.width, 400, "localRect w")
+        let wrong = CoordMath.localPoint(quartz: CGPoint(x: win.minX, y: win.maxY), screen: screen, primaryMaxY: primaryH)
+        eq(wrong.y, 80 + 300, "maxY ist die Unterkante")
+        if abs(local.minY - wrong.y) < 1 {
+            fputs("FAIL localRect darf nicht maxY als oben nehmen\n", stderr)
+            fails += 1
+        }
+
+        // Zweiter Schirm rechts: Overlay-Ursprung = screen.minX / screen.maxY.
+        let screen2 = CGRect(x: 1920, y: 0, width: 1920, height: 1080)
+        let win2 = CGRect(x: 2000, y: 80, width: 400, height: 300)
+        let local2 = CoordMath.localRect(quartz: win2, screen: screen2, primaryMaxY: primaryH)
+        eq(local2.minX, 80, "localRect 2. Schirm x")
+        eq(local2.minY, 80, "localRect 2. Schirm oben = quartz.minY")
+        eq(local2.height, 300, "localRect 2. Schirm h")
+
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)
             exit(1)

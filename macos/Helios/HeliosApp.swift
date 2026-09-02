@@ -11,6 +11,9 @@ struct HeliosApp: App {
                 .environmentObject(state)
                 .frame(minWidth: 980, minHeight: 620)
                 .onAppear { state.start() }
+                .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+                    state.shutdown()
+                }
         }
         .windowStyle(.automatic)
         .defaultSize(width: 1180, height: 720)

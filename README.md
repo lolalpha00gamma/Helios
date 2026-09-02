@@ -1,4 +1,4 @@
-# Helios **1.6.1**
+# Helios **1.6.2**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -10,7 +10,7 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 
 **Nur die DMG-Datei laden, nicht Source code (zip):**
 
-[Helios.dmg](https://github.com/bpms9cmnxc-debug/Helios/releases/latest/download/Helios.dmg)
+[Helios.dmg](https://github.com/lolalpha00gamma/Helios/releases/latest/download/Helios.dmg)
 
 1. `Helios.dmg` doppelklicken (kein Entpacken)
 2. Helios nach **Programme** ziehen — nicht aus dem Image starten
@@ -19,7 +19,22 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
 
+## Neu in 1.6.2
+
+Koordinaten, AX, Threads und HUD — die Erkennung aus 1.6.1 bleibt.
+
+- **Fensterumriss sitzt.** Overlay rechnet mit Quartz-minY (obere Kante), nicht maxY. Umriss, Greifstrahl und Schirmwahl lagen eine Fensterhöhe zu tief.
+- **AX crasht nicht** mehr, wenn eine App ein unerwartetes Attribut liefert (CFGetTypeID statt Force-Cast).
+- **Hauptthread bleibt frei.** Peace-Aufnahme, Finder-Papierkorb und Quarantäne-xattr laufen nicht mehr synchron auf main. Fensterzug hält nur den letzten Zielpunkt, solange AX beschäftigt ist.
+- **Maus hat Vorrang** auch ohne gedrückte Taste. Clutch-Monitore und der Rechte-Timer werden beim Beenden abgemeldet.
+- **Kalibrierung** zählt die Haltezeit nur mit geschlossener Pinzette. Export überschreibt nur Helios-Dateien, löscht keinen Ordner.
+- **Fadenkreuz-Schalter** blendet den Hand-Marker wirklich aus. Fehlende Rechte erscheinen als HUD-Zeile, nicht als modaler Alert in der Gestenschleife. Pinzette gehalten ohne Zug → Protokoll „kein Zug“, nicht „fehlgeschlagen“. Klick-Pause ebenfalls nicht als Fehler.
+- Homographie einmal cachen, Vision-Revision pinnen, Helligkeit über CIAreaAverage statt GPU-Buffer-Lock.
+
+Details: [docs/Erkennung.md](./docs/Erkennung.md), [VORSCHLAEGE.md](./VORSCHLAEGE.md).
+
 ## Neu in 1.6.1
+
 
 1.6.0 hat vier Quellen fusioniert, aber drei davon waren dasselbe 2D-Signal. Die Pose kam selten über 70 %, also hat das Aktions-Tor fast alles geschluckt. 1.5.8 hat Scroll/Rechtsklick/Dwell in der README behauptet — der Code war leer.
 
@@ -75,7 +90,7 @@ Xcode 26/27, macOS 26 SDK:
 
 ```
 xcodebuild -project macos/Helios.xcodeproj -scheme Helios -configuration Release ARCHS=arm64
-swift macos/HeliosTests/CoordTests.swift
+swiftc macos/Helios/CoordMath.swift macos/HeliosTests/CoordTests.swift -o /tmp/coordtests && /tmp/coordtests
 ```
 
 GitHub Actions legt bei jedem Push auf `main` eine `Helios.dmg` als Release ab.

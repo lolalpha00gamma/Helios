@@ -126,7 +126,8 @@ struct HUDView: View {
             if let s = ScreenGeometry.screen(matchingCocoa: screenFrame) {
                 return ScreenGeometry.trashLocal(screen: s)
             }
-            return ScreenGeometry.trashLocal(on: screenFrame)
+            let s: CGFloat = 138
+            return CGRect(x: screenFrame.width - s - 24, y: screenFrame.height - s - 24, width: s, height: s)
         }()
         let hot = state.trashHot
         return VStack(spacing: 6) {
@@ -158,7 +159,11 @@ struct HUDView: View {
                 .shadow(color: HeliosTheme.cyan.opacity(0.8), radius: 8)
             statusPill
             grabPill
-            if state.testMode {
+            if !state.permissionBanner.isEmpty {
+                Text(state.permissionBanner.uppercased())
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(HeliosTheme.amber)
+            } else if state.testMode {
                 Text("TEST")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .padding(.horizontal, 8)
@@ -300,77 +305,6 @@ struct HUDView: View {
                 .padding(6)
         }
         .opacity(state.showPreviewChip ? 1 : 0)
-    }
-}
-
-struct HandBeacon: View {
-    var phase: GrabPhase
-    var hand: String
-    var target: String
-    var local: CGPoint
-
-    var body: some View {
-        let grab = phase == .grab
-        let hold = phase == .hold
-        let col = grab || hold ? HeliosTheme.amber : HeliosTheme.cyan
-        VStack(spacing: 4) {
-            ZStack {
-                Circle()
-                    .stroke(col.opacity(0.35), lineWidth: 2)
-                    .frame(width: grab ? 120 : 96, height: grab ? 120 : 96)
-                Circle()
-                    .stroke(col, lineWidth: grab ? 4 : 2.5)
-                    .frame(width: 64, height: 64)
-                Image(systemName: grab ? "hand.raised.fill" : hold ? "hand.point.up.left.fill" : "circle.fill")
-                    .font(.system(size: grab ? 22 : 16, weight: .bold))
-                    .foregroundStyle(col)
-            }
-            .shadow(color: col.opacity(0.9), radius: grab ? 16 : 8)
-            Text(phase.labelDE)
-                .font(.system(size: 16, weight: .bold, design: .monospaced))
-                .foregroundStyle(col)
-                .padding(.horizontal, 10)
-                .padding(.vertical, 3)
-                .background(HeliosTheme.void.opacity(0.78))
-            Text(hand.uppercased())
-                .font(.system(size: 11, weight: .bold, design: .monospaced))
-                .foregroundStyle(col)
-            if grab, !target.isEmpty {
-                Text(target.uppercased())
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(HeliosTheme.amber)
-            }
-            Text(String(format: "%.0f  %.0f", local.x, local.y))
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(col.opacity(0.8))
-        }
-    }
-}
-
-struct Reticle: View {
-    var armed: Bool
-    var body: some View {
-        ZStack {
-            Circle()
-                .stroke(armed ? HeliosTheme.amber : HeliosTheme.cyan, lineWidth: 2)
-                .frame(width: 56, height: 56)
-            Circle()
-                .stroke((armed ? HeliosTheme.amber : HeliosTheme.cyan).opacity(0.35), lineWidth: 1)
-                .frame(width: 88, height: 88)
-            Circle()
-                .fill(armed ? HeliosTheme.amber : HeliosTheme.cyan)
-                .frame(width: 7, height: 7)
-            ForEach(0..<4, id: \.self) { i in
-                Rectangle()
-                    .fill(armed ? HeliosTheme.amber : HeliosTheme.cyan)
-                    .frame(width: i % 2 == 0 ? 16 : 2, height: i % 2 == 0 ? 2 : 16)
-                    .offset(
-                        x: i == 0 ? -40 : i == 1 ? 40 : 0,
-                        y: i == 2 ? -40 : i == 3 ? 40 : 0
-                    )
-            }
-        }
-        .shadow(color: (armed ? HeliosTheme.amber : HeliosTheme.cyan).opacity(0.85), radius: 10)
     }
 }
 

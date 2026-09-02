@@ -82,7 +82,9 @@ enum Permissions {
         requestScreenCapture()
     }
 
-    /// Systemdialog + Einstellungen. Nicht öfter als alle 6 s.
+    static var onDemand: (@MainActor (PermissionKind) -> Void)?
+
+    /// Systemdialog + Einstellungen. Nicht öfter als alle 6 s. Kein modaler Alert aus der Gestenschleife.
     @MainActor
     static func demand(_ kind: PermissionKind) {
         let now = CACurrentMediaTime()
@@ -96,33 +98,8 @@ enum Permissions {
         case .inputMonitoring:
             requestInputMonitoring()
         }
-        showAlert(missing: [kind])
-    }
-
-    @MainActor
-    private static func showAlert(missing: [PermissionKind]) {
-        let names = missing.map(\.title).joined(separator: ", ")
-        let alert = NSAlert()
-        alert.alertStyle = .informational
-        alert.messageText = "Helios braucht Rechte"
-        alert.informativeText = """
-        macOS blockiert die Steuerung ohne diese Freigaben: \(names).
-
-        1. Auf „Erlauben“ tippen — der Systemdialog erscheint.
-        2. Helios in der Liste einschalten.
-        3. Die App danach neu starten (bei Bedienungshilfen nötig).
-
-        Die App muss in Programme liegen, nicht nur im geöffneten DMG.
-        """
-        alert.addButton(withTitle: "Systemeinstellungen öffnen")
-        alert.addButton(withTitle: "Später")
-        NSApp.activate()
-        let result = alert.runModal()
-        if result == .alertFirstButtonReturn {
-            for k in missing {
-                openPrivacyPane(k)
-            }
-        }
+        onDemand?(kind)
+        openPrivacyPane(kind)
     }
 
     static func openPrivacyPane(_ kind: PermissionKind) {

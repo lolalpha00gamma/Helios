@@ -178,7 +178,7 @@ struct ControlPanel: View {
                         .font(.system(size: 11))
                         .foregroundStyle(state.mapReady ? HeliosTheme.cyan : .secondary)
                     if state.calibActive {
-                        Text("Jetzt: \(state.calibCorner). Hand ruhig oder Pinzette.")
+                        Text("Jetzt: \(state.calibCorner). Pinzette 1 s halten.")
                             .font(.system(size: 11))
                             .foregroundStyle(HeliosTheme.amber)
                         Button("Abbrechen") { state.cancelCalibration() }

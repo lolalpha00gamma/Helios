@@ -10,34 +10,29 @@ final class FrameEnhancer: @unchecked Sendable {
     private let lock = NSLock()
 
     func luma(of pb: CVPixelBuffer) -> CGFloat {
-        CVPixelBufferLockBaseAddress(pb, .readOnly)
-        defer { CVPixelBufferUnlockBaseAddress(pb, .readOnly) }
-        guard let base = CVPixelBufferGetBaseAddress(pb) else { return 0.5 }
-        let w = CVPixelBufferGetWidth(pb)
-        let h = CVPixelBufferGetHeight(pb)
-        let stride = CVPixelBufferGetBytesPerRow(pb)
-        let ptr = base.assumingMemoryBound(to: UInt8.self)
-        var sum: CGFloat = 0
-        var n: CGFloat = 0
-        let stepX = max(1, w / 16)
-        let stepY = max(1, h / 12)
-        var y = 0
-        while y < h {
-            var x = 0
-            let row = ptr.advanced(by: y * stride)
-            while x < w {
-                let i = x * 4
-                let b = CGFloat(row[i])
-                let g = CGFloat(row[i + 1])
-                let r = CGFloat(row[i + 2])
-                sum += r + g * 2 + b
-                n += 1
-                x += stepX
-            }
-            y += stepY
-        }
-        guard n > 0 else { return 0.5 }
-        return sum / (n * 4 * 255)
+        let img = CIImage(cvPixelBuffer: pb)
+        let extent = img.extent
+        guard extent.width > 2, extent.height > 2 else { return 0.5 }
+        let sx = min(32 / extent.width, 1)
+        let sy = min(24 / extent.height, 1)
+        let small = img.transformed(by: CGAffineTransform(scaleX: sx, y: sy))
+        guard let filter = CIFilter(name: "CIAreaAverage") else { return 0.5 }
+        filter.setValue(small, forKey: kCIInputImageKey)
+        filter.setValue(CIVector(cgRect: small.extent), forKey: kCIInputExtentKey)
+        guard let out = filter.outputImage else { return 0.5 }
+        var pixel = [UInt8](repeating: 0, count: 4)
+        MetalHub.ci.render(
+            out,
+            toBitmap: &pixel,
+            rowBytes: 4,
+            bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
+            format: .BGRA8,
+            colorSpace: nil
+        )
+        let b = CGFloat(pixel[0])
+        let g = CGFloat(pixel[1])
+        let r = CGFloat(pixel[2])
+        return (r + g * 2 + b) / (4 * 255)
     }
 
     func enhance(_ pb: CVPixelBuffer, luma: CGFloat) -> CVPixelBuffer {

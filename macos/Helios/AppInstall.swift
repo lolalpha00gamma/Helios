@@ -17,18 +17,11 @@ enum AppInstall {
         FileManager.default.fileExists(atPath: installedURL.path)
     }
 
-    static var originalURL: URL {
-        translocatedOriginal(of: Bundle.main.bundleURL) ?? bundleURL
-    }
+    static var originalURL: URL { Cache.originalURL }
 
-    static var isTranslocated: Bool {
-        secIsTranslocated(Bundle.main.bundleURL) || bundlePath.contains("AppTranslocation")
-    }
+    static var isTranslocated: Bool { Cache.isTranslocated }
 
-    static var isFromDiskImage: Bool {
-        let p = originalURL.path
-        return p.hasPrefix("/Volumes/") || p.contains("/.Trash/")
-    }
+    static var isFromDiskImage: Bool { Cache.isFromDiskImage }
 
     static var isInstalledCopy: Bool {
         if isTranslocated { return false }
@@ -58,19 +51,48 @@ enum AppInstall {
         return bundlePath
     }
 
+    /// Einmalig. dlopen/xattr nicht auf dem Frame-Pfad.
+    private static let secHandle: UnsafeMutableRawPointer? = dlopen(
+        "/System/Library/Frameworks/Security.framework/Security",
+        RTLD_NOW
+    )
+
+    private enum Cache {
+        static let originalURL: URL = translocatedOriginal(of: Bundle.main.bundleURL) ?? AppInstall.bundleURL
+        static let isTranslocated: Bool =
+            secIsTranslocated(Bundle.main.bundleURL) || AppInstall.bundlePath.contains("AppTranslocation")
+        static let isFromDiskImage: Bool = {
+            let p = originalURL.path
+            return p.hasPrefix("/Volumes/") || p.contains("/.Trash/")
+        }()
+    }
+
     /// Kein Dialog. Quarantäne runter, bei Translokation einmal die Originaldatei öffnen.
     @MainActor
     static func settleIfNeeded() {
-        stripQuarantine(bundleURL)
-        stripQuarantine(originalURL)
-        if installedExists { stripQuarantine(installedURL) }
+        let bundle = bundleURL
+        let original = originalURL
+        let installed = installedExists ? installedURL : nil
+        let translocated = isTranslocated
+        let inApps = originalIsInApplications
+        let dest = originalIsInApplications ? originalURL : installedURL
+        DispatchQueue.global(qos: .utility).async {
+            stripQuarantine(bundle)
+            stripQuarantine(original)
+            if let installed { stripQuarantine(installed) }
+            DispatchQueue.main.async {
+                finishSettle(translocated: translocated, inApps: inApps, dest: dest)
+            }
+        }
+    }
 
-        if !isTranslocated {
+    @MainActor
+    private static func finishSettle(translocated: Bool, inApps: Bool, dest: URL) {
+        if !translocated {
             UserDefaults.standard.set(false, forKey: "helios.didRelaunchUnquarantine")
             return
         }
-        guard originalIsInApplications || installedExists else { return }
-        let dest = originalIsInApplications ? originalURL : installedURL
+        guard inApps || installedExists else { return }
         let key = "helios.didRelaunchUnquarantine"
         if UserDefaults.standard.bool(forKey: key) { return }
         UserDefaults.standard.set(true, forKey: key)
@@ -149,12 +171,8 @@ enum AppInstall {
         }
     }
 
-    private static func secHandle() -> UnsafeMutableRawPointer? {
-        dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_NOW)
-    }
-
     private static func secIsTranslocated(_ url: URL) -> Bool {
-        guard let handle = secHandle(),
+        guard let handle = secHandle,
               let raw = dlsym(handle, "SecTranslocateIsTranslocatedURL")
         else { return url.path.contains("AppTranslocation") }
         typealias Fn = @convention(c) (
@@ -169,7 +187,7 @@ enum AppInstall {
     }
 
     private static func translocatedOriginal(of url: URL) -> URL? {
-        guard let handle = secHandle(),
+        guard let handle = secHandle,
               let raw = dlsym(handle, "SecTranslocateCreateOriginalPathForURL")
         else { return nil }
         typealias Fn = @convention(c) (CFURL, UnsafeMutablePointer<Unmanaged<CFError>?>?) -> Unmanaged<CFURL>?

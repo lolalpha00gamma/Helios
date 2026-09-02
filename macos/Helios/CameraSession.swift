@@ -32,9 +32,18 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     private var lastPreview: TimeInterval = 0
     private let enhancer = FrameEnhancer()
     private let ring = GPUFrameRing()
-    private var mirroredFlag = false
-    var isMirrored: Bool { mirroredFlag }
     private let handlerLock = NSLock()
+    private var mirroredFlag = false
+    var isMirrored: Bool {
+        handlerLock.lock()
+        defer { handlerLock.unlock() }
+        return mirroredFlag
+    }
+    private func setMirrored(_ v: Bool) {
+        handlerLock.lock()
+        mirroredFlag = v
+        handlerLock.unlock()
+    }
     private var frameHandler: ((CVPixelBuffer, NSImage?, CGFloat, TimeInterval) -> Void)?
     let depthTap = DepthCapture()
     var latestDepth: DepthSample? { depthTap.latest }
@@ -99,9 +108,9 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             if let conn = self.output.connection(with: .video), conn.isVideoMirroringSupported {
                 let front = device.position == .front || device.deviceType == .builtInWideAngleCamera
                 conn.isVideoMirrored = front
-                self.mirroredFlag = conn.isVideoMirrored
+                self.setMirrored(conn.isVideoMirrored)
             } else {
-                self.mirroredFlag = false
+                self.setMirrored(false)
             }
         }, nil)
         session.commitConfiguration()

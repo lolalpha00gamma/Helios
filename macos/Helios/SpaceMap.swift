@@ -51,7 +51,7 @@ struct SpaceMap: Codable {
     }
 
     func apply(_ palm: CGPoint) -> CGPoint {
-        guard isReady, let H = homography() else { return Self.linear(palm) }
+        guard isReady, let H = cachedHomography() else { return Self.linear(palm) }
         let w = H[6] * palm.x + H[7] * palm.y + H[8]
         guard abs(w) > 1e-8 else { return Self.linear(palm) }
         let p = CGPoint(
@@ -62,8 +62,11 @@ struct SpaceMap: Codable {
     }
 
     func homography() -> [CGFloat]? {
-        guard palms.count == 4 else { return nil }
-        return SpaceMap.homography(from: palms.map(\.point), to: Self.screenCorners())
+        cachedHomography()
+    }
+
+    private func cachedHomography() -> [CGFloat]? {
+        HomographyStore.get(palms)
     }
 
     /// 4 Punktpaare, h22 = 1, 8×8 Gauss.
@@ -127,6 +130,34 @@ struct SpaceMap: Codable {
 
     static func clear() {
         UserDefaults.standard.removeObject(forKey: "helios.spaceMap")
+        HomographyStore.clear()
+    }
+}
+
+private enum HomographyStore {
+    private static let lock = NSLock()
+    private static var palms: [XY] = []
+    private static var H: [CGFloat]?
+
+    static func get(_ src: [XY]) -> [CGFloat]? {
+        lock.lock()
+        defer { lock.unlock() }
+        if src == palms, let H { return H }
+        guard src.count == 4 else {
+            palms = src
+            H = nil
+            return nil
+        }
+        H = SpaceMap.homography(from: src.map(\.point), to: SpaceMap.screenCorners())
+        palms = src
+        return H
+    }
+
+    static func clear() {
+        lock.lock()
+        palms = []
+        H = nil
+        lock.unlock()
     }
 }
 
@@ -181,11 +212,6 @@ final class CalibrationSession {
         let target = targetQuartz()
         let cursor = ScreenGeometry.quartz(fromCocoa: NSEvent.mouseLocation)
         cursorGap = hypot(cursor.x - target.x, cursor.y - target.y)
-        if moved < 0.014 {
-            hold += CGFloat(dt)
-        } else {
-            hold = 0
-        }
 
         if needRelease {
             hold = 0
@@ -211,8 +237,14 @@ final class CalibrationSession {
             return nil
         }
         if !confirm {
+            hold = 0
             hint = "Pinzette an Ecke \(corner.titleDE) halten (\(remaining) offen)"
             return nil
+        }
+        if moved < 0.014 {
+            hold += CGFloat(dt)
+        } else {
+            hold = 0
         }
         if hold < 0.9 {
             hint = "Pinzette halten … \(Int(min(100, hold / 0.9 * 100))) %"

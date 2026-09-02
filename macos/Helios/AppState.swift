@@ -62,9 +62,11 @@ final class AppState: ObservableObject {
     @Published var grabTargetName = ""
     @Published var fusion: FusionDebug?
     @Published var hasDepth = false
+    @Published var permissionBanner = ""
     let calibSession = CalibrationSession()
     private var lastPanel: TimeInterval = 0
     private var didStart = false
+    private let applySlot = ApplySlot()
 
     private var cancellables: Set<AnyCancellable> = []
     private var focusTick = 0
@@ -77,6 +79,10 @@ final class AppState: ObservableObject {
         engine.calibration = calibSession
         engine.spaceMap = SpaceMap.load()
         mapReady = engine.spaceMap?.isReady == true
+        Permissions.onDemand = { [weak self] kind in
+            self?.permissionBanner = "Rechte: \(kind.title) — Systemeinstellungen"
+            self?.log.record("Rechte fehlen: \(kind.title)", kind: .blocked)
+        }
         engine.onLog = { [weak self] text, kind, conf in
             self?.log.record(text, kind: kind, confidence: conf)
             self?.objectWillChange.send()
@@ -86,7 +92,18 @@ final class AppState: ObservableObject {
             .sink { [weak self] in self?.objectWillChange.send() }
             .store(in: &cancellables)
         $hudVisible.sink { Prefs.hudVisible = $0 }.store(in: &cancellables)
-        $showReticle.sink { Prefs.showReticle = $0 }.store(in: &cancellables)
+        $showReticle.sink { [weak self] v in
+            Prefs.showReticle = v
+            guard let self else { return }
+            self.overlay.mark(
+                cursor: self.engine.cursor,
+                phase: self.engine.grabPhase,
+                hand: self.engine.cursorHand,
+                target: self.engine.grabTargetName,
+                window: self.focused?.quartzBounds,
+                showReticle: v
+            )
+        }.store(in: &cancellables)
         $showJointLabels.sink { Prefs.showJointLabels = $0 }.store(in: &cancellables)
         $showCheats.sink { Prefs.showCheats = $0 }.store(in: &cancellables)
         $showOutline.sink { Prefs.showOutline = $0 }.store(in: &cancellables)
@@ -117,6 +134,7 @@ final class AppState: ObservableObject {
                 }
             }
         }
+        permTimer?.tolerance = 0.05
         log.record(leftHanded ? "Helios bereit. Linkshänder." : "Helios bereit. Rechtshänder.")
         Task {
             await Permissions.bootstrap()
@@ -132,6 +150,9 @@ final class AppState: ObservableObject {
         fromDiskImage = AppInstall.needsCopy
         installPath = AppInstall.locationHint
         screenCount = NSScreen.screens.count
+        if cameraOK, accessOK, inputOK {
+            permissionBanner = ""
+        }
     }
 
     func pollFocus() {
@@ -157,6 +178,7 @@ final class AppState: ObservableObject {
         }
         let tracker = self.tracker
         let cam = self.camera
+        let slot = self.applySlot
         camera.onFrame = { [weak self] vision, _, luma, arrived in
             let t0 = CACurrentMediaTime()
             let hands = tracker.analyze(
@@ -167,14 +189,13 @@ final class AppState: ObservableObject {
             )
             let visMs = (CACurrentMediaTime() - t0) * 1000
             let endToEnd = (CACurrentMediaTime() - arrived) * 1000
-            DispatchQueue.main.async(qos: .userInteractive) {
-                self?.apply(
-                    hands: hands,
-                    latency: max(visMs, endToEnd),
-                    now: CACurrentMediaTime(),
-                    preview: nil,
-                    luma: luma
-                )
+            slot.push(
+                hands: hands,
+                latency: max(visMs, endToEnd),
+                now: t0,
+                luma: luma
+            ) {
+                DispatchQueue.main.async { self?.drainApply() }
             }
         }
         camera.setPreviewSink { [weak self] img in
@@ -191,6 +212,14 @@ final class AppState: ObservableObject {
         cameraRunning = false
         hands = []
         log.record("Kamera gestoppt.")
+    }
+
+    func shutdown() {
+        permTimer?.invalidate()
+        permTimer = nil
+        engine.stopInputClutch()
+        overlay.detach()
+        stopCamera()
     }
 
     func setTestMode(_ on: Bool) {
@@ -305,7 +334,8 @@ final class AppState: ObservableObject {
             phase: engine.grabPhase,
             hand: engine.cursorHand,
             target: engine.grabTargetName,
-            window: focused?.quartzBounds
+            window: focused?.quartzBounds,
+            showReticle: showReticle
         )
         frames += 1
         if now - fpsStamp >= 0.5 {
@@ -348,6 +378,42 @@ final class AppState: ObservableObject {
         self.hands = hands
         fusion = hands.first?.fusion ?? tracker.lastFusion
         hasDepth = camera.hasDepth
+    }
+
+    private func drainApply() {
+        guard let item = applySlot.take() else { return }
+        apply(hands: item.hands, latency: item.latency, now: item.now, preview: nil, luma: item.luma)
+    }
+}
+
+/// Nur den neuesten Stand nach main — analog FramePump.
+private final class ApplySlot: @unchecked Sendable {
+    private let lock = NSLock()
+    private var pending: (hands: [TrackedHand], latency: Double, now: TimeInterval, luma: CGFloat)?
+    private var queued = false
+
+    func push(
+        hands: [TrackedHand],
+        latency: Double,
+        now: TimeInterval,
+        luma: CGFloat,
+        schedule: () -> Void
+    ) {
+        lock.lock()
+        pending = (hands, latency, now, luma)
+        let need = !queued
+        if need { queued = true }
+        lock.unlock()
+        if need { schedule() }
+    }
+
+    func take() -> (hands: [TrackedHand], latency: Double, now: TimeInterval, luma: CGFloat)? {
+        lock.lock()
+        let item = pending
+        pending = nil
+        queued = false
+        lock.unlock()
+        return item
     }
 }
 

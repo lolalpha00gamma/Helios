@@ -115,10 +115,18 @@ final class SessionRecorder {
 
     private func write(to url: URL, log: AuditLog) throws {
         let fm = FileManager.default
-        if fm.fileExists(atPath: url.path) {
-            try fm.removeItem(at: url)
+        var isDir: ObjCBool = false
+        if fm.fileExists(atPath: url.path, isDirectory: &isDir) {
+            if !isDir.boolValue {
+                throw NSError(
+                    domain: "Helios",
+                    code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Bitte einen Ordner wählen, keine Datei."]
+                )
+            }
+        } else {
+            try fm.createDirectory(at: url, withIntermediateDirectories: true)
         }
-        try fm.createDirectory(at: url, withIntermediateDirectories: true)
         try log.plainText().write(to: url.appendingPathComponent("protokoll.txt"), atomically: true, encoding: .utf8)
         try log.jsonData().write(to: url.appendingPathComponent("protokoll.json"))
         let jsonl = frames.map { Self.line($0) }.joined(separator: "\n") + "\n"

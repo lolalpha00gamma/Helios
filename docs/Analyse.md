@@ -1,9 +1,30 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
-Stand: 2026-09-02. Helios 1.6.1. Alle fünf Phasen aus `docs/Erkennung.md`
+Stand: 2026-09-02. Helios 1.6.2. Erkennung (1.6.0/1.6.1) bleibt; 1.6.2
+ist Koordinaten, AX, Threads, HUD. Alle fünf Phasen aus `docs/Erkennung.md`
 laufen gleichzeitig — kein Stufenplan. 1.6.1 kollabiert korrelierte Quellen.
 
+## 0. 1.6.2 — Plattform, nicht Erkennung
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | Fensterumriss eine Höhe zu tief | `localRect` nutzt Quartz-minY |
+| 2 | AX-Force-Casts | `CFGetTypeID` + bedingter Cast |
+| 3 | Main blockiert (screencapture, AppleScript, xattr) | Hintergrund-Queues |
+| 4 | dlopen pro Frame | Cache in `AppInstall` |
+| 5 | Unbegrenzte AX-Zug-Schlange | letzter Punkt, Timeout am Drag-Element |
+| 6 | PinchGate überlebt Handverlust | reset bei leeren Observations |
+| 7 | Kalibrier-Hold ohne Pinzette | Hold nur bei `confirm` |
+| 8 | Export `removeItem` auf Ordner | nur Helios-Dateien überschreiben |
+| 9 | ForEach-IDs L/R | Track-IDs T1/T2 (seit 1.6.0) |
+| 10 | `mirroredFlag` unsynchron | `handlerLock` |
+| 11 | `apply()`-Stapel auf main | `ApplySlot` analog FramePump |
+| 12 | README → falsches Repo | `lolalpha00gamma/Helios` |
+
+Homographie gecacht, Rechte-Banner statt modalem Alert, Klick-Pause/Pinch-ohne-Zug nicht als Fehler, Snap am Engine-Cursor, Wischen ohne Faust, Vision-Revision gepinnt, Luma CIAreaAverage, Fadenkreuz verdrahtet, Clutch `mouseMoved`, Timer/Monitore beim Beenden frei.
+
 ## 1. Bestand vor der Umstellung (1.5.7)
+
 
 Eine Quelle: `VNDetectHumanHandPoseRequest`, 21 Gelenke ohne z.
 One-Euro, Radial-`isExtended`, binäre Posen, PinchGate und 2-Frame-Halter
@@ -118,7 +139,9 @@ Tiefe.
 - 3D-Lift-Vorzeichen ist kinematisch (curl-in / zeitlich) — bei einer
   völlig neuen Pose ohne History kann z kippen, bis das HMM hält.
 - Tests laufen nicht in dieser Linux-Sandbox (kein Vision.framework).
-  Lokal: `swift macos/HeliosTests/CoordTests.swift` und der GestureTests-@main.
+  Lokal: `swiftc macos/Helios/CoordMath.swift macos/HeliosTests/CoordTests.swift`
+  plus GestureTests mit AspectSpace/HandEstimate/EstimateFusion/PoseHMM/
+  GestureClassifier (siehe CI-Workflow).
 
 ## 6. Dateien
 
@@ -135,6 +158,6 @@ Tiefe.
 | `LandmarkSmoothing.swift` | One-Euro + 3,5·Median |
 | `GestureClassifier.swift` | Winkel, Softmax, robustes palmScale |
 | `HandTracker.swift` | Track-ID, Unterarm-Prior, Fusion |
-| `GestureEngine.swift` | Handbreiten + 1.5.7-Sicherheit + p ≥ 0,70 |
+| `GestureEngine.swift` | Handbreiten + 1.5.7-Sicherheit + p ≥ 0,62 |
 | `CameraSession.swift` | Depth-Output, Format mit Depth-Bonus |
 | `SessionExport.swift` | `z`, `label` für Create ML |

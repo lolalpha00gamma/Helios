@@ -92,14 +92,14 @@ final class HandTracker: @unchecked Sendable {
     private let request: VNDetectHumanHandPoseRequest = {
         let r = VNDetectHumanHandPoseRequest()
         r.maximumHandCount = 2
-        r.usesCPUOnly = false
+        r.revision = VNDetectHumanHandPoseRequestRevision1
         MetalHub.bindVision(r)
         return r
     }()
 
     private let bodyRequest: VNDetectHumanBodyPoseRequest = {
         let r = VNDetectHumanBodyPoseRequest()
-        r.usesCPUOnly = false
+        r.revision = VNDetectHumanBodyPoseRequestRevision1
         MetalHub.bindVision(r)
         return r
     }()
@@ -146,7 +146,12 @@ final class HandTracker: @unchecked Sendable {
         }
         let observations = request.results ?? []
         if observations.isEmpty {
+            for i in tracks.indices {
+                tracks[i].pinch.reset()
+                tracks[i].hmm.reset()
+            }
             tracks.removeAll { now - $0.lastSeen > 0.18 }
+            lastFusion = nil
             return []
         }
 
@@ -294,6 +299,9 @@ final class HandTracker: @unchecked Sendable {
             )
         }
         tracks.removeAll { now - $0.lastSeen > 0.18 }
+        for i in tracks.indices where tracks[i].lastSeen != now {
+            tracks[i].pinch.reset()
+        }
         return hands
     }
 

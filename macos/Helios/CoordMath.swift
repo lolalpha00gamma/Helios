@@ -126,8 +126,8 @@ enum GestureMath {
     static let swipeOpenNeed = 3
     static let thumbsHold: TimeInterval = 0.70
     /// Sitzung 12:59:50: Öffnen nach Pinzette wurde zum Wischen, Rückkehr zur Gegenrichtung.
-    static let swipeMuteAfterPinch: TimeInterval = 0.75
-    static let swipeReverseLock: TimeInterval = 1.10
+    static let swipeMuteAfterPinch: TimeInterval = 0.45
+    static let swipeReverseLock: TimeInterval = 0.55
     /// 0,18 Handbreiten war Palm-Zittern. Klick braucht eine stillstehende Pinzette.
     static let pinchDragNeed: CGFloat = 0.45
     static let pinchClickMinHold: TimeInterval = 0.05
@@ -139,8 +139,16 @@ enum GestureMath {
     static let twoPinchScaleNeed: CGFloat = 0.55
     static let twoPinchReverseMul: CGFloat = 1.8
     static let peaceHold: TimeInterval = 1.10
-    static let chromeMagnet: CGFloat = 28
-    static let chromeLoupe: CGFloat = 64
+    static let chromeMagnet: CGFloat = 48
+    static let chromeLoupe: CGFloat = 168
+    static let chromeSpreadGap: CGFloat = 118
+    static let chromeHit: CGFloat = 80
+    static let chromeDwellHold: TimeInterval = 0.55
+    static let swipeMinDx: CGFloat = 0.55
+    static let swipeAxis: CGFloat = 1.15
+    static let swipeMinSpeed: CGFloat = 1.8
+    static let swipeMinDt: TimeInterval = 0.06
+    static let swipeMaxDt: TimeInterval = 0.55
     static let calibMinArea: CGFloat = 0.012
     static let calibCornerSep: CGFloat = 0.06
     static let hybridBand: CGFloat = 0.15
@@ -220,7 +228,15 @@ enum GestureMath {
         }
         let speedNeed = flingMinSpeed * (afterDrag ? flingAfterDragMul : 1)
         let distNeed = flingMinDist * (afterDrag ? flingAfterDragDist : 1)
-        return classifyFling(dx: dx, dy: dy, speed: speed, dist: dist, speedNeed: speedNeed, distNeed: distNeed)
+        return classifyFling(
+            dx: dx,
+            dy: dy,
+            speed: speed,
+            dist: dist,
+            speedNeed: speedNeed,
+            distNeed: distNeed,
+            afterDrag: afterDrag
+        )
     }
 
     static func classifyFling(
@@ -229,9 +245,13 @@ enum GestureMath {
         speed: CGFloat,
         dist: CGFloat,
         speedNeed: CGFloat = flingMinSpeed,
-        distNeed: CGFloat = flingMinDist
+        distNeed: CGFloat = flingMinDist,
+        afterDrag: Bool = false
     ) -> FlingKind {
         guard speed > speedNeed, dist > distNeed else { return .none }
+        if afterDrag, abs(dx) > 0.28, abs(dy) > 0.28 {
+            return .none
+        }
         if abs(dy) >= abs(dx) {
             if dy > 0.55 { return .throwUp }
             if dy < -0.35 { return .minimize }
@@ -265,6 +285,27 @@ enum GestureMath {
             return true
         }
         return false
+    }
+
+    static func spreadChrome(centers: [CGPoint], gap: CGFloat = chromeSpreadGap, hit: CGFloat = chromeHit) -> [CGRect] {
+        guard !centers.isEmpty else { return [] }
+        let sorted = centers.enumerated().sorted { $0.element.x < $1.element.x }
+        let midX = centers.map(\.x).reduce(0, +) / CGFloat(centers.count)
+        let midY = centers.map(\.y).reduce(0, +) / CGFloat(centers.count) + 56
+        let total = gap * CGFloat(max(0, centers.count - 1))
+        let x0 = midX - total / 2
+        var out = Array(repeating: CGRect.zero, count: centers.count)
+        for (i, pair) in sorted.enumerated() {
+            let c = CGPoint(x: x0 + CGFloat(i) * gap, y: midY)
+            out[pair.offset] = CGRect(x: c.x - hit / 2, y: c.y - hit / 2, width: hit, height: hit)
+        }
+        return out
+    }
+
+    /// Totzone auf die Strecke, nicht je Achse — sonst stirbt Schrägzug.
+    static func deadzone2D(dx: CGFloat, dy: CGFloat, dead: CGFloat) -> CGPoint {
+        if hypot(dx, dy) < dead { return .zero }
+        return CGPoint(x: dx, y: dy)
     }
 
     static func magnet(cursor: CGPoint, targets: [CGPoint], radius: CGFloat = chromeMagnet) -> CGPoint? {

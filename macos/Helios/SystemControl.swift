@@ -16,8 +16,9 @@ struct ChromeKnob: Equatable {
 
     var kind: Kind
     var quartz: CGRect
+    var hit: CGRect
 
-    var center: CGPoint { CGPoint(x: quartz.midX, y: quartz.midY) }
+    var center: CGPoint { CGPoint(x: hit.midX, y: hit.midY) }
 
     var labelDE: String {
         switch kind {
@@ -186,8 +187,12 @@ final class SystemControl {
             else { continue }
             let cocoa = CGRect(origin: pos, size: size)
             let q = ScreenGeometry.quartzRect(fromCocoa: cocoa)
-            out.append(ChromeKnob(kind: kind, quartz: q))
+            out.append(ChromeKnob(kind: kind, quartz: q, hit: q))
             seen.insert(kind)
+        }
+        let spread = GestureMath.spreadChrome(centers: out.map { CGPoint(x: $0.quartz.midX, y: $0.quartz.midY) })
+        for i in out.indices where i < spread.count {
+            out[i].hit = spread[i]
         }
         return out
     }
@@ -276,6 +281,14 @@ final class SystemControl {
     func closeFocused() -> ActionResult {
         guard let win = targetWindow() else { return .fail("Kein Fenster") }
         return pressButton(win, "AXCloseButton" as CFString)
+    }
+
+    @discardableResult
+    func zoomFocused() -> ActionResult {
+        guard let win = targetWindow() else { return .fail("Kein Fenster") }
+        let full = pressButton(win, "AXFullScreenButton" as CFString)
+        if full.ok { return full }
+        return pressButton(win, "AXZoomButton" as CFString)
     }
 
     @discardableResult
@@ -385,6 +398,25 @@ final class SystemControl {
         guard let script = NSAppleScript(source: source) else { return false }
         let result = script.executeAndReturnError(&err)
         return err == nil && result.booleanValue
+    }
+
+    @discardableResult
+    func typeKey(_ code: CGKeyCode, flags: CGEventFlags = []) -> ActionResult {
+        let now = CACurrentMediaTime()
+        guard now - lastKey > 0.08 else { return .skip("Taste-Pause") }
+        lastKey = now
+        guard allowsInjection else { return .fail("Maus hat Vorrang") }
+        let src = CGEventSource(stateID: .hidSystemState)
+        guard let down = CGEvent(keyboardEventSource: src, virtualKey: code, keyDown: true),
+              let up = CGEvent(keyboardEventSource: src, virtualKey: code, keyDown: false)
+        else {
+            return .fail("CGEvent Taste")
+        }
+        down.flags = flags
+        up.flags = flags
+        down.post(tap: .cghidEventTap)
+        up.post(tap: .cghidEventTap)
+        return .ok("\(code)")
     }
 
     @discardableResult

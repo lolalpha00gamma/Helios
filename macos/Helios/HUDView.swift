@@ -28,6 +28,10 @@ struct HUDView: View {
 
                 chromeLoupe
 
+                if isPrimary {
+                    airKeyboard
+                }
+
                 trashZone
 
                 if isPrimary {
@@ -310,6 +314,7 @@ struct HUDView: View {
             Text("Pinzette kurz    Klick")
             Text("Pinzette ziehen  Fenster")
             Text("Werfen nur Ruck  Dock / Mini")
+            Text("Zeigen 0,4 s     Tastatur")
             Text("Offene Hand wischen  App")
             Text("Zwei Hände        zwei Zeiger")
             Text("Pinzette + Ring  Rechtsklick")
@@ -392,23 +397,78 @@ struct HUDView: View {
                     ForEach(Array(knobs.enumerated()), id: \.offset) { _, knob in
                         let local = ScreenGeometry.local(quartz: knob.center, on: screenFrame)
                         let hot = state.chromeHot == knob.labelDE
-                        VStack(spacing: 4) {
-                            Circle()
-                                .fill(hot ? HeliosTheme.amber : HeliosTheme.void.opacity(0.72))
-                                .overlay(
-                                    Circle().stroke(hot ? HeliosTheme.amber : HeliosTheme.cyan, lineWidth: hot ? 4 : 2)
-                                )
-                                .frame(width: hot ? 54 : 44, height: hot ? 54 : 44)
+                        let size: CGFloat = hot ? 88 : 76
+                        VStack(spacing: 6) {
+                            ZStack {
+                                Circle()
+                                    .fill(hot ? HeliosTheme.amber : HeliosTheme.void.opacity(0.78))
+                                    .overlay(
+                                        Circle().stroke(hot ? HeliosTheme.amber : HeliosTheme.cyan, lineWidth: hot ? 5 : 2)
+                                    )
+                                    .frame(width: size, height: size)
+                                if hot, state.chromeDwell > 0.02 {
+                                    Circle()
+                                        .trim(from: 0, to: max(0.02, state.chromeDwell))
+                                        .stroke(HeliosTheme.cyan, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                                        .rotationEffect(.degrees(-90))
+                                        .frame(width: size - 10, height: size - 10)
+                                }
+                                Text(knob.kind == .close ? "✕" : (knob.kind == .min ? "—" : "+"))
+                                    .font(.system(size: hot ? 28 : 24, weight: .bold, design: .rounded))
+                                    .foregroundStyle(hot ? HeliosTheme.void : HeliosTheme.cyan)
+                            }
                             Text(knob.labelDE.uppercased())
-                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                .font(.system(size: 12, weight: .bold, design: .monospaced))
                                 .foregroundStyle(hot ? HeliosTheme.amber : HeliosTheme.cyan)
-                                .padding(.horizontal, 6)
-                                .padding(.vertical, 2)
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 3)
                                 .background(HeliosTheme.panel)
                         }
-                        .position(x: local.x, y: local.y + 36)
+                        .position(x: local.x, y: local.y)
                     }
                 }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var airKeyboard: some View {
+        if state.keyboardVisible {
+            ZStack {
+                ForEach(state.keyboardHits) { key in
+                    let r = ScreenGeometry.localRect(quartz: key.frame, on: screenFrame)
+                    let hot = state.keyboardHover == key.id
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(hot ? HeliosTheme.amber.opacity(0.92) : HeliosTheme.void.opacity(0.78))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8)
+                                    .stroke(hot ? HeliosTheme.amber : HeliosTheme.cyan.opacity(0.55), lineWidth: hot ? 3 : 1)
+                            )
+                        if hot, state.keyboardDwell > 0.02 {
+                            RoundedRectangle(cornerRadius: 8)
+                                .trim(from: 0, to: max(0.02, state.keyboardDwell))
+                                .stroke(HeliosTheme.cyan, lineWidth: 3)
+                        }
+                        Text(key.label)
+                            .font(.system(size: min(22, max(13, r.height * 0.42)), weight: .bold, design: .monospaced))
+                            .foregroundStyle(hot ? HeliosTheme.void : .white)
+                    }
+                    .frame(width: r.width, height: r.height)
+                    .position(x: r.midX, y: r.midY)
+                }
+                VStack(spacing: 4) {
+                    Text("LUFT-TASTATUR  ·  PINZETTE TIPPT  ·  FAUST SCHLIESST")
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundStyle(HeliosTheme.cyan)
+                    Text("Zeigen 0,4 s öffnet")
+                        .font(.system(size: 10, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.7))
+                }
+                .padding(10)
+                .background(HeliosTheme.panel)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
+                .padding(.bottom, 8)
             }
         }
     }

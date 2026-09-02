@@ -1,4 +1,4 @@
-# Helios **1.6.17**
+# Helios **1.6.18**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,15 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.18
+
+Schließen/Vollbild per Verweilen, große getrennte Ampel-Knöpfe, Luft-Tastatur, Schrägzug, Wischen.
+
+- **Ampel.** Schließen, Minimieren, Vollbild liegen 118 px auseinander, 80 px groß. 0,55 s Verweilen löst aus — kein Pinzetten-Zielen auf 12-px-Punkte.
+- **Luft-Tastatur.** Zeigen 0,4 s öffnet QWERTZ. Pinzette tippt, Faust schließt. Menü ☀ oder Umschalt-⌘K.
+- **Schrägzug.** Totzone gilt der Strecke, nicht je Achse. Seitwärts und gleichzeitig hoch/runter geht. Diagonales Loslassen dockt nicht mehr falsch.
+- **Wischen.** Offene Hand, weichere Schwelle, kürzere Mute nach Pinzette.
 
 ## Neu in 1.6.17
 

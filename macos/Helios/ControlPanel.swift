@@ -82,6 +82,22 @@ struct ControlPanel: View {
             .toggleStyle(.switch)
 
             Toggle(isOn: Binding(
+                get: { state.keyboardVisible },
+                set: { on in
+                    if on != state.engine.keyboardVisible { state.engine.toggleKeyboard() }
+                }
+            )) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Luft-Tastatur")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("Zeigen 0,4 s öffnet QWERTZ in der Luft. Pinzette tippt, Faust schließt.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.switch)
+
+            Toggle(isOn: Binding(
                 get: { state.testMode },
                 set: { state.setTestMode($0) }
             )) {

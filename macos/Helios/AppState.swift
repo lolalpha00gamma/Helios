@@ -65,6 +65,11 @@ final class AppState: ObservableObject {
     @Published var grabTargetName = ""
     @Published var chromeKnobs: [ChromeKnob] = []
     @Published var chromeHot = ""
+    @Published var chromeDwell: CGFloat = 0
+    @Published var keyboardVisible = false
+    @Published var keyboardHits: [AirKeyHit] = []
+    @Published var keyboardHover = ""
+    @Published var keyboardDwell: CGFloat = 0
     @Published var hideConsoleWhenArmed = false
     @Published var cameraDevices: [CameraChoice] = []
     @Published var selectedCameraID = ""
@@ -601,9 +606,20 @@ final class AppState: ObservableObject {
                 now: now
             )
         }
-        if engine.chromeKnobs != chromeKnobs || engine.chromeHot != chromeHot {
+        if engine.chromeKnobs != chromeKnobs || engine.chromeHot != chromeHot || engine.chromeDwell != chromeDwell {
             chromeKnobs = engine.chromeKnobs
             chromeHot = engine.chromeHot
+            chromeDwell = engine.chromeDwell
+        }
+        if engine.keyboardVisible != keyboardVisible
+            || engine.keyboardHover != keyboardHover
+            || engine.keyboardDwell != keyboardDwell
+            || engine.keyboardHits != keyboardHits
+        {
+            keyboardVisible = engine.keyboardVisible
+            keyboardHits = engine.keyboardHits
+            keyboardHover = engine.keyboardHover
+            keyboardDwell = engine.keyboardDwell
         }
         if hideConsoleWhenArmed, engine.mode == .armed, !testMode {
             if lastArmedConsole != .armed {

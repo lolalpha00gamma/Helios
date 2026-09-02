@@ -510,6 +510,52 @@ enum CoordTests {
             fails += 1
         }
 
+        if GestureMath.chromeSpreadGap < 96 {
+            fputs("FAIL Chrome-Abstand zu eng\n", stderr)
+            fails += 1
+        }
+        if GestureMath.chromeHit < 64 {
+            fputs("FAIL Chrome-Treffer zu klein\n", stderr)
+            fails += 1
+        }
+        let spread = GestureMath.spreadChrome(centers: [
+            CGPoint(x: 100, y: 80),
+            CGPoint(x: 118, y: 80),
+            CGPoint(x: 136, y: 80)
+        ])
+        if spread.count != 3 {
+            fputs("FAIL Spread 3 Knöpfe\n", stderr)
+            fails += 1
+        } else if spread[1].midX - spread[0].midX < 90 {
+            fputs("FAIL Spread-Abstand \(spread[1].midX - spread[0].midX)\n", stderr)
+            fails += 1
+        }
+        let z = GestureMath.deadzone2D(dx: 0.04, dy: 0.01, dead: 0.02)
+        if z == .zero {
+            fputs("FAIL Schrägzug darf nicht je Achse sterben\n", stderr)
+            fails += 1
+        }
+        let still = GestureMath.deadzone2D(dx: 0.004, dy: 0.003, dead: 0.02)
+        if still != .zero {
+            fputs("FAIL kleine Strecke bleibt tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.swipeMinDx > 0.70 {
+            fputs("FAIL Wischen-Schwelle zu hoch\n", stderr)
+            fails += 1
+        }
+        if GestureMath.swipeAxis > 1.4 {
+            fputs("FAIL Wischen zu streng in der Achse\n", stderr)
+            fails += 1
+        }
+        let diag = GestureMath.classifyFling(
+            dx: 1.2, dy: 1.1, speed: 8, dist: 2, afterDrag: true
+        )
+        if diag != .none {
+            fputs("FAIL Schrägzug nach Drag ist Ablegen, kein Dock\n", stderr)
+            fails += 1
+        }
+
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)
             exit(1)

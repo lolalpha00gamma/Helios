@@ -75,6 +75,10 @@ struct HeliosApp: App {
                     .keyboardShortcut("s", modifiers: [.command, .shift])
                 Button("Idle") { state.engine.forceIdle() }
                     .keyboardShortcut("i", modifiers: [.command, .shift])
+                Button(state.keyboardVisible ? "Tastatur aus" : "Tastatur in der Luft") {
+                    state.engine.toggleKeyboard()
+                }
+                .keyboardShortcut("k", modifiers: [.command, .shift])
                 Button(state.testMode ? "Testmodus aus" : "Testmodus an") {
                     state.setTestMode(!state.testMode)
                 }
@@ -251,6 +255,9 @@ private struct MenuBarMenu: View {
         Button("Idle") { state.engine.forceIdle() }
         Button(state.testMode ? "Testmodus aus" : "Testmodus an") {
             state.setTestMode(!state.testMode)
+        }
+        Button(state.keyboardVisible ? "Tastatur aus" : "Tastatur in der Luft") {
+            state.engine.toggleKeyboard()
         }
         Divider()
         Button("Helios beenden") {

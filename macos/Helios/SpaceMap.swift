@@ -63,6 +63,8 @@ enum CalibCorner: Int, CaseIterable, Codable {
 struct SpaceMap: Codable {
     var palms: [XY]
     var displayID: UInt32?
+    /// Index ins 3×3-Gitter, parallel zu `palms`. Nil = alte Karten (4 Ecken oder 9 in Reihenfolge).
+    var gridIndices: [Int]?
 
     var isReady: Bool { palms.count >= 4 }
     var isNinePoint: Bool { palms.count >= 9 }
@@ -112,6 +114,10 @@ struct SpaceMap: Codable {
     }
 
     func destinations() -> [CGPoint] {
+        let grid = Self.screenGrid(displayID: displayID)
+        if let idx = gridIndices, idx.count == palms.count, !idx.isEmpty {
+            return idx.map { grid[min(max(0, $0), 8)] }
+        }
         if palms.count >= 9 {
             return Self.screenGrid(displayID: displayID)
         }
@@ -303,6 +309,17 @@ struct SpaceMap: Codable {
             }
         }
     }
+
+    static func isCalibrated(displayID: UInt32) -> Bool {
+        load(displayID: displayID)?.isReady == true
+    }
+
+    static func calibratedIDs() -> [UInt32] {
+        NSScreen.screens.compactMap { screen in
+            let id = ScreenGeometry.displayID(of: screen)
+            return isCalibrated(displayID: id) ? id : nil
+        }
+    }
 }
 
 @MainActor
@@ -323,9 +340,10 @@ final class CalibrationSession {
     private var needMove = false
     private(set) var hint = "Pinzette an der Ecke halten"
     private(set) var rejected = false
+    private(set) var skipped: Set<CalibSpot> = []
 
     var progress: CGFloat { min(1, hold / 0.9) }
-    var remaining: Int { sequence.count - samples.count }
+    var remaining: Int { max(0, sequence.count - samples.count - skipped.count) }
     var totalSpots: Int { sequence.count }
     var corner: CalibCorner {
         switch spot {
@@ -345,6 +363,7 @@ final class CalibrationSession {
         spot = sequence[0]
         hold = 0
         samples.removeAll()
+        skipped.removeAll()
         lastPalm = nil
         lastCapture = 0
         needRelease = false
@@ -357,6 +376,48 @@ final class CalibrationSession {
     func cancel() {
         active = false
         hold = 0
+    }
+
+    /// Punkt hinter dem Deckel / außerhalb der Kamera: überspringen, Homographie aus dem Rest.
+    func skip() {
+        guard active else { return }
+        skipped.insert(spot)
+        hold = 0
+        lastPalm = nil
+        needRelease = false
+        needMove = false
+        rejected = false
+        hint = "Übersprungen: \(spot.titleDE)"
+        _ = advanceOrFinish()
+    }
+
+    func liveRMSE() -> CGFloat? {
+        guard samples.count >= 4 else { return nil }
+        var src: [CGPoint] = []
+        var dst: [CGPoint] = []
+        let grid = SpaceMap.screenGrid(displayID: displayID)
+        let corners = SpaceMap.screenCorners(displayID: displayID)
+        for (spot, palm) in samples {
+            src.append(palm)
+            if ninePoint {
+                dst.append(grid[min(max(0, spot.gridIndex), 8)])
+            } else {
+                switch spot {
+                case .topLeft: dst.append(corners[0])
+                case .topRight: dst.append(corners[1])
+                case .bottomRight: dst.append(corners[2])
+                default: dst.append(corners[3])
+                }
+            }
+        }
+        guard let H = SpaceMap.homography(from: src, to: dst) else { return nil }
+        var acc: CGFloat = 0
+        for i in src.indices {
+            let p = SpaceMap.project(H, src[i])
+            let e = hypot(p.x - dst[i].x, p.y - dst[i].y)
+            acc += e * e
+        }
+        return sqrt(acc / CGFloat(src.count))
     }
 
     func targetQuartz() -> CGPoint {
@@ -432,16 +493,53 @@ final class CalibrationSession {
         lastPalm = nil
         lastCapture = now
         needRelease = true
+        return advanceOrFinish()
+    }
+
+    @discardableResult
+    private func advanceOrFinish() -> SpaceMap? {
         if seqIndex + 1 < sequence.count {
             seqIndex += 1
             spot = sequence[seqIndex]
-            hint = "OK. Öffnen und nach \(spot.titleDE)"
+            while skipped.contains(spot), seqIndex + 1 < sequence.count {
+                seqIndex += 1
+                spot = sequence[seqIndex]
+            }
+            if skipped.contains(spot) {
+                return finishMap()
+            }
+            hint = samples.isEmpty
+                ? "Punkt \(spot.titleDE): Hand hin, Pinzette 1 s halten"
+                : "OK. Öffnen und nach \(spot.titleDE)"
+            if let err = liveRMSE() {
+                hint += String(format: " · live RMSE %.0f px", err)
+            }
             return nil
         }
-        let pts: [CGPoint]
-        if ninePoint {
-            pts = CalibSpot.allCases.sorted { $0.gridIndex < $1.gridIndex }.compactMap { samples[$0] }
-            guard pts.count == 9, Self.quadArea([pts[0], pts[2], pts[8], pts[6]]) >= 0.035 else {
+        return finishMap()
+    }
+
+    private func finishMap() -> SpaceMap? {
+        let ordered = (ninePoint ? CalibSpot.allCases : CalibSpot.four)
+            .sorted { $0.gridIndex < $1.gridIndex }
+        var pts: [XY] = []
+        var idx: [Int] = []
+        for s in ordered {
+            if let p = samples[s] {
+                pts.append(XY(p))
+                idx.append(s.gridIndex)
+            }
+        }
+        if pts.count < 4 {
+            hint = "Mindestens 4 Punkte, \(pts.count) da. Ecke nachholen."
+            rejected = true
+            active = true
+            return nil
+        }
+        if ninePoint, pts.count >= 4 {
+            let corners = [CalibSpot.topLeft, .topRight, .bottomRight, .bottomLeft]
+            let areaPts = corners.compactMap { samples[$0] }
+            if areaPts.count == 4, Self.quadArea(areaPts) < 0.035 {
                 samples[.center] = nil
                 seqIndex = sequence.count - 1
                 spot = .center
@@ -449,9 +547,9 @@ final class CalibrationSession {
                 rejected = true
                 return nil
             }
-        } else {
-            pts = CalibSpot.four.compactMap { samples[$0] }
-            guard pts.count == 4, Self.quadArea(pts) >= 0.035 else {
+        } else if !ninePoint {
+            let corners = CalibSpot.four.compactMap { samples[$0] }
+            if corners.count == 4, Self.quadArea(corners) < 0.035 {
                 samples[.bottomLeft] = nil
                 seqIndex = sequence.count - 1
                 spot = .bottomLeft
@@ -460,14 +558,15 @@ final class CalibrationSession {
                 return nil
             }
         }
-        let map = SpaceMap(palms: pts.map(XY.init), displayID: displayID)
+        let map = SpaceMap(palms: pts, displayID: displayID, gridIndices: idx)
         map.save()
         active = false
         if let err = map.rmse(), err > 12 {
             hint = String(format: "Fertig · RMSE %.0f px — Mitte nochmal, Cursor springt", err)
             rejected = true
         } else if let err = map.rmse() {
-            hint = String(format: "Fertig · RMSE %.0f px", err)
+            let skipNote = skipped.isEmpty ? "" : " · \(skipped.count) übersprungen"
+            hint = String(format: "Fertig · RMSE %.0f px%@", err, skipNote)
         } else {
             hint = "Fertig"
         }
@@ -475,8 +574,12 @@ final class CalibrationSession {
     }
 
     private func lastSample() -> CGPoint? {
-        guard seqIndex > 0 else { return nil }
-        return samples[sequence[seqIndex - 1]]
+        var i = seqIndex
+        while i > 0 {
+            i -= 1
+            if let p = samples[sequence[i]] { return p }
+        }
+        return nil
     }
 
     private static func quadArea(_ p: [CGPoint]) -> CGFloat {

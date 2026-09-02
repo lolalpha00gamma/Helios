@@ -82,7 +82,14 @@ struct HUDView: View {
                     Text(state.calibSession.hint)
                         .font(.system(size: 13, design: .monospaced))
                         .foregroundStyle(.white.opacity(0.9))
-                    Text("Nur Pinzette bestätigt. Danach öffnen und zur nächsten Ecke gehen.")
+                    if let live = state.liveRMSE {
+                        Text(live > 12
+                             ? String(format: "live RMSE %.0f px — unruhig", live)
+                             : String(format: "live RMSE %.0f px", live))
+                            .font(.system(size: 12, weight: .bold, design: .monospaced))
+                            .foregroundStyle(live > 12 ? HeliosTheme.danger : HeliosTheme.cyan)
+                    }
+                    Text("Nur Pinzette bestätigt. Punkt hinter dem Deckel: überspringen.")
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(HeliosTheme.amber)
                 }
@@ -214,10 +221,13 @@ struct HUDView: View {
                 Text("CURSOR FREI — NACH PROGRAMME ZIEHEN")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(HeliosTheme.amber)
-            } else if state.mousePaused {
-                Text("MAUS HAT VORRANG")
+            } else if let clutch = state.clutchReason {
+                Text(clutch == "Maus" ? "MAUS HAT VORRANG" : "TASTATUR 400 MS")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(HeliosTheme.amber)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .foregroundStyle(HeliosTheme.void)
+                    .background(HeliosTheme.amber)
             } else if state.mode == .armed && state.engineCursor == nil {
                 Text("MAUS FREI — HAND IN DIE KAMERA")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
@@ -237,10 +247,13 @@ struct HUDView: View {
             Text(state.lastAction.uppercased())
                 .font(HeliosTheme.mono)
                 .foregroundStyle(HeliosTheme.amber)
+            if state.peaceProgress > 0.02 {
+                Text(String(format: "AUFNAHME %.0f%%", state.peaceProgress * 100))
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(HeliosTheme.amber)
+            }
             Spacer()
-            Text("\(NSScreen.screens.count) MON")
-                .font(HeliosTheme.mono)
-                .foregroundStyle(HeliosTheme.cyan.opacity(0.7))
+            monitorCompass
             Text(String(format: "%.0f ms   %.0f fps", state.latencyMs, state.fps))
                 .font(HeliosTheme.mono)
                 .foregroundStyle(HeliosTheme.cyan.opacity(0.8))
@@ -256,6 +269,25 @@ struct HUDView: View {
                 )
         )
         .padding(.horizontal, 40)
+    }
+
+    private var monitorCompass: some View {
+        HStack(spacing: 6) {
+            ForEach(Array(NSScreen.screens.enumerated()), id: \.offset) { i, screen in
+                let id = ScreenGeometry.displayID(of: screen)
+                let ready = state.calibratedDisplays.contains(id)
+                Circle()
+                    .fill(ready ? HeliosTheme.cyan : HeliosTheme.danger)
+                    .frame(width: 8, height: 8)
+                    .overlay(
+                        Circle().stroke(HeliosTheme.cyan.opacity(0.4), lineWidth: 1)
+                    )
+                    .help(ready ? "Monitor \(i + 1) kalibriert" : "Monitor \(i + 1) ohne Karte")
+            }
+            Text("\(NSScreen.screens.count) MON")
+                .font(HeliosTheme.mono)
+                .foregroundStyle(HeliosTheme.cyan.opacity(0.7))
+        }
     }
 
     private var statusPill: some View {

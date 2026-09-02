@@ -98,12 +98,13 @@ final class OverlayController {
         phase: GrabPhase,
         hand: String,
         target: String,
-        window: CGRect?
+        window: CGRect?,
+        peace: CGFloat = 0
     ) {
         for (id, view) in markers {
             guard let panel = panels[id] else { continue }
             view.screenFrame = panel.frame
-            view.apply(cursor: cursor, phase: phase, hand: hand, target: target, window: window)
+            view.apply(cursor: cursor, phase: phase, hand: hand, target: target, window: window, peace: peace)
         }
     }
 
@@ -124,6 +125,7 @@ final class HandMarkerView: NSView {
     private let core = CAShapeLayer()
     private let label = CATextLayer()
     private let beam = CAShapeLayer()
+    private let peaceRing = CAShapeLayer()
     private var lastLocal: CGPoint = CGPoint(x: -999, y: -999)
 
     override init(frame: NSRect) {
@@ -139,6 +141,15 @@ final class HandMarkerView: NSView {
         ring.bounds = CGRect(x: 0, y: 0, width: 92, height: 92)
         ring.path = CGPath(ellipseIn: CGRect(x: 2, y: 2, width: 88, height: 88), transform: nil)
         ring.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        peaceRing.fillColor = nil
+        peaceRing.lineWidth = 5
+        peaceRing.lineCap = .round
+        peaceRing.strokeStart = 0
+        peaceRing.strokeEnd = 0
+        peaceRing.bounds = CGRect(x: 0, y: 0, width: 118, height: 118)
+        peaceRing.path = CGPath(ellipseIn: CGRect(x: 4, y: 4, width: 110, height: 110), transform: nil)
+        peaceRing.anchorPoint = CGPoint(x: 0.5, y: 0.5)
+        peaceRing.strokeColor = CGColor(red: 1, green: 0.72, blue: 0.15, alpha: 1)
         core.bounds = CGRect(x: 0, y: 0, width: 14, height: 14)
         core.path = CGPath(ellipseIn: CGRect(x: 0, y: 0, width: 14, height: 14), transform: nil)
         core.anchorPoint = CGPoint(x: 0.5, y: 0.5)
@@ -150,6 +161,7 @@ final class HandMarkerView: NSView {
         label.anchorPoint = CGPoint(x: 0, y: 0.5)
         let host = layer ?? CALayer()
         host.addSublayer(beam)
+        host.addSublayer(peaceRing)
         host.addSublayer(ring)
         host.addSublayer(core)
         host.addSublayer(label)
@@ -166,7 +178,8 @@ final class HandMarkerView: NSView {
         phase: GrabPhase,
         hand: String,
         target: String,
-        window: CGRect?
+        window: CGRect?,
+        peace: CGFloat = 0
     ) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -206,5 +219,13 @@ final class HandMarkerView: NSView {
             beam.isHidden = true
         }
         ring.lineWidth = grab || hold ? 4 : 2.5
+        peaceRing.position = local
+        if peace > 0.02 {
+            peaceRing.isHidden = false
+            peaceRing.strokeEnd = peace
+        } else {
+            peaceRing.isHidden = true
+            peaceRing.strokeEnd = 0
+        }
     }
 }

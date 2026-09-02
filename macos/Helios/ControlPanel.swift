@@ -206,7 +206,15 @@ struct ControlPanel: View {
                         Text("Jetzt: \(state.calibCorner). \(state.calibSession.samples.count)/\(state.calibSession.totalSpots)")
                             .font(.system(size: 11))
                             .foregroundStyle(HeliosTheme.amber)
-                        Button("Abbrechen") { state.cancelCalibration() }
+                        if let live = state.liveRMSE {
+                            Text(String(format: "live RMSE %.0f px", live))
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(live > 12 ? HeliosTheme.amber : HeliosTheme.cyan)
+                        }
+                        HStack {
+                            Button("Diesen Punkt überspringen") { state.skipCalibrationPoint() }
+                            Button("Abbrechen") { state.cancelCalibration() }
+                        }
                     } else {
                         Button("9 Punkte kalibrieren") { state.startCalibration(ninePoint: true) }
                             .buttonStyle(.borderedProminent)
@@ -217,9 +225,23 @@ struct ControlPanel: View {
                         Button("Kalibrierung löschen") { state.clearCalibration() }
                             .buttonStyle(.borderless)
                     }
-                    Text("Je Punkt die Hand dorthin halten, wo für dich die Stelle auf DIESEM Schirm ist. 9 Punkte glätten die Homographie (DLT). Pro Display ein eigenes Gitter.")
+                    Text("Je Punkt die Hand dorthin halten, wo für dich die Stelle auf DIESEM Schirm ist. 9 Punkte glätten die Homographie (DLT). Pro Display ein eigenes Gitter. Punkt hinter dem Deckel überspringen.")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
+                    HStack(spacing: 8) {
+                        ForEach(Array(NSScreen.screens.enumerated()), id: \.offset) { i, screen in
+                            let id = ScreenGeometry.displayID(of: screen)
+                            let ready = SpaceMap.isCalibrated(displayID: id)
+                            HStack(spacing: 4) {
+                                Circle()
+                                    .fill(ready ? HeliosTheme.cyan : HeliosTheme.danger)
+                                    .frame(width: 8, height: 8)
+                                Text("M\(i + 1)")
+                                    .font(.system(size: 10, design: .monospaced))
+                                    .foregroundStyle(ready ? HeliosTheme.cyan : .secondary)
+                            }
+                        }
+                    }
                 }
             }
 

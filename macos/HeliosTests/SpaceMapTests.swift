@@ -83,6 +83,35 @@ enum SpaceMapTests {
             fputs("FAIL 4-point isReady\n", stderr)
             exit(1)
         }
+
+        // Übersprungener Gitterpunkt: gridIndices paart Quelle mit Ziel, nicht Prefix.
+        var skipSrc: [CGPoint] = []
+        var skipDst: [CGPoint] = []
+        var skipIdx: [Int] = []
+        for i in 0..<9 where i != 2 {
+            skipSrc.append(src9[i])
+            skipDst.append(dst9[i])
+            skipIdx.append(i)
+        }
+        guard let Hs = SpaceMap.homography(from: skipSrc, to: skipDst) else {
+            fputs("FAIL skip-8 homography nil\n", stderr)
+            exit(1)
+        }
+        let qs = apply(Hs, CGPoint(x: 0.5, y: 0.5))
+        if abs(qs.x - 500) > 2.0 || abs(qs.y - 350) > 2.0 {
+            fputs("FAIL skip-8 \(qs)\n", stderr)
+            exit(1)
+        }
+        var mapSkip = SpaceMap(palms: skipSrc.map(XY.init), displayID: nil, gridIndices: skipIdx)
+        if !mapSkip.isReady {
+            fputs("FAIL skip-8 isReady\n", stderr)
+            exit(1)
+        }
+        let dest = mapSkip.destinations()
+        if dest.count != 8 {
+            fputs("FAIL skip-8 destinations \(dest.count)\n", stderr)
+            exit(1)
+        }
         print("SpaceMapTests OK")
     }
 

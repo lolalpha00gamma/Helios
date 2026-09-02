@@ -49,6 +49,14 @@ final class SystemControl {
         return true
     }
 
+    /// Sichtbar im HUD: warum Injektion gerade steht.
+    var clutchReason: String? {
+        if fromInstallMedia { return nil }
+        if CACurrentMediaTime() < pauseUntil { return "Maus" }
+        if CACurrentMediaTime() < keyPauseUntil { return "Tastatur" }
+        return nil
+    }
+
     func startClutch() {
         guard monitors.isEmpty else { return }
         let mouse: NSEvent.EventTypeMask = [.leftMouseDragged, .mouseMoved]

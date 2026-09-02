@@ -1,4 +1,4 @@
-# Helios **1.6.6**
+# Helios **1.6.7**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,17 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.7
+
+1.6.6 hat Replay und den Profil-Katalog — das Fenster blieb trotzdem stehen, sobald der Griff saß.
+
+- **`driveGrab` folgt wirklich.** Die fehlende Klammer hat `updateWindowDrag` nur im Begin-Frame ausgeführt. Jetzt jeder Frame, solange `isDragging`.
+- **Profil bricht Drag ab.** Safari-Fokus mitten im Zug beendet AX, statt das Fenster in den Browser zu ziehen.
+- **Lock-Reset.** `dominantLostAt` überlebte Idle nicht mehr.
+- **RMSE live** im HUD ab 4 Punkten. Punkt hinter dem Deckel **überspringen** — Homographie aus den restlichen Paaren.
+- **Peace-Ring** 0,9 s am Cursor. **Clutch-LED** Maus/Tastatur. **Monitor-Kompass** grün/rot.
+- **Handrücken 0,6 s** → Idle ohne Not-Aus. **luma < 0,20** keine Systemaktion.
 
 ## Neu in 1.6.6
 

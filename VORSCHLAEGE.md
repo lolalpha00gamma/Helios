@@ -1,6 +1,21 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.6**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+Stand: **1.6.7**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+
+## In 1.6.7 erledigt
+
+Warum 1.6.6 das Fenster anfasste und dann stehen ließ: `driveGrab` hat die schließende Klammer nach `beginWindowDrag` verloren. `updateWindowDrag` hing im `if pinchBecameDrag, !isDragging` — nach dem ersten erfolgreichen Griff nie wieder.
+
+1. **`driveGrab`-Klammer.** `updateWindowDrag` läuft jeden Frame, solange `isDragging`. Das Fenster folgt der Hand.
+2. **AX-Drag hart abbrechen**, wenn das Profil Greifen blockt, während `isDragging` schon true ist (App-Wechsel mitten im Zug).
+3. **`dominantLostAt` / `lastPreferred` im `reset()`.** Lock-Hysterese überlebte Idle und stahl den Cursor nach Not-Aus.
+4. **RMSE live** während der 9 Punkte, sobald ≥ 4 Samples da sind — nicht erst am Ende.
+5. **Punkt überspringen.** Ecke hinter dem MacBook-Deckel fällt raus; Homographie aus den restlichen Paaren (`gridIndices`).
+6. **Peace-Hold-Ring** am Cursor (0,9 s `strokeEnd`) plus Prozent in der Top-Bar.
+7. **Clutch-LED.** „Maus hat Vorrang“ / „Tastatur 400 ms“ im HUD, nicht nur im Log.
+8. **HUD-Kompass.** Pro Monitor grün/rot, ob `helios.spaceMap.{id}` existiert.
+9. **Palm-unten-Rest.** Offene Hand, Finger nach unten, 0,6 s → Idle ohne Kill-Latch.
+10. **Low-Light-Gate.** `luma < 0,20` blockt Systemaktionen, Cursor bleibt.
 
 ## In 1.6.6 erledigt
 
@@ -78,13 +93,11 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 
 ## Nächste Fixes (klein, hoher Nutzen)
 
-- **RMSE live im HUD** während der 9 Punkte, nicht erst am Ende.
-- **AX-Drag hart abbrechen**, wenn das Profil Greifen blockt, während `isDragging` schon true ist.
-- **Peace-Hold visuell.** 0,9 s Countdown am Cursor, sonst kommt die Aufnahme überraschend.
-- **Clutch-LED im HUD.** „Maus hat Vorrang“ / „Tastatur 400 ms“ sichtbar, nicht nur im Log.
-- **Punkt überspringen** im 9-Gitter, wenn eine Ecke hinter dem MacBook-Deckel liegt.
-- **HUD-Kompass** welcher Monitor kalibriert ist (rot/grün).
-- **Palm-unten-Rest** (Handrücken 0,6 s) = Idle ohne Kill.
+- **AX-Fenster unter der Hand, nicht frontmost**, wenn sich Fenster stapeln (Underlap).
+- **Peace-Cooldown sichtbar** (4 s nach Aufnahme — HUD-Chip, sonst denkt man es sei tot).
+- **Kalibrier-Punkt zurück** (Undo des letzten Samples), nicht nur Skip/Cancel.
+- **Clutch-Restzeit** als Ring, nicht nur Label.
+- **Low-Light weich:** luma 0,20–0,28 nur Klick dämpfen, Scroll erlauben.
 
 ## Größere Erweiterungen
 
@@ -112,8 +125,15 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Accessibility-Zoom folgt.** Wenn Zoom an ist, bewegt die Palme den Fokus-Rect, nicht den 1:1-Cursor.
 - **Per-Space Homography.** Nach Mission-Control-Wechsel die Karte des aktiven Space, nicht die des Displays.
 - **Haptic über Trackpad**, wenn ein Klick sitzt (Force Touch, aus by default).
-- **Low-Light-Gate.** Bei luma < 0,20 keine Systemaktion, nur Cursor — Vision halluziniert Fäuste.
-- **Fenster-Underlap.** Greifen trifft das AX-Fenster unter der Hand, nicht das frontmost, wenn sie sich stapeln.
+- **Menu-Bar Extra.** Helios-Menü ohne HUD: Scharf/Idle, letzte Aktion, luma.
+- **Per-App Pointer-Gain.** Xcode feiner, Finder grober — analog invertScroll.
+- **Edge-Rail Snap während Drag.** Langsames Pinch an der Bildschirmkante dockt, ohne Werfen.
+- **Zwei-Display-Warp.** Unkalibrierter Zweitmonitor interpoliert aus dem kalibrierten, statt Relativsprung.
+- **Session-Heatmap.** Palm-Dichte über 5 min als Debug, wo die Homographie wehtut.
+- **Siri-Remote / Stream Deck** als zweiter Kill-Pfad, wenn die Kamera zu ist.
+- **Hands-over-keyboard detector.** Tastatur-Clutch länger, solange Handgelenke über der Tastatur sind (Körperpose).
+- **Pinch-Jitter-Floor nach Drag-Start.** 80 ms kein updateWindowDrag unter 4 px, sonst zittert das AX-Fenster.
+- **Kalibrier-Wizard auf dem richtigen Display.** HUD-Prompt „dieses Fenster auf den Schirm ziehen, den du meinst“.
 
 ## Nicht tun
 
@@ -129,3 +149,5 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - Kill bei zwei offenen Händen unabhängig von Bewegung (frisst Scroll).
 - Greifen wieder an `perform()` vorbei (`beginWindowDrag` direkt).
 - Peace-Logits ohne Daumen- und Spreizungs-Term.
+- `updateWindowDrag` wieder in den begin-if nesten.
+- `dominantLostAt` im Reset vergessen.

@@ -224,6 +224,9 @@ final class GestureEngine {
     var dwellEnabled = false
     var profile = AppGestureProfile.standard
     var fusionTemperature: Double = 0.75
+    var luma: CGFloat = 1
+    var peaceProgress: CGFloat = 0
+    var clutchReason: String?
 
     private var fistSince: TimeInterval?
     private var fistLostAt: TimeInterval?
@@ -268,6 +271,7 @@ final class GestureEngine {
     private var lastPreferred: TrackedHand?
     private var twoPinchLeftX: CGFloat?
     private var twoPinchRightX: CGFloat?
+    private var palmRestSince: TimeInterval?
     private let system = SystemControl()
     var onLog: ((String, ProtocolKind, Int?) -> Void)?
     var focused: FocusedTarget?
@@ -316,8 +320,13 @@ final class GestureEngine {
         killSample = nil
         dominantLockID = nil
         dominantLockSince = nil
+        dominantLostAt = nil
+        lastPreferred = nil
         twoPinchLeftX = nil
         twoPinchRightX = nil
+        palmRestSince = nil
+        peaceProgress = 0
+        clutchReason = nil
         system.endWindowDrag()
         cursor = nil
         twoHandSpan = nil
@@ -331,6 +340,8 @@ final class GestureEngine {
     func tick(hands incoming: [TrackedHand], now: TimeInterval) {
         let hands = incoming.filter { $0.joints.count >= 8 && $0.meanConfidence >= 0.18 }
         if hands.isEmpty {
+            clutchReason = system.clutchReason
+            peaceProgress = 0
             if lastHandSeen > 0, now - lastHandSeen < 0.18, pinchHeld {
                 dragging = pinchHeld
                 return
@@ -352,6 +363,8 @@ final class GestureEngine {
             ringPinchSince = nil
             dwellSince = nil
             dwellPalm = nil
+            palmRestSince = nil
+            peaceProgress = 0
             trashHot = false
             dragging = false
             grabPhase = .none
@@ -365,6 +378,8 @@ final class GestureEngine {
         lastHandSeen = now
         lastPalmWidth = hands.map(\.palmWidth).max() ?? lastPalmWidth
         mousePaused = !system.allowsInjection && !system.fromInstallMedia
+        clutchReason = system.clutchReason
+        peaceProgress = 0
 
         if system.fromInstallMedia {
             lastAction = "Cursor frei — Helios nach Programme ziehen"
@@ -422,6 +437,13 @@ final class GestureEngine {
         }
         handleArming(hands: hands, now: now)
 
+        if system.isDragging, !profile.allows(.grab), !testMode {
+            system.endWindowDrag()
+            pinchBecameDrag = false
+            lastAction = "Greifen — \(profile.name) blockt"
+            onLog?("Greifen — Profil \(profile.name) bricht Drag ab", .blocked, nil)
+        }
+
         if !live {
             placeCursor(primary)
             grabPhase = (primary.pose == .pinch || primary.pose == .fist) ? .hold : .follow
@@ -466,6 +488,7 @@ final class GestureEngine {
         drivePeace(actor, now: now)
         driveThumbs(actor, now: now)
         driveDwell(actor, now: now)
+        drivePalmRest(actor, now: now)
         dragging = pinchHeld
         if system.isDragging {
             grabPhase = .grab
@@ -523,6 +546,11 @@ final class GestureEngine {
         if systemAction, let kind = GestureAction.from(name: name), !profile.allows(kind), !testMode {
             lastAction = "\(name) — \(profile.name) blockt"
             onLog?("\(name) — Profil \(profile.name)", .blocked, Int(confidence * 100))
+            return
+        }
+        if systemAction, luma < 0.20, !testMode {
+            lastAction = "\(name) — zu dunkel"
+            onLog?("\(name) — luma \(String(format: "%.2f", Double(luma))) < 0,20", .blocked, Int(confidence * 100))
             return
         }
         if systemAction, confidence < 0.62, !testMode {
@@ -886,7 +914,15 @@ final class GestureEngine {
                 perform("Greifen", confidence: Float(hand.poseProb)) {
                     system.beginWindowDrag(at: at)
                 }
-            if !testMode, system.isDragging {
+            }
+            // Drag muss jeden Frame folgen — nicht nur im Frame, der beginWindowDrag
+            // aufruft. Vor 1.6.7 fehlte die schließende Klammer: update hing im
+            // begin-if und das Fenster blieb stehen, sobald der Griff saß.
+            if system.isDragging, !profile.allows(.grab), !testMode {
+                system.endWindowDrag()
+                lastAction = "Greifen — \(profile.name) blockt"
+                onLog?("Greifen — Profil \(profile.name) bricht Drag ab", .blocked, Int(hand.poseProb * 100))
+            } else if !testMode, system.isDragging {
                 let at = cursor ?? SpaceMap.linear(hand.palm)
                 system.updateWindowDrag(to: at)
                 lastAction = trashHot ? "Papierkorb" : "Ziehen"
@@ -1009,7 +1045,9 @@ final class GestureEngine {
     private func drivePeace(_ hand: TrackedHand, now: TimeInterval) {
         if hand.pose == .peace, hand.poseProb >= 0.50 {
             if peaceSince == nil { peaceSince = now }
-            if now - (peaceSince ?? now) > 0.90 {
+            let held = now - (peaceSince ?? now)
+            peaceProgress = CGFloat(min(1, max(0, held / 0.90)))
+            if held > 0.90 {
                 let target = focused
                 perform("Aufnahme", need: .capture, confidence: Float(hand.poseProb)) {
                     if let t = target, t.quartzBounds.width > 8 {
@@ -1019,10 +1057,12 @@ final class GestureEngine {
                     return system.screenshotFocused(windowID: 0, bounds: b)
                 }
                 peaceSince = nil
+                peaceProgress = 0
                 cooldownUntil = now + 4
             }
         } else {
             peaceSince = nil
+            peaceProgress = 0
         }
     }
 
@@ -1036,6 +1076,33 @@ final class GestureEngine {
             }
         } else {
             thumbsSince = nil
+        }
+    }
+
+    /// Handrücken / Finger nach unten 0,6 s → Idle ohne Kill-Latch.
+    private func drivePalmRest(_ hand: TrackedHand, now: TimeInterval) {
+        guard mode == .armed, !pinchHeld, !system.isDragging else {
+            palmRestSince = nil
+            return
+        }
+        let wrist = hand.point(.wrist) ?? hand.palm
+        let tip = hand.point(.middleTip) ?? hand.palm
+        let pointingDown = tip.y + 0.06 < wrist.y
+        let open = hand.openScore >= 3 && (hand.pose == .openPalm || hand.pose == .unknown)
+        if open, pointingDown, hand.poseProb >= 0.45 {
+            if palmRestSince == nil { palmRestSince = now }
+            if now - (palmRestSince ?? now) >= 0.60 {
+                mode = .idle
+                mustRearm = false
+                lastAction = "Ruhe"
+                onLog?("Handrücken 0,6 s → Idle, kein Not-Aus", .info, Int(hand.poseProb * 100))
+                palmRestSince = nil
+                system.endWindowDrag()
+            } else {
+                lastAction = "Ruhe …"
+            }
+        } else {
+            palmRestSince = nil
         }
     }
 

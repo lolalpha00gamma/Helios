@@ -70,6 +70,10 @@ final class AppState: ObservableObject {
     @Published var replayIndex = 0
     @Published var replayFrames: [GestureFrame] = []
     @Published var mapRMSE: CGFloat?
+    @Published var liveRMSE: CGFloat?
+    @Published var clutchReason: String?
+    @Published var peaceProgress: CGFloat = 0
+    @Published var calibratedDisplays: Set<UInt32> = []
     let calibSession = CalibrationSession()
     private var lastPanel: TimeInterval = 0
     private var didStart = false
@@ -328,7 +332,20 @@ final class AppState: ObservableObject {
 
     func cancelCalibration() {
         calibSession.cancel()
+        liveRMSE = nil
         log.record("Kalibrierung abgebrochen", kind: .info)
+    }
+
+    func skipCalibrationPoint() {
+        guard calibSession.active else { return }
+        calibSession.skip()
+        liveRMSE = calibSession.liveRMSE()
+        log.record("Kalibrierung: Punkt übersprungen", kind: .info)
+        if !calibSession.active, let map = SpaceMap.load(displayID: calibSession.displayID), map.isReady {
+            engine.spaceMap = map
+            mapReady = true
+            mapRMSE = map.rmse()
+        }
     }
 
     func clearCalibration() {
@@ -422,13 +439,15 @@ final class AppState: ObservableObject {
         preview: NSImage?,
         luma: CGFloat
     ) {
+        engine.luma = luma
         engine.tick(hands: hands, now: now)
         overlay.mark(
             cursor: engine.cursor,
             phase: engine.grabPhase,
             hand: engine.cursorHand,
             target: engine.grabTargetName,
-            window: focused?.quartzBounds
+            window: focused?.quartzBounds,
+            peace: engine.peaceProgress
         )
         frames += 1
         if now - fpsStamp >= 0.5 {
@@ -466,7 +485,11 @@ final class AppState: ObservableObject {
         calibCursorGap = calibSession.cursorGap
         mapReady = engine.spaceMap?.isReady == true
         mapRMSE = engine.spaceMap?.rmse()
+        liveRMSE = calibSession.active ? calibSession.liveRMSE() : nil
         mousePaused = engine.mousePaused
+        clutchReason = engine.clutchReason
+        peaceProgress = engine.peaceProgress
+        calibratedDisplays = Set(SpaceMap.calibratedIDs())
         grabPhase = engine.grabPhase
         grabTargetName = engine.grabTargetName
         self.hands = hands

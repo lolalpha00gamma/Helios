@@ -5,6 +5,7 @@ import CoreVideo
 import Foundation
 import QuartzCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 @MainActor
 final class AppState: ObservableObject {
@@ -64,10 +65,15 @@ final class AppState: ObservableObject {
     @Published var hasDepth = false
     @Published var fusionTemperature: Double = 0.75
     @Published var profileName = "Standard"
+    @Published var replayActive = false
+    @Published var replayPlaying = false
+    @Published var replayIndex = 0
+    @Published var replayFrames: [GestureFrame] = []
     @Published var mapRMSE: CGFloat?
     let calibSession = CalibrationSession()
     private var lastPanel: TimeInterval = 0
     private var didStart = false
+    private var replayTimer: Timer?
 
     private var cancellables: Set<AnyCancellable> = []
     private var focusTick = 0
@@ -350,6 +356,63 @@ final class AppState: ObservableObject {
     func copyFilmstrip() {
         recorder.copyFilmstrip()
         log.record("Gesten-Filmstreifen in die Zwischenablage", kind: .info)
+    }
+
+    func startReplay() {
+        replayFrames = recorder.snapshot()
+        guard !replayFrames.isEmpty else {
+            log.record("Replay: keine Gesten-Frames", kind: .info)
+            return
+        }
+        replayActive = true
+        replayIndex = 0
+        replayPlaying = false
+        hudVisible = true
+        log.record("Replay \(replayFrames.count) Frames", kind: .info)
+    }
+
+    func loadReplayFile() {
+        let panel = NSOpenPanel()
+        panel.title = "gesten.jsonl laden"
+        panel.allowedContentTypes = [.json, UTType(filenameExtension: "jsonl") ?? .plainText]
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            replayFrames = try recorder.loadJSONL(url)
+            replayActive = !replayFrames.isEmpty
+            replayIndex = 0
+            replayPlaying = false
+            hudVisible = true
+            log.record("Replay geladen · \(replayFrames.count) Frames", kind: .info)
+        } catch {
+            log.record("Replay fehlgeschlagen: \(error.localizedDescription)", kind: .failed)
+        }
+    }
+
+    func stopReplay() {
+        replayPlaying = false
+        replayActive = false
+        replayTimer?.invalidate()
+        replayTimer = nil
+    }
+
+    func setReplayIndex(_ i: Int) {
+        guard !replayFrames.isEmpty else { return }
+        replayIndex = min(max(0, i), replayFrames.count - 1)
+    }
+
+    func setReplayPlaying(_ on: Bool) {
+        replayPlaying = on
+        replayTimer?.invalidate()
+        replayTimer = nil
+        guard on, replayActive, replayFrames.count > 1 else { return }
+        replayTimer = Timer.scheduledTimer(withTimeInterval: 0.12, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.replayPlaying else { return }
+                let next = self.replayIndex + 1
+                self.replayIndex = next >= self.replayFrames.count ? 0 : next
+            }
+        }
     }
 
     fileprivate func apply(

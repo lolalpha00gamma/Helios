@@ -1,4 +1,4 @@
-# Helios **1.6.5**
+# Helios **1.6.6**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,13 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.6
+
+1.6.5 hat Peace vs. Point und Greifen über `perform()`. Replay blieb ein JSONL-Export, der Katalog eine Tabelle im Switch.
+
+- **Session-Replay im HUD.** Landmark-JSONL Frame für Frame, Play/Pause/Slider, ohne Xcode.
+- **Profil-Katalog JSON** (`helios.profiles.json`), Extra/Blocked-Overrides bleiben.
 
 ## Neu in 1.6.5
 

@@ -385,7 +385,32 @@ struct ControlPanel: View {
                             .keyboardShortcut("e", modifiers: [.command])
                         Button("Protokoll kopieren") { state.copyProtocol() }
                         Button("Filmstreifen kopieren") { state.copyFilmstrip() }
-                        Text("Ein PNG mit der Geste + JSONL/TXT. Label-Feld in gesten.jsonl ist für Create ML.")
+                        Divider()
+                        Button(state.replayActive ? "Replay aus" : "Replay im HUD") {
+                            if state.replayActive { state.stopReplay() } else { state.startReplay() }
+                        }
+                        Button("gesten.jsonl laden…") { state.loadReplayFile() }
+                        if state.replayActive, !state.replayFrames.isEmpty {
+                            HStack {
+                                Button(state.replayPlaying ? "Pause" : "Play") {
+                                    state.setReplayPlaying(!state.replayPlaying)
+                                }
+                                Button("−") { state.setReplayIndex(state.replayIndex - 1) }
+                                Button("+") { state.setReplayIndex(state.replayIndex + 1) }
+                            }
+                            Slider(
+                                value: Binding(
+                                    get: { Double(state.replayIndex) },
+                                    set: { state.setReplayIndex(Int($0.rounded())) }
+                                ),
+                                in: 0...Double(max(state.replayFrames.count - 1, 1)),
+                                step: 1
+                            )
+                            Text("Frame \(state.replayIndex + 1)/\(state.replayFrames.count)")
+                                .font(.system(size: 10, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                        }
+                        Text("JSONL/TXT + PNG. Replay spielt Landmark-Frames im HUD — ohne Xcode.")
                             .font(.system(size: 10))
                             .foregroundStyle(.secondary)
                     }

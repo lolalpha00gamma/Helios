@@ -51,6 +51,23 @@ final class SessionRecorder {
 
     var frameCount: Int { frames.count }
 
+    func snapshot() -> [GestureFrame] { frames }
+
+    func loadJSONL(_ url: URL) throws -> [GestureFrame] {
+        let text = try String(contentsOf: url, encoding: .utf8)
+        let dec = JSONDecoder()
+        var out: [GestureFrame] = []
+        for line in text.split(whereSeparator: \.isNewline) {
+            let s = line.trimmingCharacters(in: .whitespaces)
+            guard !s.isEmpty, let data = s.data(using: .utf8) else { continue }
+            if let f = try? dec.decode(GestureFrame.self, from: data) {
+                out.append(f)
+            }
+        }
+        frames = out
+        return out
+    }
+
     func push(
         hands: [TrackedHand],
         preview: NSImage?,

@@ -24,6 +24,10 @@ struct HUDView: View {
                     calibOverlay
                 }
 
+                if state.replayActive {
+                    replayOverlay
+                }
+
                 trashZone
 
                 if isPrimary {
@@ -88,6 +92,47 @@ struct HUDView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             }
         }
+    }
+
+    private var replayOverlay: some View {
+        let frames = state.replayFrames
+        let idx = frames.isEmpty ? 0 : min(state.replayIndex, frames.count - 1)
+        let frame = frames.isEmpty ? nil : frames[idx]
+        let img: NSImage = {
+            let size = CGSize(width: 420, height: 236)
+            return NSImage(size: size, flipped: false) { rect in
+                GestureDraw.composite(image: nil, hands: frame?.hands ?? [], in: rect)
+                return true
+            }
+        }()
+        return VStack(alignment: .leading, spacing: 8) {
+            Text("REPLAY")
+                .font(.system(size: 13, weight: .bold, design: .monospaced))
+                .foregroundStyle(HeliosTheme.amber)
+            if let frame {
+                Text(String(format: "%d / %d   ·   %.2fs   ·   %@", idx + 1, frames.count, frame.t, frame.action))
+                    .font(.system(size: 12, weight: .bold, design: .monospaced))
+                    .foregroundStyle(HeliosTheme.cyan)
+                Text(frame.hands.map { "\($0.side) \($0.pose)" }.joined(separator: " · "))
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.9))
+            } else {
+                Text("Keine Frames — Kamera laufen lassen oder gesten.jsonl laden")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            }
+            Image(nsImage: img)
+                .resizable()
+                .interpolation(.none)
+                .frame(width: 420, height: 236)
+                .overlay(Rectangle().stroke(HeliosTheme.cyan.opacity(0.4), lineWidth: 1))
+        }
+        .padding(14)
+        .background(HeliosTheme.void.opacity(0.78))
+        .padding(.top, 86)
+        .padding(.trailing, 28)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+        .opacity(isPrimary ? 1 : 0)
     }
 
     private func windowOutline(_ target: FocusedTarget) -> some View {

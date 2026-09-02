@@ -64,6 +64,13 @@ enum GestureAction: String, CaseIterable, Codable, Hashable {
     }
 }
 
+struct ProfileSpec: Codable, Equatable {
+    var name: String
+    var bundles: [String]
+    var allowed: [String]?
+    var invertScroll: Bool?
+}
+
 struct ProfileOverride: Codable, Equatable {
     var extra: [String] = []
     var blocked: [String] = []
@@ -78,37 +85,59 @@ struct AppGestureProfile: Equatable {
 
     static let standard = AppGestureProfile(name: "Standard", allowed: nil)
 
-    private static let table: [(ids: [String], name: String, allowed: Set<GestureAction>, invertScroll: Bool)] = [
-        (
-            [
-                "com.apple.Safari", "com.google.Chrome", "com.google.Chrome.canary",
-                "org.mozilla.firefox", "company.thebrowser.Browser", "com.apple.Safari.WebApp"
-            ],
-            "Browser",
-            [.click, .scroll, .swipe, .rightClick, .dwell, .peace],
-            true
-        ),
-        (
-            ["com.apple.finder"],
-            "Finder",
-            [.click, .scroll, .grab, .fling, .rightClick, .dwell, .peace, .thumbs],
-            false
-        ),
-        (
-            ["com.apple.dt.Xcode"],
-            "Xcode",
-            [.click, .scroll, .rightClick, .dwell],
-            false
-        )
+    static let bundledJSON = """
+    [
+      {
+        "name": "Browser",
+        "bundles": [
+          "com.apple.Safari",
+          "com.google.Chrome",
+          "com.google.Chrome.canary",
+          "org.mozilla.firefox",
+          "company.thebrowser.Browser",
+          "com.apple.Safari.WebApp"
+        ],
+        "allowed": ["click", "scroll", "swipe", "rightClick", "dwell", "peace"],
+        "invertScroll": true
+      },
+      {
+        "name": "Finder",
+        "bundles": ["com.apple.finder"],
+        "allowed": ["click", "scroll", "grab", "fling", "rightClick", "dwell", "peace", "thumbs"],
+        "invertScroll": false
+      },
+      {
+        "name": "Xcode",
+        "bundles": ["com.apple.dt.Xcode"],
+        "allowed": ["click", "scroll", "rightClick", "dwell"],
+        "invertScroll": false
+      }
     ]
+    """
+
+    private static func catalog() -> [(ids: [String], name: String, allowed: Set<GestureAction>, invertScroll: Bool)] {
+        let specs: [ProfileSpec]
+        if let data = UserDefaults.standard.data(forKey: "helios.profiles.json"),
+           let decoded = try? JSONDecoder().decode([ProfileSpec].self, from: data),
+           !decoded.isEmpty
+        {
+            specs = decoded
+        } else {
+            specs = (try? JSONDecoder().decode([ProfileSpec].self, from: Data(bundledJSON.utf8))) ?? []
+        }
+        return specs.map { spec in
+            let set = Set((spec.allowed ?? []).compactMap(GestureAction.init(rawValue:)))
+            return (spec.bundles, spec.name, set, spec.invertScroll ?? false)
+        }
+    }
 
     static func forBundle(_ id: String) -> AppGestureProfile {
         var base = Self.standard
         base.bundleId = id
-        for row in table where row.ids.contains(id) {
+        for row in catalog() where row.ids.contains(id) {
             base = AppGestureProfile(
                 name: row.name,
-                allowed: row.allowed,
+                allowed: row.allowed.isEmpty ? nil : row.allowed,
                 bundleId: id,
                 invertScroll: row.invertScroll
             )

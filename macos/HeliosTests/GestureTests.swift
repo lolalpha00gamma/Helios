@@ -167,6 +167,11 @@ enum GestureTests {
         twoFinger[.thumbTip] = CGPoint(x: 0.46, y: 0.32)
         ok(GestureClassifier.classify(joints: twoFinger, pinch: 0.22) != .peace, "Daumen-an-MCP ist kein Peace")
 
+        let browser = AppGestureProfile.forBundle("com.apple.Safari")
+        ok(!browser.allows(.fling), "Safari blockt Werfen by default")
+        ok(browser.allows(.swipe), "Safari erlaubt Wischen")
+        ok((try? JSONDecoder().decode([ProfileSpec].self, from: Data(AppGestureProfile.bundledJSON.utf8)))?.count ?? 0 >= 3, "Profil-Katalog JSON")
+
         if fails > 0 {
             fputs("\(fails) GestureTests fehlgeschlagen\n", stderr)
             exit(1)

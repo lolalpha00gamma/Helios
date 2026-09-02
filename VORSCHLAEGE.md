@@ -1,6 +1,11 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.5**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+Stand: **1.6.6**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+
+## In 1.6.6 erledigt
+
+1. **Session-Replay im HUD.** `gesten.jsonl` Frame für Frame, Play/Pause/Slider — ohne Xcode.
+2. **Profil-Katalog JSON.** `helios.profiles.json` plus Bundled-Default (inkl. `invertScroll`). Editor-Overrides bleiben Extra/Blocked.
 
 ## In 1.6.5 erledigt
 
@@ -73,12 +78,13 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 
 ## Nächste Fixes (klein, hoher Nutzen)
 
-- **Session-Replay** der Landmark-CSV direkt im HUD, Frame für Frame — ohne Xcode.
-- **Profil-Bundle-Liste** als JSON-Datei im Bundle, nicht nur die Tabelle in `AppGestureProfile`.
 - **RMSE live im HUD** während der 9 Punkte, nicht erst am Ende.
 - **AX-Drag hart abbrechen**, wenn das Profil Greifen blockt, während `isDragging` schon true ist.
 - **Peace-Hold visuell.** 0,9 s Countdown am Cursor, sonst kommt die Aufnahme überraschend.
 - **Clutch-LED im HUD.** „Maus hat Vorrang“ / „Tastatur 400 ms“ sichtbar, nicht nur im Log.
+- **Punkt überspringen** im 9-Gitter, wenn eine Ecke hinter dem MacBook-Deckel liegt.
+- **HUD-Kompass** welcher Monitor kalibriert ist (rot/grün).
+- **Palm-unten-Rest** (Handrücken 0,6 s) = Idle ohne Kill.
 
 ## Größere Erweiterungen
 

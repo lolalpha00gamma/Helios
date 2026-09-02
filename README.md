@@ -1,4 +1,4 @@
-# Helios **1.6.4**
+# Helios **1.6.5**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,18 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.5
+
+1.6.4 hat 9-Punkt-Maps und den Profil-Editor — Safari hat trotzdem gegriffen, Peace hat Screenshots beim Zeigen ausgelöst, und der Clutch hat eigene Events nur über 120 ms erkannt.
+
+- **Greifen läuft über `perform()`.** Safari/Chrome-Profil blockt AX-Drag wirklich; vorher rief `driveGrab` `beginWindowDrag` direkt.
+- **Peace vs. Point.** Zwei Finger plus Daumen-an-MCP ist kein Victory — Spreizung und Daumen zählen.
+- **Palm-Deadzone an palmWidth.** Nah an der Kamera zittert der Zeiger in den äußeren 15 % nicht mehr.
+- **Kalibrier-RMSE.** Nach 9 Punkten: Fehler in Pixeln. > 12 px → „Mitte nochmal“.
+- **Display-Reconfig** lädt die Karte neu (`didChangeScreenParameters`).
+- **Per-App Scroll-Richtung.** Browser default invertiert (Natural), Finder nicht — Toggle im Profil-Editor.
+- **HID-Stempel** auf eigenen CGEvents (`eventSourceUserData`), Clutch nicht nur Zeitfenster.
 
 ## Neu in 1.6.4
 

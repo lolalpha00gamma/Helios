@@ -64,6 +64,7 @@ final class AppState: ObservableObject {
     @Published var hasDepth = false
     @Published var fusionTemperature: Double = 0.75
     @Published var profileName = "Standard"
+    @Published var mapRMSE: CGFloat?
     let calibSession = CalibrationSession()
     private var lastPanel: TimeInterval = 0
     private var didStart = false
@@ -79,6 +80,7 @@ final class AppState: ObservableObject {
         engine.calibration = calibSession
         engine.spaceMap = SpaceMap.load()
         mapReady = engine.spaceMap?.isReady == true
+        mapRMSE = engine.spaceMap?.rmse()
         engine.onLog = { [weak self] text, kind, conf in
             self?.log.record(text, kind: kind, confidence: conf)
             self?.objectWillChange.send()
@@ -94,6 +96,10 @@ final class AppState: ObservableObject {
         $showOutline.sink { Prefs.showOutline = $0 }.store(in: &cancellables)
         $showTrashZone.sink { Prefs.showTrashZone = $0 }.store(in: &cancellables)
         $showPreviewChip.sink { Prefs.showPreviewChip = $0 }.store(in: &cancellables)
+        NotificationCenter.default.publisher(for: NSApplication.didChangeScreenParametersNotification)
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.reloadSpaceMap() }
+            .store(in: &cancellables)
         camera.objectWillChange
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
@@ -288,6 +294,32 @@ final class AppState: ObservableObject {
         log.record("Profil \(profileName): \(action.titleDE) \(on ? "an" : "aus")", kind: .info)
     }
 
+    func setInvertScroll(_ on: Bool) {
+        guard let id = focused?.bundleId, !id.isEmpty else { return }
+        AppGestureProfile.setInvertScroll(bundle: id, on: on)
+        engine.profile = AppGestureProfile.forBundle(id)
+        profileName = engine.profile.name
+        log.record("Profil \(profileName): Scroll \(on ? "invertiert" : "normal")", kind: .info)
+    }
+
+    func reloadSpaceMap() {
+        screenCount = NSScreen.screens.count
+        let loc = engine.cursor ?? ScreenGeometry.quartz(fromCocoa: NSEvent.mouseLocation)
+        let screen = ScreenGeometry.screenContaining(quartz: loc) ?? NSScreen.main
+        let id = screen.map { ScreenGeometry.displayID(of: $0) }
+        if let map = SpaceMap.load(displayID: id), map.isReady {
+            engine.spaceMap = map
+            mapReady = true
+            mapRMSE = map.rmse()
+            log.record("Schirme \(screenCount) — Karte für Display \(id ?? 0) geladen", kind: .info)
+        } else {
+            engine.spaceMap = nil
+            mapReady = false
+            mapRMSE = nil
+            log.record("Schirme \(screenCount) — keine Karte für diesen Display", kind: .info)
+        }
+    }
+
     func cancelCalibration() {
         calibSession.cancel()
         log.record("Kalibrierung abgebrochen", kind: .info)
@@ -297,6 +329,7 @@ final class AppState: ObservableObject {
         SpaceMap.clear()
         engine.spaceMap = nil
         mapReady = false
+        mapRMSE = nil
         log.record("Kalibrierung gelöscht — Relativ-Zeiger", kind: .info)
     }
 
@@ -369,6 +402,7 @@ final class AppState: ObservableObject {
         calibHold = calibSession.progress
         calibCursorGap = calibSession.cursorGap
         mapReady = engine.spaceMap?.isReady == true
+        mapRMSE = engine.spaceMap?.rmse()
         mousePaused = engine.mousePaused
         grabPhase = engine.grabPhase
         grabTargetName = engine.grabTargetName

@@ -195,6 +195,13 @@ struct ControlPanel: View {
                     Text(state.mapReady ? "Karte gespeichert — Handfläche = dieser Schirm." : "Noch nicht kalibriert — Zeiger relativ.")
                         .font(.system(size: 11))
                         .foregroundStyle(state.mapReady ? HeliosTheme.cyan : .secondary)
+                    if let rmse = state.mapRMSE, state.mapReady {
+                        Text(rmse > 12
+                             ? String(format: "RMSE %.0f px — Mitte nochmal", rmse)
+                             : String(format: "RMSE %.0f px", rmse))
+                            .font(.system(size: 11, design: .monospaced))
+                            .foregroundStyle(rmse > 12 ? HeliosTheme.amber : HeliosTheme.cyan)
+                    }
                     if state.calibActive {
                         Text("Jetzt: \(state.calibCorner). \(state.calibSession.samples.count)/\(state.calibSession.totalSpots)")
                             .font(.system(size: 11))
@@ -235,6 +242,18 @@ struct ControlPanel: View {
                             .toggleStyle(.checkbox)
                             .disabled(app.bundleId.isEmpty)
                         }
+                        Toggle(isOn: Binding(
+                            get: { state.engine.profile.invertScroll },
+                            set: { state.setInvertScroll($0) }
+                        )) {
+                            Text("Scroll invertieren")
+                                .font(.system(size: 11))
+                        }
+                        .toggleStyle(.checkbox)
+                        .disabled(app.bundleId.isEmpty)
+                        Text("Browser default an (wie Natural-Scroll). Finder aus.")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
                     } else {
                         Text("Kein Vordergrund-Fenster — Profil folgt der App unter dem Cursor.")
                             .font(.system(size: 11))

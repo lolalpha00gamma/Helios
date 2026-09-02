@@ -129,6 +129,32 @@ struct SpaceMap: Codable {
         return ScreenGeometry.clampQuartz(p)
     }
 
+    /// Ungeklammertes Projekt — für RMSE, nicht für den Cursor.
+    static func project(_ H: [CGFloat], _ palm: CGPoint) -> CGPoint {
+        let w = H[6] * palm.x + H[7] * palm.y + H[8]
+        guard abs(w) > 1e-8 else { return palm }
+        return CGPoint(
+            x: (H[0] * palm.x + H[1] * palm.y + H[2]) / w,
+            y: (H[3] * palm.x + H[4] * palm.y + H[5]) / w
+        )
+    }
+
+    /// Reprojektionsfehler in Pixeln. > 12 px: Mitte nochmal.
+    func rmse() -> CGFloat? {
+        guard let H = homography() else { return nil }
+        let src = palms.map(\.point)
+        let dst = destinations()
+        let n = min(src.count, dst.count)
+        guard n >= 4 else { return nil }
+        var acc: CGFloat = 0
+        for i in 0..<n {
+            let p = Self.project(H, src[i])
+            let e = hypot(p.x - dst[i].x, p.y - dst[i].y)
+            acc += e * e
+        }
+        return sqrt(acc / CGFloat(n))
+    }
+
     /// 0 innen (relativ), 1 in den äußeren 15 % der Kalibrier-Quad (absolut).
     func edgeWeight(_ palm: CGPoint) -> CGFloat {
         guard palms.count >= 4 else { return 1 }
@@ -437,7 +463,14 @@ final class CalibrationSession {
         let map = SpaceMap(palms: pts.map(XY.init), displayID: displayID)
         map.save()
         active = false
-        hint = "Fertig"
+        if let err = map.rmse(), err > 12 {
+            hint = String(format: "Fertig · RMSE %.0f px — Mitte nochmal, Cursor springt", err)
+            rejected = true
+        } else if let err = map.rmse() {
+            hint = String(format: "Fertig · RMSE %.0f px", err)
+        } else {
+            hint = "Fertig"
+        }
         return map
     }
 

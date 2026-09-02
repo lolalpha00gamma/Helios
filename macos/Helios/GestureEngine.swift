@@ -67,33 +67,38 @@ enum GestureAction: String, CaseIterable, Codable, Hashable {
 struct ProfileOverride: Codable, Equatable {
     var extra: [String] = []
     var blocked: [String] = []
+    var invertScroll: Bool?
 }
 
 struct AppGestureProfile: Equatable {
     var name: String
     var allowed: Set<GestureAction>?
     var bundleId: String = ""
+    var invertScroll = false
 
     static let standard = AppGestureProfile(name: "Standard", allowed: nil)
 
-    private static let table: [(ids: [String], name: String, allowed: Set<GestureAction>)] = [
+    private static let table: [(ids: [String], name: String, allowed: Set<GestureAction>, invertScroll: Bool)] = [
         (
             [
                 "com.apple.Safari", "com.google.Chrome", "com.google.Chrome.canary",
                 "org.mozilla.firefox", "company.thebrowser.Browser", "com.apple.Safari.WebApp"
             ],
             "Browser",
-            [.click, .scroll, .swipe, .rightClick, .dwell, .peace]
+            [.click, .scroll, .swipe, .rightClick, .dwell, .peace],
+            true
         ),
         (
             ["com.apple.finder"],
             "Finder",
-            [.click, .scroll, .grab, .fling, .rightClick, .dwell, .peace, .thumbs]
+            [.click, .scroll, .grab, .fling, .rightClick, .dwell, .peace, .thumbs],
+            false
         ),
         (
             ["com.apple.dt.Xcode"],
             "Xcode",
-            [.click, .scroll, .rightClick, .dwell]
+            [.click, .scroll, .rightClick, .dwell],
+            false
         )
     ]
 
@@ -101,11 +106,16 @@ struct AppGestureProfile: Equatable {
         var base = Self.standard
         base.bundleId = id
         for row in table where row.ids.contains(id) {
-            base = AppGestureProfile(name: row.name, allowed: row.allowed, bundleId: id)
+            base = AppGestureProfile(
+                name: row.name,
+                allowed: row.allowed,
+                bundleId: id,
+                invertScroll: row.invertScroll
+            )
             break
         }
         let pack = loadOverrides()[id] ?? ProfileOverride()
-        if pack.extra.isEmpty, pack.blocked.isEmpty { return base }
+        if pack.extra.isEmpty, pack.blocked.isEmpty, pack.invertScroll == nil { return base }
         var set = base.allowed ?? Set(GestureAction.allCases)
         for raw in pack.extra {
             if let a = GestureAction(rawValue: raw) { set.insert(a) }
@@ -113,7 +123,13 @@ struct AppGestureProfile: Equatable {
         for raw in pack.blocked {
             if let a = GestureAction(rawValue: raw) { set.remove(a) }
         }
-        return AppGestureProfile(name: "\(base.name)*", allowed: set, bundleId: id)
+        let tagged = pack.extra.isEmpty && pack.blocked.isEmpty ? base.name : "\(base.name)*"
+        return AppGestureProfile(
+            name: tagged,
+            allowed: set,
+            bundleId: id,
+            invertScroll: pack.invertScroll ?? base.invertScroll
+        )
     }
 
     func allows(_ action: GestureAction) -> Bool {
@@ -132,6 +148,17 @@ struct AppGestureProfile: Equatable {
             pack.extra.removeAll { $0 == raw }
             if !pack.blocked.contains(raw) { pack.blocked.append(raw) }
         }
+        all[bundle] = pack
+        if let data = try? JSONEncoder().encode(all) {
+            UserDefaults.standard.set(data, forKey: "helios.profileOverrides")
+        }
+    }
+
+    static func setInvertScroll(bundle: String, on: Bool) {
+        guard !bundle.isEmpty else { return }
+        var all = loadOverrides()
+        var pack = all[bundle] ?? ProfileOverride()
+        pack.invertScroll = on
         all[bundle] = pack
         if let data = try? JSONEncoder().encode(all) {
             UserDefaults.standard.set(data, forKey: "helios.profileOverrides")
@@ -678,7 +705,9 @@ final class GestureEngine {
             lastPalm = hand.palm
             var dx = hand.palm.x - prevPalm.x
             var dy = hand.palm.y - prevPalm.y
-            let dead: CGFloat = 0.003
+            // Nah an der Kamera ist palmWidth groß — gleiche Pixel-Zitter
+            // werden sonst zu großen Palm-Deltas. unit 0,12 → 0,003 wie bisher.
+            let dead: CGFloat = 0.025 * max(0.04, hand.palmWidth)
             if abs(dx) < dead { dx = 0 }
             if abs(dy) < dead { dy = 0 }
             let from = cursorSmooth ?? qAbs
@@ -706,7 +735,7 @@ final class GestureEngine {
         lastPalm = palm
         var dx = palm.x - prevPalm.x
         var dy = palm.y - prevPalm.y
-        let dead: CGFloat = 0.003
+        let dead: CGFloat = 0.025 * max(0.04, hand.palmWidth)
         if abs(dx) < dead { dx = 0 }
         if abs(dy) < dead { dy = 0 }
         if dx == 0 && dy == 0 {
@@ -818,25 +847,16 @@ final class GestureEngine {
             pinchTrail.removeAll { now - $0.t > 0.5 }
             if let first = pinchTrail.first {
                 let moved = space.dist(hand.palm, CGPoint(x: first.x, y: first.y)) / max(0.04, hand.palmWidth)
+                // Bewegung ohne Profil-Greifen: trotzdem Drag-Intent, damit
+                // Safari keinen Fehlklick feuert — beginWindowDrag läuft über perform().
                 if moved > 0.18 { pinchBecameDrag = true }
             }
             if pinchBecameDrag, !system.isDragging, !testMode, now - lastGrabTry > 0.35 {
                 lastGrabTry = now
                 let at = cursor ?? SpaceMap.linear(hand.palm)
-                let r = system.beginWindowDrag(at: at)
-                if r.ok {
-                    lastAction = "Greifen"
-                    onLog?("Greifen · \(r.detail)", .executed, Int(hand.poseProb * 100))
-                    grabLogged = true
-                } else if !grabLogged {
-                    grabLogged = true
-                    lastAction = "Greifen fehlgeschlagen"
-                    onLog?("Greifen — NICHT AUSGEFÜHRT: \(r.detail)", .failed, Int(hand.poseProb * 100))
-                    if r.detail.contains("Bedienung") || !AXIsProcessTrusted() {
-                        Permissions.demand(.accessibility)
-                    }
+                perform("Greifen", confidence: Float(hand.poseProb)) {
+                    system.beginWindowDrag(at: at)
                 }
-            }
             if !testMode, system.isDragging {
                 let at = cursor ?? SpaceMap.linear(hand.palm)
                 system.updateWindowDrag(to: at)
@@ -1012,7 +1032,8 @@ final class GestureEngine {
         guard dt >= 0.05, abs(dy) > 0.10 else { return }
         // unit 0,12 → ~18 Ticks wie bisher; große Palme (nah) scrollt feiner.
         let gain = 2.2 / max(0.06, unit)
-        let ticks = Int32(max(-24, min(24, -dy * gain)))
+        var ticks = Int32(max(-24, min(24, -dy * gain)))
+        if profile.invertScroll { ticks = -ticks }
         guard ticks != 0 else { return }
         let conf = Float(open.map(\.poseProb).min() ?? 0)
         perform("Scroll", need: .input, confidence: conf) { system.scroll(ticks: ticks) }

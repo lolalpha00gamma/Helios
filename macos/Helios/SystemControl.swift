@@ -29,6 +29,8 @@ final class SystemControl {
     private var monitors: [Any] = []
     private(set) var mouseHasControl = false
     private let axQ = DispatchQueue(label: "helios.ax", qos: .userInteractive)
+    /// Markiert eigene CGEvents. Clutch filtert darüber, nicht nur über 120 ms.
+    private static let stampMagic: Int64 = 0x48454C49
 
     var fromInstallMedia: Bool {
         AppInstall.isFromDiskImage
@@ -79,11 +81,22 @@ final class SystemControl {
         guard e.type == .leftMouseDragged || e.type == .mouseMoved else { return }
         let now = CACurrentMediaTime()
         let d = hypot(e.deltaX, e.deltaY)
-        // Eigene CGEvents kommen als mouseMoved zurück. Kurz nach dem Post
-        // ignorieren, außer der Delta ist klar eine echte Hardware-Maus.
+        if isOwnEvent(e), d <= 12 { return }
+        // Fallback: UserData überlebt den HID-Tap nicht immer.
         if now - lastPostAt < 0.12, d <= 9 { return }
         guard d > 3.5 else { return }
         seize(now)
+    }
+
+    private func isOwnEvent(_ e: NSEvent) -> Bool {
+        guard let cg = e.cgEvent else { return false }
+        if cg.getIntegerValueField(.eventSourceUserData) == Self.stampMagic { return true }
+        let pid = cg.getIntegerValueField(.eventSourceUnixProcessID)
+        return pid == Int64(ProcessInfo.processInfo.processIdentifier)
+    }
+
+    private func stamp(_ e: CGEvent) {
+        e.setIntegerValueField(.eventSourceUserData, Self.stampMagic)
     }
 
     private func seize(_ now: TimeInterval) {
@@ -98,7 +111,10 @@ final class SystemControl {
         lastPostAt = CACurrentMediaTime()
         let src = CGEventSource(stateID: .hidSystemState)
         let e = CGEvent(mouseEventSource: src, mouseType: .mouseMoved, mouseCursorPosition: p, mouseButton: .left)
-        e?.post(tap: .cghidEventTap)
+        if let e {
+            stamp(e)
+            e.post(tap: .cghidEventTap)
+        }
     }
 
     @discardableResult
@@ -144,6 +160,7 @@ final class SystemControl {
         ) else {
             return .fail("CGEvent Scroll")
         }
+        stamp(e)
         e.post(tap: .cghidEventTap)
         return .ok(String(format: "%+d", ticks))
     }
@@ -372,6 +389,7 @@ final class SystemControl {
             mouseCursorPosition: ScreenGeometry.clampQuartz(point),
             mouseButton: button
         ) else { return false }
+        stamp(e)
         e.post(tap: .cghidEventTap)
         return true
     }

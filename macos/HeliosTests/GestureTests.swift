@@ -142,6 +142,31 @@ enum GestureTests {
         let fast = hmmFlick.step(emission: emP, pinchClosedness: 0.8, now: 1, dt: 0.016, palmSpeed: 3.5)
         ok(fast.pinch <= slow.pinch + 0.01, "Velocity-Prior dämpft Pinch bei schnellem Wisch")
 
+        // Peace vs Point: zwei Finger + Daumen-an-MCP ist kein Victory.
+        var peace = hand(tipsY: 0.32)
+        peace[.indexMCP] = CGPoint(x: 0.44, y: 0.34)
+        peace[.indexPIP] = CGPoint(x: 0.40, y: 0.52)
+        peace[.indexTip] = CGPoint(x: 0.36, y: 0.74)
+        peace[.middleMCP] = CGPoint(x: 0.52, y: 0.34)
+        peace[.middlePIP] = CGPoint(x: 0.56, y: 0.52)
+        peace[.middleTip] = CGPoint(x: 0.62, y: 0.74)
+        peace[.ringMCP] = CGPoint(x: 0.56, y: 0.34)
+        peace[.ringPIP] = CGPoint(x: 0.57, y: 0.30)
+        peace[.ringTip] = CGPoint(x: 0.58, y: 0.28)
+        peace[.littleMCP] = CGPoint(x: 0.60, y: 0.34)
+        peace[.littlePIP] = CGPoint(x: 0.61, y: 0.30)
+        peace[.littleTip] = CGPoint(x: 0.62, y: 0.28)
+        peace[.thumbMP] = CGPoint(x: 0.40, y: 0.32)
+        peace[.thumbIP] = CGPoint(x: 0.32, y: 0.40)
+        peace[.thumbTip] = CGPoint(x: 0.26, y: 0.50)
+        ok(GestureClassifier.classify(joints: peace, pinch: 0.22) == .peace, "gespreiztes Peace")
+
+        var twoFinger = peace
+        twoFinger[.thumbMP] = CGPoint(x: 0.44, y: 0.34)
+        twoFinger[.thumbIP] = CGPoint(x: 0.45, y: 0.35)
+        twoFinger[.thumbTip] = CGPoint(x: 0.46, y: 0.32)
+        ok(GestureClassifier.classify(joints: twoFinger, pinch: 0.22) != .peace, "Daumen-an-MCP ist kein Peace")
+
         if fails > 0 {
             fputs("\(fails) GestureTests fehlgeschlagen\n", stderr)
             exit(1)

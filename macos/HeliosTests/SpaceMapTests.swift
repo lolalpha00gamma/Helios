@@ -58,6 +58,21 @@ enum SpaceMapTests {
             fputs("FAIL 9-point \(q9)\n", stderr)
             exit(1)
         }
+        guard let H9fit = SpaceMap.homography(from: src9, to: dst9) else {
+            fputs("FAIL 9-point RMSE homography nil\n", stderr)
+            exit(1)
+        }
+        var acc: CGFloat = 0
+        for i in 0..<9 {
+            let p = SpaceMap.project(H9fit, src9[i])
+            let e = hypot(p.x - dst9[i].x, p.y - dst9[i].y)
+            acc += e * e
+        }
+        let rmse = sqrt(acc / 9)
+        if rmse > 0.5 {
+            fputs("FAIL 9-point RMSE \(rmse)\n", stderr)
+            exit(1)
+        }
         var map9 = SpaceMap(palms: src9.map(XY.init), displayID: nil)
         if !map9.isReady || !map9.isNinePoint {
             fputs("FAIL 9-point isReady\n", stderr)

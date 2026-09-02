@@ -140,7 +140,18 @@ enum GestureClassifier {
         logits[.pinch] = Double(closedness) * 4.4 + Double(reach) * 0.8
             - Double(middle.score + ring.score) * 0.7
         logits[.point] = Double(index.score) * 3.4 - Double(middle.score + ring.score + little.score) * 1.5
+            + Double(max(0, 0.48 - middle.score)) * 1.3
+            + Double(max(0, 0.50 - thumb.score)) * 0.8
+        // Peace braucht gespreizte Zeige+Mittel. Daumen-an-MCP ist ein Zwei-Finger-Point,
+        // kein Victory — sonst feuert die 0,9-s-Aufnahme beim Zeigen.
+        let spread: CGFloat = {
+            guard let a = joints[.indexTip], let b = joints[.middleTip] else { return 0.12 }
+            return space.dist(a, b) / max(0.03, scale)
+        }()
         logits[.peace] = Double(index.score + middle.score) * 2.1 - Double(ring.score + little.score) * 2.2
+            - Double(max(0, 0.55 - thumb.score)) * 2.6
+            - Double(max(0, 0.58 - middle.score)) * 1.9
+            + Double(min(1, max(0, spread - 0.16) / 0.20)) * 1.8
         logits[.thumbsUp] = Double(thumbUp) * 4.2
             + Double((1 - index.score) + (1 - middle.score) + (1 - ring.score)) * 0.7
             - Double(closedness) * 1.4
@@ -285,8 +296,12 @@ enum GestureClassifier {
             .fist: Double((1 - index) + (1 - middle) + (1 - ring) + (1 - little)),
             .openPalm: Double(index + middle + ring + little),
             .pinch: Double(closedness) * 4.0,
-            .point: Double(index) * 3 - Double(middle + ring) * 1.4,
-            .peace: Double(index + middle) * 2 - Double(ring + little) * 2,
+            .point: Double(index) * 3 - Double(middle + ring) * 1.4
+                + Double(max(0, 0.48 - middle)) * 1.2
+                + Double(max(0, 0.50 - thumb)) * 0.7,
+            .peace: Double(index + middle) * 2 - Double(ring + little) * 2
+                - Double(max(0, 0.55 - thumb)) * 2.4
+                - Double(max(0, 0.58 - middle)) * 1.6,
             .thumbsUp: Double(thumb) * 2.8
                 + Double((1 - index) + (1 - middle) + (1 - ring)) * 0.85
                 - Double(closedness) * 1.3,

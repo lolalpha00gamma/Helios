@@ -1,6 +1,18 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.4**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+Stand: **1.6.5**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+
+## In 1.6.5 erledigt
+
+Warum 1.6.4 sich in Safari und beim Zeigen trotzdem falsch anfühlte: Greifen umging `perform()`, Peace feuerte beim Zwei-Finger-Point, Deadzone war absolut, Clutch nur ein Zeitfenster.
+
+1. **`driveGrab` über `perform("Greifen")`.** Safari-Profil blockt AX-Drag. Vorher `beginWindowDrag` direkt.
+2. **Peace vs. Point.** Daumen-an-MCP und enge Finger senken Peace-Logits; Spreizung hebt sie.
+3. **Palm-Deadzone `0,025 · palmWidth`.** unit 0,12 bleibt 0,003; nah an der Kamera größer.
+4. **Kalibrier-RMSE.** Ungeklammerte Reprojektion. > 12 px: „Mitte nochmal“.
+5. **Display-Reconfig.** `NSApplication.didChangeScreenParametersNotification` lädt `helios.spaceMap.{id}`.
+6. **Per-App Scroll-Richtung.** Browser invertieren by default; Toggle im Profil-Editor.
+7. **HID-Stempel** `eventSourceUserData = 'HELI'` plus PID-Fallback. 120-ms-Fenster bleibt Backup.
 
 ## In 1.6.4 erledigt
 
@@ -62,13 +74,11 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 ## Nächste Fixes (klein, hoher Nutzen)
 
 - **Session-Replay** der Landmark-CSV direkt im HUD, Frame für Frame — ohne Xcode.
-- **Peace vs. Point.** Zwei Finger plus Daumen-an-MCP wird noch als Peace gelesen.
 - **Profil-Bundle-Liste** als JSON-Datei im Bundle, nicht nur die Tabelle in `AppGestureProfile`.
-- **Kalibrier-RMSE** nach 9 Punkten anzeigen. Wenn > 12 px: „nochmal Mitte“.
-- **Display-Reconfig.** `CGDisplayRegisterReconfigurationCallback` lädt die Karte neu, statt mit der Union weiterzulaufen.
-- **Palm-Deadzone an palmWidth.** Feinzielen nah an der Kamera zittert sonst in den äußeren 15 %.
-- **Per-App Scroll-Richtung.** Finder vs. Browser invertieren, analog zum Trackpad-Natural-Scroll.
-- **HID-Filter für eigene Events** über `CGEventSourceStateID` statt Zeitfenster — Clutch wird unempfindlich gegen fps.
+- **RMSE live im HUD** während der 9 Punkte, nicht erst am Ende.
+- **AX-Drag hart abbrechen**, wenn das Profil Greifen blockt, während `isDragging` schon true ist.
+- **Peace-Hold visuell.** 0,9 s Countdown am Cursor, sonst kommt die Aufnahme überraschend.
+- **Clutch-LED im HUD.** „Maus hat Vorrang“ / „Tastatur 400 ms“ sichtbar, nicht nur im Log.
 
 ## Größere Erweiterungen
 
@@ -94,6 +104,10 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Desk vs. Couch.** Ein Gain-Profil für 40 cm Kameraabstand, eines für 1,5 m — palmWidth wählt.
 - **Pointer-Trail im HUD.** Letzte 12 Palm-Punkte als Debug, aus by default.
 - **Accessibility-Zoom folgt.** Wenn Zoom an ist, bewegt die Palme den Fokus-Rect, nicht den 1:1-Cursor.
+- **Per-Space Homography.** Nach Mission-Control-Wechsel die Karte des aktiven Space, nicht die des Displays.
+- **Haptic über Trackpad**, wenn ein Klick sitzt (Force Touch, aus by default).
+- **Low-Light-Gate.** Bei luma < 0,20 keine Systemaktion, nur Cursor — Vision halluziniert Fäuste.
+- **Fenster-Underlap.** Greifen trifft das AX-Fenster unter der Hand, nicht das frontmost, wenn sie sich stapeln.
 
 ## Nicht tun
 
@@ -107,3 +121,5 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - Idle-Median als Flick-Cap.
 - `leftHanded` wieder default true.
 - Kill bei zwei offenen Händen unabhängig von Bewegung (frisst Scroll).
+- Greifen wieder an `perform()` vorbei (`beginWindowDrag` direkt).
+- Peace-Logits ohne Daumen- und Spreizungs-Term.

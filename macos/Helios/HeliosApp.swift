@@ -209,11 +209,7 @@ enum ConsolePolicy {
               !other.isTerminated,
               other.bundleIdentifier != Bundle.main.bundleIdentifier
         else { return }
-        if #available(macOS 14.0, *) {
-            _ = NSRunningApplication.current.yieldActivation(to: other)
-        } else {
-            other.activate()
-        }
+        other.activate()
     }
 
     /// Nur wenn der Schalter „Konsole bei Scharf ausblenden“ an ist.

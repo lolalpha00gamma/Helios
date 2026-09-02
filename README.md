@@ -1,4 +1,4 @@
-# Helios **1.6.16**
+# Helios **1.6.17**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,16 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.17
+
+Erkennung war rucklig und hinterher: doppeltes Glätten, Body-Pose in jedem Frame, HMM-Reset bei einem Fehlframe, Safari/Xcode-Profile haben Aktionen geschluckt.
+
+- **Zeiger folgt der Hand.** Kalibriert ohne Hochpass-Kleber. Ein leichtes Follow, kein 0,55-Nachziehen.
+- **Zwei Ringe.** Links gelb, rechts cyan. Die Systemmaus folgt der aktiven Hand.
+- **Weniger Latenz.** Body-Pose nur jedes 4. Frame. Luma nicht jeden Tick. Fehlframe friert 90 ms, statt Pose zu löschen.
+- **Gelbe gestrichelte Linie** war der Kasten um die linke Hand im Kamerabild — weg. Beim Greifen ist die Linie zum Fenster jetzt durchgezogen.
+- Aktions-Tor wieder um 0,48–0,60. App-Profile greifen nicht mehr.
 
 ## Neu in 1.6.16
 

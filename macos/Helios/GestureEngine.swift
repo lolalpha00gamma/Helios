@@ -29,6 +29,14 @@ enum GrabPhase: String {
     }
 }
 
+struct HandCursor {
+    var id: String
+    var side: String
+    var isLeft: Bool
+    var point: CGPoint
+    var actor: Bool
+}
+
 @MainActor
 final class GestureEngine {
     var mode: EngineMode = .idle
@@ -47,6 +55,7 @@ final class GestureEngine {
     var grabPhase: GrabPhase = .none
     var grabTargetName = ""
     var cursorHand: String = "—"
+    var handCursors: [HandCursor] = []
     var mousePaused = false
     var dwellEnabled = false
     var chromeKnobs: [ChromeKnob] = []
@@ -92,6 +101,7 @@ final class GestureEngine {
     private var pointerHandID: String?
     private var pointerSourceID: String = ""
     private var palmSlow: CGPoint?
+    private var cursorTracks: [String: CGPoint] = [:]
     private var swipeGraceUntil: TimeInterval = 0
     private var swipeMuteUntil: TimeInterval = 0
     private var lastSwipeDx: CGFloat = 0
@@ -157,6 +167,8 @@ final class GestureEngine {
         armLockUntil = 0
         pointerOrigin = nil
         cursorSmooth = nil
+        cursorTracks.removeAll()
+        handCursors = []
         lastPalm = nil
         pointerHandID = nil
         pointerSourceID = ""
@@ -303,25 +315,25 @@ final class GestureEngine {
         }
 
         if driveClap(hands: hands, now: now) {
-            placeCursor(primary)
+            placeCursors(hands, actor: primary)
             handleArming(hands: hands, now: now)
             return
         }
         if handleKillSwitch(hands: hands, now: now) {
-            placeCursor(primary)
+            placeCursors(hands, actor: primary)
             if !testMode, cursorDidMove, let p = cursor {
                 system.moveCursor(to: p)
             }
             return
         }
         if driveTableIdle(hands: hands, now: now) {
-            placeCursor(primary)
+            placeCursors(hands, actor: primary)
             return
         }
         handleArming(hands: hands, now: now)
 
         if !live {
-            placeCursor(primary)
+            placeCursors(hands, actor: primary)
             grabPhase = (primary.pose == .pinch || primary.pose == .fist) ? .hold : .follow
             grabTargetName = focused?.appName ?? ""
             if hands.contains(where: { $0.pose == .pinch || $0.pose == .fist }) {
@@ -331,8 +343,7 @@ final class GestureEngine {
             return
         }
         if now < cooldownUntil || now < armedQuietUntil {
-            // Peace/Kill-Cooldown darf den Cursor nicht einfrieren — nur Aktionen.
-            placeCursor(primary)
+            placeCursors(hands, actor: primary)
             if !testMode, !system.isDragging, cursorDidMove, primary.pose != .fist, let p = cursor {
                 system.moveCursor(to: p)
             }
@@ -346,7 +357,7 @@ final class GestureEngine {
         lastFusionEntropy = actor.fusion?.entropy ?? lastFusionEntropy
         let freezePointer = pinchHeld && !pinchBecameDrag
         if !freezePointer {
-            placeCursor(actor)
+            placeCursors(hands, actor: actor)
             if !testMode, !system.isDragging, cursorDidMove, actor.pose != .fist, let p = cursor {
                 system.moveCursor(to: p)
             }
@@ -408,6 +419,7 @@ final class GestureEngine {
         pointerHandID = nil
         pointerSourceID = ""
         cursorSmooth = nil
+        cursorTracks.removeAll()
     }
 
     private func releasePointer() {
@@ -417,6 +429,8 @@ final class GestureEngine {
         pointerHandID = nil
         pointerSourceID = ""
         cursorSmooth = nil
+        cursorTracks.removeAll()
+        handCursors = []
         pointerOrigin = nil
         cursorDidMove = false
     }
@@ -727,85 +741,80 @@ final class GestureEngine {
         return primary
     }
 
-    private func actorMapped(_ hand: TrackedHand) -> CGPoint {
+    private func mappedPoint(_ hand: TrackedHand, isActor: Bool) -> CGPoint {
         let palm = hand.palm
-        let sourceChanged = !hand.sourceID.isEmpty && pointerSourceID != hand.sourceID
-        if sourceChanged {
-            pointerSourceID = hand.sourceID
-        }
-        if pointerHandID != hand.id || sourceChanged {
-            pointerHandID = hand.id
-            lastPalm = palm
-            palmSlow = palm
-            cursorDidMove = false
-            if let existing = cursorSmooth {
-                return existing
+        let from = cursorTracks[hand.id]
+        if let map = spaceMap, map.isReady {
+            let q = map.apply(palm)
+            let prev = from ?? q
+            let dist = hypot(q.x - prev.x, q.y - prev.y)
+            let a = min(0.93, 0.58 + dist / 55)
+            let s = CGPoint(x: a * q.x + (1 - a) * prev.x, y: a * q.y + (1 - a) * prev.y)
+            cursorTracks[hand.id] = s
+            if isActor {
+                cursorDidMove = dist > 1.4
+                cursorSmooth = s
             }
-            if let map = spaceMap, map.isReady {
-                let q = map.apply(palm)
-                cursorSmooth = q
-                return q
-            }
-            let start = ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
-            cursorSmooth = start
-            return start
+            return s
         }
+
+        if !isActor {
+            let q = SpaceMap.linear(palm)
+            let prev = from ?? q
+            let a: CGFloat = 0.8
+            let s = CGPoint(x: a * q.x + (1 - a) * prev.x, y: a * q.y + (1 - a) * prev.y)
+            cursorTracks[hand.id] = s
+            return s
+        }
+
         let prevPalm = lastPalm ?? palm
         lastPalm = palm
         let dt = sampleDt
-        let slowA = GestureMath.palmHighpassAlpha(dt: dt)
+        let slowA = min(0.28, GestureMath.palmHighpassAlpha(dt: dt))
         let oldSlow = palmSlow ?? palm
         let newSlow = CGPoint(
             x: oldSlow.x + slowA * (palm.x - oldSlow.x),
             y: oldSlow.y + slowA * (palm.y - oldSlow.y)
         )
-        palmSlow = newSlow
+        if isActor { palmSlow = newSlow }
         var dx = (palm.x - newSlow.x) - (prevPalm.x - oldSlow.x)
         var dy = (palm.y - newSlow.y) - (prevPalm.y - oldSlow.y)
-        let dead = GestureMath.palmDeadZone(dt: dt)
+        let dead = GestureMath.palmDead * 0.55
         if abs(dx) < dead { dx = 0 }
         if abs(dy) < dead { dy = 0 }
-        if let from = cursorSmooth {
-            let cocoa = ScreenGeometry.cocoa(fromQuartz: from)
-            let uv = CoordMath.unitInRect(cocoa, rect: ScreenGeometry.cocoaUnion)
-            if GestureMath.inCornerRest(u: uv.x, v: uv.y), hypot(dx, dy) < dead * 3 {
-                dx = 0
-                dy = 0
-            }
-        }
-
-        if let map = spaceMap, map.isReady {
-            let q = map.apply(palm)
-            if dx == 0 && dy == 0 {
-                cursorDidMove = false
-                return cursorSmooth ?? q
-            }
-            cursorDidMove = true
-            let from = cursorSmooth ?? q
-            let stepped = ScreenGeometry.stepCursor(from: from, dPalm: CGPoint(x: dx, y: dy), gain: pointerGain)
-            let mixed = map.hybrid(palm: palm, relative: stepped)
-            let a: CGFloat = 0.55
-            let s = CGPoint(x: a * mixed.x + (1 - a) * from.x, y: a * mixed.y + (1 - a) * from.y)
+        let seed = from ?? ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
+        let stepped = ScreenGeometry.stepCursor(from: seed, dPalm: CGPoint(x: dx, y: dy), gain: pointerGain)
+        let a: CGFloat = 0.86
+        let s = CGPoint(x: a * stepped.x + (1 - a) * seed.x, y: a * stepped.y + (1 - a) * seed.y)
+        cursorTracks[hand.id] = s
+        if isActor {
+            cursorDidMove = hypot(dx, dy) > dead
             cursorSmooth = s
-            return s
         }
-
-        if dx == 0 && dy == 0 {
-            cursorDidMove = false
-            return cursorSmooth ?? ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
-        }
-        cursorDidMove = true
-        let from = cursorSmooth ?? ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
-        let stepped = ScreenGeometry.stepCursor(from: from, dPalm: CGPoint(x: dx, y: dy), gain: pointerGain)
-        let a: CGFloat = 0.8
-        let s = CGPoint(x: a * stepped.x + (1 - a) * from.x, y: a * stepped.y + (1 - a) * from.y)
-        cursorSmooth = s
         return s
     }
 
-    private func placeCursor(_ hand: TrackedHand) {
-        cursor = actorMapped(hand)
-        cursorHand = hand.sideDE
+    private func placeCursors(_ hands: [TrackedHand], actor: TrackedHand) {
+        let live = Set(hands.map(\.id))
+        cursorTracks = cursorTracks.filter { live.contains($0.key) }
+        var out: [HandCursor] = []
+        for h in hands {
+            let p = mappedPoint(h, isActor: h.id == actor.id)
+            out.append(HandCursor(
+                id: h.id,
+                side: h.sideDE,
+                isLeft: h.chirality == .left,
+                point: p,
+                actor: h.id == actor.id
+            ))
+        }
+        handCursors = out
+        if let a = out.first(where: { $0.actor }) ?? out.first {
+            cursor = a.point
+            cursorHand = a.side
+        }
+        pointerHandID = actor.id
+        if !actor.sourceID.isEmpty { pointerSourceID = actor.sourceID }
     }
 
     @discardableResult

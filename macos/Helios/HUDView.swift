@@ -311,7 +311,7 @@ struct HUDView: View {
             Text("Pinzette ziehen  Fenster")
             Text("Werfen nur Ruck  Dock / Mini")
             Text("Offene Hand wischen  App")
-            Text("Zwei Hände hoch/runter  Scroll")
+            Text("Zwei Hände        zwei Zeiger")
             Text("Pinzette + Ring  Rechtsklick")
             Text("Zwei Pinzetten   Skalieren")
             Text("Peace allein     Aufnahme")

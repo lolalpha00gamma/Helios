@@ -426,12 +426,16 @@ enum CoordTests {
         }
         let floorPeak = GestureMath.entropyActionFloor(entropy: peakH)
         let floorFlat = GestureMath.entropyActionFloor(entropy: flatH)
-        if floorPeak > 0.60 {
-            fputs("FAIL spitze Pose Floor ≤ 0,60 (ist \(floorPeak))\n", stderr)
+        if floorPeak > 0.55 {
+            fputs("FAIL spitze Pose Floor ≤ 0,55 (ist \(floorPeak))\n", stderr)
             fails += 1
         }
-        if floorFlat < 0.68 {
-            fputs("FAIL flache Pose Floor ≥ 0,68 (ist \(floorFlat))\n", stderr)
+        if floorFlat <= floorPeak {
+            fputs("FAIL flache Pose Floor über spitzer (\(floorFlat) vs \(floorPeak))\n", stderr)
+            fails += 1
+        }
+        if floorFlat > 0.62 {
+            fputs("FAIL flache Pose Floor ≤ 0,62 (ist \(floorFlat))\n", stderr)
             fails += 1
         }
         let a24 = GestureMath.palmHighpassAlpha(dt: 0.04)
@@ -468,11 +472,11 @@ enum CoordTests {
             fputs("FAIL ohne Hold kein Follow\n", stderr)
             fails += 1
         }
-        if !GestureMath.tableIdleCandidate(palmsY: [0.12, 0.15], stillHW: 0.04, pinchHeld: false) {
+        if !GestureMath.tableIdleCandidate(palmsY: [0.04, 0.05], stillHW: 0.04, pinchHeld: false) {
             fputs("FAIL zwei Palmen unten still sind Tisch-Idle\n", stderr)
             fails += 1
         }
-        if GestureMath.tableIdleCandidate(palmsY: [0.12, 0.15], stillHW: 0.04, pinchHeld: true) {
+        if GestureMath.tableIdleCandidate(palmsY: [0.04, 0.05], stillHW: 0.04, pinchHeld: true) {
             fputs("FAIL Pinzette ist kein Tisch-Idle\n", stderr)
             fails += 1
         }
@@ -480,34 +484,20 @@ enum CoordTests {
             fputs("FAIL eine Hand ist kein Tisch-Idle\n", stderr)
             fails += 1
         }
-        if GestureMath.tableIdleCandidate(palmsY: [0.55, 0.60], stillHW: 0.02, pinchHeld: false) {
+        if GestureMath.tableIdleCandidate(palmsY: [0.12, 0.15], stillHW: 0.02, pinchHeld: false) {
             fputs("FAIL Palmen in der Luft sind kein Tisch\n", stderr)
             fails += 1
         }
-        if AppInjectProfile.of(bundleId: "com.apple.dt.Xcode") != .off {
-            fputs("FAIL Xcode Profil aus\n", stderr)
+        if AppInjectProfile.of(bundleId: "com.apple.dt.Xcode") != .full {
+            fputs("FAIL Xcode nicht mehr aus — voll\n", stderr)
             fails += 1
         }
-        if AppInjectProfile.of(bundleId: "com.apple.Safari") != .clickScroll {
-            fputs("FAIL Safari Klick/Scroll\n", stderr)
+        if !AppInjectProfile.of(bundleId: "com.apple.Safari").allows("Wegwerfen") {
+            fputs("FAIL Safari voll, nicht nur Klick\n", stderr)
             fails += 1
         }
-        if AppInjectProfile.of(bundleId: "com.apple.finder") != .finder {
-            fputs("FAIL Finder-Profil\n", stderr)
-            fails += 1
-        }
-        if AppInjectProfile.of(bundleId: "com.apple.dt.Xcode").allows("Klick") {
-            fputs("FAIL Xcode darf nicht klicken\n", stderr)
-            fails += 1
-        }
-        if !AppInjectProfile.of(bundleId: "com.apple.Safari").allows("Klick")
-            || AppInjectProfile.of(bundleId: "com.apple.Safari").allows("Wegwerfen")
-        {
-            fputs("FAIL Safari nur Klick/Scroll\n", stderr)
-            fails += 1
-        }
-        if AppInjectProfile.of(bundleId: "com.apple.Safari").allowsWindowDrag {
-            fputs("FAIL Safari kein Fensterzug\n", stderr)
+        if !AppInjectProfile.of(bundleId: "com.apple.Safari").allowsWindowDrag {
+            fputs("FAIL Safari Fensterzug wieder an\n", stderr)
             fails += 1
         }
         if !AppInjectProfile.of(bundleId: "com.apple.finder").allows("Wegwerfen") {

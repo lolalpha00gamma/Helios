@@ -23,7 +23,7 @@ final class HUDPanel: NSPanel {
 final class OverlayController {
     private var panels: [CGDirectDisplayID: HUDPanel] = [:]
     private var hostings: [CGDirectDisplayID: NSHostingView<HUDRoot>] = [:]
-    private var markers: [CGDirectDisplayID: HandMarkerView] = [:]
+    private var markers: [CGDirectDisplayID: (left: HandMarkerView, right: HandMarkerView)] = [:]
     private weak var state: AppState?
     private var screenObs: NSObjectProtocol?
     private var attached = false
@@ -64,19 +64,26 @@ final class OverlayController {
                 hosting.rootView = root
                 existing.setFrame(screen.frame, display: true)
                 hosting.frame = CGRect(origin: .zero, size: screen.frame.size)
-                markers[id]?.frame = CGRect(origin: .zero, size: screen.frame.size)
-                markers[id]?.screenFrame = screen.frame
+                let box = CGRect(origin: .zero, size: screen.frame.size)
+                markers[id]?.left.frame = box
+                markers[id]?.right.frame = box
+                markers[id]?.left.screenFrame = screen.frame
+                markers[id]?.right.screenFrame = screen.frame
                 existing.orderFrontRegardless()
                 continue
             }
             let hosting = NSHostingView(rootView: root)
             hosting.frame = CGRect(origin: .zero, size: screen.frame.size)
-            let marker = HandMarkerView(frame: CGRect(origin: .zero, size: screen.frame.size))
-            marker.screenFrame = screen.frame
-            let wrap = NSView(frame: CGRect(origin: .zero, size: screen.frame.size))
+            let box = CGRect(origin: .zero, size: screen.frame.size)
+            let leftM = HandMarkerView(frame: box)
+            leftM.screenFrame = screen.frame
+            let rightM = HandMarkerView(frame: box)
+            rightM.screenFrame = screen.frame
+            let wrap = NSView(frame: box)
             wrap.wantsLayer = true
             wrap.addSubview(hosting)
-            wrap.addSubview(marker)
+            wrap.addSubview(leftM)
+            wrap.addSubview(rightM)
             let panel = HUDPanel(
                 contentRect: screen.frame,
                 styleMask: [.borderless, .nonactivatingPanel],
@@ -97,7 +104,7 @@ final class OverlayController {
             panel.orderFrontRegardless()
             panels[id] = panel
             hostings[id] = hosting
-            markers[id] = marker
+            markers[id] = (leftM, rightM)
         }
     }
 
@@ -117,21 +124,42 @@ final class OverlayController {
     }
 
     func mark(
-        cursor: CGPoint?,
+        cursors: [HandCursor],
         phase: GrabPhase,
-        hand: String,
         target: String,
         window: CGRect?,
         showReticle: Bool = true
     ) {
-        for (id, view) in markers {
+        for (id, pair) in markers {
             guard let panel = panels[id] else { continue }
+            _ = panel
             if !showReticle {
-                view.isHidden = true
+                pair.left.isHidden = true
+                pair.right.isHidden = true
                 continue
             }
-            view.screenFrame = panel.frame
-            view.apply(cursor: cursor, phase: phase, hand: hand, target: target, window: window)
+            pair.left.screenFrame = panel.frame
+            pair.right.screenFrame = panel.frame
+            let left = cursors.first(where: { $0.isLeft }) ?? cursors.first(where: { $0.side == "Links" })
+            let right = cursors.first(where: { !$0.isLeft && $0.side != "Links" })
+            pair.left.apply(
+                cursor: left?.point,
+                phase: left?.actor == true ? phase : (left == nil ? .none : .follow),
+                hand: left?.side ?? "Links",
+                target: left?.actor == true ? target : "",
+                window: left?.actor == true ? window : nil,
+                isLeft: true,
+                showBeam: left?.actor == true
+            )
+            pair.right.apply(
+                cursor: right?.point,
+                phase: right?.actor == true ? phase : (right == nil ? .none : .follow),
+                hand: right?.side ?? "Rechts",
+                target: right?.actor == true ? target : "",
+                window: right?.actor == true ? window : nil,
+                isLeft: false,
+                showBeam: right?.actor == true
+            )
         }
     }
 
@@ -160,8 +188,8 @@ final class HandMarkerView: NSView {
         layerContentsRedrawPolicy = .never
         layer?.backgroundColor = .clear
         beam.fillColor = nil
-        beam.lineWidth = 2.5
-        beam.lineDashPattern = [7, 5]
+        beam.lineWidth = 2
+        beam.lineDashPattern = nil
         ring.fillColor = nil
         ring.lineWidth = 3
         ring.bounds = CGRect(x: 0, y: 0, width: 92, height: 92)
@@ -194,7 +222,9 @@ final class HandMarkerView: NSView {
         phase: GrabPhase,
         hand: String,
         target: String,
-        window: CGRect?
+        window: CGRect?,
+        isLeft: Bool = false,
+        showBeam: Bool = true
     ) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -209,11 +239,9 @@ final class HandMarkerView: NSView {
         let grab = phase == .grab
         let hold = phase == .hold
         let col: CGColor = {
-            switch phase {
-            case .grab, .hold: return CGColor(red: 1, green: 0.72, blue: 0.15, alpha: 1)
-            case .follow: return CGColor(red: 0.25, green: 0.9, blue: 1, alpha: 1)
-            case .none: return CGColor(gray: 0.55, alpha: 0.5)
-            }
+            if grab || hold { return CGColor(red: 1, green: 0.72, blue: 0.15, alpha: 1) }
+            if isLeft { return CGColor(red: 1, green: 0.72, blue: 0.22, alpha: 1) }
+            return CGColor(red: 0.25, green: 0.9, blue: 1, alpha: 1)
         }()
         ring.strokeColor = col
         ring.position = local
@@ -222,7 +250,7 @@ final class HandMarkerView: NSView {
         label.foregroundColor = col
         label.string = "\(phase.labelDE)  \(hand.uppercased())" + (grab && !target.isEmpty ? "  \(target.uppercased())" : "")
         label.position = CGPoint(x: local.x + 52, y: local.y)
-        if grab, let wr = window, ScreenGeometry.intersects(quartz: wr, screen: screenFrame) {
+        if showBeam, grab, let wr = window, ScreenGeometry.intersects(quartz: wr, screen: screenFrame) {
             let r = ScreenGeometry.localRect(quartz: wr, on: screenFrame)
             let path = CGMutablePath()
             path.move(to: local)

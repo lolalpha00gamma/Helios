@@ -53,23 +53,6 @@ struct TrackingOverlay: View {
     private func drawHand(_ hand: TrackedHand, in ctx: inout GraphicsContext, size: CGSize) {
         let joints = hand.overlayJoints
         let side = hand.chirality == .left ? HeliosTheme.amber : HeliosTheme.cyan
-        let pts = joints.compactMap { $0.value.confidence > 0.18 ? vis($0.value.point, size) : nil }
-        if pts.count >= 3 {
-            let xs = pts.map(\.x)
-            let ys = pts.map(\.y)
-            let pad: CGFloat = compact ? 10 : 16
-            let rect = CGRect(
-                x: (xs.min() ?? 0) - pad,
-                y: (ys.min() ?? 0) - pad,
-                width: (xs.max() ?? 0) - (xs.min() ?? 0) + pad * 2,
-                height: (ys.max() ?? 0) - (ys.min() ?? 0) + pad * 2
-            )
-            ctx.stroke(
-                Path(roundedRect: rect, cornerRadius: 4),
-                with: .color(side.opacity(0.55)),
-                style: StrokeStyle(lineWidth: 1, dash: [4, 3])
-            )
-        }
 
         for finger in FingerKind.allCases {
             var path = Path()

@@ -7,9 +7,9 @@ struct LandmarkSmoothing {
     private var deriv: [VNHumanHandPoseObservation.JointName: CGPoint] = [:]
     private var lastT: TimeInterval?
     private var jumps: [CGFloat] = []
-    var minCutoff: CGFloat = 6.2
-    var beta: CGFloat = 0.16
-    var dCutoff: CGFloat = 1.8
+    var minCutoff: CGFloat = 11.0
+    var beta: CGFloat = 0.28
+    var dCutoff: CGFloat = 2.6
     var space = AspectSpace.hd720
 
     mutating func reset() {

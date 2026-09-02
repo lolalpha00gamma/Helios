@@ -28,7 +28,7 @@ struct PoseHMM {
         now: TimeInterval,
         dt: TimeInterval
     ) -> (pose: HandPose, prob: Double, pinch: Double) {
-        let tauStay: Double = 0.11
+        let tauStay: Double = 0.07
         let pStay = exp(-dt / tauStay)
         let pLeave = 1 - pStay
         var next: [HandPose: Double] = [:]
@@ -51,7 +51,7 @@ struct PoseHMM {
         logP = Dictionary(uniqueKeysWithValues: next.map { ($0.key, log(max(1e-12, $0.value))) })
 
         let best = next.max(by: { $0.value < $1.value }) ?? (.unknown, 0)
-        let pinchTau = 0.07
+        let pinchTau = 0.045
         let a = 1 - exp(-dt / pinchTau)
         pinch = pinch * (1 - a) + pinchClosedness * a
 

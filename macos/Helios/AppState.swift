@@ -121,9 +121,8 @@ final class AppState: ObservableObject {
             Prefs.showReticle = v
             guard let self else { return }
             self.overlay.mark(
-                cursor: self.engine.cursor,
+                cursors: self.engine.handCursors,
                 phase: self.engine.grabPhase,
-                hand: self.engine.cursorHand,
                 target: self.engine.grabTargetName,
                 window: self.focused?.quartzBounds,
                 showReticle: v
@@ -580,9 +579,8 @@ final class AppState: ObservableObject {
             overlay.setVisible(true)
         }
         overlay.mark(
-            cursor: engine.cursor,
+            cursors: engine.handCursors,
             phase: engine.grabPhase,
-            hand: engine.cursorHand,
             target: engine.grabTargetName,
             window: focused?.quartzBounds,
             showReticle: showReticle

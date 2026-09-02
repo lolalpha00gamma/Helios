@@ -113,12 +113,20 @@ final class HandTracker: @unchecked Sendable {
     var lastFusion: FusionDebug?
     var depthAvailable = false
     var fusionTemperature: Double = 0.75
+    private var lastHands: [TrackedHand] = []
+    private var lastHandsAt: TimeInterval = 0
+    private var bodyTick = 0
+    private var lastBodyPts: [VNHumanBodyPoseObservation.JointName: VNRecognizedPoint] = [:]
 
     func reset() {
         lock.lock()
         defer { lock.unlock() }
         tracks.removeAll()
         lastFusion = nil
+        lastHands = []
+        lastHandsAt = 0
+        lastBodyPts = [:]
+        bodyTick = 0
     }
 
     func analyze(
@@ -141,7 +149,13 @@ final class HandTracker: @unchecked Sendable {
             options: [.ciContext: MetalHub.ci]
         )
         do {
-            try handler.perform([request, bodyRequest])
+            bodyTick += 1
+            if bodyTick % 4 == 1 {
+                try handler.perform([request, bodyRequest])
+                lastBodyPts = (try? bodyRequest.results?.first?.recognizedPoints(.all)) ?? lastBodyPts
+            } else {
+                try handler.perform([request])
+            }
         } catch {
             _ = try? VNImageRequestHandler(
                 cvPixelBuffer: pixelBuffer,
@@ -151,16 +165,16 @@ final class HandTracker: @unchecked Sendable {
         }
         let observations = request.results ?? []
         if observations.isEmpty {
-            for i in tracks.indices {
-                tracks[i].pinch.reset()
-                tracks[i].hmm.reset()
+            tracks.removeAll { now - $0.lastSeen > 0.12 }
+            if !lastHands.isEmpty, now - lastHandsAt < 0.09 {
+                return lastHands
             }
-            tracks.removeAll { now - $0.lastSeen > 0.18 }
+            lastHands = []
             lastFusion = nil
             return []
         }
 
-        let bodyPts = (try? bodyRequest.results?.first?.recognizedPoints(.all)) ?? [:]
+        let bodyPts = lastBodyPts
         depthAvailable = depth != nil
 
         var obsList: [RawObs] = []
@@ -310,9 +324,11 @@ final class HandTracker: @unchecked Sendable {
             )
         }
         tracks.removeAll { now - $0.lastSeen > 0.18 }
-        for i in tracks.indices where tracks[i].lastSeen != now {
+        for i in tracks.indices where now - tracks[i].lastSeen > 0.12 {
             tracks[i].pinch.reset()
         }
+        lastHands = hands
+        lastHandsAt = now
         return hands
     }
 

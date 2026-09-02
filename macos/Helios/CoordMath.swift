@@ -316,8 +316,8 @@ enum GestureMath {
         return h
     }
 
-    static let entropyFloorLo: Double = 0.55
-    static let entropyFloorHi: Double = 0.72
+    static let entropyFloorLo: Double = 0.48
+    static let entropyFloorHi: Double = 0.60
 
     /// Flache Verteilung → höherer Floor (0,72), spitze → 0,55 statt hart 0,62.
     static func entropyActionFloor(entropy: Double, poseCount: Int = 7) -> Double {
@@ -351,8 +351,8 @@ enum GestureMath {
         return liveIDs.contains(id) ? id : nil
     }
 
-    static let tablePalmY: CGFloat = 0.28
-    static let tableIdleHold: TimeInterval = 1.20
+    static let tablePalmY: CGFloat = 0.10
+    static let tableIdleHold: TimeInterval = 2.80
     static let tableStillHW: CGFloat = 0.10
 
     /// Beide Palmen unten im Bild, wenig Bewegung, keine Pinzette.
@@ -377,15 +377,7 @@ enum AppInjectProfile: Equatable {
     }
 
     static func of(bundleId: String) -> AppInjectProfile {
-        let id = bundleId.lowercased()
-        if id.isEmpty { return .full }
-        if id == "com.apple.dt.xcode" { return .off }
-        if id == "com.apple.finder" { return .finder }
-        if id.contains("safari") || id.contains("chrome") || id.contains("firefox")
-            || id.contains("brave") || id.contains("chromium") || id.contains("microsoft.edgemac")
-        {
-            return .clickScroll
-        }
+        _ = bundleId
         return .full
     }
 

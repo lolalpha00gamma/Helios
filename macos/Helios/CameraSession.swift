@@ -558,16 +558,22 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     }
 
     private let previewQueue = DispatchQueue(label: "helios.preview", qos: .utility)
+    private var lastLuma: CGFloat = 0.5
+    private var lastLumaAt: TimeInterval = 0
 
     private func process(_ pb: CVPixelBuffer, arrived: TimeInterval) {
-        let luma = enhancer.luma(of: pb)
+        let now = CACurrentMediaTime()
+        if now - lastLumaAt >= 0.18 {
+            lastLuma = enhancer.luma(of: pb)
+            lastLumaAt = now
+        }
+        let luma = lastLuma
         let vision = enhancer.enhance(pb, luma: luma)
         handlerLock.lock()
         let handler = frameHandler
         handlerLock.unlock()
         handler?(vision, nil, luma, arrived)
-        let now = CACurrentMediaTime()
-        if now - lastPreview >= 0.12 {
+        if now - lastPreview >= 0.16 {
             lastPreview = now
             previewQueue.async { [weak self] in
                 guard let img = self?.makePreview(pb) else { return }

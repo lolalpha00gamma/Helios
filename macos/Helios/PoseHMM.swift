@@ -59,7 +59,7 @@ struct PoseHMM {
         // next[current] ist verdünnt — perform() blockte sonst bei gehaltenem unknown.
         if best.key == .unknown, current != .unknown {
             holdSince = nil
-            let held = lastRealProb > 0.40 ? lastRealProb : max(next[current] ?? 0, 0.62)
+            let held = max(0.62, lastRealProb > 0.40 ? lastRealProb : (next[current] ?? 0.62))
             return (current, held, pinch)
         }
 

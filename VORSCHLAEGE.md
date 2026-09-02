@@ -1,6 +1,17 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.14**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+Stand: **1.6.15**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+
+## In 1.6.15 erledigt
+
+Warum 1.6.14 Traffic-Lights, Chords und Idle trotzdem falsch anfühlte: `click()` postete HID auf den Magnet-Punkt, macOS-Knöpfe brauchen AXPress. Die zweite Hand war unsichtbar bis Loslassen. `peaceHoldSeconds == nil` hat den HUD-Ring geleert, nicht erklärt. `GestureAction.from` kannte nur `"Klick"`/`"Shift-Klick"` — Cmd/Opt liefen ohne Profil-Gate. `main` 1.6.6 hatte Doppelklatschen, `bugfix` nicht.
+
+1. **AXPress Magnet.** Schließen/Mini/Zoom/Knopf/Checkbox/Radio/Tab — HID nur Fallback, Modifier bleiben Pixel.
+2. **HUD-Chord SHIFT/CMD/OPT** sobald die zweite Hand Faust/Peace/Point ist.
+3. **Peace-HUD `PEACE · SCROLL`** während der 400 ms Deadzone.
+4. **Cmd/Opt-Klick im Profil.**
+5. **2× klatschen → Scharf** (Kamera, kein Mikro). Kill-Hold ignoriert engen Palmenabstand.
+6. **Focus-Poll 120 ms** für invertHorizontal.
 
 ## In 1.6.14 erledigt
 
@@ -175,11 +186,13 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 ## Nächste Fixes (klein, hoher Nutzen)
 
 - **System-Cursor verstecken** solange Scharf (optional, Trackpad-Clutch holt ihn zurück).
-- **HUD Chord-Vorschau.** Zweite Hand Peace/Point zeigt „CMD“ / „OPT“ am Cursor, bevor der Pinch aufgeht.
 - **Peace-Deadzone · palmWidth.** Große Hand (Couch) > 0,12, kleine (Desk) feiner — analog Scroll-Gain.
-- **AXPress statt HID** auf AXButton unter Magnet — zuverlässiger als Pixel-Klick auf Traffic Lights.
 - **Cmd-Drag im Finder.** Peace der zweiten Hand während Pinch-Drag = Option-Copy, nicht Verschieben.
 - **Screenshot-Dateiname mit Bundle.** `Helios-Safari-….png`, nicht nur Zeitstempel.
+- **AXPress + Modifier.** Cmd-Klick auf Link im Safari-Tab als AXPress+flags, nicht HID.
+- **Chord am Cursor-Ring**, nicht nur in der Top-Bar — sonst sieht man ihn auf dem Zweitmonitor nicht.
+- **Clap-Gain aus palmWidth.** Couch (große Palme) braucht langsameren Pulse, Desk feuert zu leicht.
+- **Magnet-AX-Element nach Cache-Hit behalten** wenn das Fenster starb (Fullscreen-Übergang).
 
 ## Größere Erweiterungen
 
@@ -233,9 +246,19 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Clutch-Statistik im HUD.** Wie oft Maus vs. Geste in den letzten 60 s — Gain zu hoch, wenn Clutch dauernd feuert.
 - **Kalibrier-Heatmap nach 9 Punkten.** Welche Zelle RMSE > 12 px hat, dort nochmal.
 - **Bezel-Warp.** Unkalibrierter Nachbarschirm interpoliert den Cursor über die Naht.
-- **Modifier-Chord der zweiten Hand.** Faust=Shift, Peace=Cmd, Point=Opt sitzt (1.6.14); HUD-Vorschau fehlt.
-- **AXPress statt HID** auf AXButton unter Magnet — zuverlässiger als Pixel-Klick auf Traffic Lights.
+- **Modifier-Chord der zweiten Hand.** Faust=Shift, Peace=Cmd, Point=Opt sitzt (1.6.14); HUD-Vorschau sitzt (1.6.15).
+- **AXPress statt HID** auf AXButton unter Magnet — sitzt in 1.6.15; Slider bleibt HID (AXPress zieht den Thumb nicht).
 - **Scroll-Richtung live aus Frontmost-Bundle**, nicht nur beim Profil-Wechsel (Safari-Tab in Stage Manager).
+- **Klick-Lock nach AXPress 200 ms.** Sonst Doppel-HID wenn AXPress „erfolg“ sagt und der Knopf schon weg ist.
+- **Peace-Scroll und Aufnahme zeitlich trennen.** Eigene Pose-Klasse „Victory-still“ vs. „Victory-scroll“, nicht nur Deadzone.
+- **Kalibrier-9-Punkte als Heatmap** nach RMSE, Zelle > 12 px nochmal, nicht ganze Session.
+- **Zwei-Hand-Rotate** für Preview-Fenster (Fotos, Maps) wo AXRotate existiert.
+- **Menu-Bar Extra ohne Overlay** für Screensharing: nur Scharf-LED.
+- **Helios als Continuity-Receiver.** iPhone-Frontkamera als Steuerkamera, Mac-Trackpad bleibt Clutch.
+- **Per-Display invertHorizontal.** Terminal auf Schirm A, Safari auf B — Bundle allein reicht nicht bei Stage Manager.
+- **Fling-Trash nur Finder.** In Xcode ist Hochwerfen Mini, nicht Papierkorb der Datei unter dem Cursor.
+- **Rechtsklick-Menü AXPress** auf AXMenuItem nach Magnet, analog Traffic-Lights.
+- **Clap nur im Idle.** Im Scharf-Modus 2× klatschen ist heute nur Log — besser: Overlay nach vorn + Kill-Reset.
 - **Ghost-Cursor während Clutch klickt nicht nach.** Sitzt schon; HUD darf „klickbereit in N ms“ zeigen.
 - **Text-Drag Startpunkt = Magnet-I-Beam**, nicht Palm-Mitte — sonst beginnt die Auswahl ein Wort daneben.
 - **Peace-Hold-Ring dunkel**, solange Deadzone aktiv — sonst wirkt Scroll „tot“, obwohl Aufnahme zählt.

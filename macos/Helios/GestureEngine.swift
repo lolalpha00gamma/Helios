@@ -49,7 +49,7 @@ enum GestureAction: String, CaseIterable, Codable, Hashable {
 
     static func from(name: String) -> GestureAction? {
         switch name {
-        case "Klick", "Shift-Klick": return .click
+        case "Klick", "Shift-Klick", "Cmd-Klick", "Opt-Klick": return .click
         case "Scroll": return .scroll
         case "Nächste App", "Vorherige App": return .swipe
         case "Wegwerfen", "Minimieren", "Links andocken", "Rechts andocken": return .fling
@@ -279,6 +279,9 @@ final class GestureEngine {
     var clutchRemain: CGFloat = 0
     var peaceCooldownRemain: CGFloat = 0
     var cursorIBeam = false
+    var chordPreview: String?
+    var peaceHoldDark = false
+    var clapWake = false
 
     private var fistSince: TimeInterval?
     private var fistLostAt: TimeInterval?
@@ -337,6 +340,11 @@ final class GestureEngine {
     private var lastScrollTicks: Int32 = 0
     private var lastScrollHorizontal: Int32 = 0
     private var pinchStartQuartz: CGPoint?
+    private var clapClosed = false
+    private var clapSpan: (t: TimeInterval, span: CGFloat)?
+    private var firstClapAt: TimeInterval = 0
+    private var lastClapFire: TimeInterval = 0
+    private var lastTwoHands: TimeInterval = 0
     private let system = SystemControl()
     var onLog: ((String, ProtocolKind, Int?) -> Void)?
     var focused: FocusedTarget?
@@ -399,6 +407,14 @@ final class GestureEngine {
         lastScrollTicks = 0
         lastScrollHorizontal = 0
         pinchStartQuartz = nil
+        clapClosed = false
+        clapSpan = nil
+        firstClapAt = 0
+        lastClapFire = 0
+        lastTwoHands = 0
+        clapWake = false
+        chordPreview = nil
+        peaceHoldDark = false
         peaceProgress = 0
         clutchReason = nil
         clutchRemain = 0
@@ -460,6 +476,8 @@ final class GestureEngine {
         lastPalmWidth = hands.map(\.palmWidth).max() ?? lastPalmWidth
         mousePaused = !system.allowsInjection && !system.fromInstallMedia
         peaceProgress = 0
+        peaceHoldDark = false
+        chordPreview = nil
 
         if system.fromInstallMedia {
             lastAction = "Cursor frei — Helios nach Programme ziehen"
@@ -531,6 +549,7 @@ final class GestureEngine {
             }
             return
         }
+        _ = driveClap(hands: hands, now: now)
         handleArming(hands: hands, now: now)
 
         if system.isDragging, !profile.allows(.grab), !testMode {
@@ -545,7 +564,7 @@ final class GestureEngine {
             grabPhase = (primary.pose == .pinch || primary.pose == .fist) ? .hold : .follow
             grabTargetName = focused?.appName ?? ""
             if hands.contains(where: { $0.pose == .pinch || $0.pose == .fist }) {
-                lastAction = mustRearm ? "Nach Not-Aus: Faust halten" : "Faust halten → Scharf"
+                lastAction = mustRearm ? "Nach Not-Aus: Faust halten oder 2× klatschen" : "Faust halten oder 2× klatschen → Scharf"
             }
             dragging = false
             return
@@ -591,6 +610,7 @@ final class GestureEngine {
         driveThumbs(actor, now: now)
         driveDwell(actor, now: now)
         drivePalmRest(actor, now: now)
+        refreshChord(hands: hands, actor: actor)
         refreshCursorChrome()
         dragging = pinchHeld
         if system.isDragging {
@@ -717,8 +737,94 @@ final class GestureEngine {
         return false
     }
 
+    /// Zwei Hände, sichtbarer Schlag zusammen — kein Mikrofon.
+    @discardableResult
+    private func driveClap(hands: [TrackedHand], now: TimeInterval) -> Bool {
+        guard !pinchHeld, twoPinchSince == nil else { return false }
+        if now - lastClapFire < 1.15 {
+            return false
+        }
+        if mode == .idle, now < armLockUntil, (armLockUntil - now) > 1.20 {
+            return false
+        }
+        guard hands.count >= 2 else {
+            if lastTwoHands > 0, now - lastTwoHands > 0.22 {
+                clapClosed = false
+                clapSpan = nil
+                firstClapAt = 0
+            }
+            return false
+        }
+        lastTwoHands = now
+        let a = hands[0]
+        let b = hands[1]
+        if a.openScore == 0, b.openScore == 0 { return false }
+        let unit = max(0.04, (a.palmWidth + b.palmWidth) / 2)
+        let span = space.dist(a.palm, b.palm) / unit
+        defer { clapSpan = (now, span) }
+        if clapClosed {
+            if span > CoordMath.clapOpen {
+                clapClosed = false
+            }
+            return false
+        }
+        guard let prev = clapSpan else { return false }
+        guard CoordMath.isClapPulse(prevSpan: prev.span, prevT: prev.t, span: span, now: now) else {
+            if firstClapAt > 0, now - firstClapAt > CoordMath.clapMaxGap {
+                firstClapAt = 0
+            }
+            return false
+        }
+        clapClosed = true
+        if firstClapAt > 0, CoordMath.isDoubleClap(first: firstClapAt, second: now) {
+            firstClapAt = 0
+            lastClapFire = now
+            clapWake = true
+            palmSince = nil
+            killLatched = false
+            mustRearm = false
+            fistSince = nil
+            if mode != .armed {
+                mode = .armed
+                lastArmToggle = now
+                cooldownUntil = now + 0.4
+                armedQuietUntil = now + 0.70
+                lastAction = testMode ? "Test: Doppelklatschen" : "Doppelklatschen → Scharf"
+                onLog?(
+                    testMode
+                        ? "Doppelklatschen — Testmodus, System unberührt"
+                        : "Doppelklatschen (Kamera) → Scharf",
+                    testMode ? .blocked : .executed,
+                    Int((hands.map(\.poseProb).max() ?? 0) * 100)
+                )
+            } else {
+                lastAction = "Doppelklatschen"
+                onLog?("Doppelklatschen — HUD nach vorn", .info, Int((hands.map(\.poseProb).max() ?? 0) * 100))
+            }
+            return true
+        }
+        firstClapAt = now
+        lastAction = "Klatschen …"
+        onLog?("Klatschen erkannt", .recognized, Int((hands.map(\.poseProb).max() ?? 0) * 100))
+        return false
+    }
+
+    private func refreshChord(hands: [TrackedHand], actor: TrackedHand) {
+        let other = hands.filter { $0.id != actor.id }
+        let mods = CoordMath.clickFlags(
+            otherFist: other.contains { $0.pose == .fist },
+            otherPeace: other.contains { $0.pose == .peace },
+            otherPoint: other.contains { $0.pose == .point }
+        )
+        chordPreview = CoordMath.chordLabel(shift: mods.shift, command: mods.command, option: mods.option)
+    }
+
     @discardableResult
     private func handleKillSwitch(hands: [TrackedHand], now: TimeInterval) -> Bool {
+        if firstClapAt > 0, now - firstClapAt < CoordMath.clapMaxGap {
+            palmSince = nil
+            return false
+        }
         let open = hands.filter { $0.openScore >= 4 }
         let fists = hands.filter {
             $0.pose == .fist || ($0.openScore == 0 && $0.pinchRatio > 0.5 && $0.meanConfidence > 0.35)
@@ -732,13 +838,18 @@ final class GestureEngine {
             return false
         }
         if open.count >= 2 {
+            let unit = max(0.04, (open[0].palmWidth + open[1].palmWidth) / 2)
+            let span = space.dist(open[0].palm, open[1].palm) / unit
+            if span < CoordMath.clapOpen {
+                palmSince = nil
+                if !killLatched { return false }
+            }
             if killLatched {
                 lastAction = "Not-Aus"
                 mode = .idle
                 return true
             }
             let y = open.map(\.palm.y).reduce(0, +) / CGFloat(open.count)
-            let unit = max(0.04, (open[0].palmWidth + open[1].palmWidth) / 2)
             var moving = false
             if let prev = killSample {
                 let dt = max(0.001, now - prev.t)
@@ -764,7 +875,7 @@ final class GestureEngine {
                 fistSince = nil
                 system.endWindowDrag()
                 lastAction = "Not-Aus"
-                onLog?("Beide Hände offen → Not-Aus. Bleibt Idle, bis Faust hält.", .info, nil)
+                onLog?("Beide Hände offen → Not-Aus. Bleibt Idle, bis Faust hält oder 2× klatschen.", .info, nil)
                 killFlash = true
                 Task { [weak self] in
                     try? await Task.sleep(nanoseconds: 350_000_000)
@@ -790,7 +901,7 @@ final class GestureEngine {
 
     private func handleArming(hands: [TrackedHand], now: TimeInterval) {
         if now < armLockUntil {
-            if mode == .idle { lastAction = "Not-Aus — Faust zum Scharf" }
+            if mode == .idle { lastAction = "Not-Aus — Faust oder 2× Klatschen" }
             return
         }
         if mode == .armed { return }
@@ -1305,6 +1416,13 @@ final class GestureEngine {
 
     private func drivePeace(_ hand: TrackedHand, now: TimeInterval) {
         if hand.pose == .peace, hand.poseProb >= 0.50 {
+            if CoordMath.peaceHoldDark(sinceScroll: now - lastScrollAt) {
+                peaceSince = nil
+                peaceProgress = 0
+                peaceHoldDark = true
+                lastAction = "Peace · Scroll-Pause"
+                return
+            }
             guard let need = CoordMath.peaceHoldSeconds(sinceScroll: now - lastScrollAt) else {
                 peaceSince = nil
                 peaceProgress = 0

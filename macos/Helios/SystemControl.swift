@@ -40,6 +40,8 @@ final class SystemControl {
     private var magnetCachedAtPoint = CGPoint.zero
     private var magnetCached: CGPoint?
     private var magnetCachedRole: String?
+    private var magnetCachedElement: AXUIElement?
+    private var lastMagnetElement: AXUIElement?
     private var roleCachedAt: Double = 0
     private var roleCachedAtPoint = CGPoint.zero
     /// Markiert eigene CGEvents. Clutch filtert darüber, nicht nur über 120 ms.
@@ -181,6 +183,13 @@ final class SystemControl {
         lastClick = now
         guard allowsInjection else { return .fail("Maus hat Vorrang") }
         let loc = lastPosted ?? NSEvent.mouseLocation.screenFlipped
+        let name = CoordMath.clickName(shift: shift, command: command, option: option)
+        if CoordMath.axPresses(lastMagnetRole), let el = lastMagnetElement, !shift, !command, !option {
+            let act = AXUIElementPerformAction(el, "AXPress" as CFString)
+            if act == .success {
+                return .ok(name + " · AXPress")
+            }
+        }
         var flags: CGEventFlags = []
         if shift { flags.insert(.maskShift) }
         if command { flags.insert(.maskCommand) }
@@ -188,7 +197,7 @@ final class SystemControl {
         guard postMouse(.leftMouseDown, at: loc, flags: flags), postMouse(.leftMouseUp, at: loc, flags: flags) else {
             return .fail("CGEvent Klick")
         }
-        return .ok(CoordMath.clickName(shift: shift, command: command, option: option))
+        return .ok(name)
     }
 
     @discardableResult
@@ -353,6 +362,7 @@ final class SystemControl {
            )
         {
             lastMagnetRole = magnetCachedRole
+            lastMagnetElement = magnetCachedElement
             return cached
         }
         guard let win = targetWindow(at: quartz, allowFrontmost: false) else {
@@ -360,18 +370,20 @@ final class SystemControl {
             magnetCachedAtPoint = quartz
             magnetCached = nil
             magnetCachedRole = nil
+            magnetCachedElement = nil
             lastMagnetRole = nil
+            lastMagnetElement = nil
             lastHitRole = nil
             return nil
         }
         let cocoa = ScreenGeometry.cocoa(fromQuartz: quartz)
-        var candidates: [(point: CGPoint, role: String)] = []
+        var candidates: [(point: CGPoint, role: String, el: AXUIElement)] = []
         for attr in ["AXCloseButton", "AXMinimizeButton", "AXZoomButton"] as [CFString] {
             var btn: CFTypeRef?
             if AXUIElementCopyAttributeValue(win, attr, &btn) == .success, let btn {
                 let el = btn as! AXUIElement
                 if let p = position(of: el), let s = size(of: el) {
-                    candidates.append((CGPoint(x: p.x + s.width / 2, y: p.y + s.height / 2), attr as String))
+                    candidates.append((CGPoint(x: p.x + s.width / 2, y: p.y + s.height / 2), attr as String, el))
                 }
             }
         }
@@ -386,10 +398,10 @@ final class SystemControl {
             if let r = role as? String, Self.magnetRoles.contains(r),
                let p = position(of: el), let s = size(of: el)
             {
-                candidates.append((CGPoint(x: p.x + s.width / 2, y: p.y + s.height / 2), r))
+                candidates.append((CGPoint(x: p.x + s.width / 2, y: p.y + s.height / 2), r, el))
             }
         }
-        var best: (point: CGPoint, role: String)?
+        var best: (point: CGPoint, role: String, el: AXUIElement)?
         var bestD = Self.magnetRadius
         for c in candidates {
             let d = hypot(cocoa.x - c.point.x, cocoa.y - c.point.y)
@@ -399,7 +411,9 @@ final class SystemControl {
             }
         }
         lastMagnetRole = best?.role
+        lastMagnetElement = best?.el
         magnetCachedRole = best?.role
+        magnetCachedElement = best?.el
         let result = best.map { ScreenGeometry.quartz(fromCocoa: $0.point) }
         magnetCachedAt = now
         magnetCachedAtPoint = quartz

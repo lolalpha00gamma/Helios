@@ -240,8 +240,8 @@ struct HUDView: View {
                     .foregroundStyle(HeliosTheme.cyan)
             } else if state.mode == .idle {
                 Text(state.lastAction.localizedCaseInsensitiveContains("Not-Aus")
-                     ? "NOT-AUS · FAUST HALTEN → SCHARF"
-                     : "FAUST HALTEN → SCHARF")
+                     ? "NOT-AUS · FAUST ODER 2× KLATSCHEN → SCHARF"
+                     : "FAUST ODER 2× KLATSCHEN → SCHARF")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(HeliosTheme.amber)
             }
@@ -253,7 +253,22 @@ struct HUDView: View {
             Text(state.lastAction.uppercased())
                 .font(HeliosTheme.mono)
                 .foregroundStyle(HeliosTheme.amber)
-            if state.peaceProgress > 0.02 {
+            if let chord = state.chordPreview {
+                Text(chord)
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .foregroundStyle(HeliosTheme.void)
+                    .background(HeliosTheme.cyan)
+            }
+            if state.peaceHoldDark {
+                Text("PEACE · SCROLL")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .foregroundStyle(HeliosTheme.void)
+                    .background(HeliosTheme.danger.opacity(0.85))
+            } else if state.peaceProgress > 0.02 {
                 Text(String(format: "AUFNAHME %.0f%%", state.peaceProgress * 100))
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(HeliosTheme.amber)
@@ -353,9 +368,11 @@ struct HUDView: View {
                 .font(HeliosTheme.mono)
                 .foregroundStyle(HeliosTheme.cyan)
             Text("Faust halten     Scharf")
+            Text("2× klatschen     Scharf (Kamera, kein Mikro)")
             Text("Pinzette halten  Fenster unter der Hand ziehen")
             Text("Pinzette auf Titelleiste  200 ms → Greifen")
             Text("Pinzette / Faust Greifen · Klick")
+            Text("Zweite Faust/Peace/Point  Shift / Cmd / Opt")
             Text("Werfen oben      Wegwerfen")
             Text("Werfen unten     Minimieren")
             Text("Offene Hand wischen  App wechseln")

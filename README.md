@@ -1,4 +1,4 @@
-# Helios **1.6.14**
+# Helios **1.6.15**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,17 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.15
+
+1.6.14 hat Cmd/Opt-Klick und Peace-Deadzone — Traffic-Lights haben trotzdem HID 4 px daneben geklickt, die zweite Hand war unsichtbar bis der Pinch aufging, Peace während Scroll wirkte tot, und `Cmd-Klick` umging das Profil. Doppelklatschen aus `main` 1.6.6 fehlte auf `bugfix`.
+
+- **AXPress auf Magnet.** Schließen/Mini/Zoom/Knopf/Checkbox: `AXUIElementPerformAction`, HID nur Fallback. Modifier-Klicks bleiben HID.
+- **HUD-Chord.** Zweite Faust/Peace/Point → SHIFT/CMD/OPT-Chip bevor der Pinch aufgeht.
+- **Peace-HUD dunkel.** Während Scroll-Pause `PEACE · SCROLL`, nicht stiller Ring.
+- **Cmd/Opt im Profil.** `GestureAction.from` kennt die Namen, Safari-Block greift.
+- **2× klatschen → Scharf.** Sichtbarer Palmenschlag, kein Mikrofon. Not-Aus verwechselt das nicht mit Kill.
+- **Focus-Poll 120 ms.** invertHorizontal folgt dem Fenster unter dem Cursor, nicht 400 ms später.
 
 ## Neu in 1.6.14
 

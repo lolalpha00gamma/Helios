@@ -75,6 +75,8 @@ final class AppState: ObservableObject {
     @Published var clutchRemain: CGFloat = 0
     @Published var peaceProgress: CGFloat = 0
     @Published var peaceCooldownRemain: CGFloat = 0
+    @Published var chordPreview: String?
+    @Published var peaceHoldDark = false
     @Published var calibratedDisplays: Set<UInt32> = []
     @Published var hudDisplayID: UInt32?
     let calibSession = CalibrationSession()
@@ -130,7 +132,7 @@ final class AppState: ObservableObject {
 
         refreshPermissions()
         pollFocus()
-        permTimer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { [weak self] _ in
+        permTimer = Timer.scheduledTimer(withTimeInterval: 0.12, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.pollFocus()
                 self?.focusTick += 1
@@ -532,6 +534,8 @@ final class AppState: ObservableObject {
         clutchRemain = engine.clutchRemain
         peaceProgress = engine.peaceProgress
         peaceCooldownRemain = engine.peaceCooldownRemain
+        chordPreview = engine.chordPreview
+        peaceHoldDark = engine.peaceHoldDark
         calibratedDisplays = Set(SpaceMap.calibratedIDs())
         grabPhase = engine.grabPhase
         grabTargetName = engine.grabTargetName

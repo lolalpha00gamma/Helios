@@ -24,6 +24,12 @@ enum CoordMath {
         "AXCloseButton", "AXMinimizeButton", "AXZoomButton",
         "AXTab", "AXMenuItem", "AXButton", "AXPopUpButton", "AXDisclosureTriangle"
     ]
+    /// HID-Pixel trifft Traffic-Lights oft 2–4 px daneben. AXPress trifft den Knopf.
+    static let axPressRoles: Set<String> = [
+        "AXCloseButton", "AXMinimizeButton", "AXZoomButton",
+        "AXButton", "AXCheckBox", "AXRadioButton", "AXPopUpButton",
+        "AXDisclosureTriangle", "AXTab", "AXMenuItem"
+    ]
     static let textRoles: Set<String> = [
         "AXTextArea", "AXTextField", "AXTextView", "AXWebArea", "AXStaticText"
     ]
@@ -104,6 +110,11 @@ enum CoordMath {
         if sinceScroll < 0.40 { return nil }
         if sinceScroll < 1.20 { return 1.20 }
         return 0.90
+    }
+
+    /// HUD: Peace ist Pose, aber Aufnahme ist tot weil gerade gescrollt.
+    static func peaceHoldDark(sinceScroll: Double) -> Bool {
+        peaceHoldSeconds(sinceScroll: sinceScroll) == nil
     }
 
     /// Peace-Hand stillhalten ist Aufnahme, kein Zwei-Finger-Scroll.
@@ -249,6 +260,47 @@ enum CoordMath {
         if option { return "Opt-Klick" }
         if shift { return "Shift-Klick" }
         return "Klick"
+    }
+
+    /// HUD-Chip bevor der Pinch aufgeht. nil = keine zweite Hand.
+    static func chordLabel(shift: Bool, command: Bool, option: Bool) -> String? {
+        if command { return "CMD" }
+        if option { return "OPT" }
+        if shift { return "SHIFT" }
+        return nil
+    }
+
+    static func axPresses(_ role: String?) -> Bool {
+        guard let role else { return false }
+        return axPressRoles.contains(role)
+    }
+
+    /// Sichtbares Doppelklatschen (kein Mikrofon): Palmenabstand in Handbreiten.
+    static let clapContact: CGFloat = 1.40
+    static let clapOpen: CGFloat = 2.20
+    static let clapMinSpeed: CGFloat = 5.5
+    static let clapMinGap: TimeInterval = 0.14
+    static let clapMaxGap: TimeInterval = 0.90
+
+    /// Ein Klatscher: Abstand fällt schnell unter Kontakt.
+    static func isClapPulse(
+        prevSpan: CGFloat,
+        prevT: TimeInterval,
+        span: CGFloat,
+        now: TimeInterval,
+        contact: CGFloat = clapContact,
+        open: CGFloat = clapOpen,
+        minSpeed: CGFloat = clapMinSpeed
+    ) -> Bool {
+        let dt = now - prevT
+        guard dt >= 0.04, dt <= 0.28 else { return false }
+        let speed = (prevSpan - span) / CGFloat(dt)
+        return span <= contact && prevSpan >= open * 0.85 && speed >= minSpeed
+    }
+
+    static func isDoubleClap(first: TimeInterval, second: TimeInterval) -> Bool {
+        let g = second - first
+        return g >= clapMinGap && g <= clapMaxGap
     }
 
     /// Fenster unter dem Cursor, sonst 16:9-Region. Nicht das Vordergrund-Fenster.

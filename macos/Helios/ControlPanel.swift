@@ -159,7 +159,7 @@ struct ControlPanel: View {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Konsole bei Scharf ausblenden")
                                 .font(.system(size: 13, weight: .semibold))
-                            Text("Menüleiste → Konsole holt sie zurück. Sonst liegt Helios über den Apps.")
+                            Text("Menüleiste ☀ oder Dock → Konsole. Helios beenden: Menü Beenden oder Cmd+Q auf Helios, nicht das rote Fenster-X.")
                                 .font(.system(size: 10))
                                 .foregroundStyle(.secondary)
                         }
@@ -301,6 +301,11 @@ struct ControlPanel: View {
         VStack(alignment: .leading, spacing: 6) {
             Text("Kameras")
                 .font(.system(size: 13, weight: .semibold))
+            Button("Quellen neu suchen") {
+                state.rescanCameras()
+            }
+            .buttonStyle(.borderless)
+            .font(.system(size: 11))
             Picker("Paar", selection: Binding(
                 get: { state.cameraPair },
                 set: { state.selectPair($0) }
@@ -334,6 +339,27 @@ struct ControlPanel: View {
                 Text("Lead \(state.deviceName)")
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundStyle(HeliosTheme.cyan)
+                if !state.cameraDevices.isEmpty {
+                    Picker("Lead", selection: Binding(
+                        get: { state.selectedCameraID },
+                        set: { state.selectLead($0) }
+                    )) {
+                        ForEach(state.cameraDevices) { d in
+                            Text("Lead · \(d.name) · \(d.kindDE)").tag(d.id)
+                        }
+                    }
+                    .labelsHidden()
+                    Picker("Cover / Osmo", selection: Binding(
+                        get: { state.coverID },
+                        set: { state.selectCover($0) }
+                    )) {
+                        Text("— Cover wählen —").tag("")
+                        ForEach(state.cameraDevices.filter { $0.id != state.selectedCameraID }) { d in
+                            Text("Cover · \(d.name) · \(d.kindDE)").tag(d.id)
+                        }
+                    }
+                    .labelsHidden()
+                }
                 Text("Cover \(state.coverRunning ? state.coverName : (state.coverError ?? "nicht aktiv"))")
                     .font(.system(size: 11, design: .monospaced))
                     .foregroundStyle(state.coverRunning ? HeliosTheme.cyan : HeliosTheme.amber)
@@ -343,29 +369,33 @@ struct ControlPanel: View {
                     .font(.system(size: 10))
                     .foregroundStyle(HeliosTheme.amber)
             }
-            Text("iPhone: Kontinuität (gleicher iCloud-Account, Kamera-App zu) oder Desk View von oben. Osmo Action 3: am Gerät Webcam, USB-C. Continuity ist oft exklusiv zur Mac-Kamera — Mac+iPhone kann die zweite Session verweigern; Mac+Osmo und iPhone+Osmo sind die robusten Paare. LiDAR nur wenn Kontinuität Tiefe liefert.")
+            Text("iPhone: Kontinuität (gleicher iCloud-Account, Kamera-App zu) oder Desk View von oben. Osmo Action 3: am Gerät Webcam-Modus, dann USB-C — der Livestream erscheint rechts unter der Mac-Kamera. Fehlt er: Cover-Picker oben, nicht nur das Paar. Continuity ist oft exklusiv zur Mac-Kamera.")
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
         }
     }
 
     private var preview: some View {
-        ZStack {
-            CameraPreview(
+        VStack(spacing: 8) {
+            cameraPane(
                 image: state.preview,
-                hands: state.hands,
-                showLabels: state.showJointLabels,
-                compact: false,
+                hands: state.hands.filter { !$0.id.hasPrefix("C.") },
+                name: state.deviceName,
+                live: state.cameraRunning,
                 placeholder: state.cameraError ?? "Kamera starten"
             )
-            if state.preview == nil {
-                VStack(spacing: 8) {
-                    Image(systemName: "sun.max")
-                        .font(.system(size: 36))
-                        .foregroundStyle(HeliosTheme.cyan)
-                    Text(state.cameraError ?? "Kamera starten")
-                        .foregroundStyle(.secondary)
-                }
+            if state.cameraPair != .single {
+                cameraPane(
+                    image: state.coverPreview,
+                    hands: state.coverHands,
+                    name: state.coverRunning
+                        ? "\(state.coverName) · 2. WINKEL"
+                        : (state.coverError ?? "Osmo / Cover"),
+                    live: state.coverRunning,
+                    placeholder: state.coverError
+                        ?? "Osmo: Webcam-Modus am Gerät, USB-C, dann Cover wählen"
+                )
+                .frame(minHeight: 160, idealHeight: 210)
             }
         }
         .overlay(alignment: .topLeading) {
@@ -379,13 +409,47 @@ struct ControlPanel: View {
                     .padding(10)
             }
         }
-        .overlay(alignment: .topTrailing) {
-            Text(state.deviceName)
-                .font(HeliosTheme.mono)
-                .padding(10)
-                .foregroundStyle(HeliosTheme.cyan)
-        }
         .padding(8)
+    }
+
+    private func cameraPane(
+        image: NSImage?,
+        hands: [TrackedHand],
+        name: String,
+        live: Bool,
+        placeholder: String
+    ) -> some View {
+        ZStack {
+            CameraPreview(
+                image: image,
+                hands: hands,
+                showLabels: state.showJointLabels,
+                compact: false,
+                placeholder: placeholder
+            )
+            if image == nil {
+                VStack(spacing: 8) {
+                    Image(systemName: live ? "video" : "video.slash")
+                        .font(.system(size: 28))
+                        .foregroundStyle(HeliosTheme.cyan)
+                    Text(placeholder)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 12)
+                }
+            }
+        }
+        .overlay(alignment: .topTrailing) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(live && image != nil ? HeliosTheme.ok : HeliosTheme.amber)
+                    .frame(width: 7, height: 7)
+                Text(name)
+                    .font(HeliosTheme.mono)
+                    .foregroundStyle(HeliosTheme.cyan)
+            }
+            .padding(10)
+        }
     }
 
     private var inspector: some View {

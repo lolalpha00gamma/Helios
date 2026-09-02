@@ -194,6 +194,25 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         _ = fallbackLead
     }
 
+    func assign(lead: String, cover: String) {
+        cameraQueue.async { [weak self] in
+            guard let self else { return }
+            self.preferredID = lead
+            self.preferredCoverID = cover == lead ? "" : cover
+            UserDefaults.standard.set(lead, forKey: "helios.cameraID")
+            UserDefaults.standard.set(self.preferredCoverID, forKey: "helios.coverID")
+            if self.session.isRunning {
+                self.pump.cancel()
+                HeliosCatch({ self.session.stopRunning() }, nil)
+                self.coverPipe.stop()
+                self.pump.reset()
+                self.configureAndRun()
+            } else if !self.preferredCoverID.isEmpty {
+                self.startCoverIfNeeded()
+            }
+        }
+    }
+
     static func discover() -> [CameraChoice] {
         var types: [AVCaptureDevice.DeviceType] = [
             .builtInWideAngleCamera,
@@ -225,6 +244,10 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     }
 
     private static func kindDE(_ d: AVCaptureDevice) -> String {
+        let n = d.localizedName.lowercased()
+        if n.contains("osmo") || n.contains("dji") {
+            return "Osmo / DJI (USB-Webcam)"
+        }
         if #available(macOS 14.0, *), d.deviceType == .deskViewCamera {
             return "Desk View — iPhone von oben"
         }
@@ -237,6 +260,9 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     }
 
     static func role(_ d: AVCaptureDevice) -> CameraRole {
+        let n = d.localizedName.lowercased()
+        if n.contains("osmo") || n.contains("dji") { return .osmo }
+        if n.contains("iphone") || n.contains("continuity") { return .phone }
         if #available(macOS 14.0, *), d.deviceType == .deskViewCamera {
             return .phone
         }
@@ -253,6 +279,14 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         if role == .phone {
             if preferDesk, let d = xs.first(where: { $0.kindDE.contains("Desk") }) { return d }
             if let c = xs.first(where: { $0.kindDE.contains("Kontinuität") }) { return c }
+        }
+        if role == .osmo {
+            if let named = xs.first(where: {
+                $0.name.localizedCaseInsensitiveContains("osmo")
+                    || $0.name.localizedCaseInsensitiveContains("dji")
+            }) { return named }
+            if let x = xs.first { return x }
+            return devices.first { $0.kindDE.contains("Extern") || $0.kindDE.contains("Osmo") }
         }
         return xs.first
     }
@@ -491,16 +525,16 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
 
     /// 720p / hoher fps schlägt 1080p — Vision ist der Flaschenhals, nicht die Auflösung.
     /// Tiefenformate gibt es auf dem Mac nicht (`AVCaptureDepthDataOutput` ist iOS).
-    private static func bestFormat(on device: AVCaptureDevice) -> AVCaptureDevice.Format? {
+    fileprivate static func bestFormat(on device: AVCaptureDevice) -> AVCaptureDevice.Format? {
         var best: AVCaptureDevice.Format?
         var bestScore = -1.0
         for format in device.formats {
             let dims = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
             let w = Double(dims.width)
             let h = Double(dims.height)
-            guard w >= 640, h >= 360, w <= 1280, h <= 800 else { continue }
+            guard w >= 640, h >= 360, w <= 1920, h <= 1088 else { continue }
             let fps = format.videoSupportedFrameRateRanges.map(\.maxFrameRate).max() ?? 0
-            guard fps >= 24 else { continue }
+            guard fps >= 15 else { continue }
             let fpsTerm = min(fps, 120)
             let near720 = 1.0 - min(abs(h - 720) / 720, 1)
             let score = fpsTerm * 12 + near720 * 30
@@ -673,12 +707,14 @@ final class CoverCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         session.outputs.forEach { session.removeOutput($0) }
         if session.canSetSessionPreset(.hd1280x720) {
             session.sessionPreset = .hd1280x720
+        } else if session.canSetSessionPreset(.high) {
+            session.sessionPreset = .high
         }
         do {
             let input = try AVCaptureDeviceInput(device: device)
             guard session.canAddInput(input) else {
                 session.commitConfiguration()
-                return "Zweite Kamera blockiert (Continuity oft exklusiv zur Mac-Kamera). Osmo per USB ist die robuste zweite Quelle."
+                return "Zweite Kamera blockiert (Continuity oft exklusiv zur Mac-Kamera). Osmo: Webcam-Modus am Gerät, USB-C, in der Konsole als Cover wählen."
             }
             session.addInput(input)
         } catch {
@@ -689,12 +725,14 @@ final class CoverCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
         output.setSampleBufferDelegate(self, queue: queue)
         if session.canAddOutput(output) { session.addOutput(output) }
-        if let conn = output.connection(with: .video), conn.isVideoMirroringSupported {
-            conn.isVideoMirrored = CameraSession.shouldMirror(device)
-            isMirrored = conn.isVideoMirrored
-        } else {
-            isMirrored = false
-        }
+        HeliosCatch({
+            if let conn = self.output.connection(with: .video), conn.isVideoMirroringSupported {
+                conn.isVideoMirrored = CameraSession.shouldMirror(device)
+                self.isMirrored = conn.isVideoMirrored
+            } else {
+                self.isMirrored = false
+            }
+        }, nil)
         if #available(macOS 14.0, *), let conn = output.connection(with: .video) {
             let angle = conn.videoRotationAngle
             let wrapped = Int(((angle.truncatingRemainder(dividingBy: 360)) + 360)
@@ -709,13 +747,35 @@ final class CoverCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
             visionOrientation = .up
         }
         session.commitConfiguration()
+        Self.tuneDevice(device)
         var err: NSError?
         _ = HeliosCatch({ self.session.startRunning() }, &err)
         if let err { return err.localizedDescription }
         if !session.isRunning {
-            return "Zweite Session läuft nicht. Continuity blockt oft die Mac-Kamera."
+            return "Zweite Session läuft nicht. Osmo: Webcam-Modus, USB-C. Continuity blockt oft die Mac-Kamera."
         }
+        lastPreview = 0
         return nil
+    }
+
+    private static func tuneDevice(_ device: AVCaptureDevice) {
+        var locked = false
+        HeliosCatch({
+            do { try device.lockForConfiguration() } catch { return }
+            locked = true
+            if let format = CameraSession.bestFormat(on: device) {
+                device.activeFormat = format
+            }
+            if let range = device.activeFormat.videoSupportedFrameRateRanges.max(by: {
+                $0.maxFrameRate < $1.maxFrameRate
+            }) {
+                device.activeVideoMinFrameDuration = range.minFrameDuration
+                device.activeVideoMaxFrameDuration = range.minFrameDuration
+            }
+        }, nil)
+        if locked {
+            HeliosCatch({ device.unlockForConfiguration() }, nil)
+        }
     }
 
     func stop() {
@@ -732,7 +792,7 @@ final class CoverCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         last = now
         guard let pb = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         onBuffer?(pb, now, isMirrored, visionOrientation)
-        if now - lastPreview >= 0.20 {
+        if lastPreview == 0 || now - lastPreview >= 0.12 {
             lastPreview = now
             if let img = Self.preview(pb) {
                 DispatchQueue.main.async { self.onPreview?(img) }
@@ -744,7 +804,7 @@ final class CoverCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         let w = CVPixelBufferGetWidth(pb)
         let h = CVPixelBufferGetHeight(pb)
         guard w > 1, h > 1 else { return nil }
-        let scale = min(1, 320 / CGFloat(w))
+        let scale = min(1, 480 / CGFloat(w))
         let tw = max(2, Int((CGFloat(w) * scale).rounded()))
         let th = max(2, Int((CGFloat(h) * scale).rounded()))
         let src = CIImage(cvPixelBuffer: pb)

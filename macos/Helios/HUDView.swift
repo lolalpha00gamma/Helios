@@ -194,6 +194,10 @@ struct HUDView: View {
                 Text("MAUS FREI — HAND IN DIE KAMERA")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(HeliosTheme.cyan)
+            } else if state.mode == .armed && !state.testMode {
+                Text("☀ MENÜ → KONSOLE · BEENDEN")
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(HeliosTheme.amber)
             } else if state.mode == .idle {
                 Text(state.lastAction.localizedCaseInsensitiveContains("Not-Aus")
                      ? "NOT-AUS · FAUST ODER 2× KLATSCHEN"
@@ -321,23 +325,50 @@ struct HUDView: View {
     }
 
     private var cameraChip: some View {
-        let coverCalib = state.calibActive && state.calibSession.cameraID == state.camera.coverID && !state.camera.coverID.isEmpty
-        let img = coverCalib ? (state.coverPreview ?? state.preview) : state.preview
-        let label: String = {
-            if coverCalib { return state.coverName + " · 2. WINKEL" }
-            if state.cameraPair != .single {
-                let src = state.actorSource == "cover" ? state.coverName : state.deviceName
-                return src + (state.coverRunning ? " + 2. Winkel" : "")
+        let coverCalib = state.calibActive && state.calibSession.cameraID == state.coverID && !state.coverID.isEmpty
+        let pair = state.cameraPair != .single
+        return HStack(alignment: .bottom, spacing: 8) {
+            chip(
+                image: coverCalib ? nil : state.preview,
+                hands: state.hands.filter { !$0.id.hasPrefix("C.") },
+                label: state.deviceName,
+                width: pair ? 220 : 360,
+                height: pair ? 124 : 202
+            )
+            .opacity(coverCalib ? 0.35 : 1)
+            if pair {
+                chip(
+                    image: state.coverPreview,
+                    hands: state.coverHands,
+                    label: state.coverRunning
+                        ? "\(state.coverName) · LIVE"
+                        : (state.coverError ?? "Osmo nicht live"),
+                    width: 220,
+                    height: 124
+                )
+                .overlay(Rectangle().stroke(
+                    coverCalib || state.actorSource == "cover" ? HeliosTheme.amber : HeliosTheme.cyan.opacity(0.5),
+                    lineWidth: coverCalib ? 2 : 1
+                ))
             }
-            return state.deviceName
-        }()
-        return CameraPreview(
-            image: img,
-            hands: state.hands,
+        }
+        .opacity(state.showPreviewChip ? 1 : 0)
+    }
+
+    private func chip(
+        image: NSImage?,
+        hands: [TrackedHand],
+        label: String,
+        width: CGFloat,
+        height: CGFloat
+    ) -> some View {
+        CameraPreview(
+            image: image,
+            hands: hands,
             showLabels: state.showJointLabels,
             compact: true
         )
-        .frame(width: 360, height: 202)
+        .frame(width: width, height: height)
         .clipped()
         .overlay(Rectangle().stroke(HeliosTheme.cyan.opacity(0.5), lineWidth: 1))
         .overlay(alignment: .topLeading) {
@@ -346,7 +377,6 @@ struct HUDView: View {
                 .foregroundStyle(HeliosTheme.cyan)
                 .padding(6)
         }
-        .opacity(state.showPreviewChip ? 1 : 0)
     }
 
     @ViewBuilder

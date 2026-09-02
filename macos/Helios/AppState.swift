@@ -73,6 +73,8 @@ final class AppState: ObservableObject {
     @Published var coverRunning = false
     @Published var coverError: String?
     @Published var coverPreview: NSImage?
+    @Published var coverHands: [TrackedHand] = []
+    @Published var coverID = ""
     @Published var coverMapReady = false
     @Published var actorSource = ""
     @Published var fusion: FusionDebug?
@@ -87,6 +89,7 @@ final class AppState: ObservableObject {
 
     private var lastArmedConsole: EngineMode = .idle
     private var cancellables: Set<AnyCancellable> = []
+    private var didShutdown = false
     private var focusTick = 0
     private var focusHoldID: CGWindowID = 0
     private var focusHoldCount = 0
@@ -94,6 +97,7 @@ final class AppState: ObservableObject {
     func start() {
         if didStart { return }
         didStart = true
+        HeliosAppDelegate.state = self
         overlay.attach(state: self)
         engine.startInputClutch()
         engine.calibration = calibSession
@@ -142,6 +146,7 @@ final class AppState: ObservableObject {
                 self.coverName = self.camera.coverName
                 self.coverRunning = self.camera.coverRunning
                 self.coverError = self.camera.coverError
+                self.coverID = self.camera.coverID
                 self.cameraPair = self.camera.pair
             }
             .store(in: &cancellables)
@@ -304,7 +309,8 @@ final class AppState: ObservableObject {
             self?.preview = img
         }
         camera.start()
-        log.record("Kamera gestartet.")
+        let names = cameraDevices.map { "\($0.name) [\($0.role.rawValue)]" }.joined(separator: ", ")
+        log.record(names.isEmpty ? "Kamera gestartet." : "Kamera gestartet · \(names)", kind: .info)
     }
 
     func stopCamera() {
@@ -322,6 +328,8 @@ final class AppState: ObservableObject {
     }
 
     func shutdown() {
+        if didShutdown { return }
+        didShutdown = true
         permTimer?.invalidate()
         permTimer = nil
         engine.stopInputClutch()
@@ -408,6 +416,7 @@ final class AppState: ObservableObject {
         }
         selectedCameraID = UserDefaults.standard.string(forKey: "helios.cameraID")
             ?? cameraDevices.first?.id ?? ""
+        coverID = UserDefaults.standard.string(forKey: "helios.coverID") ?? ""
         if !selectedCameraID.isEmpty, !cameraDevices.contains(where: { $0.id == selectedCameraID }) {
             selectedCameraID = cameraDevices.first?.id ?? ""
         }
@@ -455,8 +464,37 @@ final class AppState: ObservableObject {
             phone: CameraSession.pick(cameraDevices, role: .phone)?.id,
             osmo: CameraSession.pick(cameraDevices, role: .osmo)?.id
         ) == nil {
-            log.record("Paar unvollständig — zweite Kamera fehlt.", kind: .blocked)
+            log.record("Paar unvollständig — zweite Kamera fehlt. Osmo: am Gerät Webcam-Modus, USB-C. Dann Quelle unten wählen.", kind: .blocked)
         }
+    }
+
+    func rescanCameras() {
+        cameraDevices = CameraSession.discover()
+        let names = cameraDevices.map { "\($0.name) [\($0.role.rawValue)]" }.joined(separator: ", ")
+        log.record(names.isEmpty ? "Keine Kamera gefunden." : "Quellen: \(names)", kind: .info)
+        if cameraPair != .single {
+            camera.selectPair(cameraPair, devices: cameraDevices, fallbackLead: selectedCameraID)
+        }
+    }
+
+    func selectLead(_ id: String) {
+        selectedCameraID = id
+        let cover = coverID == id ? "" : coverID
+        camera.assign(lead: id, cover: cover)
+        engine.spaceMap = SpaceMap.load(cameraID: id, displayID: ScreenGeometry.mainDisplayID)
+        mapReady = engine.spaceMap?.isReady == true
+        log.record("Lead: \(cameraDevices.first(where: { $0.id == id })?.name ?? id)", kind: .info)
+    }
+
+    func selectCover(_ id: String) {
+        if id == selectedCameraID {
+            log.record("Cover muss eine andere Kamera sein als Lead.", kind: .blocked)
+            return
+        }
+        coverID = id
+        camera.assign(lead: selectedCameraID, cover: id)
+        coverMapReady = SpaceMap.load(cameraID: id)?.isReady == true
+        log.record("Cover/Osmo: \(cameraDevices.first(where: { $0.id == id })?.name ?? id)", kind: .info)
     }
 
     func startCalibration() {
@@ -612,6 +650,7 @@ final class AppState: ObservableObject {
         coverName = camera.coverName
         coverRunning = camera.coverRunning
         coverError = camera.coverError
+        coverID = camera.coverID
         cameraPair = camera.pair
         coverMapReady = SpaceMap.load(cameraID: camera.coverID)?.isReady == true
         actorSource = usingCover ? "cover" : "lead"
@@ -625,6 +664,7 @@ final class AppState: ObservableObject {
 
     private func fuseHands(lead: [TrackedHand]) -> [TrackedHand] {
         let cover = coverSlot.take()
+        coverHands = cover
         let leadID = camera.selectedID
         let coverID = camera.coverID
         let disp = ScreenGeometry.mainDisplayID

@@ -1,4 +1,4 @@
-# Helios **1.6.10**
+# Helios **1.6.11**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,14 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.11
+
+Die Konsole wirkte abgestürzt und Helios ließ sich nicht beenden: nach **Scharf** wurde die App zum Accessory ohne Dock — das SwiftUI-Fenster war weg, Cmd+Q traf die App darunter. Osmo lief intern, ohne Livestream in der Konsole.
+
+- **Beenden geht wieder.** Dock bleibt. Menüleiste ☀ → **Helios beenden**, oder Helios im Dock → Cmd+Q. Das rote Fenster-X schließt nur die Konsole, nicht die App.
+- **Konsole zurück:** Menüleiste ☀ → Konsole, oder Helios im Dock klicken. Sie bleibt offen, bis du sie schließt — Scharf holt sie nicht mehr sofort weg.
+- **Osmo als Livestream.** Bei Mac+Osmo / iPhone+Osmo zwei Bilder: Lead oben, Cover/Osmo darunter, plus zweiter Chip im HUD. Cover-Kamera ist wählbar, nicht nur Auto-Paar. Osmo/DJI am Namen erkannt. 1080p-Webcam erlaubt.
 
 ## Neu in 1.6.10
 

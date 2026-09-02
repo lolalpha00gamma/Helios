@@ -104,7 +104,7 @@ struct PoseFeatures {
 }
 
 enum GestureClassifier {
-    static var space = AspectSpace.hd720
+    nonisolated(unsafe) static var space = AspectSpace.hd720
 
     static func palmScale(
         _ joints: [VNHumanHandPoseObservation.JointName: CGPoint],

@@ -228,10 +228,10 @@ struct SpaceMap: Codable {
 
 private enum HomographyStore {
     private static let lock = NSLock()
-    private static var palms: [XY] = []
-    private static var displayID: UInt32 = 0
-    private static var cameraID: String = ""
-    private static var H: [CGFloat]?
+    nonisolated(unsafe) private static var palms: [XY] = []
+    nonisolated(unsafe) private static var displayID: UInt32 = 0
+    nonisolated(unsafe) private static var cameraID: String = ""
+    nonisolated(unsafe) private static var H: [CGFloat]?
 
     static func get(_ src: [XY], displayID: UInt32, cameraID: String = "") -> [CGFloat]? {
         lock.lock()

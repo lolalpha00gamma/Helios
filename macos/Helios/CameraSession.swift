@@ -217,7 +217,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
                 uniqueID: d.uniqueID,
                 name: d.localizedName,
                 kindDE: kindDE(d),
-                hasDepth: d.formats.contains { !$0.supportedDepthDataFormats.isEmpty },
+                hasDepth: false,
                 role: role(d)
             ))
         }
@@ -490,7 +490,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     }
 
     /// 720p / hoher fps schlägt 1080p — Vision ist der Flaschenhals, nicht die Auflösung.
-    /// Formate mit Tiefenkanal gewinnen leicht, damit echte z-Werte ankommen.
+    /// Tiefenformate gibt es auf dem Mac nicht (`AVCaptureDepthDataOutput` ist iOS).
     private static func bestFormat(on device: AVCaptureDevice) -> AVCaptureDevice.Format? {
         var best: AVCaptureDevice.Format?
         var bestScore = -1.0
@@ -503,8 +503,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             guard fps >= 24 else { continue }
             let fpsTerm = min(fps, 120)
             let near720 = 1.0 - min(abs(h - 720) / 720, 1)
-            let depthBonus = format.supportedDepthDataFormats.isEmpty ? 0.0 : 80.0
-            let score = fpsTerm * 12 + near720 * 30 + depthBonus
+            let score = fpsTerm * 12 + near720 * 30
             if score > bestScore {
                 bestScore = score
                 best = format

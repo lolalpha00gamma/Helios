@@ -26,6 +26,7 @@ Die Installations-DMG fehlte unter Releases: die Tests vor dem Paket sind seit 1
 - **Fling-Totzone:** Mini-Ruck tot in der *kalibrierten* Schirmmitte. Echter Wurf am Rand bleibt Werfen — der Test hat einen vollen Wurf in der Mitte erwartet und CI blockiert.
 - **Faust ≠ Pinzette.** Eingeringelte Finger mit Daumen neben dem Zeigefinger waren Pinzette (Klick). Pinzette braucht einen gestreckten Zeigefinger.
 - **HMM hält die letzte echte Pose.** `unknown` ersetzt keine offene Hand/Faust mehr; der Track stirbt nach 0,18 s ohne Beobachtung.
+- **Build auf dem Mac:** Tiefenkanal ist iOS-only — Fusion läuft ohne z, 2D/3D-Lift bleiben.
 
 ## Neu in 1.6.9
 

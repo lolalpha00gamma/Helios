@@ -52,7 +52,7 @@ enum AppInstall {
     }
 
     /// Einmalig. dlopen/xattr nicht auf dem Frame-Pfad.
-    private static let secHandle: UnsafeMutableRawPointer? = dlopen(
+    nonisolated(unsafe) private static let secHandle: UnsafeMutableRawPointer? = dlopen(
         "/System/Library/Frameworks/Security.framework/Security",
         RTLD_NOW
     )

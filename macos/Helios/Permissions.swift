@@ -82,7 +82,7 @@ enum Permissions {
         requestScreenCapture()
     }
 
-    static var onDemand: (@MainActor (PermissionKind) -> Void)?
+    nonisolated(unsafe) static var onDemand: (@MainActor (PermissionKind) -> Void)?
 
     /// Systemdialog + Einstellungen. Nicht öfter als alle 6 s. Kein modaler Alert aus der Gestenschleife.
     @MainActor

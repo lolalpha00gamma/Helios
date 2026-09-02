@@ -1,4 +1,4 @@
-# Helios **1.6.13**
+# Helios **1.6.14**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,17 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.14
+
+Klick und Gesten wirkten weiter zufällig: die Pinzette sprang auf die **andere Hand**, sobald Vision einen Frame verlor (Kommentar: „nicht springen“ — Code sprang). Flaches Softmax blieb über 62 %, Continuity 8 fps war tot, HMM-Hold drückte die Pose-Prob unter das Tor.
+
+- **Pinzette bleibt an der Lock-Hand.** Fehlender Frame friert, klickt nicht mit der Steuerhand.
+- **Aktions-Tor folgt der Fusion-Entropie** (spitz 55 %, flach 72 %). HUD zeigt H und Tor.
+- **Hochpass an Frame-dt.** 8 fps nicht mehr wie 24 fps. Ecken 2 % Ruhezone.
+- **Hände auf dem Tisch** 1,2 s → Idle.
+- **Per-App-Profil:** Xcode aus, Safari nur Klick/Scroll, Finder Werfen.
+- HMM-Hold behält die letzte echte Pose-Prob.
 
 ## Neu in 1.6.13
 

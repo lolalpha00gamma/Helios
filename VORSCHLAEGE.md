@@ -1,6 +1,38 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.10**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+Stand: **1.6.14**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+
+## In 1.6.14 erledigt
+
+Warum 1.6.13 weiter falsch klickte und Gesten verschluckte: Pinzette-Lock fiel bei einem verlorenen Frame auf die **Steuerhand** (Kommentar sagte das Gegenteil). Fusion-Entropie fehlte — flaches Softmax blieb ≥ 0,62 und `perform()` feuerte Zufall. Continuity 8 fps nutzte denselben Hochpass wie 24 fps. HMM-Hold gab die verdünnte `next[current]` als Pose-Prob, also blockte das 62-%-Tor die gehaltene Faust.
+
+1. **Pinzette friert.** Fehlende Lock-ID → letzte Hand, nie `primary`. Fehlklick der anderen Hand ist tot.
+2. **Aktions-Tor an Entropie.** Spitz 0,55 / flach 0,72. HUD zeigt H und Tor.
+3. **Hochpass × dt.** 8 fps Alpha hoch, Deadzone ×1,55. Ecken 2 % Ruhezone.
+4. **Hände auf dem Tisch** 1,2 s unten still → Idle, kein Not-Aus.
+5. **Per-App-Profil.** Xcode aus, Safari Klick/Scroll, Finder Werfen. HUD + Konsole.
+6. **HMM-Hold behält lastRealProb** — unknown drückt die Pose nicht unter das Tor.
+7. MARKETING_VERSION 1.6.14 (Build 44).
+
+## In 1.6.13 / 1.6.12 erledigt
+
+Konsole stiehlt den Vordergrund nicht mehr. Nur direkte Wahl (Fenster, ☀, Dock) holt sie nach vorn. Standard: sichtbar auch bei Scharf.
+
+## In 1.6.11 erledigt
+
+Konsole wirkte tot, Cmd+Q traf die App darunter, Osmo ohne Livestream.
+
+- Beenden über Dock/Menü. Konsole bleibt bis man sie schließt.
+- Osmo als zweites Bild, Cover wählbar.
+
+## In 1.6.10 erledigt
+
+Die Installations-DMG fehlte unter Releases (Tests rot). Faust mit eingerollten Fingern war Pinzette.
+
+- Fling-Totzone nur Mini-Ruck in der *kalibrierten* Schirmmitte.
+- Faust ≠ Pinzette: Pinzette braucht gestreckten Zeigefinger.
+- HMM hält die letzte echte Pose; Track stirbt nach 0,18 s.
+- Build: Tiefenkanal iOS-only.
 
 ## In 1.6.9 erledigt
 
@@ -107,17 +139,16 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 
 ## Nächste Fixes (klein, hoher Nutzen)
 
-- **Per-App-Profile.** Safari: nur Klick/Scroll. Finder: Werfen/Papierkorb. Xcode: aus.
 - **Zwei-Pinzetten Skalieren** an gegenüberliegenden Fensterkanten, nicht am Palmenabstand.
 - **Session-Replay** der Landmark-CSV direkt im HUD, Frame für Frame — ohne Xcode.
 - **Clutch nur globale Hardware** — Local-Monitor ganz weglassen (eigene Events kommen lokal an).
 - **Kalibrier-Quad sichtbar** als dünnes Viereck der vier Anschläge, nicht nur Ecken-Marken.
 - **Peace-Fortschritt auch in der Konsole**, nicht nur HUD-Ring.
-- **1-Frame Kalman** auf dem Relativ-Zeiger bei Continuity 8 fps — der Hochpass zittert dort anders als bei 24 fps.
-- **Ruhezonen in den Schirmecken** (2 %): Mikro-Motion ignorieren, ohne den Anschlag zu verlieren.
-- **Aktions-Tor an Fusion-Entropie.** Flache Verteilung → höherer Floor, spitze → 0,55 statt 0,62.
-- **Hände auf dem Tisch** (beide Palmen unten, wenig Bewegung 1,2 s) → Idle ohne Not-Aus.
 - **Klick-Tick** optional (system sound), aus by default.
+- **Profil-Override** in der Konsole (Safari voll, Xcode nur Scroll) — Defaults bleiben hart.
+- **Pinzette-Hysterese pro fps** an `sampleDt` koppeln (8 fps 0,45 Handbreiten zu knapp).
+- **Fusion-Temperatur auto** aus Landmark-Qualität, Slider bleibt Override.
+- **CGEvent 1-px Jiggler ignorieren** (manche Mäuse senden Idle-Ticks).
 
 ## Größere Erweiterungen
 
@@ -134,13 +165,16 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Hand-Velocity-Prior** im HMM (schnelle Faust ist kein Pinch).
 - **Zwei-Personen-Szenen.** Wenn Körperpose zwei Torsi sieht, zweite Hand nie als Steuerhand.
 - **Hover-Dwell nur über AX-Knöpfen**, nicht frei auf dem Schreibtisch.
-- **Pinzette-Hysterese pro fps.** Bei 8 fps 0,45 Handbreiten zu knapp — an Frame-dt koppeln.
 - **Desk-View als zweite Karte**, nicht als Steuerkamera (Aufsicht für Kill/Klatschen).
 - **Gesten-Lexikon.** Nutzer hält 1,5 s eine Pose, speichert sie als benannte Aktion (ohne CoreML-Training).
 - **Watch-IMU Fusion.** Handgelenk-Beschleunigung als Clutch/Kill, wenn die Webcam die Hände verliert.
 - **Overlay auf Stage-Manager-Spaces** — AX sieht oft nur das aktuelle Space.
-- **Fusion-Temperatur auto** aus Landmark-Qualität, Slider bleibt Override.
-- **CGEvent 1-px Jiggler ignorieren** (manche Mäuse senden Idle-Ticks).
+- **Zwei-Personen-Szenen.** Wenn Körperpose zwei Torsi sieht, zweite Hand nie als Steuerhand.
+- **Cursor-Gain pro Display-PPI**, nicht eine Zahl für Laptop+5K.
+- **Kill-Geste ein Finger-Y** (beide Zeigefinger kreuzen) als Alternative zu zwei offenen Palmen.
+- **Osmo IMU** wenn USB das liefert — Cover-Winkel ohne zweite Homographie grob schätzen.
+- **App-Profil JSON** neben Defaults, damit der Nutzer Xcode doch Scroll erlauben kann ohne Rebuild.
+- **Fling-Richtung an Stage-Manager** (links = recent, nicht nur AX-Snap).
 
 ## Nicht tun
 
@@ -157,3 +191,8 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - Körperpose Vision L/R immer überschreiben.
 - `.unknown` wieder mit positivem Softmax-Logit.
 - Cursor bei Track-ID-Wechsel auf die neue Palme teleportieren.
+- Pinzette-Lock auf `primary` fallen lassen, wenn die Hand einen Frame fehlt.
+- Aktions-Tor wieder hart 0,62 ohne Entropie.
+- HMM-Hold `next[current]` (verdünnt) als Pose-Prob zurückgeben.
+- Hochpass 0,08 unabhängig von Frame-dt.
+- Per-App-Profil wieder alle Aktionen in Xcode/Safari.

@@ -134,7 +134,8 @@ final class EstimateFusion {
             poseProb: probs[winner] ?? 0,
             pinchClosedness: fused.pinchClosedness,
             usedDepth: hasDepth,
-            collapsed: collapsed
+            collapsed: collapsed,
+            entropy: GestureMath.fusionEntropy(Array(probs.values))
         )
         return (fused, dbg)
     }

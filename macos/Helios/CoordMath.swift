@@ -51,6 +51,13 @@ enum CoordMath {
         return min(1, max(edge(u), edge(v)))
     }
 
+    /// Punkt in Rect → [0,1]². Union-UV für Ecken-Ruhezonen.
+    static func unitInRect(_ p: CGPoint, rect: CGRect) -> CGPoint {
+        let w = max(1, rect.width)
+        let h = max(1, rect.height)
+        return CGPoint(x: (p.x - rect.minX) / w, y: (p.y - rect.minY) / h)
+    }
+
     /// Trackpad-Beschleunigung: Mini-Zucken bleibt langsam, Wisch wird schneller.
     static func pointerAccelScale(magnitude: CGFloat) -> CGFloat {
         let mag = max(0, magnitude)
@@ -268,6 +275,109 @@ enum GestureMath {
         if prev <= 0.001 { return next }
         let a = min(1, max(0, alpha))
         return a * next + (1 - a) * prev
+    }
+
+    /// Shannon-Entropie der Softmax-Pose. Flach ≈ ln(n), spitz ≈ 0.
+    static func fusionEntropy(_ probs: [Double]) -> Double {
+        var h = 0.0
+        for p in probs {
+            let x = max(1e-12, p)
+            h -= x * log(x)
+        }
+        return h
+    }
+
+    static let entropyFloorLo: Double = 0.55
+    static let entropyFloorHi: Double = 0.72
+
+    /// Flache Verteilung → höherer Floor (0,72), spitze → 0,55 statt hart 0,62.
+    static func entropyActionFloor(entropy: Double, poseCount: Int = 7) -> Double {
+        let hMax = log(Double(max(2, poseCount)))
+        let t = min(1, max(0, entropy / max(1e-9, hMax)))
+        return entropyFloorLo + (entropyFloorHi - entropyFloorLo) * t
+    }
+
+    /// Hochpass-Alpha an Frame-dt. 0,08 ist 24 fps; Continuity 8 fps sonst tot.
+    static func palmHighpassAlpha(dt: TimeInterval, base: CGFloat = palmHighpass) -> CGFloat {
+        let ref: TimeInterval = 0.04
+        let scale = CGFloat(min(3.2, max(0.55, max(0.008, dt) / ref)))
+        return min(0.42, max(0.04, base * scale))
+    }
+
+    static func palmDeadZone(dt: TimeInterval, base: CGFloat = palmDead) -> CGFloat {
+        dt >= 0.10 ? base * 1.55 : base
+    }
+
+    static let cornerRestBand: CGFloat = 0.02
+
+    /// Schirmecken 2 %: Mikro-Motion ignorieren, Anschlag bleibt.
+    static func inCornerRest(u: CGFloat, v: CGFloat, band: CGFloat = cornerRestBand) -> Bool {
+        let b = min(0.12, max(0.008, band))
+        return (u <= b || u >= 1 - b) && (v <= b || v >= 1 - b)
+    }
+
+    /// Locked-Pinzette fehlt im Frame → nil (einfrieren). Nie auf primary/andere Hand.
+    static func pinchFollowID(held: Bool, locked: String?, liveIDs: [String]) -> String? {
+        guard held, let id = locked else { return nil }
+        return liveIDs.contains(id) ? id : nil
+    }
+
+    static let tablePalmY: CGFloat = 0.28
+    static let tableIdleHold: TimeInterval = 1.20
+    static let tableStillHW: CGFloat = 0.10
+
+    /// Beide Palmen unten im Bild, wenig Bewegung, keine Pinzette.
+    static func tableIdleCandidate(palmsY: [CGFloat], stillHW: CGFloat, pinchHeld: Bool) -> Bool {
+        if pinchHeld { return false }
+        guard palmsY.count >= 2 else { return false }
+        return palmsY.allSatisfy { $0 < tablePalmY } && stillHW < tableStillHW
+    }
+}
+
+/// Safari nur Klick/Scroll, Finder Werfen, Xcode aus. Sonst voll.
+enum AppInjectProfile: Equatable {
+    case full, clickScroll, finder, off
+
+    var titleDE: String {
+        switch self {
+        case .full: return "voll"
+        case .clickScroll: return "Klick/Scroll"
+        case .finder: return "Finder"
+        case .off: return "aus"
+        }
+    }
+
+    static func of(bundleId: String) -> AppInjectProfile {
+        let id = bundleId.lowercased()
+        if id.isEmpty { return .full }
+        if id == "com.apple.dt.xcode" { return .off }
+        if id == "com.apple.finder" { return .finder }
+        if id.contains("safari") || id.contains("chrome") || id.contains("firefox")
+            || id.contains("brave") || id.contains("chromium") || id.contains("microsoft.edgemac")
+        {
+            return .clickScroll
+        }
+        return .full
+    }
+
+    func allows(_ name: String) -> Bool {
+        switch self {
+        case .full: return true
+        case .off: return false
+        case .clickScroll:
+            return name == "Klick" || name == "Scroll" || name == "Rechtsklick" || name == "Dwell-Klick"
+        case .finder:
+            return name == "Klick" || name == "Rechtsklick" || name == "Wegwerfen"
+                || name == "Minimieren" || name == "Links andocken" || name == "Rechts andocken"
+                || name == "Heranziehen" || name == "Scroll"
+        }
+    }
+
+    var allowsWindowDrag: Bool {
+        switch self {
+        case .full, .finder: return true
+        case .clickScroll, .off: return false
+        }
     }
 }
 

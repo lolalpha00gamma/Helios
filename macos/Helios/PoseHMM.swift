@@ -6,6 +6,7 @@ struct PoseHMM {
     private var holdSince: TimeInterval?
     private var current: HandPose = .unknown
     private var pinch: Double = 0
+    private var lastRealProb: Double = 0
 
     init() {
         let n = Double(HandPose.allCases.count)
@@ -18,6 +19,7 @@ struct PoseHMM {
         holdSince = nil
         current = .unknown
         pinch = 0
+        lastRealProb = 0
     }
 
     mutating func step(
@@ -53,10 +55,12 @@ struct PoseHMM {
         let a = 1 - exp(-dt / pinchTau)
         pinch = pinch * (1 - a) + pinchClosedness * a
 
-        // Unknown darf eine echte Pose nicht unter das 0,62-Tor drücken.
+        // Unknown darf eine echte Pose nicht unter das Aktions-Tor drücken.
+        // next[current] ist verdünnt — perform() blockte sonst bei gehaltenem unknown.
         if best.key == .unknown, current != .unknown {
             holdSince = nil
-            return (current, next[current] ?? 0, pinch)
+            let held = lastRealProb > 0.40 ? lastRealProb : max(next[current] ?? 0, 0.62)
+            return (current, held, pinch)
         }
 
         if best.key != current {
@@ -70,6 +74,9 @@ struct PoseHMM {
             if best.value >= 0.50 { current = best.key }
         }
         let pCur = next[current] ?? best.value
+        if current != .unknown {
+            lastRealProb = pCur
+        }
         return (current, pCur, pinch)
     }
 

@@ -32,6 +32,12 @@ struct ControlPanel: View {
                     .background(state.mode == .armed && !state.testMode ? HeliosTheme.amber : HeliosTheme.cyan.opacity(0.15))
                     .foregroundStyle(state.mode == .armed && !state.testMode ? HeliosTheme.void : HeliosTheme.cyan)
             }
+            if let f = state.focused {
+                let p = AppInjectProfile.of(bundleId: f.bundleId)
+                Text("\(f.appName) · Profil \(p.titleDE)")
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(p == .off ? HeliosTheme.amber : .secondary)
+            }
 
             Toggle(isOn: Binding(
                 get: { state.leftHanded },

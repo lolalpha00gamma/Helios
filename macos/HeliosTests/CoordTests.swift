@@ -386,6 +386,108 @@ enum CoordTests {
             fails += 1
         }
 
+        let peakH = GestureMath.fusionEntropy([0.92, 0.02, 0.02, 0.01, 0.01, 0.01, 0.01])
+        let flatH = GestureMath.fusionEntropy([1.0 / 7, 1.0 / 7, 1.0 / 7, 1.0 / 7, 1.0 / 7, 1.0 / 7, 1.0 / 7])
+        if peakH >= flatH {
+            fputs("FAIL spitze Verteilung hat kleinere Entropie (\(peakH) vs \(flatH))\n", stderr)
+            fails += 1
+        }
+        let floorPeak = GestureMath.entropyActionFloor(entropy: peakH)
+        let floorFlat = GestureMath.entropyActionFloor(entropy: flatH)
+        if floorPeak > 0.60 {
+            fputs("FAIL spitze Pose Floor ≤ 0,60 (ist \(floorPeak))\n", stderr)
+            fails += 1
+        }
+        if floorFlat < 0.68 {
+            fputs("FAIL flache Pose Floor ≥ 0,68 (ist \(floorFlat))\n", stderr)
+            fails += 1
+        }
+        let a24 = GestureMath.palmHighpassAlpha(dt: 0.04)
+        let a8 = GestureMath.palmHighpassAlpha(dt: 0.125)
+        if a8 <= a24 {
+            fputs("FAIL Continuity-Hochpass muss größer sein als 24 fps (\(a8) vs \(a24))\n", stderr)
+            fails += 1
+        }
+        if GestureMath.palmDeadZone(dt: 0.125) <= GestureMath.palmDead {
+            fputs("FAIL 8 fps Deadzone größer\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.inCornerRest(u: 0.01, v: 0.01) {
+            fputs("FAIL Ecke 1 % ist Ruhezone\n", stderr)
+            fails += 1
+        }
+        if GestureMath.inCornerRest(u: 0.50, v: 0.50) {
+            fputs("FAIL Mitte ist keine Ruhezone\n", stderr)
+            fails += 1
+        }
+        if GestureMath.inCornerRest(u: 0.01, v: 0.50) {
+            fputs("FAIL nur eine Kante ist keine Ecke\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchFollowID(held: true, locked: "T1", liveIDs: ["T2"]) != nil {
+            fputs("FAIL fehlende Pinzette-ID nicht auf primary\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchFollowID(held: true, locked: "T1", liveIDs: ["T1", "T2"]) != "T1" {
+            fputs("FAIL sichtbare Pinzette bleibt T1\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchFollowID(held: false, locked: "T1", liveIDs: ["T2"]) != nil {
+            fputs("FAIL ohne Hold kein Follow\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.tableIdleCandidate(palmsY: [0.12, 0.15], stillHW: 0.04, pinchHeld: false) {
+            fputs("FAIL zwei Palmen unten still sind Tisch-Idle\n", stderr)
+            fails += 1
+        }
+        if GestureMath.tableIdleCandidate(palmsY: [0.12, 0.15], stillHW: 0.04, pinchHeld: true) {
+            fputs("FAIL Pinzette ist kein Tisch-Idle\n", stderr)
+            fails += 1
+        }
+        if GestureMath.tableIdleCandidate(palmsY: [0.12], stillHW: 0.02, pinchHeld: false) {
+            fputs("FAIL eine Hand ist kein Tisch-Idle\n", stderr)
+            fails += 1
+        }
+        if GestureMath.tableIdleCandidate(palmsY: [0.55, 0.60], stillHW: 0.02, pinchHeld: false) {
+            fputs("FAIL Palmen in der Luft sind kein Tisch\n", stderr)
+            fails += 1
+        }
+        if AppInjectProfile.of(bundleId: "com.apple.dt.Xcode") != .off {
+            fputs("FAIL Xcode Profil aus\n", stderr)
+            fails += 1
+        }
+        if AppInjectProfile.of(bundleId: "com.apple.Safari") != .clickScroll {
+            fputs("FAIL Safari Klick/Scroll\n", stderr)
+            fails += 1
+        }
+        if AppInjectProfile.of(bundleId: "com.apple.finder") != .finder {
+            fputs("FAIL Finder-Profil\n", stderr)
+            fails += 1
+        }
+        if AppInjectProfile.of(bundleId: "com.apple.dt.Xcode").allows("Klick") {
+            fputs("FAIL Xcode darf nicht klicken\n", stderr)
+            fails += 1
+        }
+        if !AppInjectProfile.of(bundleId: "com.apple.Safari").allows("Klick")
+            || AppInjectProfile.of(bundleId: "com.apple.Safari").allows("Wegwerfen")
+        {
+            fputs("FAIL Safari nur Klick/Scroll\n", stderr)
+            fails += 1
+        }
+        if AppInjectProfile.of(bundleId: "com.apple.Safari").allowsWindowDrag {
+            fputs("FAIL Safari kein Fensterzug\n", stderr)
+            fails += 1
+        }
+        if !AppInjectProfile.of(bundleId: "com.apple.finder").allows("Wegwerfen") {
+            fputs("FAIL Finder darf werfen\n", stderr)
+            fails += 1
+        }
+        let uv = CoordMath.unitInRect(CGPoint(x: 100, y: 50), rect: CGRect(x: 0, y: 0, width: 200, height: 100))
+        if abs(uv.x - 0.5) > 0.001 || abs(uv.y - 0.5) > 0.001 {
+            fputs("FAIL unitInRect Mitte \(uv)\n", stderr)
+            fails += 1
+        }
+
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)
             exit(1)

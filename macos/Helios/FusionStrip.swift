@@ -16,7 +16,7 @@ struct FusionStrip: View {
                     .foregroundStyle(hasDepth ? HeliosTheme.ok : .secondary)
             }
             if let fusion {
-                Text(String(format: "Pose %.0f %%  ·  Pinzette %.0f %%", fusion.poseProb * 100, fusion.pinchClosedness * 100))
+                Text(String(format: "Pose %.0f %%  ·  Pinzette %.0f %%  ·  H %.2f  ·  Tor %.0f %%", fusion.poseProb * 100, fusion.pinchClosedness * 100, fusion.entropy, GestureMath.entropyActionFloor(entropy: fusion.entropy) * 100))
                     .font(.system(size: 11, design: .monospaced))
                 if !fusion.collapsed.isEmpty {
                     Text("kollabiert: " + fusion.collapsed.joined(separator: ", "))

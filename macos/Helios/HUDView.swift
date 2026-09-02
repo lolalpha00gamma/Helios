@@ -206,9 +206,10 @@ struct HUDView: View {
                     .foregroundStyle(HeliosTheme.amber)
             }
             if let app = state.focused {
-                Text(app.appName.uppercased())
+                let p = AppInjectProfile.of(bundleId: app.bundleId)
+                Text(p == .full ? app.appName.uppercased() : "\(app.appName.uppercased()) · \(p.titleDE.uppercased())")
                     .font(HeliosTheme.mono)
-                    .foregroundStyle(HeliosTheme.cyan)
+                    .foregroundStyle(p == .off ? HeliosTheme.amber : HeliosTheme.cyan)
                     .lineLimit(1)
             }
             Text(state.lastAction.uppercased())

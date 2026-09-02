@@ -1,9 +1,20 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
-Stand: 2026-09-02. Helios 1.6.8. Erkennung (1.6.0/1.6.1) bleibt; 1.6.2
-ist Koordinaten, AX, Threads, HUD. 1.6.8: Not-Aus blockt nicht mehr
-während des Zählens, Körper-Vote überschreibt Vision nur bei klarem
-Sieger, unknown-Logit negativ, Cursor hält den Track.
+Stand: 2026-09-02. Helios 1.6.14. Erkennung (1.6.0/1.6.1) bleibt; 1.6.2
+ist Koordinaten, AX, Threads, HUD. 1.6.14: Pinzette-Lock friert,
+Entropie-Tor, dt-Hochpass, Tisch-Idle, App-Profil, HMM lastRealProb.
+
+## 0. 1.6.14 — Rest-Logik nach 1.6.13
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | `pinchActor` → `primary` bei fehlender Lock-ID | letzte Hand einfrieren, nie Steuerhand |
+| 2 | Aktions-Tor hart 0,62 | Entropie 0,55–0,72 |
+| 3 | Hochpass 0,08 bei 8 fps tot | `palmHighpassAlpha(dt)` |
+| 4 | HMM-Hold `next[current]` verdünnt | `lastRealProb` |
+| 5 | Ecken zittern am Anschlag | 2 % Ruhezone |
+| 6 | Hände auf dem Tisch = Not-Aus-Nähe | 1,2 s Idle |
+| 7 | Xcode/Safari gleiche Injektion | `AppInjectProfile` |
 
 ## 0. 1.6.8 — Rest-Logik, nicht Fusion
 

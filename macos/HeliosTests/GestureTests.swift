@@ -104,6 +104,8 @@ enum GestureTests {
         let (peaked, dbgPeak) = fusion.fuse([e2, eCopy, eT], dt: 0.016)
         ok((peaked.probabilities[.openPalm] ?? 0) > 0.70, "korrelierte Lift/Zeit flatten die Pose nicht")
         ok(!dbgPeak.collapsed.isEmpty, "korrelierte Quellen werden markiert")
+        ok(dbgPeak.entropy < 1.4, "spitze Fusion hat niedrige Entropie (ist \(dbgPeak.entropy))")
+        ok(GestureMath.entropyActionFloor(entropy: dbgPeak.entropy) < 0.62, "spitze Fusion Floor unter 0,62")
 
         var pD: [HandPose: Double] = [:]
         for k in HandPose.allCases { pD[k] = 0.02 }
@@ -140,6 +142,14 @@ enum GestureTests {
             locked = stay.step(emission: em, pinchClosedness: 0.1, now: Double(i) * 0.016, dt: 0.016).pose
         }
         ok(locked == .openPalm, "HMM hält Pose wenn unknown schwach führt")
+        var heldProb: Double = 0
+        for i in 16..<24 {
+            var em: [HandPose: Double] = [:]
+            for k in HandPose.allCases { em[k] = 0.08 }
+            em[.unknown] = 0.40
+            heldProb = stay.step(emission: em, pinchClosedness: 0.1, now: Double(i) * 0.016, dt: 0.016).prob
+        }
+        ok(heldProb >= 0.60, "HMM-Hold behält Pose-Prob über dem Aktions-Tor (ist \(heldProb))")
 
         let openFeats = GestureClassifier.features(joints: open, pinch: 0.22, space: .hd720)
         ok((openFeats.probs[.unknown] ?? 1) < 0.12, "unknown-Masse nach Logit −1,8 klein")

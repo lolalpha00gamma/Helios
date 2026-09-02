@@ -128,6 +128,70 @@ enum CoordTests {
             fails += 1
         }
 
+        if GestureMath.flingFromTrail(holdThenFlick, palmWidth: 0.12, aspect: 16 / 9, centerDead: false, afterDrag: true) != .throwUp {
+            fputs("FAIL echter Ruck nach Zug bleibt Werfen\n", stderr)
+            fails += 1
+        }
+        let slowDrop: [(t: TimeInterval, x: CGFloat, y: CGFloat)] = [
+            (0.00, 0.40, 0.62),
+            (0.20, 0.40, 0.55),
+            (0.40, 0.40, 0.48),
+            (0.52, 0.40, 0.46),
+            (0.60, 0.40, 0.38)
+        ]
+        if GestureMath.flingFromTrail(slowDrop, palmWidth: 0.12, aspect: 16 / 9, centerDead: false, afterDrag: false) != .minimize {
+            fputs("FAIL Abwärtsruck ohne Zug ist Minimieren\n", stderr)
+            fails += 1
+        }
+        if GestureMath.flingFromTrail(slowDrop, palmWidth: 0.12, aspect: 16 / 9, centerDead: false, afterDrag: true) != .none {
+            fputs("FAIL langsames Loslassen nach Zug ist kein Minimieren\n", stderr)
+            fails += 1
+        }
+        if GestureMath.isClick(held: 0.22, palmMovedHW: 0.12, cursorMovedPx: 4) != true {
+            fputs("FAIL stillstehende Pinzette ist Klick\n", stderr)
+            fails += 1
+        }
+        if GestureMath.isClick(held: 0.22, palmMovedHW: 0.60, cursorMovedPx: 4) != false {
+            fputs("FAIL Zug ist kein Klick\n", stderr)
+            fails += 1
+        }
+        if GestureMath.isDrag(palmMovedHW: 0.12, cursorMovedPx: 3) != false {
+            fputs("FAIL 0,12 Handbreiten Zittern ist kein Zug\n", stderr)
+            fails += 1
+        }
+        if GestureMath.swipeBlocked(now: 10.2, muteUntil: 10.5, dx: -1, lastDx: 0, lastAt: 0) != true {
+            fputs("FAIL Mute nach Pinzette blockt Wischen\n", stderr)
+            fails += 1
+        }
+        if GestureMath.swipeBlocked(now: 12.0, muteUntil: 0, dx: 1.2, lastDx: -1.1, lastAt: 11.2) != true {
+            fputs("FAIL Gegenwischen in 1 s blocken\n", stderr)
+            fails += 1
+        }
+        if GestureMath.swipeBlocked(now: 14.0, muteUntil: 0, dx: 1.2, lastDx: -1.1, lastAt: 11.2) != false {
+            fputs("FAIL nach Reverse-Lock darf wieder gewischt werden\n", stderr)
+            fails += 1
+        }
+        let mag = GestureMath.magnet(
+            cursor: CGPoint(x: 100, y: 100),
+            targets: [CGPoint(x: 110, y: 104), CGPoint(x: 400, y: 400)]
+        )
+        if mag == nil || abs(mag!.x - 110) > 0.1 {
+            fputs("FAIL Magnet zieht zum nahen Chrom-Knopf\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchDragNeed < 0.35 {
+            fputs("FAIL Drag-Schwelle muss über Palm-Zittern liegen\n", stderr)
+            fails += 1
+        }
+        if GestureMath.peaceHold < 1.0 {
+            fputs("FAIL Peace länger halten, sonst Öffnen = Aufnahme\n", stderr)
+            fails += 1
+        }
+        if GestureMath.calibMinArea > 0.02 {
+            fputs("FAIL Kalibrierung muss kleinen Anschlag akzeptieren\n", stderr)
+            fails += 1
+        }
+
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)
             exit(1)

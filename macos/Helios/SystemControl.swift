@@ -9,6 +9,25 @@ enum SnapEdge {
     case left, right, fill
 }
 
+struct ChromeKnob: Equatable {
+    enum Kind: String {
+        case close, min, zoom
+    }
+
+    var kind: Kind
+    var quartz: CGRect
+
+    var center: CGPoint { CGPoint(x: quartz.midX, y: quartz.midY) }
+
+    var labelDE: String {
+        switch kind {
+        case .close: return "Schließen"
+        case .min: return "Minimieren"
+        case .zoom: return "Vollbild"
+        }
+    }
+}
+
 struct ActionResult {
     var ok: Bool
     var detail: String
@@ -139,6 +158,33 @@ final class SystemControl {
         }
         e.post(tap: .cghidEventTap)
         return .ok(String(format: "%+d", ticks))
+    }
+
+    func chromeKnobs(at quartz: CGPoint? = nil) -> [ChromeKnob] {
+        guard let win = targetWindow(at: quartz) else { return [] }
+        let specs: [(ChromeKnob.Kind, CFString)] = [
+            (.close, "AXCloseButton" as CFString),
+            (.min, "AXMinimizeButton" as CFString),
+            (.zoom, "AXFullScreenButton" as CFString),
+            (.zoom, "AXZoomButton" as CFString)
+        ]
+        var out: [ChromeKnob] = []
+        var seen = Set<ChromeKnob.Kind>()
+        for (kind, attr) in specs {
+            if seen.contains(kind) { continue }
+            var ref: CFTypeRef?
+            guard AXUIElementCopyAttributeValue(win, attr, &ref) == .success,
+                  let el = Self.asElement(ref),
+                  let pos = position(of: el),
+                  let size = size(of: el),
+                  size.width > 4, size.height > 4
+            else { continue }
+            let cocoa = CGRect(origin: pos, size: size)
+            let q = ScreenGeometry.quartzRect(fromCocoa: cocoa)
+            out.append(ChromeKnob(kind: kind, quartz: q))
+            seen.insert(kind)
+        }
+        return out
     }
 
     @discardableResult
@@ -306,6 +352,9 @@ final class SystemControl {
     }
 
     private func activate(_ app: NSRunningApplication) -> ActionResult {
+        if app.processIdentifier == TargetProbe.selfPID {
+            return .fail("Helios selbst")
+        }
         let name = app.localizedName ?? "App"
         app.unhide()
         app.activate()

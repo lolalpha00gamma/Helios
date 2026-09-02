@@ -24,6 +24,8 @@ struct HUDView: View {
                     calibOverlay
                 }
 
+                chromeLoupe
+
                 trashZone
 
                 if isPrimary {
@@ -69,7 +71,7 @@ struct HUDView: View {
             }
             if isPrimary {
                 VStack(spacing: 8) {
-                    Text("KALIBRIERUNG")
+                    Text("KALIBRIERUNG · ANSCHLAG, NICHT KAMERARAND")
                         .font(.system(size: 13, weight: .bold, design: .monospaced))
                         .foregroundStyle(HeliosTheme.amber)
                     Text("Ecke \(state.calibCorner)   ·   \(state.calibSession.samples.count)/4")
@@ -78,7 +80,7 @@ struct HUDView: View {
                     Text(state.calibSession.hint)
                         .font(.system(size: 13, design: .monospaced))
                         .foregroundStyle(.white.opacity(0.9))
-                    Text("Nur Pinzette bestätigt. Danach öffnen und zur nächsten Ecke gehen.")
+                    Text("So weit die Hand kommt, ohne das Bild zu verlassen. Nur Pinzette bestätigt.")
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(HeliosTheme.amber)
                 }
@@ -272,16 +274,14 @@ struct HUDView: View {
                 .font(HeliosTheme.mono)
                 .foregroundStyle(HeliosTheme.cyan)
             Text("Faust halten     Scharf")
-            Text("Pinzette halten  Fenster unter der Hand ziehen")
-            Text("Pinzette / Faust Greifen · Klick")
-            Text("Werfen oben      Wegwerfen")
-            Text("Werfen unten     Minimieren")
-            Text("Offene Hand wischen  App wechseln")
+            Text("Pinzette kurz    Klick")
+            Text("Pinzette ziehen  Fenster")
+            Text("Werfen nur Ruck  Dock / Mini")
+            Text("Offene Hand wischen  App")
             Text("Zwei Hände hoch/runter  Scroll")
             Text("Pinzette + Ring  Rechtsklick")
-            Text("Werfen L/R       Andocken")
             Text("Zwei Pinzetten   Skalieren")
-            Text("Peace halten     Aufnahme")
+            Text("Peace allein     Aufnahme")
             Text("Beide offen      Not-Aus")
         }
         .font(.system(size: 10, weight: .medium, design: .monospaced))
@@ -309,6 +309,39 @@ struct HUDView: View {
                 .padding(6)
         }
         .opacity(state.showPreviewChip ? 1 : 0)
+    }
+
+    @ViewBuilder
+    private var chromeLoupe: some View {
+        if !state.chromeKnobs.isEmpty, let cursor = state.engineCursor {
+            let knobs = state.chromeKnobs
+            let near = knobs.contains {
+                hypot(cursor.x - $0.center.x, cursor.y - $0.center.y) < GestureMath.chromeLoupe
+            }
+            if near {
+                ZStack {
+                    ForEach(Array(knobs.enumerated()), id: \.offset) { _, knob in
+                        let local = ScreenGeometry.local(quartz: knob.center, on: screenFrame)
+                        let hot = state.chromeHot == knob.labelDE
+                        VStack(spacing: 4) {
+                            Circle()
+                                .fill(hot ? HeliosTheme.amber : HeliosTheme.void.opacity(0.72))
+                                .overlay(
+                                    Circle().stroke(hot ? HeliosTheme.amber : HeliosTheme.cyan, lineWidth: hot ? 4 : 2)
+                                )
+                                .frame(width: hot ? 54 : 44, height: hot ? 54 : 44)
+                            Text(knob.labelDE.uppercased())
+                                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                                .foregroundStyle(hot ? HeliosTheme.amber : HeliosTheme.cyan)
+                                .padding(.horizontal, 6)
+                                .padding(.vertical, 2)
+                                .background(HeliosTheme.panel)
+                        }
+                        .position(x: local.x, y: local.y + 36)
+                    }
+                }
+            }
+        }
     }
 }
 

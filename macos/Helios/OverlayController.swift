@@ -13,9 +13,15 @@ private struct HUDRoot: View {
     }
 }
 
+/// Overlay darf nie Key-Window werden — sonst liegt Helios über der Ziel-App.
+final class HUDPanel: NSPanel {
+    override var canBecomeKey: Bool { false }
+    override var canBecomeMain: Bool { false }
+}
+
 @MainActor
 final class OverlayController {
-    private var panels: [CGDirectDisplayID: NSPanel] = [:]
+    private var panels: [CGDirectDisplayID: HUDPanel] = [:]
     private var hostings: [CGDirectDisplayID: NSHostingView<HUDRoot>] = [:]
     private var markers: [CGDirectDisplayID: HandMarkerView] = [:]
     private weak var state: AppState?
@@ -70,7 +76,7 @@ final class OverlayController {
             wrap.wantsLayer = true
             wrap.addSubview(hosting)
             wrap.addSubview(marker)
-            let panel = NSPanel(
+            let panel = HUDPanel(
                 contentRect: screen.frame,
                 styleMask: [.borderless, .nonactivatingPanel],
                 backing: .buffered,
@@ -84,6 +90,7 @@ final class OverlayController {
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
             panel.isReleasedWhenClosed = false
             panel.hidesOnDeactivate = false
+            panel.becomesKeyOnlyIfNeeded = true
             panel.contentView = wrap
             panel.setFrame(screen.frame, display: true)
             panel.orderFrontRegardless()

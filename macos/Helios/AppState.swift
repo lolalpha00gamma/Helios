@@ -60,6 +60,11 @@ final class AppState: ObservableObject {
     @Published var mousePaused = false
     @Published var grabPhase: GrabPhase = .none
     @Published var grabTargetName = ""
+    @Published var chromeKnobs: [ChromeKnob] = []
+    @Published var chromeHot = ""
+    @Published var hideConsoleWhenArmed = true
+    @Published var cameraDevices: [CameraChoice] = []
+    @Published var selectedCameraID = ""
     @Published var fusion: FusionDebug?
     @Published var hasDepth = false
     @Published var permissionBanner = ""
@@ -68,6 +73,7 @@ final class AppState: ObservableObject {
     private var didStart = false
     private let applySlot = ApplySlot()
 
+    private var lastArmedConsole: EngineMode = .idle
     private var cancellables: Set<AnyCancellable> = []
     private var focusTick = 0
 
@@ -116,6 +122,8 @@ final class AppState: ObservableObject {
                 self.deviceName = self.camera.deviceName
                 self.cameraRunning = self.camera.isRunning
                 self.cameraError = self.camera.errorMessage
+                self.cameraDevices = self.camera.devices
+                self.selectedCameraID = self.camera.selectedID
             }
             .store(in: &cancellables)
 
@@ -276,11 +284,35 @@ final class AppState: ObservableObject {
         showTrashZone = Prefs.showTrashZone
         showPreviewChip = Prefs.showPreviewChip
         dwellEnabled = Prefs.dwellEnabled
+        hideConsoleWhenArmed = Prefs.hideConsoleWhenArmed
         engine.leftHanded = leftHanded
         engine.pointerGain = CGFloat(pointerGain)
         engine.protocolMode = protocolMode
         engine.testMode = testMode
         engine.dwellEnabled = dwellEnabled
+        engine.hideConsoleWhenArmed = hideConsoleWhenArmed
+        cameraDevices = CameraSession.discover()
+        selectedCameraID = UserDefaults.standard.string(forKey: "helios.cameraID")
+            ?? cameraDevices.first?.id ?? ""
+        if !selectedCameraID.isEmpty, !cameraDevices.contains(where: { $0.id == selectedCameraID }) {
+            selectedCameraID = cameraDevices.first?.id ?? ""
+        }
+    }
+
+    func setHideConsoleWhenArmed(_ on: Bool) {
+        hideConsoleWhenArmed = on
+        engine.hideConsoleWhenArmed = on
+        Prefs.hideConsoleWhenArmed = on
+        if !on {
+            ConsolePolicy.show()
+        }
+        log.record(on ? "Konsole bei Scharf aus" : "Konsole bleibt sichtbar", kind: .info)
+    }
+
+    func selectCamera(_ id: String) {
+        selectedCameraID = id
+        camera.selectDevice(id)
+        log.record("Kamera: \(cameraDevices.first(where: { $0.id == id })?.name ?? id)", kind: .info)
     }
 
     func startCalibration() {
@@ -354,6 +386,14 @@ final class AppState: ObservableObject {
                 now: now
             )
         }
+        if engine.chromeKnobs != chromeKnobs || engine.chromeHot != chromeHot {
+            chromeKnobs = engine.chromeKnobs
+            chromeHot = engine.chromeHot
+        }
+        if hideConsoleWhenArmed, engine.mode == .armed, lastArmedConsole != .armed, !testMode {
+            ConsolePolicy.hide()
+        }
+        lastArmedConsole = engine.mode
         guard now - lastPanel >= 0.09 else { return }
         lastPanel = now
         self.luma = luma
@@ -379,6 +419,8 @@ final class AppState: ObservableObject {
         self.hands = hands
         fusion = hands.first?.fusion ?? tracker.lastFusion
         hasDepth = camera.hasDepth
+        cameraDevices = camera.devices
+        selectedCameraID = camera.selectedID
     }
 
     private func drainApply() {
@@ -469,5 +511,9 @@ enum Prefs {
     static var showPreviewChip: Bool {
         get { UserDefaults.standard.object(forKey: "helios.preview") as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "helios.preview") }
+    }
+    static var hideConsoleWhenArmed: Bool {
+        get { UserDefaults.standard.object(forKey: "helios.hideConsole") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.hideConsole") }
     }
 }

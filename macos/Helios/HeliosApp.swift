@@ -40,6 +40,27 @@ struct HeliosApp: App {
     }
 }
 
+enum ConsolePolicy {
+    static func isHUD(_ w: NSWindow) -> Bool {
+        w is HUDPanel || w.level.rawValue >= Int(CGWindowLevelForKey(.assistiveTechHighWindow))
+    }
+
+    static func hide() {
+        for w in NSApp.windows where !isHUD(w) {
+            w.orderOut(nil)
+        }
+        NSApp.setActivationPolicy(.accessory)
+    }
+
+    static func show() {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate()
+        for w in NSApp.windows where !isHUD(w) {
+            w.makeKeyAndOrderFront(nil)
+        }
+    }
+}
+
 private struct MenuBarMenu: View {
     @ObservedObject var state: AppState
     @Environment(\.openWindow) private var openWindow
@@ -49,7 +70,7 @@ private struct MenuBarMenu: View {
             .disabled(true)
         Divider()
         Button("Konsole") {
-            NSApp.activate()
+            ConsolePolicy.show()
             openWindow(id: "konsole")
         }
         Button(state.cameraRunning ? "Kamera stoppen" : "Kamera starten") {

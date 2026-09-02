@@ -23,7 +23,7 @@ enum CalibCorner: Int, CaseIterable, Codable {
     }
 
     var hintDE: String {
-        "Halte die Hand ruhig dort, wo für dich die Ecke \(titleDE) ist. Pinch bestätigt."
+        "Dein Anschlag \(titleDE) — so weit du kommst, ohne das Bild zu verlassen. Pinch bestätigt."
     }
 }
 
@@ -190,7 +190,7 @@ final class CalibrationSession {
         needMove = false
         rejected = false
         lastT = 0
-        hint = "Ecke oben links: Hand hin, Pinzette 1 s halten"
+        hint = "Ecke oben links: dein Anschlag, nicht der Kamerarand. Pinzette 1 s."
     }
 
     func cancel() {
@@ -223,16 +223,16 @@ final class CalibrationSession {
             return nil
         }
         if needMove {
-            if let last = lastSample(), hypot(palm.x - last.x, palm.y - last.y) < 0.20 {
+            if let last = lastSample(), hypot(palm.x - last.x, palm.y - last.y) < GestureMath.calibCornerSep {
                 hold = 0
-                hint = "Noch zu nah — weiter nach \(corner.titleDE)"
+                hint = "Etwas weiter nach \(corner.titleDE) — nur so weit, wie die Hand im Bild bleibt"
                 return nil
             }
             needMove = false
         }
-        if samples.values.contains(where: { hypot(palm.x - $0.x, palm.y - $0.y) < 0.18 }) {
+        if samples.values.contains(where: { hypot(palm.x - $0.x, palm.y - $0.y) < GestureMath.calibCornerSep }) {
             hold = 0
-            hint = "Zu nah an einer fertigen Ecke — weiter nach außen"
+            hint = "Zu nah an einer fertigen Ecke — dein nächster Anschlag, ohne das Bild zu verlassen"
             rejected = true
             return nil
         }
@@ -263,15 +263,15 @@ final class CalibrationSession {
         needRelease = true
         if let next = CalibCorner(rawValue: corner.rawValue + 1) {
             corner = next
-            hint = "OK. Öffnen und nach \(next.titleDE)"
+            hint = "OK. Öffnen und nach \(next.titleDE) — Anschlag, nicht Kamerarand"
             return nil
         }
         let ordered: [CalibCorner] = [.topLeft, .topRight, .bottomRight, .bottomLeft]
         let pts = ordered.compactMap { samples[$0] }
-        guard pts.count == 4, Self.quadArea(pts) >= 0.035 else {
+        guard pts.count == 4, Self.quadArea(pts) >= GestureMath.calibMinArea else {
             samples[.bottomLeft] = nil
             corner = .bottomLeft
-            hint = "Ecken zu nah. Unten links weiter außen, dann Pinzette."
+            hint = "Ecken zu nah. Unten links so weit du kommst, ohne das Bild zu verlassen."
             rejected = true
             return nil
         }

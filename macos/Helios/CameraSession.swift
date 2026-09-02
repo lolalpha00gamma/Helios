@@ -6,10 +6,22 @@ import Foundation
 import ImageIO
 import QuartzCore
 
+struct CameraChoice: Identifiable, Hashable {
+    var id: String { uniqueID }
+    var uniqueID: String
+    var name: String
+    var kindDE: String
+    var hasDepth: Bool
+}
+
 final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     @Published var isRunning = false
     @Published var errorMessage: String?
     @Published var deviceName = "—"
+    @Published var devices: [CameraChoice] = []
+    @Published var selectedID = ""
+
+    private var preferredID: String = UserDefaults.standard.string(forKey: "helios.cameraID") ?? ""
 
     /// Vision-Buffer, optionales Preview, Helligkeit 0…1, Ankunftszeit
     var onFrame: ((CVPixelBuffer, NSImage?, CGFloat, TimeInterval) -> Void)? {
@@ -78,6 +90,61 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         }
     }
 
+    func selectDevice(_ id: String) {
+        UserDefaults.standard.set(id, forKey: "helios.cameraID")
+        cameraQueue.async { [weak self] in
+            guard let self else { return }
+            self.preferredID = id
+            if self.session.isRunning {
+                self.pump.cancel()
+                HeliosCatch({ self.session.stopRunning() }, nil)
+                self.pump.reset()
+                self.configureAndRun()
+            }
+        }
+    }
+
+    static func discover() -> [CameraChoice] {
+        var types: [AVCaptureDevice.DeviceType] = [
+            .builtInWideAngleCamera,
+            .continuityCamera,
+            .external
+        ]
+        if #available(macOS 14.0, *) {
+            types.append(.deskViewCamera)
+        }
+        let found = AVCaptureDevice.DiscoverySession(
+            deviceTypes: types,
+            mediaType: .video,
+            position: .unspecified
+        ).devices
+        var seen = Set<String>()
+        var out: [CameraChoice] = []
+        for d in found {
+            if seen.contains(d.uniqueID) { continue }
+            seen.insert(d.uniqueID)
+            out.append(CameraChoice(
+                uniqueID: d.uniqueID,
+                name: d.localizedName,
+                kindDE: kindDE(d),
+                hasDepth: d.formats.contains { !$0.supportedDepthDataFormats.isEmpty }
+            ))
+        }
+        return out
+    }
+
+    private static func kindDE(_ d: AVCaptureDevice) -> String {
+        if #available(macOS 14.0, *), d.deviceType == .deskViewCamera {
+            return "Desk View — zweiter Winkel"
+        }
+        switch d.deviceType {
+        case .builtInWideAngleCamera: return "Mac-Kamera"
+        case .continuityCamera: return "iPhone (Kontinuität)"
+        case .external: return "Extern (USB / Osmo)"
+        default: return "Kamera"
+        }
+    }
+
     private func configureAndRun() {
         session.beginConfiguration()
         session.inputs.forEach { session.removeInput($0) }
@@ -137,9 +204,16 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             DispatchQueue.main.async { self.errorMessage = startErr.localizedDescription }
         }
         let name = device.localizedName
+        let list = Self.discover()
+        let depth = depthTap.attached
         DispatchQueue.main.async {
             self.deviceName = name
+            self.selectedID = device.uniqueID
+            self.devices = list
             self.isRunning = true
+            if depth {
+                self.deviceName = name + " · Tiefe"
+            }
         }
     }
 
@@ -157,6 +231,9 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             mediaType: .video,
             position: .unspecified
         ).devices
+        if !preferredID.isEmpty, let chosen = discovered.first(where: { $0.uniqueID == preferredID }) {
+            return chosen
+        }
         if let builtIn = discovered.first(where: { $0.deviceType == .builtInWideAngleCamera }) {
             return builtIn
         }

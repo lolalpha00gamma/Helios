@@ -1,6 +1,19 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.3**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+Stand: **1.6.4**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+
+## In 1.6.4 erledigt (Sitzung 2026-09-02)
+
+- Pinzette bleibt an der Hand, die das Gate geschlossen hat.
+- Klick wenn still (< 0,45 Handbreiten / 14 px), Zug erst darüber.
+- Fling nach echtem Fensterzug braucht 2,4× Schwelle — Ablegen ist kein Minimieren.
+- Wischen: Mute 0,75 s nach Pinzette, Gegenrichtung 1,1 s, nur Steuerhand.
+- Zwei-Pinzetten 80 ms / `pinchClosedness`.
+- Peace 1,1 s, nur allein auf der Steuerhand.
+- Konsole bei Scharf aus, HUD-Panel wird nie Key.
+- Kalibrierung akzeptiert den persönlichen Anschlag.
+- Chrom-Loupe + Magnet an Schließen/Mini/Zoom.
+- Kamera-Picker (Mac / Kontinuität / Desk View / USB).
 
 ## In 1.6.3 erledigt (aus 1.5.8 `bugfix`, nicht nochmal mergen)
 
@@ -61,9 +74,9 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Pointer-Beschleunigung** wie Trackpad (nichtlinear), damit Feinzielen in der Bildschirmmitte nicht zittert.
 - **Session-Replay** der Landmark-CSV direkt im HUD, Frame für Frame — ohne Xcode.
 - **Fusion-Temperatur** als Inspector-Slider (Debug), nicht hart 0,75.
-- **Pinch bleibt an der Hand, die das Gate geschlossen hat** — `pinchActor` nimmt sonst `min(pinchRatio)` über beide.
 - **Fling-Totzone am Bildschirm-Mittelpunkt**, sobald kalibriert (jetzt: Kamerabild-Mitte).
 - Default nicht wieder `leftHanded = true`.
+- **Zwei Sessions parallel** (Mac + Desk View oder Mac + Osmo), Vision nur auf der führenden.
 
 ## Größere Erweiterungen
 

@@ -1,4 +1,4 @@
-# Helios **1.6.3**
+# Helios **1.6.4**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,20 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.4
+
+Sitzung 2026-09-02: Pinzette wurde zum Greifen, Öffnen zum App-Wechsel, Zug nach unten zum Minimieren, die Konsole lag über den Apps, zwei Hände stahlen sich Pinzette und Cursor.
+
+- **Pinzette kurz und still = Klick.** Zug erst ab 0,45 Handbreiten oder 28 px — 0,18 war Palm-Zittern. Die Hand, die das Gate schließt, bleibt der Actor.
+- **Ziehen hält.** Loslassen nach echtem Fensterzug dockt/minimiert nicht, außer der Ruck ist klar (2,4× Werfen-Schwelle). Vertikal ablegen geht.
+- **Kein Hin-und-her-Wischen.** 0,75 s Mute nach Pinzette, Gegenrichtung 1,1 s gesperrt, nur die Steuerhand wischt.
+- **Zwei Pinzetten** ab `pinchClosedness > 0,42`, Bestätigung 80 ms — Skalieren stiehlt nicht mehr der erste Klick.
+- **Peace** nur allein auf der Steuerhand, 1,1 s, nicht während die andere Hand offen ist (Öffnen ≠ Aufnahme).
+- **Konsole aus bei Scharf.** HUD bleibt Overlay, wird nie Key-Window. Menüleiste → Konsole.
+- **Kalibrierung = Anschlag**, nicht Kamerarand. Kleineres Viereck gilt.
+- **Loupe + Magnet** an Schließen / Minimieren / Vollbild, wenn die Pinzette in der Titelleiste zielt.
+- **Kamera-Picker:** Mac, iPhone-Kontinuität, Desk View, USB (Osmo Action 3 im Webcam-Modus). LiDAR/TrueDepth nur wenn das Format Tiefe liefert.
 
 ## Neu in 1.6.3
 
@@ -75,11 +89,11 @@ Erkennung ist nicht mehr nur 2D. Vier Quellen laufen parallel und werden fusioni
 |---|---|
 | Faust halten | Scharf schalten |
 | Offene Hand bewegen | Cursor (Trackpad: heben = neu ansetzen) |
-| Pinzette kurz | Klick |
+| Pinzette kurz | Klick (still, nicht ziehen) |
 | Pinzette + Ringfinger kurz | Rechtsklick |
-| Pinzette oder Faust + ziehen | Fenster verschieben |
+| Pinzette oder Faust + ziehen | Fenster verschieben; Loslassen = ablegen |
 | In die Papierkorb-Ecke ziehen und loslassen | Fenster zu / Finder-Auswahl in den Papierkorb |
-| Werfen nach oben | Wegwerfen |
+| Werfen nach oben (Ruck, nicht das Ziehen) | Wegwerfen |
 | Werfen nach unten | Minimieren |
 | Werfen nach links/rechts | Andocken |
 | Pinzette + zu sich ziehen | Fenster füllen |
@@ -87,13 +101,29 @@ Erkennung ist nicht mehr nur 2D. Vier Quellen laufen parallel und werden fusioni
 | Offene Hand **schnell** waagerecht wischen | App wechseln |
 | Zwei offene Hände vertikal | Scroll |
 | Offene Hand 1 s still (optional) | Dwell-Klick |
-| Peace halten (~0,9 s) | Fensteraufnahme auf den Schreibtisch |
+| Peace allein halten (~1,1 s) | Fensteraufnahme auf den Schreibtisch |
 | Daumen hoch | App hervorholen |
 | Beide Handflächen (~0,8 s) | Not-Aus → Idle (erst Faust macht wieder scharf) |
 
 **Testmodus** (⌘T): Erkennung anzeigen, keine Systemaktionen.
 
 Aktive App bekommt einen Umriss. HUD liegt auf jedem Monitor. Keine Stimme.
+
+Bei Scharf blendet Helios die Konsole aus (Menüleiste holt sie zurück), damit die anderen Apps sichtbar bleiben.
+
+## Kameras
+
+Eine Quelle gleichzeitig, Picker in der Konsole.
+
+| Quelle | Was Helios damit macht |
+|---|---|
+| MacBook-Kamera | Default. Kein LiDAR. |
+| iPhone (Kontinuität) | Gleicher iCloud-Account, Continuity Camera. Meist **statt** der Mac-Kamera, nicht parallel. |
+| Desk View | Apples zweiter Winkel (Ultraweit von oben, macOS 14+). Das ist der sinnvolle 2.-Winkel, nicht zwei Vision-Sessions. |
+| Osmo Action 3 | USB-C, am Gerät **Webcam** einschalten. Taucht als Extern auf. Weitwinkel, **keine** Tiefe. |
+| LiDAR (iPhone 12 Pro+) | Nur wenn Kontinuität ein `supportedDepthDataFormats` liefert. Dann hängt `DepthCapture` den Kanal an — Fusion nutzt echte z. Viele Continuity-Formate haben **keine** Tiefe. |
+
+Zwei Kameras gleichzeitig (Mac + iPhone oder Mac + Osmo) sind möglich als zwei `AVCaptureSession`s, aber Continuity ist oft exklusiv und Vision auf zwei Streams sprengt das Budget. Nicht in 1.6.4.
 
 ## Bau
 

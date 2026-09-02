@@ -145,6 +145,20 @@ struct ControlPanel: View {
                     Toggle("Gestenhilfe", isOn: $state.showCheats)
                     Toggle("App-Umriss", isOn: $state.showOutline)
                     Toggle("Papierkorb-Zone", isOn: $state.showTrashZone)
+                    Toggle(isOn: Binding(
+                        get: { state.hideConsoleWhenArmed },
+                        set: { state.setHideConsoleWhenArmed($0) }
+                    )) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Konsole bei Scharf ausblenden")
+                                .font(.system(size: 13, weight: .semibold))
+                            Text("Menüleiste → Konsole holt sie zurück. Sonst liegt Helios über den Apps.")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .toggleStyle(.switch)
+                    cameraPicker
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Text("Zeiger-Empfindlichkeit")
@@ -190,7 +204,7 @@ struct ControlPanel: View {
                         Button("Kalibrierung löschen") { state.clearCalibration() }
                             .buttonStyle(.borderless)
                     }
-                    Text("Je Ecke die Hand dorthin halten, wo für dich die Bildschirmecke ist. Der Cursor wird mit der Ecke verglichen. Danach greifst du Fenster dort, wo sie liegen — ohne zum Rand zu navigieren.")
+                    Text("Je Ecke: dein persönlicher Anschlag, nicht der Kamerarand. Kommst du nicht tiefer ohne das Bild zu verlassen — genau dort bestätigen. Homographie spannt diesen Bereich auf den ganzen Schirm.")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
                 }
@@ -203,7 +217,7 @@ struct ControlPanel: View {
                 LatencySpark(values: state.latencyHistory)
                 LabeledContent("Licht", value: state.luma < 0.28 ? "Dunkel — Verstärkung" : state.luma < 0.45 ? "Gedämpft" : "OK")
                 LabeledContent("Monitore", value: "\(state.screenCount)")
-                LabeledContent("Tiefe", value: state.hasDepth ? "Kanal aktiv" : "nur 3D-Lift")
+                LabeledContent("Tiefe", value: state.hasDepth ? "Kanal aktiv (LiDAR/TrueDepth)" : "nur 3D-Lift")
                 if let app = state.focused {
                     LabeledContent("App", value: app.appName)
                 }
@@ -246,6 +260,32 @@ struct ControlPanel: View {
                 }
             }
             .buttonStyle(.borderless)
+        }
+    }
+
+    private var cameraPicker: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Kamera")
+                .font(.system(size: 13, weight: .semibold))
+            if state.cameraDevices.isEmpty {
+                Text(state.deviceName)
+                    .font(.system(size: 11, design: .monospaced))
+                    .foregroundStyle(.secondary)
+            } else {
+                Picker("Quelle", selection: Binding(
+                    get: { state.selectedCameraID },
+                    set: { state.selectCamera($0) }
+                )) {
+                    ForEach(state.cameraDevices) { d in
+                        Text("\(d.name) · \(d.kindDE)\(d.hasDepth ? " · Tiefe" : "")")
+                            .tag(d.id)
+                    }
+                }
+                .labelsHidden()
+            }
+            Text("iPhone: Kontinuitätskamera (gleicher iCloud-Account, Kamera-App zu). Desk View ist Apples zweiter Winkel von oben — nicht gleichzeitig mit der Mac-Kamera in dieser Version. Osmo Action 3: am Gerät Webcam-Modus, USB-C, taucht als Extern auf. LiDAR (iPhone 12 Pro+) nur wenn Kontinuität ein Tiefenformat liefert — dann „Tiefe“ am Namen.")
+                .font(.system(size: 10))
+                .foregroundStyle(.secondary)
         }
     }
 

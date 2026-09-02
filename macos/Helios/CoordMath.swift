@@ -52,12 +52,31 @@ enum GestureMath {
     static let flingMinDist: CGFloat = 0.55
     /// Mini-Zucken um die Bildmitte, nicht „Werfen aus der Mitte verboten“.
     static let flingCenter: CGFloat = 0.22
+    /// Nach echtem Fensterzug: Loslassen ist Ablegen, kein Dock/Minimize, außer der Ruck ist klar.
+    static let flingAfterDragMul: CGFloat = 2.4
+    static let flingAfterDragDist: CGFloat = 1.65
     static let palmDead: CGFloat = 0.012
     static let palmHighpass: CGFloat = 0.08
     static let deadMan: TimeInterval = 8.0
     static let killGrace: TimeInterval = 0.14
     static let swipeOpenNeed = 3
     static let thumbsHold: TimeInterval = 0.70
+    /// Sitzung 12:59:50: Öffnen nach Pinzette wurde zum Wischen, Rückkehr zur Gegenrichtung.
+    static let swipeMuteAfterPinch: TimeInterval = 0.75
+    static let swipeReverseLock: TimeInterval = 1.10
+    /// 0,18 Handbreiten war Palm-Zittern. Klick braucht eine stillstehende Pinzette.
+    static let pinchDragNeed: CGFloat = 0.45
+    static let pinchClickMinHold: TimeInterval = 0.05
+    static let pinchClickMaxHold: TimeInterval = 0.90
+    static let pinchClickStillPx: CGFloat = 14
+    static let pinchLockMiss: TimeInterval = 0.22
+    static let twoPinchConfirm: TimeInterval = 0.08
+    static let twoPinchClosed: CGFloat = 0.42
+    static let peaceHold: TimeInterval = 1.10
+    static let chromeMagnet: CGFloat = 28
+    static let chromeLoupe: CGFloat = 64
+    static let calibMinArea: CGFloat = 0.012
+    static let calibCornerSep: CGFloat = 0.06
 
     /// Letzte `flingWindow` Sekunden in Handbreiten, nicht first→last über das Halten.
     /// `x/y` sind Vision-[0,1]; `aspect` = w/h macht x isotrop.
@@ -65,7 +84,8 @@ enum GestureMath {
         _ trail: [(t: TimeInterval, x: CGFloat, y: CGFloat)],
         palmWidth: CGFloat,
         aspect: CGFloat = 16 / 9,
-        centerDead: Bool = true
+        centerDead: Bool = true,
+        afterDrag: Bool = false
     ) -> FlingKind {
         guard let last = trail.last else { return .none }
         let window = trail.filter { last.t - $0.t <= flingWindow }
@@ -82,11 +102,20 @@ enum GestureMath {
                 return .none
             }
         }
-        return classifyFling(dx: dx, dy: dy, speed: speed, dist: dist)
+        let speedNeed = flingMinSpeed * (afterDrag ? flingAfterDragMul : 1)
+        let distNeed = flingMinDist * (afterDrag ? flingAfterDragDist : 1)
+        return classifyFling(dx: dx, dy: dy, speed: speed, dist: dist, speedNeed: speedNeed, distNeed: distNeed)
     }
 
-    static func classifyFling(dx: CGFloat, dy: CGFloat, speed: CGFloat, dist: CGFloat) -> FlingKind {
-        guard speed > flingMinSpeed, dist > flingMinDist else { return .none }
+    static func classifyFling(
+        dx: CGFloat,
+        dy: CGFloat,
+        speed: CGFloat,
+        dist: CGFloat,
+        speedNeed: CGFloat = flingMinSpeed,
+        distNeed: CGFloat = flingMinDist
+    ) -> FlingKind {
+        guard speed > speedNeed, dist > distNeed else { return .none }
         if abs(dy) >= abs(dx) {
             if dy > 0.55 { return .throwUp }
             if dy < -0.35 { return .minimize }
@@ -95,5 +124,43 @@ enum GestureMath {
         if dx < -0.50 { return .dockLeft }
         if dx > 0.50 { return .dockRight }
         return .none
+    }
+
+    /// Kurze, stillstehende Pinzette = Klick, nicht Greifen.
+    static func isClick(held: TimeInterval, palmMovedHW: CGFloat, cursorMovedPx: CGFloat) -> Bool {
+        guard held >= pinchClickMinHold, held <= pinchClickMaxHold else { return false }
+        return palmMovedHW < pinchDragNeed && cursorMovedPx < pinchClickStillPx
+    }
+
+    static func isDrag(palmMovedHW: CGFloat, cursorMovedPx: CGFloat) -> Bool {
+        palmMovedHW >= pinchDragNeed || cursorMovedPx >= 28
+    }
+
+    /// Nach Pinzette-Öffnen und Gegenwischen in derselben Sekunde nicht schalten.
+    static func swipeBlocked(
+        now: TimeInterval,
+        muteUntil: TimeInterval,
+        dx: CGFloat,
+        lastDx: CGFloat,
+        lastAt: TimeInterval
+    ) -> Bool {
+        if now < muteUntil { return true }
+        if lastAt > 0, now - lastAt < swipeReverseLock, lastDx != 0, dx * lastDx < 0 {
+            return true
+        }
+        return false
+    }
+
+    static func magnet(cursor: CGPoint, targets: [CGPoint], radius: CGFloat = chromeMagnet) -> CGPoint? {
+        var best: CGPoint?
+        var bestD = radius
+        for t in targets {
+            let d = hypot(cursor.x - t.x, cursor.y - t.y)
+            if d < bestD {
+                bestD = d
+                best = t
+            }
+        }
+        return best
     }
 }

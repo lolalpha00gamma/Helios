@@ -415,6 +415,11 @@ final class AppState: ObservableObject {
         luma: CGFloat
     ) {
         engine.tick(hands: hands, now: now)
+        if engine.clapWake {
+            engine.clapWake = false
+            hudVisible = true
+            overlay.setVisible(true)
+        }
         overlay.mark(
             cursor: engine.cursor,
             phase: engine.grabPhase,

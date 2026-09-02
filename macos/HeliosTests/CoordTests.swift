@@ -216,6 +216,26 @@ enum CoordTests {
             fputs("FAIL Finder-Ordner ist kein Wallpaper\n", stderr)
             fails += 1
         }
+        if !GestureMath.isClapPulse(prevSpan: 3.2, prevT: 1.00, span: 1.05, now: 1.14) {
+            fputs("FAIL schneller Palmen-Schlag ist Klatschen\n", stderr)
+            fails += 1
+        }
+        if GestureMath.isClapPulse(prevSpan: 3.0, prevT: 1.00, span: 1.2, now: 1.80) {
+            fputs("FAIL langsames Zusammenführen ist kein Klatschen\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.isDoubleClap(first: 2.00, second: 2.45) {
+            fputs("FAIL zweites Klatschen in 0,45 s zählt\n", stderr)
+            fails += 1
+        }
+        if GestureMath.isDoubleClap(first: 2.00, second: 2.08) {
+            fputs("FAIL Doppelklatschen braucht Abstand, kein Zittern\n", stderr)
+            fails += 1
+        }
+        if GestureMath.clapMinSpeed < 4 {
+            fputs("FAIL Klatschen muss ein Schlag sein, nicht halten\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

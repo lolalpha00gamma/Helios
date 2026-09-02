@@ -192,8 +192,8 @@ struct HUDView: View {
                     .foregroundStyle(HeliosTheme.cyan)
             } else if state.mode == .idle {
                 Text(state.lastAction.localizedCaseInsensitiveContains("Not-Aus")
-                     ? "NOT-AUS · FAUST HALTEN → SCHARF"
-                     : "FAUST HALTEN → SCHARF")
+                     ? "NOT-AUS · FAUST ODER 2× KLATSCHEN"
+                     : "FAUST ODER 2× KLATSCHEN → SCHARF")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(HeliosTheme.amber)
             }
@@ -280,6 +280,7 @@ struct HUDView: View {
                 .font(HeliosTheme.mono)
                 .foregroundStyle(HeliosTheme.cyan)
             Text("Faust halten     Scharf")
+            Text("2× Klatschen     Scharf (Kamera)")
             Text("Pinzette kurz    Klick")
             Text("Pinzette ziehen  Fenster")
             Text("Werfen nur Ruck  Dock / Mini")

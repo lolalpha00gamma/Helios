@@ -1,6 +1,12 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.5**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+Stand: **1.6.6**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+
+## In 1.6.6 erledigt
+
+- 2× klatschen (sichtbar, Palmenabstand) weckt Scharf im Hintergrund. Kein Mikrofon.
+- Not-Aus nur mit Händen auseinander — Kontakt ist Klatschen.
+- Kamera-Keep-Alive, damit Idle/Accessory weiter Frames bekommt.
 
 ## In 1.6.5 erledigt
 

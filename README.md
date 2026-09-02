@@ -1,4 +1,4 @@
-# Helios **1.6.5**
+# Helios **1.6.6**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,10 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.6
+
+**2× klatschen weckt Helios**, auch wenn die Konsole weg ist und nur die Kamera im Hintergrund läuft. Rein visuell: zwei Hände, Palmenabstand fällt schnell unter Kontakt und wieder auf — **kein Mikrofon**. Faust bleibt der andere Weg zu Scharf. Not-Aus (beide Hände offen, Abstand) zählt nicht als Klatschen. Die Kamera bleibt aktiv, damit das im Hintergrund ankommt.
 
 ## Neu in 1.6.5
 
@@ -98,6 +102,7 @@ Erkennung ist nicht mehr nur 2D. Vier Quellen laufen parallel und werden fusioni
 | Geste | Wirkung |
 |---|---|
 | Faust halten | Scharf schalten |
+| **2× klatschen** (Kamera, kein Ton) | Scharf, auch im Hintergrund |
 | Offene Hand bewegen | Cursor (Trackpad: heben = neu ansetzen) |
 | Pinzette kurz | Klick (still, nicht ziehen) |
 | Pinzette + Ringfinger kurz | Rechtsklick |
@@ -113,7 +118,7 @@ Erkennung ist nicht mehr nur 2D. Vier Quellen laufen parallel und werden fusioni
 | Offene Hand 1 s still (optional) | Dwell-Klick |
 | Peace allein halten (~1,1 s) | Fensteraufnahme auf den Schreibtisch |
 | Daumen hoch | App hervorholen |
-| Beide Handflächen (~0,8 s) | Not-Aus → Idle (erst Faust macht wieder scharf) |
+| Beide Handflächen (~0,8 s, nicht zusammen) | Not-Aus → Idle (Faust **oder** 2× klatschen macht wieder scharf) |
 
 **Testmodus** (⌘T): Erkennung anzeigen, keine Systemaktionen.
 

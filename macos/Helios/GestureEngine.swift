@@ -52,6 +52,7 @@ final class GestureEngine {
     var chromeKnobs: [ChromeKnob] = []
     var chromeHot = ""
     var hideConsoleWhenArmed = true
+    var clapWake = false
 
     private var fistSince: TimeInterval?
     private var fistLostAt: TimeInterval?
@@ -98,6 +99,11 @@ final class GestureEngine {
     private var ringPinchSince: TimeInterval?
     private var dwellSince: TimeInterval?
     private var dwellPalm: CGPoint?
+    private var clapClosed = false
+    private var clapSpan: (t: TimeInterval, span: CGFloat)?
+    private var firstClapAt: TimeInterval = 0
+    private var lastTwoHands: TimeInterval = 0
+    private var lastClapFire: TimeInterval = 0
     private let system = SystemControl()
     var onLog: ((String, ProtocolKind, Int?) -> Void)?
     var focused: FocusedTarget?
@@ -161,6 +167,12 @@ final class GestureEngine {
         grabTargetName = ""
         chromeKnobs = []
         chromeHot = ""
+        clapWake = false
+        clapClosed = false
+        clapSpan = nil
+        firstClapAt = 0
+        lastTwoHands = 0
+        lastClapFire = 0
         lastAction = "Reset"
     }
 
@@ -197,6 +209,9 @@ final class GestureEngine {
             ringPinchSince = nil
             dwellSince = nil
             dwellPalm = nil
+            clapClosed = false
+            clapSpan = nil
+            firstClapAt = 0
             trashHot = false
             dragging = false
             grabPhase = .none
@@ -264,6 +279,11 @@ final class GestureEngine {
             }
         }
 
+        if driveClap(hands: hands, now: now) {
+            placeCursor(primary)
+            handleArming(hands: hands, now: now)
+            return
+        }
         if handleKillSwitch(hands: hands, now: now) {
             placeCursor(primary)
             if !testMode, cursorDidMove, let p = cursor {
@@ -278,7 +298,7 @@ final class GestureEngine {
             grabPhase = (primary.pose == .pinch || primary.pose == .fist) ? .hold : .follow
             grabTargetName = focused?.appName ?? ""
             if hands.contains(where: { $0.pose == .pinch || $0.pose == .fist }) {
-                lastAction = mustRearm ? "Nach Not-Aus: Faust halten" : "Faust halten → Scharf"
+                lastAction = mustRearm ? "Nach Not-Aus: Faust oder 2× Klatschen" : "Faust oder 2× Klatschen → Scharf"
             }
             dragging = false
             return
@@ -407,10 +427,92 @@ final class GestureEngine {
         }
     }
 
+    /// Zwei Hände, sichtbarer Schlag zusammen — kein Mikrofon.
+    @discardableResult
+    private func driveClap(hands: [TrackedHand], now: TimeInterval) -> Bool {
+        guard !pinchHeld, twoPinchSince == nil else { return false }
+        if now - lastClapFire < 1.15 {
+            return false
+        }
+        if mode == .idle, now < armLockUntil, (armLockUntil - now) > 1.20 {
+            return false
+        }
+        guard hands.count >= 2 else {
+            if lastTwoHands > 0, now - lastTwoHands > 0.22 {
+                clapClosed = false
+                clapSpan = nil
+                firstClapAt = 0
+            }
+            return false
+        }
+        lastTwoHands = now
+        let a = hands[0]
+        let b = hands[1]
+        if a.openScore == 0, b.openScore == 0 { return false }
+        let unit = max(0.04, (a.palmWidth + b.palmWidth) / 2)
+        let span = space.dist(a.palm, b.palm) / unit
+        defer { clapSpan = (now, span) }
+        if clapClosed {
+            if span > GestureMath.clapOpen {
+                clapClosed = false
+            }
+            return false
+        }
+        guard let prev = clapSpan else { return false }
+        guard GestureMath.isClapPulse(prevSpan: prev.span, prevT: prev.t, span: span, now: now) else {
+            if firstClapAt > 0, now - firstClapAt > GestureMath.clapMaxGap {
+                firstClapAt = 0
+            }
+            return false
+        }
+        clapClosed = true
+        if firstClapAt > 0, GestureMath.isDoubleClap(first: firstClapAt, second: now) {
+            firstClapAt = 0
+            lastClapFire = now
+            clapWake = true
+            palmSince = nil
+            killLatched = false
+            mustRearm = false
+            fistSince = nil
+            if mode != .armed {
+                mode = .armed
+                lastArmToggle = now
+                cooldownUntil = now + 0.4
+                armedQuietUntil = now + 0.70
+                lastAction = testMode ? "Test: Doppelklatschen" : "Doppelklatschen → Scharf"
+                onLog?(
+                    testMode
+                        ? "Doppelklatschen — Testmodus, System unberührt"
+                        : "Doppelklatschen (Kamera) → Scharf",
+                    testMode ? .blocked : .executed,
+                    Int((hands.map(\.poseProb).max() ?? 0) * 100)
+                )
+            } else {
+                lastAction = "Doppelklatschen"
+                onLog?("Doppelklatschen — HUD nach vorn", .info, Int((hands.map(\.poseProb).max() ?? 0) * 100))
+            }
+            return true
+        }
+        firstClapAt = now
+        lastAction = "Klatschen …"
+        onLog?("Klatschen erkannt", .recognized, Int((hands.map(\.poseProb).max() ?? 0) * 100))
+        return false
+    }
+
     @discardableResult
     private func handleKillSwitch(hands: [TrackedHand], now: TimeInterval) -> Bool {
+        if firstClapAt > 0, now - firstClapAt < GestureMath.clapMaxGap {
+            palmSince = nil
+            return false
+        }
         let open = hands.filter { $0.openScore >= 4 }
         if open.count >= 2 {
+            let unit = max(0.04, (open[0].palmWidth + open[1].palmWidth) / 2)
+            let span = space.dist(open[0].palm, open[1].palm) / unit
+            if span < GestureMath.clapOpen {
+                palmSince = nil
+                if !killLatched { return false }
+            }
             if killLatched {
                 lastAction = "Not-Aus"
                 mode = .idle
@@ -429,7 +531,7 @@ final class GestureEngine {
                 fistSince = nil
                 system.endWindowDrag()
                 lastAction = "Not-Aus"
-                onLog?("Beide Hände offen → Not-Aus. Bleibt Idle, bis Faust hält.", .info, nil)
+                onLog?("Beide Hände offen → Not-Aus. Bleibt Idle, bis Faust hält oder 2× klatschen.", .info, nil)
                 killFlash = true
                 Task { [weak self] in
                     try? await Task.sleep(nanoseconds: 350_000_000)
@@ -451,7 +553,7 @@ final class GestureEngine {
 
     private func handleArming(hands: [TrackedHand], now: TimeInterval) {
         if now < armLockUntil {
-            if mode == .idle { lastAction = "Not-Aus — Faust zum Scharf" }
+            if mode == .idle { lastAction = "Not-Aus — Faust oder 2× Klatschen" }
             return
         }
         if mode == .armed { return }

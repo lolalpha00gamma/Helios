@@ -72,6 +72,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     let depthTap = DepthCapture()
     var latestDepth: DepthSample? { depthTap.latest }
     var hasDepth: Bool { depthTap.attached }
+    private var keepAlive: NSObjectProtocol?
 
     func start() {
         DispatchQueue.main.async { self.errorMessage = nil }
@@ -86,6 +87,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             guard let self else { return }
             self.pump.cancel()
             HeliosCatch({ self.session.stopRunning() }, nil)
+            self.releaseKeepAlive()
             DispatchQueue.main.async { self.isRunning = false }
         }
     }
@@ -214,6 +216,22 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             if depth {
                 self.deviceName = name + " · Tiefe"
             }
+        }
+        retainKeepAlive()
+    }
+
+    private func retainKeepAlive() {
+        if keepAlive != nil { return }
+        keepAlive = ProcessInfo.processInfo.beginActivity(
+            options: [.userInitiated, .idleSystemSleepDisabled],
+            reason: "Helios-Kamera liest Gesten im Hintergrund"
+        )
+    }
+
+    private func releaseKeepAlive() {
+        if let a = keepAlive {
+            ProcessInfo.processInfo.endActivity(a)
+            keepAlive = nil
         }
     }
 

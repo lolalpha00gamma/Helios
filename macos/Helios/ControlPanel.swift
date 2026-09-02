@@ -237,7 +237,7 @@ struct ControlPanel: View {
 
             Text(state.testMode
                  ? "Testmodus: Gesten werden erkannt, das System bleibt unangetastet."
-                 : "Live · Linke Handfläche = Position. Pinzette/Faust greift das Fenster unter der Markierung. Offene Hand wischen = App. Beide offen = Not-Aus (bleibt Idle).")
+                 : "Live · Linke Handfläche = Position. 2× klatschen (sichtbar, kein Mikrofon) weckt Helios im Hintergrund. Pinzette/Faust greift das Fenster unter der Markierung. Offene Hand wischen = App. Beide offen = Not-Aus (bleibt Idle).")
                 .font(.system(size: 11))
                 .foregroundStyle(.tertiary)
         }

@@ -92,6 +92,34 @@ enum GestureMath {
         title.isEmpty || title == "Desktop" || title == "Schreibtisch"
     }
 
+    /// Sichtbares Doppelklatschen (kein Mikrofon): Palmenabstand in Handbreiten.
+    static let clapContact: CGFloat = 1.40
+    static let clapOpen: CGFloat = 2.20
+    static let clapMinSpeed: CGFloat = 5.5
+    static let clapMinGap: TimeInterval = 0.14
+    static let clapMaxGap: TimeInterval = 0.90
+
+    /// Ein Klatscher: Abstand fällt schnell unter Kontakt.
+    static func isClapPulse(
+        prevSpan: CGFloat,
+        prevT: TimeInterval,
+        span: CGFloat,
+        now: TimeInterval,
+        contact: CGFloat = clapContact,
+        open: CGFloat = clapOpen,
+        minSpeed: CGFloat = clapMinSpeed
+    ) -> Bool {
+        let dt = now - prevT
+        guard dt >= 0.04, dt <= 0.28 else { return false }
+        let speed = (prevSpan - span) / CGFloat(dt)
+        return span <= contact && prevSpan >= open * 0.85 && speed >= minSpeed
+    }
+
+    static func isDoubleClap(first: TimeInterval, second: TimeInterval) -> Bool {
+        let g = second - first
+        return g >= clapMinGap && g <= clapMaxGap
+    }
+
     /// Letzte `flingWindow` Sekunden in Handbreiten, nicht first→last über das Halten.
     /// `x/y` sind Vision-[0,1]; `aspect` = w/h macht x isotrop.
     static func flingFromTrail(

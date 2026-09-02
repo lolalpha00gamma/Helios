@@ -1,6 +1,18 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.3**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+Stand: **1.6.4**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes.
+
+## In 1.6.4 erledigt
+
+Warum 1.6.3 sich auf zwei Schirmen und in Safari trotzdem falsch anfühlte: eine Homographie für alle Displays, keine Profil-Overrides, Lock ohne Hysterese, Scroll unabhängig von der Palme, Tippen injizierte Pinches, Kill ohne Abbruch.
+
+1. **9-Punkt-Gitter.** DLT least squares (`AtA` 8×8), 4-Punkt-Gauss bleibt der Pfad für gespeicherte Ecken-Karten.
+2. **SpaceMap pro `CGDirectDisplayID`.** Key `helios.spaceMap.{id}`, Fallback `helios.spaceMap`. Cursor wechselt die Karte, wenn der Schirm eine eigene hat.
+3. **Profil-Editor.** Extra/Blocked in `helios.profileOverrides`. Safari-Werfen darf an, Default bleibt aus.
+4. **Dominant-Lock-Hysterese 200 ms.** Die zweite Hand stiehlt den Cursor nicht in dem Frame, in dem die erste das Bild verlässt.
+5. **Scroll-Gain `2,2 / palmWidth`.** unit 0,12 ≈ 18 Ticks wie bisher; große Palme feiner.
+6. **Tasten-Clutch.** Global+Local `keyDown` → 400 ms keine Gesten-Injektion.
+7. **Kill-Abbrechen.** Faust + eine offene Hand während des Holds → Hold weg, kein Idle.
 
 ## In 1.6.3 erledigt
 
@@ -49,16 +61,14 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 
 ## Nächste Fixes (klein, hoher Nutzen)
 
-- **Kalibrierung merken pro Display-ID**, nicht nur ein Homography für alle Schirme.
-- **9-Punkt-Kalibrier-Gitter** (einmal, pro Display), statt nur 4 Ecken.
 - **Session-Replay** der Landmark-CSV direkt im HUD, Frame für Frame — ohne Xcode.
-- **Profil-Editor.** Nutzer darf Safari-Werfen wieder anmachen; Defaults bleiben konservativ.
-- **Hover-Hysterese am Dominant-Lock.** 200 ms, bevor die zweite Hand den Cursor kriegt, wenn die erste weg ist.
-- **Scroll-Gain** an palmWidth koppeln — große Hände scrollen zu grob.
 - **Peace vs. Point.** Zwei Finger plus Daumen-an-MCP wird noch als Peace gelesen.
-- **Tasten-Clutch.** 400 ms nach echter Tastatur keine Gesten-Injektion — sonst landet ein Pinch im gerade getippten Feld.
-- **Kill-Abbrechen.** Faust + offene zweite Hand bricht den 0,8-s-Not-Aus ab, ohne Idle zu erzwingen.
-- **Profil-Bundle-Liste** als JSON neben dem Binary, nicht hart im Switch.
+- **Profil-Bundle-Liste** als JSON-Datei im Bundle, nicht nur die Tabelle in `AppGestureProfile`.
+- **Kalibrier-RMSE** nach 9 Punkten anzeigen. Wenn > 12 px: „nochmal Mitte“.
+- **Display-Reconfig.** `CGDisplayRegisterReconfigurationCallback` lädt die Karte neu, statt mit der Union weiterzulaufen.
+- **Palm-Deadzone an palmWidth.** Feinzielen nah an der Kamera zittert sonst in den äußeren 15 %.
+- **Per-App Scroll-Richtung.** Finder vs. Browser invertieren, analog zum Trackpad-Natural-Scroll.
+- **HID-Filter für eigene Events** über `CGEventSourceStateID` statt Zeitfenster — Clutch wird unempfindlich gegen fps.
 
 ## Größere Erweiterungen
 
@@ -78,10 +88,12 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Click-Lock** für Slider: Pinch halten rastet, Bewegung ohne Zittern am Thumb.
 - **Aegis-Bridge.** Eine Kamera-Session, zwei Consumer — TCC nur einmal.
 - **Blick (wenn das SDK es hergibt)** disambiguiert welches Fenster gemeint ist, bevor AX rät.
-- **HID-Filter für eigene Events** über `CGEventSourceStateID` statt Zeitfenster — Clutch wird unempfindlich gegen fps.
-- **Pro-Display Homography** als 3×3-Feld in UserDefaults, keyed by `CGDirectDisplayID`.
 - **Stage-Manager-Spaces.** Ein SpaceMap pro `CGSSpace`, sonst springt der Cursor nach Space-Wechsel.
 - **Continuity-Desk-View.** Wenn die iPhone-Kamera als Continuity hängt, HUD-Vorschau spiegeln wie die Frontkamera.
+- **Zwei-Hand-Rotate.** Gegenläufige Palmen um die gemeinsame Mitte = Fenster drehen (nur wo AX es hergibt).
+- **Desk vs. Couch.** Ein Gain-Profil für 40 cm Kameraabstand, eines für 1,5 m — palmWidth wählt.
+- **Pointer-Trail im HUD.** Letzte 12 Palm-Punkte als Debug, aus by default.
+- **Accessibility-Zoom folgt.** Wenn Zoom an ist, bewegt die Palme den Fokus-Rect, nicht den 1:1-Cursor.
 
 ## Nicht tun
 

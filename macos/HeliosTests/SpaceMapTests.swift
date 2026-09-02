@@ -39,6 +39,35 @@ enum SpaceMapTests {
             fputs("FAIL SpaceMap Rand absolut\n", stderr)
             exit(1)
         }
+
+        // 9-Punkt-DLT: Identität über ein 3×3-Gitter.
+        var src9: [CGPoint] = []
+        var dst9: [CGPoint] = []
+        for r in 0..<3 {
+            for c in 0..<3 {
+                src9.append(CGPoint(x: CGFloat(c) * 0.5, y: CGFloat(r) * 0.5))
+                dst9.append(CGPoint(x: 100 + CGFloat(c) * 400, y: 50 + CGFloat(r) * 300))
+            }
+        }
+        guard let H9 = SpaceMap.homography(from: src9, to: dst9) else {
+            fputs("FAIL 9-point homography nil\n", stderr)
+            exit(1)
+        }
+        let q9 = apply(H9, CGPoint(x: 0.5, y: 0.5))
+        if abs(q9.x - 500) > 1.0 || abs(q9.y - 350) > 1.0 {
+            fputs("FAIL 9-point \(q9)\n", stderr)
+            exit(1)
+        }
+        var map9 = SpaceMap(palms: src9.map(XY.init), displayID: nil)
+        if !map9.isReady || !map9.isNinePoint {
+            fputs("FAIL 9-point isReady\n", stderr)
+            exit(1)
+        }
+        // 4-Punkt bleibt gültig.
+        if !smap.isReady {
+            fputs("FAIL 4-point isReady\n", stderr)
+            exit(1)
+        }
         print("SpaceMapTests OK")
     }
 

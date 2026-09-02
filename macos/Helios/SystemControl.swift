@@ -25,6 +25,7 @@ final class SystemControl {
     private var lastPosted: CGPoint?
     private var lastPostAt: TimeInterval = 0
     private var pauseUntil: TimeInterval = 0
+    private var keyPauseUntil: TimeInterval = 0
     private var monitors: [Any] = []
     private(set) var mouseHasControl = false
     private let axQ = DispatchQueue(label: "helios.ax", qos: .userInteractive)
@@ -39,19 +40,39 @@ final class SystemControl {
             mouseHasControl = true
             return false
         }
+        if CACurrentMediaTime() < keyPauseUntil {
+            return false
+        }
         mouseHasControl = false
         return true
     }
 
     func startClutch() {
         guard monitors.isEmpty else { return }
-        let mask: NSEvent.EventTypeMask = [.leftMouseDragged, .mouseMoved]
-        let note: (NSEvent) -> Void = { [weak self] e in
+        let mouse: NSEvent.EventTypeMask = [.leftMouseDragged, .mouseMoved]
+        let keys: NSEvent.EventTypeMask = [.keyDown]
+        let noteMouse: (NSEvent) -> Void = { [weak self] e in
             Task { @MainActor in self?.noteHardware(e) }
         }
-        if let g = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: note) {
+        let noteKey: (NSEvent) -> Void = { [weak self] _ in
+            Task { @MainActor in self?.noteKeyboard() }
+        }
+        if let g = NSEvent.addGlobalMonitorForEvents(matching: mouse, handler: noteMouse) {
             monitors.append(g)
         }
+        if let g = NSEvent.addGlobalMonitorForEvents(matching: keys, handler: noteKey) {
+            monitors.append(g)
+        }
+        if let l = NSEvent.addLocalMonitorForEvents(matching: keys, handler: { [weak self] e in
+            Task { @MainActor in self?.noteKeyboard() }
+            return e
+        }) {
+            monitors.append(l)
+        }
+    }
+
+    private func noteKeyboard() {
+        keyPauseUntil = CACurrentMediaTime() + 0.40
     }
 
     private func noteHardware(_ e: NSEvent) {

@@ -72,7 +72,7 @@ struct HUDView: View {
                     Text("KALIBRIERUNG")
                         .font(.system(size: 13, weight: .bold, design: .monospaced))
                         .foregroundStyle(HeliosTheme.amber)
-                    Text("Ecke \(state.calibCorner)   ·   \(state.calibSession.samples.count)/4")
+                    Text("Punkt \(state.calibCorner)   ·   \(state.calibSession.samples.count)/\(state.calibSession.totalSpots)")
                         .font(.system(size: 22, weight: .bold, design: .monospaced))
                         .foregroundStyle(HeliosTheme.cyan)
                     Text(state.calibSession.hint)

@@ -10,8 +10,12 @@ struct XY: Codable, Equatable {
     init(x: CGFloat, y: CGFloat) { self.x = x; self.y = y }
 }
 
-enum CalibCorner: Int, CaseIterable, Codable {
+enum CalibSpot: String, CaseIterable, Codable {
     case topLeft, topRight, bottomRight, bottomLeft
+    case topMid, midRight, bottomMid, midLeft, center
+
+    static let four: [CalibSpot] = [.topLeft, .topRight, .bottomRight, .bottomLeft]
+    static let nine: [CalibSpot] = four + [.topMid, .midRight, .bottomMid, .midLeft, .center]
 
     var titleDE: String {
         switch self {
@@ -19,22 +23,64 @@ enum CalibCorner: Int, CaseIterable, Codable {
         case .topRight: return "oben rechts"
         case .bottomRight: return "unten rechts"
         case .bottomLeft: return "unten links"
+        case .topMid: return "oben Mitte"
+        case .midRight: return "rechts Mitte"
+        case .bottomMid: return "unten Mitte"
+        case .midLeft: return "links Mitte"
+        case .center: return "Mitte"
+        }
+    }
+
+    /// Index ins 3×3-Gitter (Zeile von oben, Quartz: y oben klein).
+    var gridIndex: Int {
+        switch self {
+        case .topLeft: return 0
+        case .topMid: return 1
+        case .topRight: return 2
+        case .midLeft: return 3
+        case .center: return 4
+        case .midRight: return 5
+        case .bottomLeft: return 6
+        case .bottomMid: return 7
+        case .bottomRight: return 8
         }
     }
 
     var hintDE: String {
-        "Halte die Hand ruhig dort, wo für dich die Ecke \(titleDE) ist. Pinch bestätigt."
+        "Halte die Hand ruhig dort, wo für dich \(titleDE) ist. Pinch bestätigt."
     }
+}
+
+enum CalibCorner: Int, CaseIterable, Codable {
+    case topLeft, topRight, bottomRight, bottomLeft
+
+    var titleDE: String { CalibSpot.four[rawValue].titleDE }
+    var hintDE: String { CalibSpot.four[rawValue].hintDE }
+    var spot: CalibSpot { CalibSpot.four[rawValue] }
 }
 
 /// Homographie Kamera-Handfläche → Bildschirm (Quartz). Nur Mapping, keine Erkennung.
 struct SpaceMap: Codable {
     var palms: [XY]
+    var displayID: UInt32?
 
-    var isReady: Bool { palms.count == 4 }
+    var isReady: Bool { palms.count >= 4 }
+    var isNinePoint: Bool { palms.count >= 9 }
 
-    static func screenCorners() -> [CGPoint] {
-        let q = ScreenGeometry.quartzRect(fromCocoa: ScreenGeometry.cocoaUnion)
+    static func screen(of id: UInt32?) -> NSScreen? {
+        guard let id else { return NSScreen.main }
+        return NSScreen.screens.first { ScreenGeometry.displayID(of: $0) == id } ?? NSScreen.main
+    }
+
+    static func quartzField(of id: UInt32?) -> CGRect {
+        if let screen = screen(of: id) {
+            return ScreenGeometry.quartzRect(fromCocoa: screen.frame)
+        }
+        return ScreenGeometry.quartzRect(fromCocoa: ScreenGeometry.cocoaUnion)
+    }
+
+    static func screenCorners(displayID: UInt32? = nil) -> [CGPoint] {
+        let q = quartzField(of: displayID)
         return [
             CGPoint(x: q.minX + 8, y: q.minY + 8),
             CGPoint(x: q.maxX - 8, y: q.minY + 8),
@@ -43,11 +89,33 @@ struct SpaceMap: Codable {
         ]
     }
 
+    /// 3×3-Gitter, Zeile oben → unten, links → rechts. Quartz-Ursprung unten-links.
+    static func screenGrid(displayID: UInt32? = nil) -> [CGPoint] {
+        let q = quartzField(of: displayID)
+        let xs: [CGFloat] = [q.minX + 8, q.midX, q.maxX - 8]
+        let ys: [CGFloat] = [q.minY + 8, q.midY, q.maxY - 8]
+        var pts: [CGPoint] = []
+        pts.reserveCapacity(9)
+        for row in 0..<3 {
+            for col in 0..<3 {
+                pts.append(CGPoint(x: xs[col], y: ys[row]))
+            }
+        }
+        return pts
+    }
+
     static func linear(_ palm: CGPoint) -> CGPoint {
         let q = ScreenGeometry.quartzRect(fromCocoa: ScreenGeometry.cocoaUnion)
         let u = min(max((palm.x - 0.10) / 0.80, 0), 1)
         let v = min(max((palm.y - 0.10) / 0.80, 0), 1)
         return CGPoint(x: q.minX + u * q.width, y: q.minY + (1 - v) * q.height)
+    }
+
+    func destinations() -> [CGPoint] {
+        if palms.count >= 9 {
+            return Self.screenGrid(displayID: displayID)
+        }
+        return Self.screenCorners(displayID: displayID)
     }
 
     func apply(_ palm: CGPoint) -> CGPoint {
@@ -63,7 +131,7 @@ struct SpaceMap: Codable {
 
     /// 0 innen (relativ), 1 in den äußeren 15 % der Kalibrier-Quad (absolut).
     func edgeWeight(_ palm: CGPoint) -> CGFloat {
-        guard palms.count == 4 else { return 1 }
+        guard palms.count >= 4 else { return 1 }
         let xs = palms.map(\.x)
         let ys = palms.map(\.y)
         guard let minX = xs.min(), let maxX = xs.max(),
@@ -79,16 +147,43 @@ struct SpaceMap: Codable {
     }
 
     func homography() -> [CGFloat]? {
-        guard palms.count == 4 else { return nil }
-        return SpaceMap.homography(from: palms.map(\.point), to: Self.screenCorners())
+        guard palms.count >= 4 else { return nil }
+        let src = palms.map(\.point)
+        let dst = destinations()
+        let n = min(src.count, dst.count)
+        return SpaceMap.homography(from: Array(src.prefix(n)), to: Array(dst.prefix(n)))
     }
 
-    /// 4 Punktpaare, h22 = 1, 8×8 Gauss.
+    /// 4 Punktpaare: h22 = 1, 8×8 Gauss. ≥5 Punkte: DLT least squares (AtA).
     static func homography(from src: [CGPoint], to dst: [CGPoint]) -> [CGFloat]? {
-        guard src.count == 4, dst.count == 4 else { return nil }
-        var A = Array(repeating: Array(repeating: 0.0 as CGFloat, count: 8), count: 8)
-        var b = Array(repeating: 0.0 as CGFloat, count: 8)
-        for i in 0..<4 {
+        let n = min(src.count, dst.count)
+        guard n >= 4 else { return nil }
+        if n == 4 {
+            var A = Array(repeating: Array(repeating: 0.0 as CGFloat, count: 8), count: 8)
+            var b = Array(repeating: 0.0 as CGFloat, count: 8)
+            for i in 0..<4 {
+                let x = src[i].x, y = src[i].y
+                let u = dst[i].x, v = dst[i].y
+                let r = i * 2
+                A[r] = [x, y, 1, 0, 0, 0, -u * x, -u * y]
+                b[r] = u
+                A[r + 1] = [0, 0, 0, x, y, 1, -v * x, -v * y]
+                b[r + 1] = v
+            }
+            guard var h8 = gauss(A, b) else { return nil }
+            h8.append(1)
+            return h8
+        }
+        return homographyLeastSquares(from: Array(src.prefix(n)), to: Array(dst.prefix(n)))
+    }
+
+    static func homographyLeastSquares(from src: [CGPoint], to dst: [CGPoint]) -> [CGFloat]? {
+        let n = min(src.count, dst.count)
+        guard n >= 4 else { return nil }
+        let rows = 2 * n
+        var A = Array(repeating: Array(repeating: 0.0 as CGFloat, count: 8), count: rows)
+        var b = Array(repeating: 0.0 as CGFloat, count: rows)
+        for i in 0..<n {
             let x = src[i].x, y = src[i].y
             let u = dst[i].x, v = dst[i].y
             let r = i * 2
@@ -97,7 +192,19 @@ struct SpaceMap: Codable {
             A[r + 1] = [0, 0, 0, x, y, 1, -v * x, -v * y]
             b[r + 1] = v
         }
-        guard var h8 = gauss(A, b) else { return nil }
+        var AtA = Array(repeating: Array(repeating: 0.0 as CGFloat, count: 8), count: 8)
+        var Atb = Array(repeating: 0.0 as CGFloat, count: 8)
+        for i in 0..<8 {
+            for j in 0..<8 {
+                var s: CGFloat = 0
+                for r in 0..<rows { s += A[r][i] * A[r][j] }
+                AtA[i][j] = s
+            }
+            var s: CGFloat = 0
+            for r in 0..<rows { s += A[r][i] * b[r] }
+            Atb[i] = s
+        }
+        guard var h8 = gauss(AtA, Atb) else { return nil }
         h8.append(1)
         return h8
     }
@@ -131,29 +238,58 @@ struct SpaceMap: Codable {
         return b
     }
 
-    static func load() -> SpaceMap? {
-        guard let data = UserDefaults.standard.data(forKey: "helios.spaceMap") else { return nil }
-        return try? JSONDecoder().decode(SpaceMap.self, from: data)
+    static func storageKey(displayID: UInt32?) -> String {
+        let id = displayID ?? NSScreen.main.map { ScreenGeometry.displayID(of: $0) } ?? 0
+        return "helios.spaceMap.\(id)"
+    }
+
+    static func load(displayID: UInt32? = nil) -> SpaceMap? {
+        let id = displayID ?? NSScreen.main.map { ScreenGeometry.displayID(of: $0) }
+        if let id,
+           let data = UserDefaults.standard.data(forKey: storageKey(displayID: id)),
+           let map = try? JSONDecoder().decode(SpaceMap.self, from: data)
+        {
+            return map
+        }
+        // Alte 1.6.3-Maps ohne Display-Key.
+        if let data = UserDefaults.standard.data(forKey: "helios.spaceMap"),
+           let map = try? JSONDecoder().decode(SpaceMap.self, from: data)
+        {
+            return map
+        }
+        return nil
     }
 
     func save() {
-        if let data = try? JSONEncoder().encode(self) {
+        guard let data = try? JSONEncoder().encode(self) else { return }
+        UserDefaults.standard.set(data, forKey: Self.storageKey(displayID: displayID))
+        if displayID == nil || displayID == NSScreen.main.map({ ScreenGeometry.displayID(of: $0) }) {
             UserDefaults.standard.set(data, forKey: "helios.spaceMap")
         }
     }
 
-    static func clear() {
-        UserDefaults.standard.removeObject(forKey: "helios.spaceMap")
+    static func clear(displayID: UInt32? = nil) {
+        UserDefaults.standard.removeObject(forKey: storageKey(displayID: displayID))
+        if displayID == nil {
+            UserDefaults.standard.removeObject(forKey: "helios.spaceMap")
+            for screen in NSScreen.screens {
+                UserDefaults.standard.removeObject(forKey: storageKey(displayID: ScreenGeometry.displayID(of: screen)))
+            }
+        }
     }
 }
 
 @MainActor
 final class CalibrationSession {
     private(set) var active = false
-    private(set) var corner: CalibCorner = .topLeft
+    private(set) var spot: CalibSpot = .topLeft
     private(set) var hold: CGFloat = 0
     private(set) var cursorGap: CGFloat = 0
-    private(set) var samples: [CalibCorner: CGPoint] = [:]
+    private(set) var samples: [CalibSpot: CGPoint] = [:]
+    private(set) var ninePoint = true
+    private(set) var displayID: UInt32?
+    private var sequence: [CalibSpot] = CalibSpot.nine
+    private var seqIndex = 0
     private var lastPalm: CGPoint?
     private var lastT: TimeInterval = 0
     private var lastCapture: TimeInterval = 0
@@ -163,11 +299,24 @@ final class CalibrationSession {
     private(set) var rejected = false
 
     var progress: CGFloat { min(1, hold / 0.9) }
-    var remaining: Int { 4 - samples.count }
+    var remaining: Int { sequence.count - samples.count }
+    var totalSpots: Int { sequence.count }
+    var corner: CalibCorner {
+        switch spot {
+        case .topLeft: return .topLeft
+        case .topRight: return .topRight
+        case .bottomRight: return .bottomRight
+        default: return .bottomLeft
+        }
+    }
 
-    func start() {
+    func start(ninePoint: Bool = true, displayID: UInt32? = nil) {
         active = true
-        corner = .topLeft
+        self.ninePoint = ninePoint
+        self.displayID = displayID ?? NSScreen.main.map { ScreenGeometry.displayID(of: $0) }
+        sequence = ninePoint ? CalibSpot.nine : CalibSpot.four
+        seqIndex = 0
+        spot = sequence[0]
         hold = 0
         samples.removeAll()
         lastPalm = nil
@@ -176,7 +325,7 @@ final class CalibrationSession {
         needMove = false
         rejected = false
         lastT = 0
-        hint = "Ecke oben links: Hand hin, Pinzette 1 s halten"
+        hint = "Punkt \(spot.titleDE): Hand hin, Pinzette 1 s halten"
     }
 
     func cancel() {
@@ -185,10 +334,20 @@ final class CalibrationSession {
     }
 
     func targetQuartz() -> CGPoint {
-        SpaceMap.screenCorners()[corner.rawValue]
+        if ninePoint {
+            let grid = SpaceMap.screenGrid(displayID: displayID)
+            return grid[spot.gridIndex]
+        }
+        let corners = SpaceMap.screenCorners(displayID: displayID)
+        switch spot {
+        case .topLeft: return corners[0]
+        case .topRight: return corners[1]
+        case .bottomRight: return corners[2]
+        default: return corners[3]
+        }
     }
 
-    /// Nur Pinzette. Nach jedem Treffer: Hand öffnen und zur nächsten Ecke gehen.
+    /// Nur Pinzette. Nach jedem Treffer: Hand öffnen und zum nächsten Punkt gehen.
     func feed(palm: CGPoint, now: TimeInterval, confirm: Bool) -> SpaceMap? {
         guard active else { return nil }
         let dt = lastT == 0 ? 0 : min(now - lastT, 0.08)
@@ -206,7 +365,7 @@ final class CalibrationSession {
 
         if needRelease {
             hold = 0
-            hint = "Hand öffnen, dann nach \(corner.titleDE)"
+            hint = "Hand öffnen, dann nach \(spot.titleDE)"
             if !confirm {
                 needRelease = false
                 needMove = true
@@ -214,21 +373,22 @@ final class CalibrationSession {
             return nil
         }
         if needMove {
-            if let last = lastSample(), hypot(palm.x - last.x, palm.y - last.y) < 0.20 {
+            if let last = lastSample(), hypot(palm.x - last.x, palm.y - last.y) < 0.16 {
                 hold = 0
-                hint = "Noch zu nah — weiter nach \(corner.titleDE)"
+                hint = "Noch zu nah — weiter nach \(spot.titleDE)"
                 return nil
             }
             needMove = false
         }
-        if samples.values.contains(where: { hypot(palm.x - $0.x, palm.y - $0.y) < 0.18 }) {
+        let minSep: CGFloat = ninePoint ? 0.10 : 0.18
+        if samples.values.contains(where: { hypot(palm.x - $0.x, palm.y - $0.y) < minSep }) {
             hold = 0
-            hint = "Zu nah an einer fertigen Ecke — weiter nach außen"
+            hint = "Zu nah an einem fertigen Punkt — weiter nach außen"
             rejected = true
             return nil
         }
         if !confirm {
-            hint = "Pinzette an Ecke \(corner.titleDE) halten (\(remaining) offen)"
+            hint = "Pinzette an \(spot.titleDE) halten (\(remaining) offen)"
             return nil
         }
         if hold < 0.9 {
@@ -241,26 +401,40 @@ final class CalibrationSession {
         }
 
         rejected = false
-        samples[corner] = palm
+        samples[spot] = palm
         hold = 0
         lastPalm = nil
         lastCapture = now
         needRelease = true
-        if let next = CalibCorner(rawValue: corner.rawValue + 1) {
-            corner = next
-            hint = "OK. Öffnen und nach \(next.titleDE)"
+        if seqIndex + 1 < sequence.count {
+            seqIndex += 1
+            spot = sequence[seqIndex]
+            hint = "OK. Öffnen und nach \(spot.titleDE)"
             return nil
         }
-        let ordered: [CalibCorner] = [.topLeft, .topRight, .bottomRight, .bottomLeft]
-        let pts = ordered.compactMap { samples[$0] }
-        guard pts.count == 4, Self.quadArea(pts) >= 0.035 else {
-            samples[.bottomLeft] = nil
-            corner = .bottomLeft
-            hint = "Ecken zu nah. Unten links weiter außen, dann Pinzette."
-            rejected = true
-            return nil
+        let pts: [CGPoint]
+        if ninePoint {
+            pts = CalibSpot.allCases.sorted { $0.gridIndex < $1.gridIndex }.compactMap { samples[$0] }
+            guard pts.count == 9, Self.quadArea([pts[0], pts[2], pts[8], pts[6]]) >= 0.035 else {
+                samples[.center] = nil
+                seqIndex = sequence.count - 1
+                spot = .center
+                hint = "Gitter zu klein. Mitte weiter, dann Pinzette."
+                rejected = true
+                return nil
+            }
+        } else {
+            pts = CalibSpot.four.compactMap { samples[$0] }
+            guard pts.count == 4, Self.quadArea(pts) >= 0.035 else {
+                samples[.bottomLeft] = nil
+                seqIndex = sequence.count - 1
+                spot = .bottomLeft
+                hint = "Ecken zu nah. Unten links weiter außen, dann Pinzette."
+                rejected = true
+                return nil
+            }
         }
-        let map = SpaceMap(palms: pts.map(XY.init))
+        let map = SpaceMap(palms: pts.map(XY.init), displayID: displayID)
         map.save()
         active = false
         hint = "Fertig"
@@ -268,8 +442,8 @@ final class CalibrationSession {
     }
 
     private func lastSample() -> CGPoint? {
-        let prev = CalibCorner(rawValue: max(0, corner.rawValue - 1)) ?? .topLeft
-        return samples[prev]
+        guard seqIndex > 0 else { return nil }
+        return samples[sequence[seqIndex - 1]]
     }
 
     private static func quadArea(_ p: [CGPoint]) -> CGFloat {

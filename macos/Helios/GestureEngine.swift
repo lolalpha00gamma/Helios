@@ -29,8 +29,23 @@ enum GrabPhase: String {
     }
 }
 
-enum GestureAction: String {
+enum GestureAction: String, CaseIterable, Codable, Hashable {
     case click, scroll, swipe, fling, grab, scale, peace, thumbs, dwell, rightClick
+
+    var titleDE: String {
+        switch self {
+        case .click: return "Klick"
+        case .scroll: return "Scroll"
+        case .swipe: return "Wischen"
+        case .fling: return "Werfen"
+        case .grab: return "Greifen"
+        case .scale: return "Skalieren"
+        case .peace: return "Aufnahme"
+        case .thumbs: return "Hervorholen"
+        case .dwell: return "Dwell-Klick"
+        case .rightClick: return "Rechtsklick"
+        }
+    }
 
     static func from(name: String) -> GestureAction? {
         switch name {
@@ -49,34 +64,85 @@ enum GestureAction: String {
     }
 }
 
+struct ProfileOverride: Codable, Equatable {
+    var extra: [String] = []
+    var blocked: [String] = []
+}
+
 struct AppGestureProfile: Equatable {
     var name: String
     var allowed: Set<GestureAction>?
+    var bundleId: String = ""
 
     static let standard = AppGestureProfile(name: "Standard", allowed: nil)
 
+    private static let table: [(ids: [String], name: String, allowed: Set<GestureAction>)] = [
+        (
+            [
+                "com.apple.Safari", "com.google.Chrome", "com.google.Chrome.canary",
+                "org.mozilla.firefox", "company.thebrowser.Browser", "com.apple.Safari.WebApp"
+            ],
+            "Browser",
+            [.click, .scroll, .swipe, .rightClick, .dwell, .peace]
+        ),
+        (
+            ["com.apple.finder"],
+            "Finder",
+            [.click, .scroll, .grab, .fling, .rightClick, .dwell, .peace, .thumbs]
+        ),
+        (
+            ["com.apple.dt.Xcode"],
+            "Xcode",
+            [.click, .scroll, .rightClick, .dwell]
+        )
+    ]
+
     static func forBundle(_ id: String) -> AppGestureProfile {
-        switch id {
-        case "com.apple.Safari", "com.google.Chrome", "com.google.Chrome.canary",
-             "org.mozilla.firefox", "company.thebrowser.Browser", "com.apple.Safari.WebApp":
-            return AppGestureProfile(
-                name: "Browser",
-                allowed: [.click, .scroll, .swipe, .rightClick, .dwell, .peace]
-            )
-        case "com.apple.finder":
-            return AppGestureProfile(
-                name: "Finder",
-                allowed: [.click, .scroll, .grab, .fling, .rightClick, .dwell, .peace, .thumbs]
-            )
-        case "com.apple.dt.Xcode":
-            return AppGestureProfile(name: "Xcode", allowed: [.click, .scroll, .rightClick, .dwell])
-        default:
-            return .standard
+        var base = Self.standard
+        base.bundleId = id
+        for row in table where row.ids.contains(id) {
+            base = AppGestureProfile(name: row.name, allowed: row.allowed, bundleId: id)
+            break
         }
+        let pack = loadOverrides()[id] ?? ProfileOverride()
+        if pack.extra.isEmpty, pack.blocked.isEmpty { return base }
+        var set = base.allowed ?? Set(GestureAction.allCases)
+        for raw in pack.extra {
+            if let a = GestureAction(rawValue: raw) { set.insert(a) }
+        }
+        for raw in pack.blocked {
+            if let a = GestureAction(rawValue: raw) { set.remove(a) }
+        }
+        return AppGestureProfile(name: "\(base.name)*", allowed: set, bundleId: id)
     }
 
     func allows(_ action: GestureAction) -> Bool {
         allowed?.contains(action) ?? true
+    }
+
+    static func setAction(_ action: GestureAction, bundle: String, on: Bool) {
+        guard !bundle.isEmpty else { return }
+        var all = loadOverrides()
+        var pack = all[bundle] ?? ProfileOverride()
+        let raw = action.rawValue
+        if on {
+            pack.blocked.removeAll { $0 == raw }
+            if !pack.extra.contains(raw) { pack.extra.append(raw) }
+        } else {
+            pack.extra.removeAll { $0 == raw }
+            if !pack.blocked.contains(raw) { pack.blocked.append(raw) }
+        }
+        all[bundle] = pack
+        if let data = try? JSONEncoder().encode(all) {
+            UserDefaults.standard.set(data, forKey: "helios.profileOverrides")
+        }
+    }
+
+    private static func loadOverrides() -> [String: ProfileOverride] {
+        guard let data = UserDefaults.standard.data(forKey: "helios.profileOverrides"),
+              let pack = try? JSONDecoder().decode([String: ProfileOverride].self, from: data)
+        else { return [:] }
+        return pack
     }
 }
 
@@ -142,6 +208,8 @@ final class GestureEngine {
     private var killSample: (t: TimeInterval, y: CGFloat)?
     private var dominantLockID: String?
     private var dominantLockSince: TimeInterval?
+    private var dominantLostAt: TimeInterval?
+    private var lastPreferred: TrackedHand?
     private var twoPinchLeftX: CGFloat?
     private var twoPinchRightX: CGFloat?
     private let system = SystemControl()
@@ -430,6 +498,17 @@ final class GestureEngine {
     @discardableResult
     private func handleKillSwitch(hands: [TrackedHand], now: TimeInterval) -> Bool {
         let open = hands.filter { $0.openScore >= 4 }
+        let fists = hands.filter {
+            $0.pose == .fist || ($0.openScore == 0 && $0.pinchRatio > 0.5 && $0.meanConfidence > 0.35)
+        }
+        // Faust + eine offene Hand bricht den 0,8-s-Hold ab, ohne Idle zu erzwingen.
+        if palmSince != nil, !killLatched, fists.count >= 1, open.count == 1 {
+            palmSince = nil
+            killSample = nil
+            lastAction = "Not-Aus abgebrochen"
+            onLog?("Faust + offen → Not-Aus-Hold verworfen.", .info, nil)
+            return false
+        }
         if open.count >= 2 {
             if killLatched {
                 lastAction = "Not-Aus"
@@ -525,11 +604,24 @@ final class GestureEngine {
 
     private func preferred(_ hands: [TrackedHand], now: TimeInterval) -> TrackedHand {
         // Lock-Timer darf nicht pro Frame zurückgesetzt werden — sonst greift der Lock nie.
-        if let id = dominantLockID,
-           let locked = hands.first(where: { $0.id == id }),
-           now - (dominantLockSince ?? now) >= 1.2
-        {
-            return locked
+        // 200 ms Hysterese: die zweite Hand kriegt den Cursor nicht in dem Frame, in dem
+        // die dominante das Bild verlässt.
+        if let id = dominantLockID {
+            if let locked = hands.first(where: { $0.id == id }) {
+                dominantLostAt = nil
+                lastPreferred = locked
+                if now - (dominantLockSince ?? now) >= 1.2 {
+                    return locked
+                }
+            } else if now - (dominantLockSince ?? now) >= 1.2 {
+                if dominantLostAt == nil { dominantLostAt = now }
+                if now - (dominantLostAt ?? now) < 0.20, let kept = lastPreferred {
+                    return kept
+                }
+                dominantLockID = nil
+                dominantLockSince = nil
+                dominantLostAt = nil
+            }
         }
         let pick: TrackedHand = {
             if leftHanded, let left = hands.first(where: { $0.chirality == .left }) {
@@ -546,6 +638,7 @@ final class GestureEngine {
             dominantLockID = pick.id
             dominantLockSince = now
         }
+        lastPreferred = pick
         return pick
     }
 
@@ -570,6 +663,7 @@ final class GestureEngine {
     }
 
     private func actorMapped(_ hand: TrackedHand) -> CGPoint {
+        adoptMapForCursor()
         if let map = spaceMap, map.isReady {
             cursorDidMove = true
             let qAbs = map.apply(hand.palm)
@@ -630,6 +724,16 @@ final class GestureEngine {
     private func placeCursor(_ hand: TrackedHand) {
         cursor = actorMapped(hand)
         cursorHand = hand.sideDE
+    }
+
+    private func adoptMapForCursor() {
+        let loc = cursor ?? ScreenGeometry.quartz(fromCocoa: NSEvent.mouseLocation)
+        guard let screen = ScreenGeometry.screenContaining(quartz: loc) else { return }
+        let id = ScreenGeometry.displayID(of: screen)
+        if spaceMap?.displayID == id { return }
+        if let other = SpaceMap.load(displayID: id), other.isReady {
+            spaceMap = other
+        }
     }
 
     @discardableResult
@@ -906,7 +1010,9 @@ final class GestureEngine {
         let dy = (y - a.y) / unit
         let dt = now - a.t
         guard dt >= 0.05, abs(dy) > 0.10 else { return }
-        let ticks = Int32(max(-24, min(24, -dy * 18)))
+        // unit 0,12 → ~18 Ticks wie bisher; große Palme (nah) scrollt feiner.
+        let gain = 2.2 / max(0.06, unit)
+        let ticks = Int32(max(-24, min(24, -dy * gain)))
         guard ticks != 0 else { return }
         let conf = Float(open.map(\.poseProb).min() ?? 0)
         perform("Scroll", need: .input, confidence: conf) { system.scroll(ticks: ticks) }

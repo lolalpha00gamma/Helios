@@ -192,25 +192,54 @@ struct ControlPanel: View {
 
             GroupBox("Kalibrierung") {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(state.mapReady ? "Ecken gespeichert — Handfläche = Bildschirm." : "Noch nicht kalibriert — Zeiger relativ.")
+                    Text(state.mapReady ? "Karte gespeichert — Handfläche = dieser Schirm." : "Noch nicht kalibriert — Zeiger relativ.")
                         .font(.system(size: 11))
                         .foregroundStyle(state.mapReady ? HeliosTheme.cyan : .secondary)
                     if state.calibActive {
-                        Text("Jetzt: \(state.calibCorner). Hand ruhig oder Pinzette.")
+                        Text("Jetzt: \(state.calibCorner). \(state.calibSession.samples.count)/\(state.calibSession.totalSpots)")
                             .font(.system(size: 11))
                             .foregroundStyle(HeliosTheme.amber)
                         Button("Abbrechen") { state.cancelCalibration() }
                     } else {
-                        Button("Vier Ecken kalibrieren") { state.startCalibration() }
+                        Button("9 Punkte kalibrieren") { state.startCalibration(ninePoint: true) }
                             .buttonStyle(.borderedProminent)
+                        Button("Nur vier Ecken") { state.startCalibration(ninePoint: false) }
+                            .buttonStyle(.borderless)
                     }
                     if state.mapReady {
                         Button("Kalibrierung löschen") { state.clearCalibration() }
                             .buttonStyle(.borderless)
                     }
-                    Text("Je Ecke die Hand dorthin halten, wo für dich die Bildschirmecke ist. Der Cursor wird mit der Ecke verglichen. Danach greifst du Fenster dort, wo sie liegen — ohne zum Rand zu navigieren.")
+                    Text("Je Punkt die Hand dorthin halten, wo für dich die Stelle auf DIESEM Schirm ist. 9 Punkte glätten die Homographie (DLT). Pro Display ein eigenes Gitter.")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
+                }
+            }
+
+            GroupBox("Profil") {
+                VStack(alignment: .leading, spacing: 8) {
+                    if let app = state.focused {
+                        Text("\(app.appName) · \(state.profileName)")
+                            .font(.system(size: 11, weight: .semibold))
+                        Text("Safari blockt Werfen by default. Hier darfst du Gesten wieder anmachen — Defaults bleiben konservativ.")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                        ForEach(GestureAction.allCases, id: \.self) { action in
+                            Toggle(isOn: Binding(
+                                get: { state.engine.profile.allows(action) },
+                                set: { state.setProfileAction(action, on: $0) }
+                            )) {
+                                Text(action.titleDE)
+                                    .font(.system(size: 11))
+                            }
+                            .toggleStyle(.checkbox)
+                            .disabled(app.bundleId.isEmpty)
+                        }
+                    } else {
+                        Text("Kein Vordergrund-Fenster — Profil folgt der App unter dem Cursor.")
+                            .font(.system(size: 11))
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
 

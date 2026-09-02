@@ -271,12 +271,21 @@ final class AppState: ObservableObject {
         Prefs.fusionTemperature = t
     }
 
-    func startCalibration() {
+    func startCalibration(ninePoint: Bool = true) {
         hudVisible = true
         overlayVisible()
-        calibSession.start()
+        let id = NSScreen.main.map { ScreenGeometry.displayID(of: $0) }
+        calibSession.start(ninePoint: ninePoint, displayID: id)
         engine.calibration = calibSession
-        log.record("Kalibrierung: Ecke oben links", kind: .info)
+        log.record(ninePoint ? "Kalibrierung: 9-Punkt-Gitter" : "Kalibrierung: vier Ecken", kind: .info)
+    }
+
+    func setProfileAction(_ action: GestureAction, on: Bool) {
+        guard let id = focused?.bundleId, !id.isEmpty else { return }
+        AppGestureProfile.setAction(action, bundle: id, on: on)
+        engine.profile = AppGestureProfile.forBundle(id)
+        profileName = engine.profile.name
+        log.record("Profil \(profileName): \(action.titleDE) \(on ? "an" : "aus")", kind: .info)
     }
 
     func cancelCalibration() {
@@ -356,7 +365,7 @@ final class AppState: ObservableObject {
         trashHot = engine.trashHot
         killFlash = engine.killFlash
         calibActive = calibSession.active
-        calibCorner = calibSession.corner.titleDE
+        calibCorner = calibSession.spot.titleDE
         calibHold = calibSession.progress
         calibCursorGap = calibSession.cursorGap
         mapReady = engine.spaceMap?.isReady == true

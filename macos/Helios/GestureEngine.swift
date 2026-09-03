@@ -93,6 +93,10 @@ final class GestureEngine {
     private var lastGrabTry: TimeInterval = 0
     private var twoPinchSince: TimeInterval?
     private var lastScaleSign: CGFloat = 0
+    private var twoPinchEdgeStreak = 0
+    private var twoPinchScaleStreak = 0
+    private var freezeGain: CGFloat = 1
+    private var scrollCoast: (until: TimeInterval, vel: CGFloat)?
     private var swipeTrail: [(t: TimeInterval, x: CGFloat, y: CGFloat)] = []
     private var swipeHandID: String?
     private var cooldownUntil: TimeInterval = 0
@@ -173,6 +177,10 @@ final class GestureEngine {
         lastGrabTry = 0
         twoPinchSince = nil
         lastScaleSign = 0
+        twoPinchEdgeStreak = 0
+        twoPinchScaleStreak = 0
+        freezeGain = 1
+        scrollCoast = nil
         swipeTrail.removeAll()
         swipeHandID = nil
         swipeMuteUntil = 0
@@ -266,6 +274,10 @@ final class GestureEngine {
             pinchTrail.removeAll()
             swipeTrail.removeAll()
             swipeHandID = nil
+            twoPinchEdgeStreak = 0
+            twoPinchScaleStreak = 0
+            freezeGain = 1
+            scrollCoast = nil
             if system.isDragging { system.endWindowDrag() }
             if pinchHeld {
                 swipeMuteUntil = now + GestureMath.swipeMuteAfterPinch
@@ -305,6 +317,14 @@ final class GestureEngine {
                 mode = .idle
             }
             return
+        }
+        if lastHandSeen > 0, now - lastHandSeen > sampleDt * 1.6 {
+            freezeGain = GestureMath.emptyHandsRecover(
+                elapsed: now - lastHandSeen,
+                hold: GestureMath.emptyHandsHold(dt: sampleDt)
+            )
+        } else {
+            freezeGain = 1
         }
         lastHandSeen = now
         lastPalmWidth = hands.map(\.palmWidth).max() ?? lastPalmWidth
@@ -837,7 +857,7 @@ final class GestureEngine {
             let q = map.apply(palm)
             let prev = from ?? q
             let dist = hypot(q.x - prev.x, q.y - prev.y)
-            let a = min(0.93, 0.58 + dist / 55)
+            let a = min(0.93, 0.58 + dist / 55) * freezeGain
             let s = CGPoint(x: a * q.x + (1 - a) * prev.x, y: a * q.y + (1 - a) * prev.y)
             cursorTracks[hand.id] = s
             if isActor {
@@ -873,7 +893,7 @@ final class GestureEngine {
         dx = step.x
         dy = step.y
         let seed = from ?? ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
-        let stepped = ScreenGeometry.stepCursor(from: seed, dPalm: CGPoint(x: dx, y: dy), gain: pointerGain)
+        let stepped = ScreenGeometry.stepCursor(from: seed, dPalm: CGPoint(x: dx, y: dy), gain: pointerGain * freezeGain)
         let a: CGFloat = 0.86
         let s = CGPoint(x: a * stepped.x + (1 - a) * seed.x, y: a * stepped.y + (1 - a) * seed.y)
         cursorTracks[hand.id] = s
@@ -919,10 +939,13 @@ final class GestureEngine {
             if twoPinchSince != nil {
                 swipeMuteUntil = now + GestureMath.swipeMuteAfterPinch
                 cooldownUntil = max(cooldownUntil, now + 0.25)
+                pinchTrail.removeAll()
             }
             twoHandSpan = nil
             twoPinchSince = nil
             lastScaleSign = 0
+            twoPinchEdgeStreak = 0
+            twoPinchScaleStreak = 0
             return false
         }
         if twoPinchSince == nil { twoPinchSince = now }
@@ -943,11 +966,17 @@ final class GestureEngine {
             if let map = spaceMap, map.isReady { return map.apply(hand.palm) }
             return SpaceMap.linear(hand.palm)
         }
-        if let bounds = focused?.quartzBounds, mapped.count >= 2,
-           !GestureMath.twoPinchOppositeHalves(mapped[0], mapped[1], window: bounds)
-        {
-            twoHandSpan = nil
-            return true
+        if let bounds = focused?.quartzBounds, mapped.count >= 2 {
+            let opposite = GestureMath.twoPinchOppositeHalves(mapped[0], mapped[1], window: bounds)
+            let frames = GestureMath.twoPinchConfirmFrames(dt: sampleDt)
+            twoPinchEdgeStreak = GestureMath.twoPinchEdgeHold(
+                ok: opposite,
+                streak: twoPinchEdgeStreak,
+                need: frames
+            )
+            if !GestureMath.twoPinchEdgeReady(streak: twoPinchEdgeStreak, need: frames) {
+                return true
+            }
         }
         let unit = max(0.04, (pinches[0].palmWidth + pinches[1].palmWidth) / 2)
         let span: CGFloat = {
@@ -962,15 +991,26 @@ final class GestureEngine {
             let reversing = lastScaleSign != 0 && d * lastScaleSign < 0
             let need = GestureMath.twoPinchScaleNeed * (reversing ? GestureMath.twoPinchReverseMul : 1)
             if abs(d) > need {
+                let frames = GestureMath.twoPinchConfirmFrames(dt: sampleDt)
+                twoPinchScaleStreak = GestureMath.twoPinchEdgeHold(
+                    ok: true,
+                    streak: twoPinchScaleStreak,
+                    need: frames
+                )
+                guard GestureMath.twoPinchEdgeReady(streak: twoPinchScaleStreak, need: frames) else {
+                    return true
+                }
                 let conf = Float(pinches.map(\.poseProb).min() ?? 0)
                 perform("Skalieren", confidence: conf) {
                     system.resizeFocused(scale: d > 0 ? 1.05 : 0.95)
                 }
                 lastScaleSign = d > 0 ? 1 : -1
                 twoHandSpan = span
+                twoPinchScaleStreak = 0
                 cooldownUntil = now + 0.28
                 return true
             }
+            twoPinchScaleStreak = 0
         }
         if twoHandSpan == nil {
             twoHandSpan = span
@@ -1419,6 +1459,14 @@ final class GestureEngine {
     private func driveScroll(hands: [TrackedHand], preferred: TrackedHand, now: TimeInterval) {
         let open = hands.filter { $0.openScore >= 3 }
         if !GestureMath.scrollAllowed(openPalms: open.count, pinchHeld: pinchHeld) {
+            if let coast = scrollCoast, now < coast.until {
+                let ticks = GestureMath.scrollCoastTicks(velHW: coast.vel, remain: coast.until - now)
+                if ticks != 0 {
+                    perform("Scroll", need: .input, confidence: 0.55) { system.scroll(ticks: ticks) }
+                }
+            } else {
+                scrollCoast = nil
+            }
             scrollAnchor = nil
             return
         }
@@ -1431,11 +1479,12 @@ final class GestureEngine {
         }
         let dy = (y - a.y) / unit
         let dt = now - a.t
-        guard dt >= 0.05, abs(dy) > 0.10 else { return }
+        guard dt >= 0.05, abs(dy) > GestureMath.scrollDeadHW else { return }
         let ticks = Int32(max(-24, min(24, -dy * 18)))
         guard ticks != 0 else { return }
         perform("Scroll", need: .input, confidence: Float(hand.poseProb)) { system.scroll(ticks: ticks) }
         scrollAnchor = (now, y)
+        scrollCoast = (now + GestureMath.scrollInertia, dy / CGFloat(max(0.05, dt)))
     }
 
     /// Pinzette + Ringfinger, Mittel nicht gestreckt. Kurzer Halt → Rechtsklick statt Ziehen.

@@ -1,6 +1,17 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.25**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+Stand: **1.6.26**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.26 erledigt
+
+1.6.25 freeze ohne Pinch — Palme teleportierte nach Dropout. Ein Tick Zoom. Fling erbte Zwei-Pinzetten-Trail. Scroll hart tot. fps 8 unsichtbar.
+
+1. **Freeze-Decay.** `emptyHandsHoldGain` / `emptyHandsRecover` — erster Frame nach Miss nicht voller Gain.
+2. **Zwei-Pinzetten Kanten 2–3 Frames** (`twoPinchConfirmFrames`). Trail leer beim Ausstieg.
+3. **Scroll-Totzone 0,08** + **Inertia 200 ms**.
+4. **HUD fps amber** unter 10.
+5. Tests: Gain, Recover, Edge-Hold, Coast, fpsAmber.
+6. MARKETING_VERSION 1.6.26 (Build 56).
 
 ## In 1.6.25 erledigt
 
@@ -229,29 +240,23 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Zwei-Pinzetten nach Reach sortieren**, nicht `pinchRatio` allein.
 - **Ein Filter am Zeiger.** Palm-Hochpass plus cursorSmooth stapeln Latenz.
 - **Kalibrier-Anschlag speichert Closedness** der Person — 0,55 ist Mittelwert.
-- **Freeze-Decay.** empty-hands nicht hart returnen: Gain 1→0 über Hold, dann los.
-- **SpaceMap bei Display-Reconfig** (Kabel, Sidecar), nicht nur uniqueID.
+- **SpaceMap bei Display-Reconfig** lädt schon (OverlayController) — HUD-Chip wenn Homographie nach Kabel-Plug tot ist.
 - **Cover-PTS und Lead-PTS gleiche Epoche**, sonst Fusion-dt lügt.
 - **Clutch-Radius in mm**, nicht 48 px auf 5K.
-- **Fling nach Zwei-Pinzetten** erbt nicht den Pinch-Trail.
-- **Zwei-Pinzetten-Zoom merkt Kanten über 3 Frames**, nicht einen Tick.
-- **Scroll-Inertia 200 ms** nach Loslassen (Palm-Y-Vel), ohne zweite Hand.
 - **Not-Aus-Ring** im HUD analog Peace (1,35 s sichtbar).
-- **Scroll-Totzone 0,08 Handbreiten** — Palm-Zittern einer Hand tickt sonst.
-- **HUD fps amber unter 10** (Continuity-Dropout sichtbar ohne Konsole).
-- **Faust-Scharf-Grace 1 Frame** wenn HMM auf unknown kippt (Continuity 8 fps).
-- **Kill-Alternative beide Fäuste 0,4 s** — Tisch-Pose, wenn offene Palmen unmöglich sind.
-- **Skeleton dim während freeze** — Overlay zeigt, dass T1 nicht teleportiert.
-- **Scroll-Inertia 200 ms** nach Loslassen (Palm-Y-Vel), ohne zweite Hand.
-- **Not-Aus-Ring** im HUD analog Peace (1,35 s sichtbar).
-- **Scroll-Totzone 0,08 Handbreiten** — Palm-Zittern einer Hand tickt sonst.
-- **HUD fps amber unter 10** (Continuity-Dropout sichtbar ohne Konsole).
 - **Faust-Scharf-Grace 1 Frame** wenn HMM auf unknown kippt (Continuity 8 fps).
 - **Kill-Alternative beide Fäuste 0,4 s** — Tisch-Pose, wenn offene Palmen unmöglich sind.
 - **Skeleton dim während freeze** — Overlay zeigt, dass T1 nicht teleportiert.
 - **Per-App Scroll-Invert** (Safari natural, Xcode classic) ohne Rebuild.
 - **Auto-Nachkalibrierung** nach 20 min Drift (Palm vs. Homographie-Residual > 80 px).
 - **Fling-Bestätigungs-Tick** optional, aus by default.
+- **Recover über 2 Frames**, nicht nur den ersten nach Dropout (1.6.26 Gain gilt einen Tick).
+- **Zwei-Pinzetten-Zoom an Fensterkanten merkt das Paar** (links/rechts vs oben/unten) statt nur opposite-halves Bool.
+- **Coast-Scroll bricht bei Pinch** — Inertia darf keinen Klick-Start überdecken.
+- **fps-Spark** 8 s, nicht nur die aktuelle Zahl amber.
+- **emptyHandsHold während Drag** CursorSmooth behalten, aber Drag-AX nicht einfrieren wenn die Palme schon weg ist.
+
+## Größere Erweiterungen
 
 ## Größere Erweiterungen
 
@@ -337,3 +342,8 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - `pinchActor` Miss-Stempel `CACurrentMediaTime`.
 - Gate-Auf ohne Release-Tot (Folge-Klick).
 - Lock-Freeze ohne HUD-Chip.
+- Freeze nach Dropout mit vollem Gain (Teleport).
+- Zwei-Pinzetten-Zoom an einem Jitter-Tick.
+- Pinch-Trail nach Zwei-Pinzetten stehen lassen.
+- Scroll ohne Totzone / ohne Coast.
+- fps unter 10 ohne HUD-Farbe.

@@ -277,6 +277,52 @@ enum GestureMath {
         max(base, min(0.45, dt * 2.2))
     }
 
+    /// Freeze-Decay: 1 am ersten Fehlframe, 0 am Ende des Holds.
+    static func emptyHandsHoldGain(elapsed: TimeInterval, hold: TimeInterval) -> CGFloat {
+        let h = max(0.08, hold)
+        let t = min(1, max(0, elapsed / h))
+        return CGFloat(1 - t)
+    }
+
+    /// Erste Frames nach Dropout: nicht voller Gain — sonst teleportiert die Palme.
+    static func emptyHandsRecover(elapsed: TimeInterval, hold: TimeInterval) -> CGFloat {
+        max(0.15, emptyHandsHoldGain(elapsed: elapsed, hold: hold))
+    }
+
+    /// Continuity 8 fps: 2 Frames. Built-in: 3, sonst ein Jitter-Tick skaliert.
+    static let twoPinchEdgeNeed = 3
+    static func twoPinchConfirmFrames(dt: TimeInterval, builtIn: Int = twoPinchEdgeNeed) -> Int {
+        dt >= 0.10 ? 2 : max(2, builtIn)
+    }
+
+    static func twoPinchEdgeHold(ok: Bool, streak: Int, need: Int = twoPinchEdgeNeed) -> Int {
+        ok ? min(need + 2, streak + 1) : 0
+    }
+
+    static func twoPinchEdgeReady(streak: Int, need: Int = twoPinchEdgeNeed) -> Bool {
+        streak >= need
+    }
+
+    /// Palm-Zittern einer Hand darf nicht scrollen.
+    static let scrollDeadHW: CGFloat = 0.08
+    /// Nach Loslassen noch 200 ms Coast, sonst stirbt der Wisch bei 8 fps.
+    static let scrollInertia: TimeInterval = 0.20
+
+    static func scrollCoastTicks(
+        velHW: CGFloat,
+        remain: TimeInterval,
+        window: TimeInterval = scrollInertia
+    ) -> Int32 {
+        guard window > 0, remain > 0, abs(velHW) > 0.02 else { return 0 }
+        let frac = CGFloat(remain / window)
+        return Int32(max(-16, min(16, -velHW * 18 * frac)))
+    }
+
+    /// Continuity-Dropout sichtbar ohne Konsole.
+    static func fpsAmber(_ fps: Double, floor: Double = 10) -> Bool {
+        fps > 0 && fps < floor
+    }
+
     static func airKeyboardSummon(v: CGFloat, band: CGFloat = airKeyboardBottom) -> Bool {
         v >= band
     }

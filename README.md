@@ -1,4 +1,4 @@
-# Helios **1.6.25**
+# Helios **1.6.26**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,15 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.26
+
+1.6.25 hat Zeiger-Freeze ohne Pinch — nach dem Dropout teleportierte die Palme, ein Jitter-Tick skalierte das Fenster, Werfen erbte den Zoom-Trail, Scroll starb hart, fps unter 10 war unsichtbar.
+
+- **Freeze-Decay.** Nach Fehlframes startet der Zeiger mit reduziertem Gain, kein Sprung.
+- **Zwei-Pinzetten 2–3 Frames** an den Kanten, bevor Zoom feuert. Trail leer beim Ausstieg.
+- **Scroll-Totzone 0,08** plus **200 ms Inertia** nach Loslassen.
+- **HUD fps amber** unter 10.
 
 ## Neu in 1.6.25
 

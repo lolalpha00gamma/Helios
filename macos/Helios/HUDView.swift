@@ -240,7 +240,7 @@ struct HUDView: View {
                 .foregroundStyle(HeliosTheme.cyan.opacity(0.7))
             Text(String(format: "%.0f ms   %.0f fps", state.latencyMs, state.fps))
                 .font(HeliosTheme.mono)
-                .foregroundStyle(HeliosTheme.cyan.opacity(0.8))
+                .foregroundStyle(GestureMath.fpsAmber(state.fps) ? HeliosTheme.amber : HeliosTheme.cyan.opacity(0.8))
         }
         .padding(.horizontal, 22)
         .padding(.vertical, 10)

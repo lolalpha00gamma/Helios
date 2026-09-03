@@ -886,6 +886,66 @@ enum CoordTests {
             fputs("FAIL Tail-Vel wirft aus dem letzten Ruck\n", stderr)
             fails += 1
         }
+        if abs(GestureMath.emptyHandsHoldGain(elapsed: 0, hold: 0.25) - 1) > 0.01 {
+            fputs("FAIL Freeze-Gain Start 1\n", stderr)
+            fails += 1
+        }
+        if GestureMath.emptyHandsHoldGain(elapsed: 0.25, hold: 0.25) > 0.01 {
+            fputs("FAIL Freeze-Gain Ende 0\n", stderr)
+            fails += 1
+        }
+        if GestureMath.emptyHandsRecover(elapsed: 0.25, hold: 0.25) < 0.14 {
+            fputs("FAIL Recover nicht unter 0,15\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoPinchConfirmFrames(dt: 0.04) != 3 {
+            fputs("FAIL Built-in 3 Frames Kanten\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoPinchConfirmFrames(dt: 0.125) != 2 {
+            fputs("FAIL Continuity 2 Frames Kanten\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoPinchEdgeHold(ok: true, streak: 0, need: 3) != 1 {
+            fputs("FAIL Edge-Streak zählt\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoPinchEdgeHold(ok: false, streak: 2, need: 3) != 0 {
+            fputs("FAIL Edge-Streak bricht ab\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.twoPinchEdgeReady(streak: 3, need: 3) {
+            fputs("FAIL 3 Frames Kanten bereit\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoPinchEdgeReady(streak: 1, need: 3) {
+            fputs("FAIL 1 Frame Kanten nicht bereit\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.scrollDeadHW - 0.08) > 0.001 {
+            fputs("FAIL Scroll-Totzone 0,08\n", stderr)
+            fails += 1
+        }
+        if GestureMath.scrollCoastTicks(velHW: 0.4, remain: 0.20) == 0 {
+            fputs("FAIL Scroll-Inertia startet\n", stderr)
+            fails += 1
+        }
+        if GestureMath.scrollCoastTicks(velHW: 0.4, remain: 0) != 0 {
+            fputs("FAIL Scroll-Inertia tot nach Fenster\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.fpsAmber(8) {
+            fputs("FAIL 8 fps amber\n", stderr)
+            fails += 1
+        }
+        if GestureMath.fpsAmber(24) {
+            fputs("FAIL 24 fps nicht amber\n", stderr)
+            fails += 1
+        }
+        if GestureMath.fpsAmber(0) {
+            fputs("FAIL 0 fps (noch kein Sample) nicht amber\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

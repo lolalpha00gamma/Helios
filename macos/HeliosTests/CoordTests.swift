@@ -800,6 +800,62 @@ enum CoordTests {
             fputs("FAIL Not-Aus-Still muss Scroll erlauben\n", stderr)
             fails += 1
         }
+        if !GestureMath.scrollAllowed(openPalms: 1, pinchHeld: false) {
+            fputs("FAIL eine offene Hand scrollt\n", stderr)
+            fails += 1
+        }
+        if GestureMath.scrollAllowed(openPalms: 2, pinchHeld: false) {
+            fputs("FAIL zwei offene Hände sind Not-Aus, kein Scroll\n", stderr)
+            fails += 1
+        }
+        if GestureMath.scrollAllowed(openPalms: 0, pinchHeld: false) {
+            fputs("FAIL ohne offene Hand kein Scroll\n", stderr)
+            fails += 1
+        }
+        if GestureMath.scrollAllowed(openPalms: 1, pinchHeld: true) {
+            fputs("FAIL Pinzette blockt Scroll\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchReleaseDead < 0.08 || GestureMath.pinchReleaseDead > 0.18 {
+            fputs("FAIL pinchReleaseDead 80–180 ms\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinchReleaseBlocks(now: 1.05, releasedAt: 1.0) {
+            fputs("FAIL 50 ms nach Gate-Auf tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchReleaseBlocks(now: 1.20, releasedAt: 1.0) {
+            fputs("FAIL 200 ms nach Gate-Auf frei\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchReleaseBlocks(now: 1.0, releasedAt: nil) {
+            fputs("FAIL ohne Release kein Tot\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.missHeld(now: 10.10, since: 10.0) {
+            fputs("FAIL Miss 100 ms hält Lock\n", stderr)
+            fails += 1
+        }
+        if GestureMath.missHeld(now: 10.50, since: 10.0) {
+            fputs("FAIL Miss 500 ms gibt Lock frei\n", stderr)
+            fails += 1
+        }
+        if GestureMath.missHeld(now: 10.0, since: nil) {
+            fputs("FAIL ohne Miss-Stempel kein Hold\n", stderr)
+            fails += 1
+        }
+        if GestureMath.lockFreezeLabel(locked: "T1", missHeld: true) != "T1 freeze" {
+            fputs("FAIL HUD Lock-Chip T1 freeze\n", stderr)
+            fails += 1
+        }
+        if GestureMath.lockFreezeLabel(locked: "T1", missHeld: false) != nil {
+            fputs("FAIL ohne Miss kein Freeze-Chip\n", stderr)
+            fails += 1
+        }
+        if GestureMath.lockFreezeLabel(locked: nil, missHeld: true) != nil {
+            fputs("FAIL ohne Lock-ID kein Freeze-Chip\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

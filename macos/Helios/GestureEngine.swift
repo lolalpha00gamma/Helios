@@ -68,6 +68,7 @@ final class GestureEngine {
     var hideConsoleWhenArmed = false
     var clapWake = false
     var peaceProgress: CGFloat = 0
+    var lockFreeze = ""
 
     private var fistSince: TimeInterval?
     private var fistLostAt: TimeInterval?
@@ -87,6 +88,7 @@ final class GestureEngine {
     private var pinchOriginCursor: CGPoint?
     private var pinchPalmMoved: CGFloat = 0
     private var pinchMissSince: TimeInterval?
+    private var pinchReleasedAt: TimeInterval?
     private var grabLogged = false
     private var lastGrabTry: TimeInterval = 0
     private var twoPinchSince: TimeInterval?
@@ -166,6 +168,7 @@ final class GestureEngine {
         pinchOriginCursor = nil
         pinchPalmMoved = 0
         pinchMissSince = nil
+        pinchReleasedAt = nil
         grabLogged = false
         lastGrabTry = 0
         twoPinchSince = nil
@@ -230,6 +233,7 @@ final class GestureEngine {
         lastClapFire = 0
         lastAction = "Reset"
         peaceProgress = 0
+        lockFreeze = ""
         sampleDt = 0.04
         lastTickNow = 0
         lastFusionEntropy = 0
@@ -240,6 +244,7 @@ final class GestureEngine {
     func tick(hands incoming: [TrackedHand], now: TimeInterval) {
         sampleDt = GestureMath.sampleDt(now: now, last: lastTickNow)
         lastTickNow = now
+        lockFreeze = ""
         let hands = incoming.filter { $0.joints.count >= 8 && $0.meanConfidence >= 0.18 }
         if hands.isEmpty {
             if lastHandSeen > 0, now - lastHandSeen < GestureMath.emptyHandsHold(dt: sampleDt), pinchHeld {
@@ -259,6 +264,7 @@ final class GestureEngine {
             if system.isDragging { system.endWindowDrag() }
             if pinchHeld {
                 swipeMuteUntil = now + GestureMath.swipeMuteAfterPinch
+                pinchReleasedAt = now
             }
             pinchHeld = false
             pinchBecameDrag = false
@@ -413,7 +419,7 @@ final class GestureEngine {
             driveGrab(actor, now: now)
         }
         driveSwipe(hands: hands, preferred: primary, now: now)
-        driveScroll(hands: hands, now: now)
+        driveScroll(hands: hands, preferred: primary, now: now)
         drivePeace(preferred: primary, hands: hands, now: now)
         driveThumbs(actor, now: now)
         driveKeyboard(hands: hands, actor: actor, now: now)
@@ -652,6 +658,7 @@ final class GestureEngine {
                 pinchHeld = false
                 pinchBecameDrag = false
                 fistSince = nil
+                pinchReleasedAt = now
                 system.endWindowDrag()
                 lastAction = "Not-Aus"
                 onLog?("Beide Hände offen und still → Not-Aus. Bleibt Idle, bis Faust hält oder 2× klatschen.", .info, nil)
@@ -764,8 +771,11 @@ final class GestureEngine {
                 return false
             }
             if pointerMissSince == nil { pointerMissSince = lastTickNow }
-            return lastTickNow - (pointerMissSince ?? lastTickNow) < GestureMath.pinchLockMiss
+            return GestureMath.missHeld(now: lastTickNow, since: pointerMissSince)
         }()
+        if let label = GestureMath.lockFreezeLabel(locked: pointerHandID, missHeld: missHeld) {
+            lockFreeze = label
+        }
         let id = GestureMath.preferredHoldID(
             locked: pointerHandID,
             liveIDs: liveIDs,
@@ -793,7 +803,13 @@ final class GestureEngine {
                 pinchLastHand = same
                 return same
             }
-            if pinchMissSince == nil { pinchMissSince = CACurrentMediaTime() }
+            if pinchMissSince == nil { pinchMissSince = lastTickNow }
+            if let label = GestureMath.lockFreezeLabel(
+                locked: id,
+                missHeld: GestureMath.missHeld(now: lastTickNow, since: pinchMissSince)
+            ) {
+                lockFreeze = label
+            }
             // Freeze. Nie die andere Hand — `primary` wäre der Steuerhand-Diebstahl.
             if let last = pinchLastHand { return last }
             return primary
@@ -1056,7 +1072,7 @@ final class GestureEngine {
         if pinchHeld, let id = pinchHandID, hand.id != id {
             // Andere Hand ist nicht die Pinzette — kein Klick/Loslassen.
             if pinchMissSince == nil { pinchMissSince = now }
-            if now - (pinchMissSince ?? now) > GestureMath.pinchLockMiss {
+            if !GestureMath.missHeld(now: now, since: pinchMissSince) {
                 pinchHeld = false
                 pinchBecameDrag = false
                 pinchHandID = nil
@@ -1064,6 +1080,7 @@ final class GestureEngine {
                 pinchOriginCursor = nil
                 pinchPalmMoved = 0
                 pinchMissSince = nil
+                pinchReleasedAt = now
                 pinchTrail.removeAll()
                 pinchSpan0 = nil
                 grabLogged = false
@@ -1072,7 +1089,7 @@ final class GestureEngine {
             }
             return
         }
-        if pinchHeld, let miss = pinchMissSince, now - miss > GestureMath.pinchLockMiss {
+        if pinchHeld, let miss = pinchMissSince, !GestureMath.missHeld(now: now, since: miss) {
             // Gesperrte Hand weg — nicht mit der anderen weitermachen.
             pinchHeld = false
             pinchBecameDrag = false
@@ -1081,6 +1098,7 @@ final class GestureEngine {
             pinchOriginCursor = nil
             pinchPalmMoved = 0
             pinchMissSince = nil
+            pinchReleasedAt = now
             pinchTrail.removeAll()
             pinchSpan0 = nil
             grabLogged = false
@@ -1103,6 +1121,9 @@ final class GestureEngine {
                 index: hand.indexScore
             ))
         if isGrab && !pinchHeld {
+            if GestureMath.pinchReleaseBlocks(now: now, releasedAt: pinchReleasedAt) {
+                return
+            }
             pinchHeld = true
             pinchBecameDrag = false
             pinchBeganAt = now
@@ -1193,6 +1214,7 @@ final class GestureEngine {
             pinchOriginCursor = nil
             pinchPalmMoved = 0
             pinchMissSince = nil
+            pinchReleasedAt = now
             pinchTrail.removeAll()
             pinchSpan0 = nil
             grabLogged = false
@@ -1371,19 +1393,16 @@ final class GestureEngine {
         }
     }
 
-    /// Zwei offene Hände vertikal — getrennt vom waagerechten Flick-Wischen.
-    private func driveScroll(hands: [TrackedHand], now: TimeInterval) {
-        guard !pinchHeld else {
-            scrollAnchor = nil
-            return
-        }
+    /// Eine offene Steuerhand vertikal. Zwei offene Palmen gehören dem Not-Aus.
+    private func driveScroll(hands: [TrackedHand], preferred: TrackedHand, now: TimeInterval) {
         let open = hands.filter { $0.openScore >= 3 }
-        guard open.count >= 2 else {
+        if !GestureMath.scrollAllowed(openPalms: open.count, pinchHeld: pinchHeld) {
             scrollAnchor = nil
             return
         }
-        let y = open.map(\.palm.y).reduce(0, +) / CGFloat(open.count)
-        let unit = max(0.04, (open[0].palmWidth + open[1].palmWidth) / 2)
+        let hand = open.first(where: { $0.id == preferred.id }) ?? open[0]
+        let y = hand.palm.y
+        let unit = max(0.04, hand.palmWidth)
         guard let a = scrollAnchor else {
             scrollAnchor = (now, y)
             return
@@ -1393,8 +1412,7 @@ final class GestureEngine {
         guard dt >= 0.05, abs(dy) > 0.10 else { return }
         let ticks = Int32(max(-24, min(24, -dy * 18)))
         guard ticks != 0 else { return }
-        let conf = Float(open.map(\.poseProb).min() ?? 0)
-        perform("Scroll", need: .input, confidence: conf) { system.scroll(ticks: ticks) }
+        perform("Scroll", need: .input, confidence: Float(hand.poseProb)) { system.scroll(ticks: ticks) }
         scrollAnchor = (now, y)
     }
 

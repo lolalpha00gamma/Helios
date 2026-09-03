@@ -175,6 +175,16 @@ struct HUDView: View {
             grabPill
             clutchLED
             peaceRing
+            if !state.lockFreeze.isEmpty {
+                Text(state.lockFreeze.uppercased())
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .foregroundStyle(HeliosTheme.void)
+                    .background(HeliosTheme.amber)
+                    .overlay(Rectangle().stroke(HeliosTheme.amber, lineWidth: 1))
+                    .help("Lock-ID hält einen Fehlframe — kein Teleport")
+            }
             if !state.permissionBanner.isEmpty {
                 Text(state.permissionBanner.uppercased())
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
@@ -321,6 +331,7 @@ struct HUDView: View {
             Text("Zeigen 0,4 s     Tastatur")
             Text("Taste verweilen  Tippen")
             Text("Offene Hand wischen  App")
+            Text("Eine Hand hoch/runter  Scroll")
             Text("Zwei Hände        zwei Zeiger")
             Text("Pinzette + Ring  Rechtsklick")
             Text("Zwei Pinzetten   Skalieren")

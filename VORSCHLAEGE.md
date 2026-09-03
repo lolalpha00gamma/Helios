@@ -1,6 +1,17 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.23**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+Stand: **1.6.24**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.24 erledigt
+
+1.6.23 hat Profile tot / Lock freeze / Zwei-Pinzetten sortiert — Scroll kollidierte mit Not-Aus (beide zwei offene Hände). `pinchActor` Miss auf Wanduhr. Folge-Klick aus dem Gate-Auf. HUD ohne Freeze-Chip.
+
+1. **`scrollAllowed` genau 1 offene Hand.** Zwei offene = Kill, Scroll-Anker weg. Nur Steuerhand (bzw. die eine offene).
+2. **`pinchActor` Miss = `lastTickNow`**, nicht `CACurrentMediaTime`. `missHeld(now:since:)` teilen Engine und Tests.
+3. **`pinchReleaseDead` 0,12 s** nach Gate-Auf.
+4. **HUD Lock-Chip** `lockFreezeLabel` → `T1 freeze`.
+5. Tests: scrollAllowed, missHeld, pinchReleaseDead, lockFreezeLabel.
+6. MARKETING_VERSION 1.6.24 (Build 54).
 
 ## In 1.6.23 erledigt
 
@@ -209,11 +220,19 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Fling-Vel aus One-Euro-deriv**, nicht Trail-first/last (ein Ausreißer-Frame kippt Dock).
 - **palmArea als z-Proxy** neben Palm-Y für Heranziehen (Hand kommt auf die Kamera zu).
 - **Zwei-Pinzetten nach Reach sortieren**, nicht `pinchRatio` allein.
-- **HUD Lock-ID.** Kleines `T1 freeze` wenn preferredHold greift.
 - **Ein Filter am Zeiger.** Palm-Hochpass plus cursorSmooth stapeln Latenz.
 - **Kalibrier-Anschlag speichert Closedness** der Person — 0,55 ist Mittelwert.
 - **uniqueID-Wechsel gelb.** Continuity-Hand-off ohne Homographie-Reset.
-- **Scroll nur Steuerhand.** Zweite offene Hand bleibt Kill-Kandidat.
+- **Scroll-Inertia 200 ms** nach Loslassen (Palm-Y-Vel), ohne zweite Hand.
+- **Not-Aus-Ring** im HUD analog Peace (1,35 s sichtbar).
+- **Scroll-Totzone 0,08 Handbreiten** — Palm-Zittern einer Hand tickt sonst.
+- **HUD fps amber unter 10** (Continuity-Dropout sichtbar ohne Konsole).
+- **Faust-Scharf-Grace 1 Frame** wenn HMM auf unknown kippt (Continuity 8 fps).
+- **Kill-Alternative beide Fäuste 0,4 s** — Tisch-Pose, wenn offene Palmen unmöglich sind.
+- **Skeleton dim während freeze** — Overlay zeigt, dass T1 nicht teleportiert.
+- **Per-App Scroll-Invert** (Safari natural, Xcode classic) ohne Rebuild.
+- **Auto-Nachkalibrierung** nach 20 min Drift (Palm vs. Homographie-Residual > 80 px).
+- **Fling-Bestätigungs-Tick** optional, aus by default.
 
 ## Größere Erweiterungen
 
@@ -254,7 +273,6 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **SpaceMap 1-Punkt-Nachkalibrierung** (nur Drift-Ecke) statt 4 Ecken neu.
 - **Inspector: looksPinch + Reach** neben Closedness, damit Faust-vs-Pinch ohne CSV klar ist.
 - **Klick/Drag-Schwelle als Slider** (Handbreiten), Default 0,45 bleibt.
-- **Pinch-Release 80 ms tot** nach Gate-Auf — sonst Folge-Klick aus dem Öffnen.
 - **Zwei-Pinzetten-Zoom an Fensterkanten** merkt das gegenüberliegende Paar über 3 Frames, nicht einen Tick.
 
 ## Nicht tun
@@ -296,3 +314,7 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - PinchGate geschlossen lassen, wenn Reach/Index Faust sind.
 - `pinchHoldsGrab` Faust vor Drag (Klick wird Zug).
 - `indexScore` wieder 0,7/0,15 aus dem Extended-Set.
+- Scroll wieder zwei offene Hände (Not-Aus-Kandidat).
+- `pinchActor` Miss-Stempel `CACurrentMediaTime`.
+- Gate-Auf ohne Release-Tot (Folge-Klick).
+- Lock-Freeze ohne HUD-Chip.

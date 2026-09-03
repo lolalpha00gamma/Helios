@@ -134,6 +134,8 @@ enum GestureMath {
     static let pinchClickMaxHold: TimeInterval = 0.90
     static let pinchClickStillPx: CGFloat = 14
     static let pinchLockMiss: TimeInterval = 0.22
+    /// Nach Gate-Auf: kein Folge-Klick aus dem Öffnen. Continuity 8 fps ≈ 1 Frame.
+    static let pinchReleaseDead: TimeInterval = 0.12
     static let twoPinchConfirm: TimeInterval = 0.12
     static let twoPinchClosed: CGFloat = 0.55
     static let twoPinchScaleNeed: CGFloat = 0.55
@@ -222,6 +224,30 @@ enum GestureMath {
         if let locked, liveIDs.contains(locked) { return locked }
         if let locked, missHeld { return locked }
         return preferredID(locked: nil, liveIDs: liveIDs, leftID: leftID, rightID: rightID, leftHanded: leftHanded)
+    }
+
+    /// Miss-Dauer auf dem Tick-Takt (`now`), nicht `CACurrentMediaTime`.
+    /// testMode / Continuity-Dropout lügen sonst um Hunderte Millisekunden.
+    static func missHeld(now: TimeInterval, since: TimeInterval?, window: TimeInterval = pinchLockMiss) -> Bool {
+        guard let since else { return false }
+        return now - since < window
+    }
+
+    /// HUD-Chip wenn preferredHold / pinchActor einen Fehlframe friert.
+    static func lockFreezeLabel(locked: String?, missHeld: Bool) -> String? {
+        guard missHeld, let locked, !locked.isEmpty else { return nil }
+        return "\(locked) freeze"
+    }
+
+    /// Scroll nur mit genau einer offenen Hand. Zwei offene gehören dem Not-Aus.
+    static func scrollAllowed(openPalms: Int, pinchHeld: Bool) -> Bool {
+        if pinchHeld { return false }
+        return openPalms == 1
+    }
+
+    static func pinchReleaseBlocks(now: TimeInterval, releasedAt: TimeInterval?) -> Bool {
+        guard let t = releasedAt else { return false }
+        return now - t < pinchReleaseDead
     }
 
     /// Zwei-Pinzetten: IDs sortieren, sonst Vision-Reorder → Span-Sprung.

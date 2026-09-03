@@ -88,6 +88,7 @@ final class AppState: ObservableObject {
     @Published var permissionBanner = ""
     @Published var fusionTemperature: Double = 0.75
     @Published var peaceProgress: CGFloat = 0
+    @Published var lockFreeze = ""
     let calibSession = CalibrationSession()
     private var lastPanel: TimeInterval = 0
     private var didStart = false
@@ -697,6 +698,7 @@ final class AppState: ObservableObject {
         grabPhase = engine.grabPhase
         grabTargetName = engine.grabTargetName
         peaceProgress = engine.peaceProgress
+        lockFreeze = engine.lockFreeze
         self.hands = hands
         fusion = hands.first?.fusion ?? tracker.lastFusion
         hasDepth = camera.hasDepth

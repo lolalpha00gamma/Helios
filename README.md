@@ -1,4 +1,4 @@
-# Helios **1.6.23**
+# Helios **1.6.24**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,15 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.24
+
+1.6.23 hat Profile tot und Lock freeze — Scroll brauchte **zwei offene Hände** und war derselbe Kandidat wie Not-Aus. Ein Palm-Zucken hat gescrollt, während Kill 1,35 s zählte. `pinchActor` stempelte den Fehlframe auf die Wanduhr (testMode / Continuity lügen). Gate-Auf feuerte Folge-Klick.
+
+- **Scroll nur Steuerhand.** Genau eine offene Hand. Zwei offene = Not-Aus, Scroll-Anker weg.
+- **Pinch-Miss auf Tick-Takt** (`lastTickNow`), nicht `CACurrentMediaTime`.
+- **Release 120 ms tot** nach Gate-Auf — Öffnen ist kein zweiter Klick.
+- **HUD `T1 freeze`** wenn Lock-ID einen Fehlframe hält.
 
 ## Neu in 1.6.23
 

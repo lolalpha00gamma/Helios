@@ -105,6 +105,8 @@ final class GestureEngine {
     private var lastPalm: CGPoint?
     private var pointerHandID: String?
     private var pointerSourceID: String = ""
+    private var pointerLastHand: TrackedHand?
+    private var pointerMissSince: TimeInterval?
     private var palmSlow: CGPoint?
     private var cursorTracks: [String: CGPoint] = [:]
     private var swipeGraceUntil: TimeInterval = 0
@@ -187,6 +189,8 @@ final class GestureEngine {
         lastPalm = nil
         pointerHandID = nil
         pointerSourceID = ""
+        pointerLastHand = nil
+        pointerMissSince = nil
         palmSlow = nil
         swipeGraceUntil = 0
         armedQuietUntil = 0
@@ -238,7 +242,7 @@ final class GestureEngine {
         lastTickNow = now
         let hands = incoming.filter { $0.joints.count >= 8 && $0.meanConfidence >= 0.18 }
         if hands.isEmpty {
-            if lastHandSeen > 0, now - lastHandSeen < 0.18, pinchHeld {
+            if lastHandSeen > 0, now - lastHandSeen < GestureMath.emptyHandsHold(dt: sampleDt), pinchHeld {
                 dragging = pinchHeld
                 return
             }
@@ -390,7 +394,8 @@ final class GestureEngine {
         let scaling = handleTwoPinchScale(hands: hands, now: now)
         let actor = pinchActor(hands, primary: primary)
         lastFusionEntropy = actor.fusion?.entropy ?? lastFusionEntropy
-        let freezePointer = pinchHeld && !pinchBecameDrag
+        let freezePointer = (pinchHeld && !pinchBecameDrag)
+            || !hands.contains(where: { $0.id == actor.id })
         if !freezePointer {
             placeCursors(hands, actor: actor)
             if !testMode, !system.isDragging, cursorDidMove, actor.pose != .fist, let p = cursor {
@@ -454,6 +459,8 @@ final class GestureEngine {
         palmSlow = nil
         pointerHandID = nil
         pointerSourceID = ""
+        pointerLastHand = nil
+        pointerMissSince = nil
         cursorSmooth = nil
         cursorTracks.removeAll()
     }
@@ -464,6 +471,8 @@ final class GestureEngine {
         palmSlow = nil
         pointerHandID = nil
         pointerSourceID = ""
+        pointerLastHand = nil
+        pointerMissSince = nil
         cursorSmooth = nil
         cursorTracks.removeAll()
         handCursors = []
@@ -746,17 +755,31 @@ final class GestureEngine {
     }
 
     private func preferred(_ hands: [TrackedHand]) -> TrackedHand {
+        let liveIDs = hands.map(\.id)
         let left = hands.first(where: { $0.chirality == .left })
         let right = hands.first(where: { $0.chirality == .right })
-        let id = GestureMath.preferredID(
+        let missHeld: Bool = {
+            guard let locked = pointerHandID, !liveIDs.contains(locked) else {
+                pointerMissSince = nil
+                return false
+            }
+            if pointerMissSince == nil { pointerMissSince = lastTickNow }
+            return lastTickNow - (pointerMissSince ?? lastTickNow) < GestureMath.pinchLockMiss
+        }()
+        let id = GestureMath.preferredHoldID(
             locked: pointerHandID,
-            liveIDs: hands.map(\.id),
+            liveIDs: liveIDs,
+            missHeld: missHeld,
             leftID: left?.id,
             rightID: right?.id,
             leftHanded: leftHanded
         )
         if let id, let same = hands.first(where: { $0.id == id }) {
+            pointerLastHand = same
             return same
+        }
+        if missHeld, let last = pointerLastHand {
+            return last
         }
         return hands.max { a, b in
             (a.joints.values.map(\.confidence).max() ?? 0) < (b.joints.values.map(\.confidence).max() ?? 0)
@@ -859,8 +882,10 @@ final class GestureEngine {
             cursor = a.point
             cursorHand = a.side
         }
-        pointerHandID = actor.id
-        if !actor.sourceID.isEmpty { pointerSourceID = actor.sourceID }
+        if hands.contains(where: { $0.id == actor.id }) {
+            pointerHandID = actor.id
+            if !actor.sourceID.isEmpty { pointerSourceID = actor.sourceID }
+        }
     }
 
     @discardableResult
@@ -868,7 +893,7 @@ final class GestureEngine {
         let pinches = hands.filter {
             ($0.pinchClosed || $0.pinchClosedness > GestureMath.twoPinchClosed)
                 && GestureMath.pinchLooksLikePinch(reach: $0.pinchReach, index: $0.indexScore)
-        }
+        }.sorted { $0.id < $1.id }
         guard pinches.count >= 2 else {
             if twoPinchSince != nil {
                 swipeMuteUntil = now + GestureMath.swipeMuteAfterPinch

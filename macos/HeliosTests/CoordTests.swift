@@ -717,16 +717,42 @@ enum CoordTests {
             fputs("FAIL Ampel 30 px setzt Verweilen zurück\n", stderr)
             fails += 1
         }
-        if AppInjectProfile.of(bundleId: "com.apple.dt.Xcode") != .off {
-            fputs("FAIL Xcode-Profil aus\n", stderr)
+        if GestureMath.preferredHoldID(
+            locked: "T1",
+            liveIDs: ["T2"],
+            missHeld: true,
+            leftID: "T2",
+            rightID: "T2",
+            leftHanded: false
+        ) != "T1" {
+            fputs("FAIL fehlender Frame hält Lock-ID\n", stderr)
             fails += 1
         }
-        if AppInjectProfile.of(bundleId: "com.apple.Safari") != .clickScroll {
-            fputs("FAIL Safari nur Klick/Scroll\n", stderr)
+        if GestureMath.preferredHoldID(
+            locked: "T9",
+            liveIDs: ["T1", "T2"],
+            missHeld: false,
+            leftID: "T2",
+            rightID: "T1",
+            leftHanded: false
+        ) != "T1" {
+            fputs("FAIL tote Lock ohne Hold fällt auf rechts\n", stderr)
             fails += 1
         }
-        if AppInjectProfile.of(bundleId: "com.apple.finder") != .finder {
-            fputs("FAIL Finder-Profil\n", stderr)
+        if GestureMath.twoPinchSorted(ids: ["T2", "T1"]) != ["T1", "T2"] {
+            fputs("FAIL Zwei-Pinzetten IDs sortiert\n", stderr)
+            fails += 1
+        }
+        if GestureMath.emptyHandsHold(dt: 0.04) < 0.21 {
+            fputs("FAIL 24 fps empty-hold bleibt pinchLockMiss\n", stderr)
+            fails += 1
+        }
+        if GestureMath.emptyHandsHold(dt: 0.125) < 0.26 {
+            fputs("FAIL Continuity empty-hold deckt zwei Fehlframes\n", stderr)
+            fails += 1
+        }
+        if AppInjectProfile.of(bundleId: "com.apple.dt.Xcode") != .full {
+            fputs("FAIL Xcode nicht mehr aus — voll\n", stderr)
             fails += 1
         }
         if GestureMath.entropyActionFloor(entropy: 0) < 0.51 {

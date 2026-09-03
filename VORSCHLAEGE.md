@@ -1,6 +1,16 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.22**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+Stand: **1.6.23**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.23 erledigt
+
+1.6.22 hat Reach/Ampel, aber Profile wieder an (Tests .full **und** .off), Lock-ID tot nach einem Frame, Zwei-Pinzetten unsortiert, empty-hold 0,18 s.
+
+1. **AppInjectProfile.of = .full.** Xcode/Safari nicht mehr stumm. Widersprüchliche Tests raus.
+2. **preferredHoldID** hält Lock `pinchLockMiss`.
+3. **twoPinchSorted** nach Track-ID.
+4. **emptyHandsHold(dt)** ≥ pinchLockMiss, 8 fps × 2,2.
+5. MARKETING_VERSION 1.6.23 (Build 53).
 
 ## In 1.6.22 erledigt
 
@@ -191,7 +201,7 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Kalibrier-Quad sichtbar** als dünnes Viereck der vier Anschläge, nicht nur Ecken-Marken.
 - **Peace-Fortschritt auch in der Konsole**, nicht nur HUD-Ring.
 - **Klick-Tick** optional (system sound), aus by default.
-- **Profil-Override** in der Konsole (Safari voll, Xcode nur Scroll) — Defaults sind wieder hart (1.6.22).
+- **Profil-Override** in der Konsole (Safari voll, Xcode nur Scroll) — Defaults bleiben `.full` (1.6.23).
 - **Fusion-Temperatur auto** aus Landmark-Qualität, Slider bleibt Override.
 - **CGEvent 1-px Jiggler ignorieren** (manche Mäuse senden Idle-Ticks).
 - **`CMSampleBuffer.presentationTimeStamp` als `now`**, nicht `CACurrentMediaTime` — dt-Jitter zwischen Vision und Display.
@@ -199,6 +209,11 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Fling-Vel aus One-Euro-deriv**, nicht Trail-first/last (ein Ausreißer-Frame kippt Dock).
 - **palmArea als z-Proxy** neben Palm-Y für Heranziehen (Hand kommt auf die Kamera zu).
 - **Zwei-Pinzetten nach Reach sortieren**, nicht `pinchRatio` allein.
+- **HUD Lock-ID.** Kleines `T1 freeze` wenn preferredHold greift.
+- **Ein Filter am Zeiger.** Palm-Hochpass plus cursorSmooth stapeln Latenz.
+- **Kalibrier-Anschlag speichert Closedness** der Person — 0,55 ist Mittelwert.
+- **uniqueID-Wechsel gelb.** Continuity-Hand-off ohne Homographie-Reset.
+- **Scroll nur Steuerhand.** Zweite offene Hand bleibt Kill-Kandidat.
 
 ## Größere Erweiterungen
 

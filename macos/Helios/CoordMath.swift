@@ -210,6 +210,30 @@ enum GestureMath {
         return rightID ?? leftID ?? liveIDs.first
     }
 
+    /// Ein Fehlframe hält die Lock-ID. Sonst Teleport auf L/R.
+    static func preferredHoldID(
+        locked: String?,
+        liveIDs: [String],
+        missHeld: Bool,
+        leftID: String?,
+        rightID: String?,
+        leftHanded: Bool
+    ) -> String? {
+        if let locked, liveIDs.contains(locked) { return locked }
+        if let locked, missHeld { return locked }
+        return preferredID(locked: nil, liveIDs: liveIDs, leftID: leftID, rightID: rightID, leftHanded: leftHanded)
+    }
+
+    /// Zwei-Pinzetten: IDs sortieren, sonst Vision-Reorder → Span-Sprung.
+    static func twoPinchSorted(ids: [String]) -> [String] {
+        ids.sorted()
+    }
+
+    /// Continuity 8 fps: zwei Fehlframes ≈ 250 ms. 0,18 s hat den Zug getötet.
+    static func emptyHandsHold(dt: TimeInterval, base: TimeInterval = pinchLockMiss) -> TimeInterval {
+        max(base, min(0.45, dt * 2.2))
+    }
+
     static func airKeyboardSummon(v: CGFloat, band: CGFloat = airKeyboardBottom) -> Bool {
         v >= band
     }
@@ -577,10 +601,9 @@ enum AppInjectProfile: Equatable {
     }
 
     static func of(bundleId: String) -> AppInjectProfile {
-        let id = bundleId.lowercased()
-        if id.contains("xcode") { return .off }
-        if id.contains("safari") { return .clickScroll }
-        if id.contains("finder") { return .finder }
+        // 1.6.17/1.6.21: Profile aus. 1.6.22 hat sie wieder an — Xcode tot, Safari ohne Zug,
+        // und CoordTests verlangt gleichzeitig .full und .off.
+        _ = bundleId
         return .full
     }
 

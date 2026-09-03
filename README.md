@@ -1,4 +1,4 @@
-# Helios **1.6.22**
+# Helios **1.6.23**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,15 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.23
+
+1.6.22 hat Faust/Ampel — CoordTests widersprechen sich (Xcode voll **und** aus), Continuity tötet den Zug nach 180 ms, Steuerhand teleportiert, Zwei-Pinzetten springen.
+
+- **Profile wieder tot** (wie 1.6.17). Xcode/Safari/Finder voll. 1.6.22 hat die App in Xcode stumm geschaltet und die Tests zerlegt.
+- **Steuerhand friert** einen Fehlframe (`preferredHoldID`), statt auf L/R zu springen.
+- **Zwei-Pinzetten** sortiert nach Track-ID.
+- **Continuity-Hold** `emptyHandsHold(dt)` ≥ 0,22 s (zwei 8-fps-Fehlframes).
 
 ## Neu in 1.6.22
 

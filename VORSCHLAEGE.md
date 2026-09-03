@@ -1,6 +1,18 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.24**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+Stand: **1.6.25**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.25 erledigt
+
+1.6.24 hat Scroll/Miss/Release/HUD-Freeze — der Zeiger starb trotzdem ohne Pinzette (Continuity 8 fps). Local-Clutch sah eigene Events. PTS fehlte. uniqueID-Wechsel behielt die alte Homographie. Fling first→last verdünnte den Ruck. Zwei-Pinzetten am Palmenabstand.
+
+1. **emptyHandsHold ohne Pinch.** Zeigen überlebt zwei Fehlframes. HUD `freeze`.
+2. **Clutch nur global.** Jiggler < 1,2 px ignoriert.
+3. **`presentationTimeStamp` als Engine-`now`.** FPS bleibt Wall-Clock.
+4. **uniqueID-Wechsel** → `recenterPointer` + Homographie neu.
+5. **Zwei-Pinzetten** an gegenüberliegenden Fensterhälften.
+6. **`flingVelFromTail`** letzte 2–3 Samples.
+7. MARKETING_VERSION 1.6.25 (Build 55).
 
 ## In 1.6.24 erledigt
 
@@ -206,23 +218,30 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 
 ## Nächste Fixes (klein, hoher Nutzen)
 
-- **Zwei-Pinzetten Skalieren** an gegenüberliegenden Fensterkanten, nicht am Palmenabstand.
 - **Session-Replay** der Landmark-CSV direkt im HUD, Frame für Frame — ohne Xcode.
-- **Clutch nur globale Hardware** — Local-Monitor ganz weglassen (eigene Events kommen lokal an).
 - **Kalibrier-Quad sichtbar** als dünnes Viereck der vier Anschläge, nicht nur Ecken-Marken.
 - **Peace-Fortschritt auch in der Konsole**, nicht nur HUD-Ring.
 - **Klick-Tick** optional (system sound), aus by default.
-- **Profil-Override** in der Konsole (Safari voll, Xcode nur Scroll) — Defaults bleiben `.full` (1.6.23).
+- **Profil-Override** in der Konsole (Safari voll, Xcode nur Scroll) — Defaults bleiben `.full` (1.6.25).
 - **Fusion-Temperatur auto** aus Landmark-Qualität, Slider bleibt Override.
-- **CGEvent 1-px Jiggler ignorieren** (manche Mäuse senden Idle-Ticks).
-- **`CMSampleBuffer.presentationTimeStamp` als `now`**, nicht `CACurrentMediaTime` — dt-Jitter zwischen Vision und Display.
 - **Dünne Tastatur-Leiste unten** auch wenn zu — Sichtbares Ziel statt „irgendwo zeigen“.
-- **Fling-Vel aus One-Euro-deriv**, nicht Trail-first/last (ein Ausreißer-Frame kippt Dock).
 - **palmArea als z-Proxy** neben Palm-Y für Heranziehen (Hand kommt auf die Kamera zu).
 - **Zwei-Pinzetten nach Reach sortieren**, nicht `pinchRatio` allein.
 - **Ein Filter am Zeiger.** Palm-Hochpass plus cursorSmooth stapeln Latenz.
 - **Kalibrier-Anschlag speichert Closedness** der Person — 0,55 ist Mittelwert.
-- **uniqueID-Wechsel gelb.** Continuity-Hand-off ohne Homographie-Reset.
+- **Freeze-Decay.** empty-hands nicht hart returnen: Gain 1→0 über Hold, dann los.
+- **SpaceMap bei Display-Reconfig** (Kabel, Sidecar), nicht nur uniqueID.
+- **Cover-PTS und Lead-PTS gleiche Epoche**, sonst Fusion-dt lügt.
+- **Clutch-Radius in mm**, nicht 48 px auf 5K.
+- **Fling nach Zwei-Pinzetten** erbt nicht den Pinch-Trail.
+- **Zwei-Pinzetten-Zoom merkt Kanten über 3 Frames**, nicht einen Tick.
+- **Scroll-Inertia 200 ms** nach Loslassen (Palm-Y-Vel), ohne zweite Hand.
+- **Not-Aus-Ring** im HUD analog Peace (1,35 s sichtbar).
+- **Scroll-Totzone 0,08 Handbreiten** — Palm-Zittern einer Hand tickt sonst.
+- **HUD fps amber unter 10** (Continuity-Dropout sichtbar ohne Konsole).
+- **Faust-Scharf-Grace 1 Frame** wenn HMM auf unknown kippt (Continuity 8 fps).
+- **Kill-Alternative beide Fäuste 0,4 s** — Tisch-Pose, wenn offene Palmen unmöglich sind.
+- **Skeleton dim während freeze** — Overlay zeigt, dass T1 nicht teleportiert.
 - **Scroll-Inertia 200 ms** nach Loslassen (Palm-Y-Vel), ohne zweite Hand.
 - **Not-Aus-Ring** im HUD analog Peace (1,35 s sichtbar).
 - **Scroll-Totzone 0,08 Handbreiten** — Palm-Zittern einer Hand tickt sonst.

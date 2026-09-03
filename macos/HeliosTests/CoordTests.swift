@@ -856,6 +856,36 @@ enum CoordTests {
             fputs("FAIL ohne Lock-ID kein Freeze-Chip\n", stderr)
             fails += 1
         }
+        if !GestureMath.clutchIgnores(delta: 1.0) {
+            fputs("FAIL 1 px Jiggler ignorieren\n", stderr)
+            fails += 1
+        }
+        if GestureMath.clutchIgnores(delta: 3.0) {
+            fputs("FAIL 3 px ist Hardware\n", stderr)
+            fails += 1
+        }
+        let win = CGRect(x: 0, y: 0, width: 800, height: 600)
+        if !GestureMath.twoPinchOppositeHalves(CGPoint(x: 80, y: 300), CGPoint(x: 720, y: 300), window: win) {
+            fputs("FAIL gegenüberliegende Hälften\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoPinchOppositeHalves(CGPoint(x: 80, y: 100), CGPoint(x: 90, y: 120), window: win) {
+            fputs("FAIL gleiche Ecke ist nicht gegenüber\n", stderr)
+            fails += 1
+        }
+        let tailFlick: [(t: TimeInterval, x: CGFloat, y: CGFloat)] = [
+            (0.00, 0.50, 0.40),
+            (0.10, 0.50, 0.41),
+            (0.20, 0.50, 0.42),
+            (0.28, 0.50, 0.55),
+            (0.32, 0.50, 0.72)
+        ]
+        if GestureMath.flingVelFromTail(
+            tailFlick, palmWidth: 0.12, aspect: 16 / 9, centerDead: false, windowSec: 0.36
+        ) != .throwUp {
+            fputs("FAIL Tail-Vel wirft aus dem letzten Ruck\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

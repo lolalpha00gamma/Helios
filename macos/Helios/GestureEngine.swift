@@ -247,7 +247,12 @@ final class GestureEngine {
         lockFreeze = ""
         let hands = incoming.filter { $0.joints.count >= 8 && $0.meanConfidence >= 0.18 }
         if hands.isEmpty {
-            if lastHandSeen > 0, now - lastHandSeen < GestureMath.emptyHandsHold(dt: sampleDt), pinchHeld {
+            if lastHandSeen > 0, now - lastHandSeen < GestureMath.emptyHandsHold(dt: sampleDt) {
+                if let id = pointerHandID, let label = GestureMath.lockFreezeLabel(locked: id, missHeld: true) {
+                    lockFreeze = label
+                } else {
+                    lockFreeze = "freeze"
+                }
                 dragging = pinchHeld
                 return
             }
@@ -933,8 +938,25 @@ final class GestureEngine {
         }
         // Tick belegen, sonst stiehlt Greifen die erste Pinzette.
         guard now - (twoPinchSince ?? now) >= GestureMath.twoPinchConfirm else { return true }
+        let mapped: [CGPoint] = pinches.map { hand in
+            if let p = cursorTracks[hand.id] { return p }
+            if let map = spaceMap, map.isReady { return map.apply(hand.palm) }
+            return SpaceMap.linear(hand.palm)
+        }
+        if let bounds = focused?.quartzBounds, mapped.count >= 2,
+           !GestureMath.twoPinchOppositeHalves(mapped[0], mapped[1], window: bounds)
+        {
+            twoHandSpan = nil
+            return true
+        }
         let unit = max(0.04, (pinches[0].palmWidth + pinches[1].palmWidth) / 2)
-        let span = space.dist(pinches[0].palm, pinches[1].palm) / unit
+        let span: CGFloat = {
+            if mapped.count >= 2, let bounds = focused?.quartzBounds, bounds.width > 40 {
+                return hypot(mapped[0].x - mapped[1].x, mapped[0].y - mapped[1].y)
+                    / max(40, min(bounds.width, bounds.height))
+            }
+            return space.dist(pinches[0].palm, pinches[1].palm) / unit
+        }()
         if let old = twoHandSpan, now >= cooldownUntil {
             let d = span - old
             let reversing = lastScaleSign != 0 && d * lastScaleSign < 0
@@ -1265,7 +1287,7 @@ final class GestureEngine {
             guard spaceMap?.isReady == true, let c = cursor else { return nil }
             return ScreenGeometry.unitInUnion(quartz: c)
         }()
-        let kind = GestureMath.flingFromTrail(
+        let kind = GestureMath.flingVelFromTail(
             pinchTrail,
             palmWidth: palmWidth,
             aspect: space.aspect,

@@ -160,6 +160,8 @@ enum GestureMath {
     static let hybridBand: CGFloat = 0.15
     static let clutchOwnRadius: CGFloat = 48
     static let clutchOwnWindow: TimeInterval = 0.12
+    /// Idle-Jiggler / 1-px Maus-Ticks. 0,5 hat Trackpads und eigene CGEvents durchgelassen.
+    static let clutchJiggle: CGFloat = 1.2
     /// Zwei Kameras: gemappte Zeiger > so viele Pixel auseinander = Winkel-Unco, Lead gewinnt.
     static let rigDisagreePx: CGFloat = 140
     static let rigCoverEnter: Double = 0.18
@@ -250,12 +252,27 @@ enum GestureMath {
         return now - t < pinchReleaseDead
     }
 
+    static func clutchIgnores(delta: CGFloat) -> Bool {
+        delta < clutchJiggle
+    }
+
+    /// Zwei-Pinzetten an gegenüberliegenden Fensterhälften, nicht am Palmenabstand.
+    static func twoPinchOppositeHalves(_ a: CGPoint, _ b: CGPoint, window: CGRect) -> Bool {
+        guard window.width > 40, window.height > 40 else { return true }
+        let ax = a.x < window.midX
+        let bx = b.x < window.midX
+        let ay = a.y < window.midY
+        let by = b.y < window.midY
+        return ax != bx || ay != by
+    }
+
     /// Zwei-Pinzetten: IDs sortieren, sonst Vision-Reorder → Span-Sprung.
     static func twoPinchSorted(ids: [String]) -> [String] {
         ids.sorted()
     }
 
     /// Continuity 8 fps: zwei Fehlframes ≈ 250 ms. 0,18 s hat den Zug getötet.
+    /// Pointer-Hold gilt auch ohne Pinzette — sonst stirbt der Zeiger beim Zeigen.
     static func emptyHandsHold(dt: TimeInterval, base: TimeInterval = pinchLockMiss) -> TimeInterval {
         max(base, min(0.45, dt * 2.2))
     }
@@ -329,6 +346,98 @@ enum GestureMath {
         let dy = (last.y - first.y) / unit
         let dist = hypot(dx, dy)
         let speed = dist / CGFloat(dt)
+        if centerDead {
+            let u = screenUV?.x ?? last.x
+            let v = screenUV?.y ?? last.y
+            if CoordMath.nearUnitCenter(u: u, v: v, radius: flingCenter), dist < flingMinDist * 1.7 {
+                return .none
+            }
+        }
+        let speedNeed = flingMinSpeed * (afterDrag ? flingAfterDragMul : 1)
+        let distNeed = flingMinDist * (afterDrag ? flingAfterDragDist : 1)
+        return classifyFling(
+            dx: dx,
+            dy: dy,
+            speed: speed,
+            dist: dist,
+            speedNeed: speedNeed,
+            distNeed: distNeed,
+            afterDrag: afterDrag
+        )
+    }
+
+    /// Velocity from the last 2–3 samples of the window. first→last of a long
+    /// Continuity slice dilutes the flick; the tail is the actual throw.
+    static func flingVelFromTail(
+        _ trail: [(t: TimeInterval, x: CGFloat, y: CGFloat)],
+        palmWidth: CGFloat,
+        aspect: CGFloat = 16 / 9,
+        centerDead: Bool = true,
+        afterDrag: Bool = false,
+        screenUV: CGPoint? = nil,
+        windowSec: TimeInterval = flingWindow
+    ) -> FlingKind {
+        guard let last = trail.last else { return .none }
+        let slice = trail.filter { last.t - $0.t <= windowSec }
+        guard let first = slice.first, last.t > first.t + 0.04 else { return .none }
+        let unit = max(0.04, palmWidth)
+        let dx = (last.x - first.x) * aspect / unit
+        let dy = (last.y - first.y) / unit
+        let dist = hypot(dx, dy)
+        let tail = Array(slice.suffix(3))
+        let t0 = tail.first?.t ?? first.t
+        let x0 = tail.first?.x ?? first.x
+        let y0 = tail.first?.y ?? first.y
+        let dt = max(0.04, last.t - t0)
+        let tdx = (last.x - x0) * aspect / unit
+        let tdy = (last.y - y0) / unit
+        let speed = hypot(tdx, tdy) / CGFloat(dt)
+        if centerDead {
+            let u = screenUV?.x ?? last.x
+            let v = screenUV?.y ?? last.y
+            if CoordMath.nearUnitCenter(u: u, v: v, radius: flingCenter), dist < flingMinDist * 1.7 {
+                return .none
+            }
+        }
+        let speedNeed = flingMinSpeed * (afterDrag ? flingAfterDragMul : 1)
+        let distNeed = flingMinDist * (afterDrag ? flingAfterDragDist : 1)
+        return classifyFling(
+            dx: dx,
+            dy: dy,
+            speed: speed,
+            dist: dist,
+            speedNeed: speedNeed,
+            distNeed: distNeed,
+            afterDrag: afterDrag
+        )
+    }
+
+    /// Velocity from the last 2–3 samples of the window. first→last of a long
+    /// Continuity slice dilutes the flick; the tail is the actual throw.
+    static func flingVelFromTail(
+        _ trail: [(t: TimeInterval, x: CGFloat, y: CGFloat)],
+        palmWidth: CGFloat,
+        aspect: CGFloat = 16 / 9,
+        centerDead: Bool = true,
+        afterDrag: Bool = false,
+        screenUV: CGPoint? = nil,
+        windowSec: TimeInterval = flingWindow
+    ) -> FlingKind {
+        guard let last = trail.last else { return .none }
+        let slice = trail.filter { last.t - $0.t <= windowSec }
+        guard let first = slice.first, last.t > first.t + 0.04 else { return .none }
+        let unit = max(0.04, palmWidth)
+        let dx = (last.x - first.x) * aspect / unit
+        let dy = (last.y - first.y) / unit
+        let dist = hypot(dx, dy)
+        let tail = Array(slice.suffix(3))
+        let t0 = tail.first?.t ?? first.t
+        let x0 = tail.first?.x ?? first.x
+        let y0 = tail.first?.y ?? first.y
+        let dt = max(0.04, last.t - t0)
+        let tdx = (last.x - x0) * aspect / unit
+        let tdy = (last.y - y0) / unit
+        let speed = hypot(tdx, tdy) / CGFloat(dt)
         if centerDead {
             let u = screenUV?.x ?? last.x
             let v = screenUV?.y ?? last.y

@@ -95,6 +95,7 @@ final class AppState: ObservableObject {
     private let applySlot = ApplySlot()
 
     private var lastArmedConsole: EngineMode = .idle
+    private var lastAppliedCameraID = ""
     private var cancellables: Set<AnyCancellable> = []
     private var didShutdown = false
     private var focusTick = 0
@@ -275,7 +276,7 @@ final class AppState: ObservableObject {
             let t0 = CACurrentMediaTime()
             var hands = tracker.analyze(
                 pixelBuffer: vision,
-                now: t0,
+                now: arrived,
                 mirrored: cam.isMirrored,
                 depth: cam.latestDepth,
                 orientation: cam.visionOrientation
@@ -286,11 +287,11 @@ final class AppState: ObservableObject {
                 hands[i].id = "L." + hands[i].id
             }
             let visMs = (CACurrentMediaTime() - t0) * 1000
-            let endToEnd = (CACurrentMediaTime() - arrived) * 1000
+            let endToEnd = max(0, (t0 - arrived) * 1000)
             slot.push(
                 hands: hands,
-                latency: max(visMs, endToEnd),
-                now: t0,
+                latency: max(visMs, endToEnd > 5000 ? visMs : endToEnd),
+                now: arrived,
                 luma: luma
             ) {
                 DispatchQueue.main.async { self?.drainApply() }
@@ -601,6 +602,15 @@ final class AppState: ObservableObject {
         preview: NSImage?,
         luma: CGFloat
     ) {
+        let camID = camera.selectedID
+        if !lastAppliedCameraID.isEmpty, camID != lastAppliedCameraID {
+            engine.recenterPointer()
+            engine.spaceMap = SpaceMap.load(cameraID: camID, displayID: ScreenGeometry.mainDisplayID)
+                ?? SpaceMap.load(displayID: ScreenGeometry.mainDisplayID)
+            mapReady = engine.spaceMap?.isReady == true
+            log.record("Kamerawechsel — Zeiger neu, Homographie geladen.", kind: .info)
+        }
+        lastAppliedCameraID = camID
         engine.tick(hands: hands, now: now)
         if drill.running || drill.phase == .countdown || drill.phase == .capture || drill.phase == .rest {
             drill.tick(hands: hands, now: now)
@@ -633,10 +643,11 @@ final class AppState: ObservableObject {
             showReticle: showReticle
         )
         frames += 1
-        if now - fpsStamp >= 0.5 {
-            fps = Double(frames) / (now - fpsStamp)
+        let wall = CACurrentMediaTime()
+        if wall - fpsStamp >= 0.5 {
+            fps = Double(frames) / (wall - fpsStamp)
             frames = 0
-            fpsStamp = now
+            fpsStamp = wall
         }
         if protocolMode {
             recorder.push(

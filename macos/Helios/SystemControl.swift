@@ -75,12 +75,7 @@ final class SystemControl {
         if let g = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: note) {
             monitors.append(g)
         }
-        if let l = NSEvent.addLocalMonitorForEvents(matching: mask, handler: { e in
-            note(e)
-            return e
-        }) {
-            monitors.append(l)
-        }
+        // Nur global. Der Local-Monitor sieht eigene CGEvents und hat Helios selbst pausiert.
     }
 
     func stopClutch() {
@@ -95,7 +90,7 @@ final class SystemControl {
         // war der Sprung > 10 px und hat Helios selbst pausiert.
         if lastPostAt > 0, now - lastPostAt < GestureMath.clutchOwnWindow { return }
         let d = hypot(e.deltaX, e.deltaY)
-        if d < 0.5 { return }
+        if GestureMath.clutchIgnores(delta: d) { return }
         if let posted = lastPosted {
             let nowLoc = NSEvent.mouseLocation.screenFlipped
             if hypot(nowLoc.x - posted.x, nowLoc.y - posted.y) < GestureMath.clutchOwnRadius { return }

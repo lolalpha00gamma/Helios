@@ -548,8 +548,11 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
 
     private func accept(_ buffer: CMSampleBuffer) {
         guard let pb = CMSampleBufferGetImageBuffer(buffer) else { return }
+        let pts = CMSampleBufferGetPresentationTimeStamp(buffer)
+        let ptsSec = CMTimeGetSeconds(pts)
+        let arrived = (pts.isValid && ptsSec.isFinite && ptsSec > 0) ? ptsSec : CACurrentMediaTime()
         let (owned, slot) = ring.copy(pb)
-        pump.push(owned, slot: slot, arrived: CACurrentMediaTime(), drop: { [weak self] s in
+        pump.push(owned, slot: slot, arrived: arrived, drop: { [weak self] s in
             self?.ring.release(s)
         }) { [weak self] latest, arrived, doneSlot in
             self?.process(latest, arrived: arrived)

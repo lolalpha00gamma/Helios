@@ -1,4 +1,4 @@
-# Helios **1.6.24**
+# Helios **1.6.25**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,15 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.25
+
+1.6.24 hat Scroll vs Kill und Freeze-Chip — Continuity tötete den Zeiger trotzdem, sobald keine Pinzette da war. Die Maus-Pause sah eigene Cursor-Events. Kamerawechsel behielt die alte Homographie.
+
+- **Zeiger hält** zwei Fehlframes, auch ohne Pinzette.
+- **Clutch nur echte Hardware.** Kein Local-Monitor, Mini-Zucken unter 1,2 px zählt nicht.
+- **Kamera-Zeitstempel** steuert Filter und Gesten. uniqueID-Wechsel setzt Zeiger und Homographie neu.
+- **Zwei-Pinzetten** an gegenüberliegenden Fensterhälften. Werfen aus den letzten 2–3 Samples.
 
 ## Neu in 1.6.24
 

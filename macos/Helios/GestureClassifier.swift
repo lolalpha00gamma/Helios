@@ -412,9 +412,16 @@ struct PinchGate {
         lastRatio = ratio
         lastT = now
         let closedness = max(0, min(1, (0.52 - min(ratio, proxRatio)) / 0.40))
+        let reach: CGFloat = {
+            guard let w = raw[.wrist], let t = raw[.thumbTip], let i = raw[.indexTip] else { return 0 }
+            return GestureMath.pinchReach(wrist: w, thumb: t, index: i, scale: scale)
+        }()
+        let indexScore = GestureClassifier.fingerExtension(raw, .index, space: space, conf: conf).score
+        let looksPinch = GestureMath.pinchLooksLikePinch(reach: reach, index: Double(indexScore))
 
-        let wantClose = closedness > 0.55 || (ratio < 0.44 && vel < GestureMath.pinchCloseVel(dt: dt))
-        let wantOpen = ratio > 0.56 && proxRatio > 0.50 && vel > GestureMath.pinchOpenVel(dt: dt)
+        let wantClose = looksPinch && (closedness > 0.55 || (ratio < 0.44 && vel < GestureMath.pinchCloseVel(dt: dt)))
+        var wantOpen = ratio > 0.56 && proxRatio > 0.50 && vel > GestureMath.pinchOpenVel(dt: dt)
+        if closed && !looksPinch { wantOpen = true }
 
         if dTips == nil {
             if missingSince == 0 { missingSince = now }

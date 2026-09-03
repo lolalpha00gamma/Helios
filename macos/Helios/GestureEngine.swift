@@ -120,6 +120,7 @@ final class GestureEngine {
     private var dwellPalm: CGPoint?
     private var chromeDwellSince: TimeInterval?
     private var chromeDwellKind: ChromeKnob.Kind?
+    private var chromeDwellAt: CGPoint?
     private var pointSince: TimeInterval?
     private var kbDwellID: String?
     private var kbDwellAt: TimeInterval?
@@ -208,6 +209,7 @@ final class GestureEngine {
         chromeDwell = 0
         chromeDwellSince = nil
         chromeDwellKind = nil
+        chromeDwellAt = nil
         pointSince = nil
         kbDwellID = nil
         kbDwellAt = nil
@@ -308,7 +310,10 @@ final class GestureEngine {
 
         if let cal = calibration, cal.active {
             let actor = preferred(hands)
-            let confirm = actor.pinchClosed || actor.pose == .pinch
+            let confirm = actor.pinchClosed && GestureMath.pinchLooksLikePinch(
+                reach: actor.pinchReach,
+                index: actor.indexScore
+            )
             if let done = cal.feed(palm: actor.palm, now: now, confirm: confirm) {
                 spaceMap = done
                 lastAction = "Kalibrierung fertig"
@@ -768,14 +773,15 @@ final class GestureEngine {
             if pinchMissSince == nil { pinchMissSince = CACurrentMediaTime() }
             // Freeze. Nie die andere Hand — `primary` wäre der Steuerhand-Diebstahl.
             if let last = pinchLastHand { return last }
-            return hands.first(where: { $0.id == id }) ?? primary
+            return primary
         }
         pinchLastHand = nil
-        if let pinching = hands.filter({ $0.pose == .pinch || $0.pinchClosedness > 0.55 }).min(by: { $0.pinchRatio < $1.pinchRatio }) {
+        if let pinching = hands.filter({
+            ($0.pinchClosed || $0.pinchClosedness > 0.55)
+                && GestureMath.pinchLooksLikePinch(reach: $0.pinchReach, index: $0.indexScore)
+        }).min(by: { $0.pinchRatio < $1.pinchRatio }) {
+            pinchLastHand = pinching
             return pinching
-        }
-        if let fist = hands.first(where: { $0.pose == .fist }) {
-            return fist
         }
         return primary
     }
@@ -860,7 +866,8 @@ final class GestureEngine {
     @discardableResult
     private func handleTwoPinchScale(hands: [TrackedHand], now: TimeInterval) -> Bool {
         let pinches = hands.filter {
-            $0.pose == .pinch || $0.pinchClosed || $0.pinchClosedness > GestureMath.twoPinchClosed
+            ($0.pinchClosed || $0.pinchClosedness > GestureMath.twoPinchClosed)
+                && GestureMath.pinchLooksLikePinch(reach: $0.pinchReach, index: $0.indexScore)
         }
         guard pinches.count >= 2 else {
             if twoPinchSince != nil {
@@ -914,6 +921,8 @@ final class GestureEngine {
             chromeHot = ""
             chromeDwell = 0
             chromeDwellSince = nil
+            chromeDwellKind = nil
+            chromeDwellAt = nil
             return
         }
         guard let c = cursor else { return }
@@ -928,6 +937,7 @@ final class GestureEngine {
                         chromeDwell = 0
                         chromeDwellSince = nil
                         chromeDwellKind = nil
+                        chromeDwellAt = nil
                     }
                     return
                 }
@@ -940,6 +950,7 @@ final class GestureEngine {
             chromeDwell = 0
             chromeDwellSince = nil
             chromeDwellKind = nil
+            chromeDwellAt = nil
             return
         }
         let near = knobs.contains {
@@ -950,6 +961,7 @@ final class GestureEngine {
             chromeDwell = 0
             chromeDwellSince = nil
             chromeDwellKind = nil
+            chromeDwellAt = nil
             return
         }
         guard let hot = knobs.min(by: {
@@ -959,6 +971,7 @@ final class GestureEngine {
             chromeDwell = 0
             chromeDwellSince = nil
             chromeDwellKind = nil
+            chromeDwellAt = nil
             return
         }
         chromeHot = hot.labelDE
@@ -969,6 +982,12 @@ final class GestureEngine {
         if chromeDwellKind != hot.kind {
             chromeDwellKind = hot.kind
             chromeDwellSince = now
+            chromeDwellAt = c
+        } else if let origin = chromeDwellAt, GestureMath.chromeDwellMoved(from: origin, to: c) {
+            chromeDwellSince = now
+            chromeDwellAt = c
+            chromeDwell = 0
+            return
         }
         let held = now - (chromeDwellSince ?? now)
         chromeDwell = CGFloat(min(1, held / GestureMath.chromeDwellHold))
@@ -976,6 +995,7 @@ final class GestureEngine {
             fireChrome(hot)
             chromeDwellSince = nil
             chromeDwellKind = nil
+            chromeDwellAt = nil
             chromeDwell = 0
             cooldownUntil = now + 0.75
         }
@@ -1044,8 +1064,19 @@ final class GestureEngine {
             return
         }
         let isGrab = pinchHeld
-            ? GestureMath.pinchHoldsGrab(gate: hand.pinchClosed, closedness: hand.pinchClosedness)
-            : (fire && GestureMath.pinchStartsGrab(gate: hand.pinchClosed, closedness: hand.pinchClosedness))
+            ? GestureMath.pinchHoldsGrab(
+                gate: hand.pinchClosed,
+                closedness: hand.pinchClosedness,
+                reach: hand.pinchReach,
+                index: hand.indexScore,
+                allowFist: pinchBecameDrag
+            )
+            : (fire && GestureMath.pinchStartsGrab(
+                gate: hand.pinchClosed,
+                closedness: hand.pinchClosedness,
+                reach: hand.pinchReach,
+                index: hand.indexScore
+            ))
         if isGrab && !pinchHeld {
             pinchHeld = true
             pinchBecameDrag = false
@@ -1106,7 +1137,12 @@ final class GestureEngine {
             } else if testMode, pinchBecameDrag {
                 lastAction = trashHot ? "Test: Papierkorb" : "Test: Ziehen"
             }
-            if let y0 = pinchSpan0, !system.isDragging, GestureMath.pullTowardSelf(startY: y0, nowY: hand.palm.y) {
+            if pinchBecameDrag,
+               now - pinchBeganAt > 0.35,
+               let y0 = pinchSpan0,
+               !system.isDragging,
+               GestureMath.pullTowardSelf(startY: y0, nowY: hand.palm.y)
+            {
                 perform("Heranziehen", confidence: Float(hand.poseProb)) { system.snapFocused(.fill, at: cursor) }
                 pinchSpan0 = hand.palm.y
                 cooldownUntil = now + 0.5

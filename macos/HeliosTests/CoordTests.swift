@@ -681,6 +681,87 @@ enum CoordTests {
             fputs("FAIL Gate muss Greifen starten\n", stderr)
             fails += 1
         }
+        if GestureMath.pinchStartsGrab(gate: true, closedness: 0.90, reach: 0.40, index: 0.10) {
+            fputs("FAIL Faust-Reach startet keine Pinzette\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinchStartsGrab(gate: true, closedness: 0.20, reach: 1.10, index: 0.70) {
+            fputs("FAIL Pinzette mit Reach/Zeigefinger startet\n", stderr)
+            fails += 1
+        }
+        let fistReach = GestureMath.pinchReach(
+            wrist: CGPoint(x: 0.50, y: 0.50),
+            thumb: CGPoint(x: 0.52, y: 0.53),
+            index: CGPoint(x: 0.51, y: 0.54),
+            scale: 0.12
+        )
+        if GestureMath.pinchLooksLikePinch(reach: fistReach, index: 0.10) {
+            fputs("FAIL Faust-Spitzen an der Palme sind keine Pinzette\n", stderr)
+            fails += 1
+        }
+        let pinchReach = GestureMath.pinchReach(
+            wrist: CGPoint(x: 0.50, y: 0.80),
+            thumb: CGPoint(x: 0.48, y: 0.28),
+            index: CGPoint(x: 0.52, y: 0.28),
+            scale: 0.12
+        )
+        if !GestureMath.pinchLooksLikePinch(reach: pinchReach, index: 0.20) {
+            fputs("FAIL lange Pinzette hat Reach\n", stderr)
+            fails += 1
+        }
+        if GestureMath.chromeDwellMoved(from: CGPoint(x: 100, y: 100), to: CGPoint(x: 108, y: 104)) {
+            fputs("FAIL Ampel-Zielen 10 px ist still\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.chromeDwellMoved(from: CGPoint(x: 100, y: 100), to: CGPoint(x: 130, y: 100)) {
+            fputs("FAIL Ampel 30 px setzt Verweilen zurück\n", stderr)
+            fails += 1
+        }
+        if AppInjectProfile.of(bundleId: "com.apple.dt.Xcode") != .off {
+            fputs("FAIL Xcode-Profil aus\n", stderr)
+            fails += 1
+        }
+        if AppInjectProfile.of(bundleId: "com.apple.Safari") != .clickScroll {
+            fputs("FAIL Safari nur Klick/Scroll\n", stderr)
+            fails += 1
+        }
+        if AppInjectProfile.of(bundleId: "com.apple.finder") != .finder {
+            fputs("FAIL Finder-Profil\n", stderr)
+            fails += 1
+        }
+        if GestureMath.entropyActionFloor(entropy: 0) < 0.51 {
+            fputs("FAIL spitzes Tor nicht unter 0,52\n", stderr)
+            fails += 1
+        }
+        if GestureMath.entropyActionFloor(entropy: log(7.0)) < 0.66 {
+            fputs("FAIL flaches Tor nicht 0,68\n", stderr)
+            fails += 1
+        }
+        if CameraRig.pinchAssist(lead: 0.20, cover: 0.90) != 0.20 {
+            fputs("FAIL Cover erfindet keine Pinzette\n", stderr)
+            fails += 1
+        }
+        if CameraRig.pinchAssist(lead: 0.80, cover: 0.90) != 0.80 {
+            fputs("FAIL Cover boostet keine schon klare Pinzette\n", stderr)
+            fails += 1
+        }
+        let assisted = CameraRig.pinchAssist(lead: 0.50, cover: 0.80)
+        if abs(assisted - 0.59) > 0.01 {
+            fputs("FAIL Cover-Band 0,50/0,80 → 0,59, nicht \(assisted)\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchHoldsGrab(gate: true, closedness: 0.90, reach: 0.40, index: 0.10) {
+            fputs("FAIL Faust hält Klick-Pinzette nicht\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinchHoldsGrab(gate: true, closedness: 0.90, reach: 0.40, index: 0.10, allowFist: true) {
+            fputs("FAIL Zug darf Faust tragen\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinchHoldsGrab(gate: true, closedness: 0.50, reach: 1.05, index: 0.20) {
+            fputs("FAIL Pinzette mit Reach hält\n", stderr)
+            fails += 1
+        }
         if GestureMath.pinchHoldsGrab(gate: false, closedness: 0.20) {
             fputs("FAIL offene Hand hält keine Pinzette\n", stderr)
             fails += 1

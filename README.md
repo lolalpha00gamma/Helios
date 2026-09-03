@@ -1,4 +1,4 @@
-# Helios **1.6.21**
+# Helios **1.6.22**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -19,7 +19,22 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
 
+## Neu in 1.6.22
+
+Warum Klick und Zug weiter zufällig kamen: das Pinch-Gate schloss bei jeder nahen Daumen/Zeigefinger-Spitze — **Faust war Pinzette**. HMM-Closedness hielt den Wert hoch. Heranziehen feuerte im Klick-Fenster. Ampel-Verweilen zählte während du über Schließen zielst.
+
+- **Faust ≠ Pinzette.** Gate und Greifen brauchen Reach (Spitzen weg vom Handgelenk) oder gestreckten Zeigefinger. Faust-Spitzen an der Palme starten keinen Klick/Zug. Gate **öffnet**, sobald es keine Pinzette mehr ist — Faust hält keinen Klick.
+- **Closedness nur vom Gate**, nicht `max(HMM, Gate)`. HMM-Hold täuscht keine Pinzette mehr vor.
+- **Halten ohne Drag braucht Reach.** Faust nach dem Klick startet keinen Zug; erst ein echter Drag darf Faust tragen.
+- **Heranziehen nur nach echtem Drag** (≥ 0,35 s). Atmen maximiert das Fenster nicht.
+- **Ampel nur still.** 18 px Bewegung setzt das 0,55-s-Verweilen zurück — Schließen beim Zielen ist tot.
+- **App-Profile wieder an.** Xcode aus, Safari Klick/Scroll, Finder Werfen.
+- **Aktions-Tor 0,52–0,68.** Flaches Softmax feuert nicht mehr bei 48 %.
+- Cover bestätigt Pinch nur im Band 0,40–0,62, erfindet ihn nicht.
+- **Zeigefinger-Score** ist der Classifier-Wert, nicht nur „über 0,52“.
+
 ## Neu in 1.6.21
+
 
 Erkennung: weniger Fehlklicks.
 

@@ -1,8 +1,24 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.21**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+Stand: **1.6.22**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.22 erledigt
+
+1.6.21 hat Gate-statt-Pose — Faust schloss das Gate trotzdem (Spitzen nah = closedness), HMM-`max` hielt Pinch, Heranziehen im Klick-Fenster, Ampel während des Zielens, Profile tot, Tor 0,48.
+
+1. **PinchGate + Greifen brauchen Reach** (`pinchReachNeed` 0,88) oder Zeigefinger. Faust-Spitzen an der Palme schließen nicht.
+2. **`pinchClosedness` nur Gate**, nicht `max(HMM, Gate)`.
+3. **`pinchActor` kein Faust-Fallback**, keine Pose-Pinzette ohne Reach.
+4. **Heranziehen nur nach Drag** ≥ 0,35 s.
+5. **Ampel-Verweilen nur still** (`chromeDwellStillPx` 18). `chromeHot` stirbt mit den Händen.
+6. **App-Profile wieder an** (Xcode aus, Safari Klick/Scroll, Finder Werfen).
+7. **Aktions-Tor 0,52–0,68.** Cover-Pinch nur 0,40–0,62.
+8. **Gate öffnet bei Faust** (`!looksPinch`). Halten ohne Drag braucht Reach; Zug darf Faust tragen.
+9. **`indexScore` Float** vom Classifier, nicht das 0,52-Set.
+10. MARKETING_VERSION 1.6.22 (Build 52).
 
 ## In 1.6.21 erledigt
+
 
 Erkennung: Faust startete Zug, HMM hielt Pinzette offen, Cooldown fror Drag, Cover überschrieb Gate, Not-Aus bei Scroll, Tastatur beim Zielen.
 
@@ -175,16 +191,14 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Kalibrier-Quad sichtbar** als dünnes Viereck der vier Anschläge, nicht nur Ecken-Marken.
 - **Peace-Fortschritt auch in der Konsole**, nicht nur HUD-Ring.
 - **Klick-Tick** optional (system sound), aus by default.
-- **Profil-Override** in der Konsole (Safari voll, Xcode nur Scroll) — Defaults bleiben hart.
+- **Profil-Override** in der Konsole (Safari voll, Xcode nur Scroll) — Defaults sind wieder hart (1.6.22).
 - **Fusion-Temperatur auto** aus Landmark-Qualität, Slider bleibt Override.
 - **CGEvent 1-px Jiggler ignorieren** (manche Mäuse senden Idle-Ticks).
 - **`CMSampleBuffer.presentationTimeStamp` als `now`**, nicht `CACurrentMediaTime` — dt-Jitter zwischen Vision und Display.
-- **Chrome-Dwell nur bei stillstehendem Cursor** (wie Klick), sonst streifst du Schließen beim Zielen.
 - **Dünne Tastatur-Leiste unten** auch wenn zu — Sichtbares Ziel statt „irgendwo zeigen“.
 - **Fling-Vel aus One-Euro-deriv**, nicht Trail-first/last (ein Ausreißer-Frame kippt Dock).
 - **palmArea als z-Proxy** neben Palm-Y für Heranziehen (Hand kommt auf die Kamera zu).
-- **PinchClosedness-EMA** unabhängig vom Pose-Softmax — Faust vs. Pinzette bei 8 fps.
-- **Cover-Pinch nur im Band 0,40–0,55** der Lead-Hand bestätigen, darunter tot.
+- **Zwei-Pinzetten nach Reach sortieren**, nicht `pinchRatio` allein.
 
 ## Größere Erweiterungen
 
@@ -218,6 +232,15 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Scroll an Handgelenk-Roll** (MCP-Linie) statt nur Palm-Y, weniger Konflikt mit Heranziehen.
 - **HUD Latenz pro Kamera** (Mac vs Continuity), nicht eine Sparkline.
 - **Kalibrier-Hold skaliert mit dt** schon 1.6.19 — visuelles Quad der vier Anschläge fehlt noch.
+- **Reach-Meter im Debug-Chip** (0,3 Faust … 1,2 Pinzette), damit Faust-vs-Pinch ohne Konsole sichtbar ist.
+- **Klick-Preview-Ring** 80 ms vor Gate-Schluss (Hover sitzt, bevor Down kommt).
+- **AX-Drag coalescen** auf den letzten Punkt/Tick, nicht jeden 8-fps-Sprung als setPosition.
+- **Dominant-Hand aus den ersten 30 Faust-Frames**, nicht nur Prefs-Toggle.
+- **SpaceMap 1-Punkt-Nachkalibrierung** (nur Drift-Ecke) statt 4 Ecken neu.
+- **Inspector: looksPinch + Reach** neben Closedness, damit Faust-vs-Pinch ohne CSV klar ist.
+- **Klick/Drag-Schwelle als Slider** (Handbreiten), Default 0,45 bleibt.
+- **Pinch-Release 80 ms tot** nach Gate-Auf — sonst Folge-Klick aus dem Öffnen.
+- **Zwei-Pinzetten-Zoom an Fensterkanten** merkt das gegenüberliegende Paar über 3 Frames, nicht einen Tick.
 
 ## Nicht tun
 
@@ -247,3 +270,14 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - Fling-Fenster hart 120 ms bei 8 fps.
 - Luft-Tastatur wieder 0,40 s Zeigen irgendwo.
 - Branch `bugfix` anlegen oder mergen. Nur `main`.
+- Faust-Spitzen (Reach < 0,88) als PinchGate-Close.
+- `pinchClosedness = max(HMM, Gate)`.
+- `pinchActor` Faust-Fallback oder `pose == .pinch` ohne Reach.
+- Heranziehen im Klick-Fenster / vor Drag.
+- Ampel-Dwell während der Cursor noch wandert.
+- `AppInjectProfile.of` immer `.full`.
+- Aktions-Tor wieder 0,48.
+- Cover-`pinchAssist` unter Lead 0,40 (erfinden).
+- PinchGate geschlossen lassen, wenn Reach/Index Faust sind.
+- `pinchHoldsGrab` Faust vor Drag (Klick wird Zug).
+- `indexScore` wieder 0,7/0,15 aus dem Extended-Set.

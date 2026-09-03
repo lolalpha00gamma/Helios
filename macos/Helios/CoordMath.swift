@@ -144,6 +144,8 @@ enum GestureMath {
     static let chromeSpreadGap: CGFloat = 118
     static let chromeHit: CGFloat = 80
     static let chromeDwellHold: TimeInterval = 0.55
+    /// Ampel nur bei stillstehendem Cursor — sonst Schließen beim Zielen.
+    static let chromeDwellStillPx: CGFloat = 18
     static let swipeMinDx: CGFloat = 0.55
     static let swipeAxis: CGFloat = 1.15
     static let swipeMinSpeed: CGFloat = 1.8
@@ -173,6 +175,9 @@ enum GestureMath {
     static let pinchCloseVel8: CGFloat = -0.90
     static let pinchOpenVel24: CGFloat = -0.4
     static let pinchOpenVel8: CGFloat = -0.15
+    /// Faust: Spitzen nah an der Palme. Pinzette: Daumen+Zeigefinger weg vom Handgelenk.
+    static let pinchReachNeed: CGFloat = 0.88
+    static let pinchIndexNeed: Double = 0.38
 
     static func sampleDt(now: TimeInterval, last: TimeInterval, cap: TimeInterval = sampleDtCap) -> TimeInterval {
         last <= 0 ? 0.04 : min(cap, max(0.008, now - last))
@@ -412,10 +417,10 @@ enum GestureMath {
         return h
     }
 
-    static let entropyFloorLo: Double = 0.48
-    static let entropyFloorHi: Double = 0.60
+    static let entropyFloorLo: Double = 0.52
+    static let entropyFloorHi: Double = 0.68
 
-    /// Flache Verteilung → höherer Floor (0,72), spitze → 0,55 statt hart 0,62.
+    /// Flache Verteilung → höherer Floor (0,68), spitze → 0,52 statt hart 0,62.
     static func entropyActionFloor(entropy: Double, poseCount: Int = 7) -> Double {
         let hMax = log(Double(max(2, poseCount)))
         let t = min(1, max(0, entropy / max(1e-9, hMax)))
@@ -458,14 +463,37 @@ enum GestureMath {
         return palmsY.allSatisfy { $0 < tablePalmY } && stillHW < tableStillHW
     }
 
-    /// Pinzette starten: Gate oder klare Closedness. Pose allein (Faust/HMM-Hold) zählt nicht.
-    static func pinchStartsGrab(gate: Bool, closedness: Double) -> Bool {
-        gate || closedness > 0.58
+    /// Pinzette starten: Gate oder klare Closedness, und es muss wie Pinzette aussehen
+    /// (Reach / Zeigefinger). Faust hat geschlossene Spitzen — das ist kein Klick.
+    static func pinchStartsGrab(gate: Bool, closedness: Double, reach: CGFloat = 1.2, index: Double = 1) -> Bool {
+        guard pinchLooksLikePinch(reach: reach, index: index) else { return false }
+        return gate || closedness > 0.58
     }
 
-    /// Pinzette halten: etwas weicher, immer noch ohne Faust-Pose.
-    static func pinchHoldsGrab(gate: Bool, closedness: Double) -> Bool {
-        gate || closedness > 0.42
+    /// Pinzette halten: weicher, aber Faust (kein Reach) gibt frei — außer Zug darf Faust tragen.
+    static func pinchHoldsGrab(
+        gate: Bool,
+        closedness: Double,
+        reach: CGFloat = 1.2,
+        index: Double = 1,
+        allowFist: Bool = false
+    ) -> Bool {
+        if !allowFist, !pinchLooksLikePinch(reach: reach, index: index) { return false }
+        return gate || closedness > 0.42
+    }
+
+    static func pinchLooksLikePinch(reach: CGFloat, index: Double = 1) -> Bool {
+        reach >= pinchReachNeed || index >= pinchIndexNeed
+    }
+
+    /// Wrist → Mitte Daumen/Zeigefinger in Palmenbreiten. Faust < 0,8, Pinzette ≥ 0,9.
+    static func pinchReach(wrist: CGPoint, thumb: CGPoint, index: CGPoint, scale: CGFloat) -> CGFloat {
+        let m = CGPoint(x: (thumb.x + index.x) / 2, y: (thumb.y + index.y) / 2)
+        return hypot(m.x - wrist.x, m.y - wrist.y) / max(0.03, scale)
+    }
+
+    static func chromeDwellMoved(from origin: CGPoint, to cursor: CGPoint, need: CGFloat = chromeDwellStillPx) -> Bool {
+        hypot(cursor.x - origin.x, cursor.y - origin.y) >= need
     }
 
     static func keyboardStill(movedPx: CGFloat, need: CGFloat = 16) -> Bool {
@@ -549,7 +577,10 @@ enum AppInjectProfile: Equatable {
     }
 
     static func of(bundleId: String) -> AppInjectProfile {
-        _ = bundleId
+        let id = bundleId.lowercased()
+        if id.contains("xcode") { return .off }
+        if id.contains("safari") { return .clickScroll }
+        if id.contains("finder") { return .finder }
         return .full
     }
 
@@ -645,9 +676,9 @@ enum CameraRig {
         )
     }
 
-    /// Cover darf Pinch bestätigen, nie erfinden.
+    /// Cover darf Pinch nur im unsicheren Band bestätigen, nie erfinden.
     static func pinchAssist(lead: Double, cover: Double) -> Double {
-        guard lead > 0.28, cover > 0.40 else { return lead }
+        guard lead >= 0.40, lead <= 0.62, cover > 0.48 else { return lead }
         return min(1, 0.70 * lead + 0.30 * cover)
     }
 }

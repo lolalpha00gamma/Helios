@@ -28,6 +28,8 @@ struct TrackedHand: Identifiable {
     var fusion: FusionDebug?
     var quality: Double
     var sourceID: String = ""
+    /// 0…1 vom Classifier, nicht das 0,52-Set.
+    var indexScore: Double = 0.15
 
     func point(_ name: VNHumanHandPoseObservation.JointName) -> CGPoint? {
         guard let j = joints[name], j.confidence > 0.22 else { return nil }
@@ -62,6 +64,14 @@ struct TrackedHand: Identifiable {
 
     func isExtended(_ finger: FingerKind) -> Bool {
         extended.contains(finger.rawValue)
+    }
+
+    /// Wrist → Daumen/Zeigefinger. Faust bleibt unter pinchReachNeed.
+    var pinchReach: CGFloat {
+        guard let w = point(.wrist), let t = point(.thumbTip), let i = point(.indexTip) else {
+            return isExtended(.index) ? 1.2 : 0.3
+        }
+        return GestureMath.pinchReach(wrist: w, thumb: t, index: i, scale: palmWidth)
     }
 
     func confidence(_ name: VNHumanHandPoseObservation.JointName) -> Float {
@@ -316,14 +326,15 @@ final class HandTracker: @unchecked Sendable {
                     pinchDistance: pinchState.distance,
                     pinchRatio: feat2D.pinchRatio,
                     pinchClosed: pinchState.closed,
-                    pinchClosedness: max(hmmOut.pinch, pinchState.closedness),
+                    pinchClosedness: pinchState.closedness,
                     palm: fused.palm,
                     palmWidth: slot.palmWidthEma,
                     openScore: feat2D.openScore,
                     extended: ext,
                     fusion: dbg,
                     quality: fused.quality,
-                    sourceID: ""
+                    sourceID: "",
+                    indexScore: Double(feat2D.extensions["index"] ?? 0)
                 )
             )
         }

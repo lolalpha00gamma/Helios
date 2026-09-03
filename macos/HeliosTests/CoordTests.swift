@@ -946,6 +946,71 @@ enum CoordTests {
             fputs("FAIL 0 fps (noch kein Sample) nicht amber\n", stderr)
             fails += 1
         }
+        if abs(GestureMath.emptyHandsRecoverLive(now: 1.0, until: 1.0, span: 0.25) - 1) > 0.01 {
+            fputs("FAIL Recover am Ende voller Gain\n", stderr)
+            fails += 1
+        }
+        if GestureMath.emptyHandsRecoverLive(now: 1.0, until: 1.25, span: 0.25) > 0.30 {
+            fputs("FAIL Recover am Start gedämpft\n", stderr)
+            fails += 1
+        }
+        if GestureMath.emptyHandsRecoverSpan(dt: 0.125) < 0.25 {
+            fputs("FAIL Recover-Span 8 fps zwei Frames\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.emptyHandsHoldReleaseAX(isDragging: true) {
+            fputs("FAIL Dropout gibt AX frei\n", stderr)
+            fails += 1
+        }
+        if GestureMath.emptyHandsHoldReleaseAX(isDragging: false) {
+            fputs("FAIL ohne Drag kein AX-Release\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.scrollCoastBreaks(pinchHeld: true) {
+            fputs("FAIL Coast bricht bei Pinch\n", stderr)
+            fails += 1
+        }
+        if GestureMath.scrollCoastBreaks(pinchHeld: false) {
+            fputs("FAIL Coast ohne Pinch bleibt\n", stderr)
+            fails += 1
+        }
+        let wide = CGRect(x: 0, y: 0, width: 800, height: 600)
+        if GestureMath.twoPinchAxis(CGPoint(x: 80, y: 300), CGPoint(x: 720, y: 300), window: wide) != .horizontal {
+            fputs("FAIL Kanten links/rechts = horizontal\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoPinchAxis(CGPoint(x: 400, y: 40), CGPoint(x: 400, y: 560), window: wide) != .vertical {
+            fputs("FAIL Kanten oben/unten = vertical\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoPinchAxisHolds(locked: .horizontal, next: .vertical) {
+            fputs("FAIL Achsenwechsel hält nicht\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.twoPinchAxisHolds(locked: .horizontal, next: .horizontal) {
+            fputs("FAIL gleiche Achse hält\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.twoPinchAxisHolds(locked: .none, next: .horizontal) {
+            fputs("FAIL erste Achse lockt\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoPinchAxisHolds(locked: .vertical, next: .none) {
+            fputs("FAIL none hält keine Achse\n", stderr)
+            fails += 1
+        }
+        let spark: [(t: TimeInterval, fps: Double)] = [
+            (0.0, 8), (2.0, 8), (4.0, 9), (6.0, 8)
+        ]
+        if !GestureMath.fpsSparkAmber(spark, now: 7) {
+            fputs("FAIL 8-s Spark 8 fps amber\n", stderr)
+            fails += 1
+        }
+        let spark24: [(t: TimeInterval, fps: Double)] = [(0.0, 24), (4.0, 24)]
+        if GestureMath.fpsSparkAmber(spark24, now: 5) {
+            fputs("FAIL 24 fps Spark nicht amber\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

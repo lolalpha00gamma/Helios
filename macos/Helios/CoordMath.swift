@@ -1,6 +1,10 @@
 import CoreGraphics
 import Foundation
 
+enum TwoPinchAxis: Equatable {
+    case none, horizontal, vertical
+}
+
 /// Reine Cocoa↔Quartz-Rechnung. Quartz-Ursprung = oben links am **Hauptbildschirm**.
 enum CoordMath {
     static func quartz(fromCocoa p: CGPoint, primaryMaxY: CGFloat) -> CGPoint {
@@ -258,12 +262,22 @@ enum GestureMath {
 
     /// Zwei-Pinzetten an gegenüberliegenden Fensterhälften, nicht am Palmenabstand.
     static func twoPinchOppositeHalves(_ a: CGPoint, _ b: CGPoint, window: CGRect) -> Bool {
-        guard window.width > 40, window.height > 40 else { return true }
-        let ax = a.x < window.midX
-        let bx = b.x < window.midX
-        let ay = a.y < window.midY
-        let by = b.y < window.midY
-        return ax != bx || ay != by
+        twoPinchAxis(a, b, window: window) != .none
+    }
+
+    /// Links/rechts vs oben/unten merken — ein Jitter darf die Achse nicht drehen.
+    static func twoPinchAxis(_ a: CGPoint, _ b: CGPoint, window: CGRect) -> TwoPinchAxis {
+        guard window.width > 40, window.height > 40 else { return .none }
+        let dx = abs(a.x - b.x) / window.width
+        let dy = abs(a.y - b.y) / window.height
+        if dx < 0.10, dy < 0.10 { return .none }
+        return dx >= dy ? .horizontal : .vertical
+    }
+
+    static func twoPinchAxisHolds(locked: TwoPinchAxis, next: TwoPinchAxis) -> Bool {
+        if next == .none { return false }
+        if locked == .none { return true }
+        return locked == next
     }
 
     /// Zwei-Pinzetten: IDs sortieren, sonst Vision-Reorder → Span-Sprung.
@@ -287,6 +301,24 @@ enum GestureMath {
     /// Erste Frames nach Dropout: nicht voller Gain — sonst teleportiert die Palme.
     static func emptyHandsRecover(elapsed: TimeInterval, hold: TimeInterval) -> CGFloat {
         max(0.15, emptyHandsHoldGain(elapsed: elapsed, hold: hold))
+    }
+
+    /// Recover über 2 Frames, nicht nur den ersten Tick nach Dropout.
+    static func emptyHandsRecoverSpan(dt: TimeInterval) -> TimeInterval {
+        max(0.08, dt) * 2.2
+    }
+
+    static func emptyHandsRecoverLive(now: TimeInterval, until: TimeInterval, span: TimeInterval) -> CGFloat {
+        let s = max(0.08, span)
+        let remain = until - now
+        if remain <= 0 { return 1 }
+        let t = min(1, max(0, 1 - remain / s))
+        return 0.25 + 0.75 * CGFloat(t)
+    }
+
+    /// Dropout: Cursor einfrieren, AX-Zug nicht. Fenster klebt sonst in der Luft.
+    static func emptyHandsHoldReleaseAX(isDragging: Bool) -> Bool {
+        isDragging
     }
 
     /// Continuity 8 fps: 2 Frames. Built-in: 3, sonst ein Jitter-Tick skaliert.
@@ -318,9 +350,27 @@ enum GestureMath {
         return Int32(max(-16, min(16, -velHW * 18 * frac)))
     }
 
+    /// Inertia darf keinen Klick-Start überdecken.
+    static func scrollCoastBreaks(pinchHeld: Bool) -> Bool {
+        pinchHeld
+    }
+
     /// Continuity-Dropout sichtbar ohne Konsole.
     static func fpsAmber(_ fps: Double, floor: Double = 10) -> Bool {
         fps > 0 && fps < floor
+    }
+
+    static let fpsSparkSec: TimeInterval = 8
+
+    static func fpsSparkAmber(
+        _ samples: [(t: TimeInterval, fps: Double)],
+        now: TimeInterval,
+        floor: Double = 10
+    ) -> Bool {
+        let slice = samples.filter { now - $0.t <= fpsSparkSec && $0.fps > 0 }
+        guard !slice.isEmpty else { return false }
+        let mean = slice.map(\.fps).reduce(0, +) / Double(slice.count)
+        return mean > 0 && mean < floor
     }
 
     static func airKeyboardSummon(v: CGFloat, band: CGFloat = airKeyboardBottom) -> Bool {

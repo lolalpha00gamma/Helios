@@ -95,7 +95,10 @@ final class GestureEngine {
     private var lastScaleSign: CGFloat = 0
     private var twoPinchEdgeStreak = 0
     private var twoPinchScaleStreak = 0
+    private var twoPinchLockedAxis: TwoPinchAxis = .none
     private var freezeGain: CGFloat = 1
+    private var recoverUntil: TimeInterval = 0
+    private var recoverSpan: TimeInterval = 0.08
     private var scrollCoast: (until: TimeInterval, vel: CGFloat)?
     private var swipeTrail: [(t: TimeInterval, x: CGFloat, y: CGFloat)] = []
     private var swipeHandID: String?
@@ -179,7 +182,10 @@ final class GestureEngine {
         lastScaleSign = 0
         twoPinchEdgeStreak = 0
         twoPinchScaleStreak = 0
+        twoPinchLockedAxis = .none
         freezeGain = 1
+        recoverUntil = 0
+        recoverSpan = 0.08
         scrollCoast = nil
         swipeTrail.removeAll()
         swipeHandID = nil
@@ -261,7 +267,10 @@ final class GestureEngine {
                 } else {
                     lockFreeze = "freeze"
                 }
-                dragging = pinchHeld
+                if GestureMath.emptyHandsHoldReleaseAX(isDragging: system.isDragging) {
+                    system.endWindowDrag()
+                }
+                dragging = false
                 return
             }
             releasePointer()
@@ -319,9 +328,14 @@ final class GestureEngine {
             return
         }
         if lastHandSeen > 0, now - lastHandSeen > sampleDt * 1.6 {
-            freezeGain = GestureMath.emptyHandsRecover(
-                elapsed: now - lastHandSeen,
-                hold: GestureMath.emptyHandsHold(dt: sampleDt)
+            recoverSpan = GestureMath.emptyHandsRecoverSpan(dt: sampleDt)
+            recoverUntil = now + recoverSpan
+        }
+        if now < recoverUntil {
+            freezeGain = GestureMath.emptyHandsRecoverLive(
+                now: now,
+                until: recoverUntil,
+                span: recoverSpan
             )
         } else {
             freezeGain = 1
@@ -946,6 +960,7 @@ final class GestureEngine {
             lastScaleSign = 0
             twoPinchEdgeStreak = 0
             twoPinchScaleStreak = 0
+            twoPinchLockedAxis = .none
             return false
         }
         if twoPinchSince == nil { twoPinchSince = now }
@@ -967,10 +982,18 @@ final class GestureEngine {
             return SpaceMap.linear(hand.palm)
         }
         if let bounds = focused?.quartzBounds, mapped.count >= 2 {
-            let opposite = GestureMath.twoPinchOppositeHalves(mapped[0], mapped[1], window: bounds)
+            let axis = GestureMath.twoPinchAxis(mapped[0], mapped[1], window: bounds)
+            let holds = GestureMath.twoPinchAxisHolds(locked: twoPinchLockedAxis, next: axis)
+            if holds {
+                if twoPinchLockedAxis == .none {
+                    twoPinchLockedAxis = axis
+                }
+            } else {
+                twoPinchLockedAxis = .none
+            }
             let frames = GestureMath.twoPinchConfirmFrames(dt: sampleDt)
             twoPinchEdgeStreak = GestureMath.twoPinchEdgeHold(
-                ok: opposite,
+                ok: holds,
                 streak: twoPinchEdgeStreak,
                 need: frames
             )
@@ -1459,6 +1482,11 @@ final class GestureEngine {
     private func driveScroll(hands: [TrackedHand], preferred: TrackedHand, now: TimeInterval) {
         let open = hands.filter { $0.openScore >= 3 }
         if !GestureMath.scrollAllowed(openPalms: open.count, pinchHeld: pinchHeld) {
+            if GestureMath.scrollCoastBreaks(pinchHeld: pinchHeld) {
+                scrollCoast = nil
+                scrollAnchor = nil
+                return
+            }
             if let coast = scrollCoast, now < coast.until {
                 let ticks = GestureMath.scrollCoastTicks(velHW: coast.vel, remain: coast.until - now)
                 if ticks != 0 {

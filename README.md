@@ -1,4 +1,4 @@
-# Helios **1.6.26**
+# Helios **1.6.27**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,16 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.27
+
+1.6.26 Freeze-Decay galt **einen Tick** — danach voller Gain, Palme springt. Dropout ließ den AX-Zug stehen (Fenster in der Luft). Scroll-Inertia überdeckte den Pinch-Start. Zwei-Pinzetten kannten nur „gegenüber“, nicht links/rechts vs. oben/unten. fps-Amber war der letzte 0,5-s-Wert.
+
+- **Recover über 2 Frames.** `emptyHandsRecoverLive` 0,25 → 1 über `dt × 2,2`.
+- **Dropout gibt AX frei.** Cursor bleibt freeze, Fenster klebt nicht.
+- **Zwei-Pinzetten-Achse** merkt horizontal/vertikal. Jitter dreht nicht um.
+- **Coast bricht bei Pinch.** Inertia startet keinen Klick.
+- **fps-Spark 8 s.** Mittel unter 10 bleibt amber, nicht nur der letzte Sample.
 
 ## Neu in 1.6.26
 

@@ -1,6 +1,18 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.26**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+Stand: **1.6.27**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.27 erledigt
+
+1.6.26 Gain nach Dropout einen Tick, AX-Zug blieb stehen, Coast über Pinch, Achse nur Bool, fps-Amber instant.
+
+1. **Recover-Span 2 Frames.** `emptyHandsRecoverSpan` / `emptyHandsRecoverLive`.
+2. **emptyHandsHold gibt AX frei** (`emptyHandsHoldReleaseAX`), Cursor freeze bleibt.
+3. **Zwei-Pinzetten-Achse** `twoPinchAxis` + Lock. Jitter kippt nicht horizontal↔vertikal.
+4. **`scrollCoastBreaks`** bei Pinch — Inertia tot vor Gate.
+5. **fps-Spark 8 s.** Mittel < 10 → amber.
+6. Tests: Recover-Live, AX-Release, Coast-Break, Achse, Spark.
+7. MARKETING_VERSION 1.6.27 (Build 57).
 
 ## In 1.6.26 erledigt
 
@@ -250,11 +262,12 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Per-App Scroll-Invert** (Safari natural, Xcode classic) ohne Rebuild.
 - **Auto-Nachkalibrierung** nach 20 min Drift (Palm vs. Homographie-Residual > 80 px).
 - **Fling-Bestätigungs-Tick** optional, aus by default.
-- **Recover über 2 Frames**, nicht nur den ersten nach Dropout (1.6.26 Gain gilt einen Tick).
-- **Zwei-Pinzetten-Zoom an Fensterkanten merkt das Paar** (links/rechts vs oben/unten) statt nur opposite-halves Bool.
-- **Coast-Scroll bricht bei Pinch** — Inertia darf keinen Klick-Start überdecken.
-- **fps-Spark** 8 s, nicht nur die aktuelle Zahl amber.
-- **emptyHandsHold während Drag** CursorSmooth behalten, aber Drag-AX nicht einfrieren wenn die Palme schon weg ist.
+- **HUD Recover-Chip** `R1`/`R2` während `recoverUntil` — sonst sieht man nur freeze.
+- **Zwei-Pinzetten-Achse im HUD** `H`/`V`, analog Lock-Chip.
+- **emptyHandsHold darf pinchHeld nicht über Dropout tragen** — AX ist frei, Gate wäre ein Klick.
+- **fps-Sparkline 8 s** im HUD, nicht nur amber-Bool.
+- **Clutch-Radius in mm**, nicht 48 px auf 5K.
+- **Continuity-Geisterhand** am letzten Palm, solange freeze — sonst HUD leer.
 
 ## Größere Erweiterungen
 
@@ -297,7 +310,10 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **SpaceMap 1-Punkt-Nachkalibrierung** (nur Drift-Ecke) statt 4 Ecken neu.
 - **Inspector: looksPinch + Reach** neben Closedness, damit Faust-vs-Pinch ohne CSV klar ist.
 - **Klick/Drag-Schwelle als Slider** (Handbreiten), Default 0,45 bleibt.
-- **Zwei-Pinzetten-Zoom an Fensterkanten** merkt das gegenüberliegende Paar über 3 Frames, nicht einen Tick.
+- **Palm-mm aus palmWidth × FOV**, Clutch/Kill in physikalischen Einheiten.
+- **AX-Drag Timeout < sampleDt** — 8 fps sonst ein Sprung pro Tick, Coalesce greift nie.
+- **Space-Wechsel invalidiert focused Window** — Stage Manager lässt den Zug am Phantom.
+- **Per-Finger Kontakt** (Daumen–Index / palmWidth) statt nur Closedness-Skalar.
 
 ## Nicht tun
 

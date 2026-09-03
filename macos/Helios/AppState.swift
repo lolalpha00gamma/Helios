@@ -17,6 +17,7 @@ final class AppState: ObservableObject {
     private var permTimer: Timer?
     private var frames: Int = 0
     private var fpsStamp: TimeInterval = CACurrentMediaTime()
+    private var fpsSpark: [(t: TimeInterval, fps: Double)] = []
     private let tracker = HandTracker()
     private let coverTracker = HandTracker()
     private let coverSlot = CoverSlot()
@@ -26,6 +27,7 @@ final class AppState: ObservableObject {
     @Published var mode: EngineMode = .idle
     @Published var lastAction = "—"
     @Published var fps: Double = 0
+    @Published var fpsAmber = false
     @Published var latencyMs: Double = 0
     @Published var latencyHistory: [Double] = []
     @Published var dwellEnabled = false
@@ -648,6 +650,9 @@ final class AppState: ObservableObject {
             fps = Double(frames) / (wall - fpsStamp)
             frames = 0
             fpsStamp = wall
+            fpsSpark.append((wall, fps))
+            fpsSpark.removeAll { wall - $0.t > GestureMath.fpsSparkSec }
+            fpsAmber = GestureMath.fpsAmber(fps) || GestureMath.fpsSparkAmber(fpsSpark, now: wall)
         }
         if protocolMode {
             recorder.push(

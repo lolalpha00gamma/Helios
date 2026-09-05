@@ -15,7 +15,7 @@ struct AirKeyHit: Equatable, Identifiable {
 }
 
 enum AirLayout {
-    private static var cache: (rect: CGRect, hits: [AirKeyHit])?
+    nonisolated(unsafe) private static var cache: (rect: CGRect, hits: [AirKeyHit])?
     static let rows: [[(id: String, label: String, code: UInt16, kind: AirKeyHit.Kind)]] = [
         [
             ("1", "1", 0x12, .char), ("2", "2", 0x13, .char), ("3", "3", 0x14, .char),

@@ -2,9 +2,9 @@ import AppKit
 import CoreGraphics
 
 enum ScreenGeometry {
-    private static var cachedUnion: CGRect = .null
-    private static var cachedMaxY: CGFloat = 0
-    private static var cachedHash = 0
+    nonisolated(unsafe) private static var cachedUnion: CGRect = .null
+    nonisolated(unsafe) private static var cachedMaxY: CGFloat = 0
+    nonisolated(unsafe) private static var cachedHash = 0
 
     private static func refresh() {
         let screens = NSScreen.screens

@@ -23,7 +23,7 @@ Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Da
 
 1.6.22–1.6.27 bauten nicht: `flingVelFromTail` war zweimal deklariert, CoordTests widersprachen sich (Floor ≤ 0,62 und ≥ 0,66). Latest-Download blieb v1.6.21.
 
-- **Build.** Eine `flingVelFromTail`. Aktions-Tor-Tests folgen 0,52–0,68. `win` in CoordTests nur einmal — sonst stirbt `swiftc` nach dem Floor-Fix.
+- **Build.** Eine `flingVelFromTail`. Aktions-Tor-Tests folgen 0,52–0,68. `win` in CoordTests nur einmal. Screen- und Tastatur-Cache `nonisolated(unsafe)`; Filmstreifen-Typ trägt `image`.
 - **AX ist Quartz.** Fensterzug, Andocken und Elementtreffer nicht mehr über Cocoa-Y — vertikal gegen die Hand ist tot.
 - **Konsole bei Scharf aus.** `hide()` hebt den Launch-Pin. Observer werden beim Beenden entfernt.
 - **Uhren.** Drill und Filmstreifen laufen auf der Kamera-PTS, nicht `CACurrentMediaTime`.

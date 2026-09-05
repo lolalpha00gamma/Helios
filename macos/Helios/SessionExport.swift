@@ -155,13 +155,13 @@ final class SessionRecorder {
     }
 
     func filmstrip() -> NSImage {
-        let src: [(hands: [HandSnap], t: Double)] = {
+        let src: [(hands: [HandSnap], t: Double, image: NSImage?)] = {
             if !thumbs.isEmpty { return thumbs }
             let picked = frames.filter { !$0.hands.isEmpty }
             guard !picked.isEmpty else { return [] }
             let step = max(1, picked.count / maxThumbs)
             return picked.enumerated().compactMap { i, f in
-                i % step == 0 ? (f.hands, f.t) : nil
+                i % step == 0 ? (hands: f.hands, t: f.t, image: nil as NSImage?) : nil
             }.suffix(maxThumbs).map { $0 }
         }()
         let cols = 4

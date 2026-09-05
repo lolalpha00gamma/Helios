@@ -175,20 +175,16 @@ struct SpaceMap: Codable {
 
     static func load(cameraID: String = "", displayID: CGDirectDisplayID = 0) -> SpaceMap? {
         if !cameraID.isEmpty {
-            if let data = UserDefaults.standard.data(forKey: camKey(cameraID: cameraID, displayID: displayID)),
-               let map = try? JSONDecoder().decode(SpaceMap.self, from: data)
-            {
-                return map
+            if let map = decodeCam(cameraID, displayID) { return map }
+            if displayID != 0 {
+                return decodeCam(cameraID, 0)
             }
-            if displayID != 0,
-               let data = UserDefaults.standard.data(forKey: camKey(cameraID: cameraID, displayID: 0)),
-               let map = try? JSONDecoder().decode(SpaceMap.self, from: data)
-            {
-                return map
+            // save() schreibt ab 1.6.30 auch den Alias cam.<id> (display 0).
+            // 1.6.29-Maps haben nur cam.<id>.<display> — Screen-Loop holt die.
+            for s in NSScreen.screens {
+                let d = ScreenGeometry.displayID(of: s)
+                if d != 0, let map = decodeCam(cameraID, d) { return map }
             }
-            // Cover/Lead-cam keys are exact. Global helios.spaceMap is lead-only fallback
-            // (empty cameraID). 1.6.27 wrote cover into global — inheriting it here
-            // marked Cover as calibrated without a Cover-Kamera.
             return nil
         }
         if displayID != 0,
@@ -199,6 +195,13 @@ struct SpaceMap: Codable {
         }
         guard let data = UserDefaults.standard.data(forKey: "helios.spaceMap") else { return nil }
         return decodeAnonymous(data)
+    }
+
+    private static func decodeCam(_ cameraID: String, _ displayID: CGDirectDisplayID) -> SpaceMap? {
+        guard let data = UserDefaults.standard.data(forKey: camKey(cameraID: cameraID, displayID: displayID)) else {
+            return nil
+        }
+        return try? JSONDecoder().decode(SpaceMap.self, from: data)
     }
 
     /// Globale / Display-Keys sind Lead-Fallback. 1.6.27 hat Cover dorthin geschrieben —
@@ -220,6 +223,9 @@ struct SpaceMap: Codable {
         }
         if !cameraID.isEmpty {
             UserDefaults.standard.set(data, forKey: Self.camKey(cameraID: cameraID, displayID: displayID))
+            if displayID != 0 {
+                UserDefaults.standard.set(data, forKey: Self.camKey(cameraID: cameraID, displayID: 0))
+            }
             var ids = UserDefaults.standard.stringArray(forKey: "helios.spaceMap.cameras") ?? []
             if !ids.contains(cameraID) {
                 ids.append(cameraID)

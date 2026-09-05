@@ -1,4 +1,4 @@
-# Helios **1.6.29**
+# Helios **1.6.30**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,14 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.30
+
+1.6.29 hat Cover-Maps unter `cam.<id>.<display>` gespeichert und ohne Display-ID gelesen — Konsole blieb bei „4 Ecken fehlen“. `preparePair` schrieb die Kamera-IDs asynchron, `loadPrefs` las sie sofort.
+
+- **load(cameraID:)** ohne Display findet den Display-Key (Screens + Alias-Key 0). `coverCalibrated` / Start-Kalibrierung übergeben `mainDisplayID`.
+- **preparePair** schreibt UserDefaults auf dem Caller. Nur `preferredID` geht auf die Kamera-Queue.
+- **ScreenGeometry** behält den Observer-Token.
 
 ## Neu in 1.6.29
 

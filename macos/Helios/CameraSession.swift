@@ -127,21 +127,23 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
 
     func preparePair(_ pair: CameraPair, devices: [CameraChoice]) {
         self.pair = pair
-        let snapshot = devices
+        if pair == .single {
+            cameraQueue.async { [weak self] in self?.preferredCoverID = "" }
+            return
+        }
+        let mac = Self.pick(devices, role: .mac)?.id
+        let phone = Self.pick(devices, role: .phone, preferDesk: pair == .macPhone)?.id
+        let osmo = Self.pick(devices, role: .osmo)?.id
+        let ids = CameraRig.resolve(pair: pair, mac: mac, phone: phone, osmo: osmo)
+        if let ids {
+            UserDefaults.standard.set(ids.lead, forKey: "helios.cameraID")
+            UserDefaults.standard.set(ids.cover ?? "", forKey: "helios.coverID")
+        }
         cameraQueue.async { [weak self] in
             guard let self else { return }
-            if pair == .single {
-                self.preferredCoverID = ""
-                return
-            }
-            let mac = Self.pick(snapshot, role: .mac)?.id
-            let phone = Self.pick(snapshot, role: .phone, preferDesk: pair == .macPhone)?.id
-            let osmo = Self.pick(snapshot, role: .osmo)?.id
-            if let ids = CameraRig.resolve(pair: pair, mac: mac, phone: phone, osmo: osmo) {
+            if let ids {
                 self.preferredID = ids.lead
                 self.preferredCoverID = ids.cover ?? ""
-                UserDefaults.standard.set(ids.lead, forKey: "helios.cameraID")
-                UserDefaults.standard.set(ids.cover ?? "", forKey: "helios.coverID")
             }
         }
     }

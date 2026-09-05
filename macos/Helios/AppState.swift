@@ -515,9 +515,10 @@ final class AppState: ObservableObject {
         overlayVisible()
         let coverID = camera.coverID
         let leadID = camera.selectedID
-        let leadReady = SpaceMap.load(cameraID: leadID)?.isReady == true
+        let disp = ScreenGeometry.mainDisplayID
+        let leadReady = SpaceMap.load(cameraID: leadID, displayID: disp)?.isReady == true
         if cameraPair != .single, !coverID.isEmpty, leadReady,
-           SpaceMap.load(cameraID: coverID)?.isReady != true
+           SpaceMap.load(cameraID: coverID, displayID: disp)?.isReady != true
         {
             calibSession.start(cameraID: coverID, label: camera.coverName)
             log.record("Kalibrierung zweiter Winkel: \(camera.coverName)", kind: .info)
@@ -630,7 +631,7 @@ final class AppState: ObservableObject {
             let name = cameraDevices.first(where: { $0.id == done })?.name ?? (done.isEmpty ? deviceName : done)
             log.record("Kalibrierung \(name) — Homographie nimmt Blickwinkel, Weitwinkel und Spiegelung auf.", kind: .info)
             if cameraPair != .single, !camera.coverID.isEmpty, done == camera.selectedID,
-               SpaceMap.load(cameraID: camera.coverID)?.isReady != true
+               SpaceMap.load(cameraID: camera.coverID, displayID: ScreenGeometry.mainDisplayID)?.isReady != true
             {
                 calibSession.start(cameraID: camera.coverID, label: camera.coverName)
                 engine.calibration = calibSession
@@ -757,7 +758,7 @@ final class AppState: ObservableObject {
     }
 
     private func coverCalibrated(_ id: String) -> Bool {
-        !id.isEmpty && SpaceMap.load(cameraID: id)?.isReady == true
+        !id.isEmpty && SpaceMap.load(cameraID: id, displayID: ScreenGeometry.mainDisplayID)?.isReady == true
     }
 
     private func invalidateMaps() {

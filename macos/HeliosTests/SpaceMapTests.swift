@@ -62,6 +62,46 @@ enum SpaceMapTests {
             fputs("FAIL globale Cover-Map darf Lead nicht vergiften\n", stderr)
             exit(1)
         }
+
+        let cam = "helios-test-mismatch"
+        let disp: UInt32 = 99
+        let perCam = SpaceMap(
+            palms: [XY(x: 0, y: 0), XY(x: 1, y: 0), XY(x: 1, y: 1), XY(x: 0, y: 1)],
+            displayID: disp,
+            cameraID: cam
+        )
+        perCam.save()
+        if SpaceMap.load(cameraID: cam)?.isReady != true {
+            fputs("FAIL load ohne displayID findet cam.<id>.<display> nicht\n", stderr)
+            exit(1)
+        }
+        if SpaceMap.load(cameraID: cam, displayID: disp)?.cameraID != cam {
+            fputs("FAIL load mit displayID verfehlt den Key\n", stderr)
+            exit(1)
+        }
+        UserDefaults.standard.removeObject(forKey: SpaceMap.camKey(cameraID: cam, displayID: disp))
+        UserDefaults.standard.removeObject(forKey: SpaceMap.camKey(cameraID: cam, displayID: 0))
+        let main = ScreenGeometry.mainDisplayID
+        if main != 0 {
+            let cam2 = "helios-test-screenloop"
+            SpaceMap(
+                palms: [XY(x: 0, y: 0), XY(x: 1, y: 0), XY(x: 1, y: 1), XY(x: 0, y: 1)],
+                displayID: main,
+                cameraID: cam2
+            ).save()
+            UserDefaults.standard.removeObject(forKey: SpaceMap.camKey(cameraID: cam2, displayID: 0))
+            if SpaceMap.load(cameraID: cam2)?.isReady != true {
+                fputs("FAIL load ohne displayID findet bestehenden Display-Key nicht\n", stderr)
+                exit(1)
+            }
+            UserDefaults.standard.removeObject(forKey: SpaceMap.camKey(cameraID: cam2, displayID: main))
+            UserDefaults.standard.removeObject(forKey: SpaceMap.camKey(cameraID: cam2, displayID: 0))
+            if let ids = UserDefaults.standard.stringArray(forKey: "helios.spaceMap.cameras") {
+                UserDefaults.standard.set(ids.filter { $0 != cam && $0 != cam2 }, forKey: "helios.spaceMap.cameras")
+            }
+        } else if let ids = UserDefaults.standard.stringArray(forKey: "helios.spaceMap.cameras") {
+            UserDefaults.standard.set(ids.filter { $0 != cam }, forKey: "helios.spaceMap.cameras")
+        }
         if let prevGlobal {
             UserDefaults.standard.set(prevGlobal, forKey: globalKey)
         } else {

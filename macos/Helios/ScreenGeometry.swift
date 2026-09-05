@@ -6,6 +6,7 @@ enum ScreenGeometry {
     nonisolated(unsafe) private static var cachedMaxY: CGFloat = 0
     nonisolated(unsafe) private static var dirty = true
     nonisolated(unsafe) private static var observing = false
+    nonisolated(unsafe) private static var observer: NSObjectProtocol?
     private static let lock = NSLock()
 
     private static func watch() {
@@ -14,7 +15,7 @@ enum ScreenGeometry {
         observing = true
         lock.unlock()
         guard !already else { return }
-        NotificationCenter.default.addObserver(
+        observer = NotificationCenter.default.addObserver(
             forName: NSApplication.didChangeScreenParametersNotification,
             object: nil,
             queue: .main

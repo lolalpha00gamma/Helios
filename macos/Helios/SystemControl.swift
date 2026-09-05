@@ -53,6 +53,7 @@ final class SystemControl {
     private var monitors: [Any] = []
     private(set) var mouseHasControl = false
     private let axQ = DispatchQueue(label: "helios.ax", qos: .userInteractive)
+    private var chromeCache: (at: TimeInterval, point: CGPoint, knobs: [ChromeKnob])?
 
     var fromInstallMedia: Bool { AppInstall.isFromDiskImage }
 
@@ -163,6 +164,11 @@ final class SystemControl {
 
     func chromeKnobs(at quartz: CGPoint? = nil) -> [ChromeKnob] {
         guard let win = targetWindow(at: quartz) else { return [] }
+        let loc = quartz ?? lastPosted ?? NSEvent.mouseLocation.screenFlipped
+        let now = CACurrentMediaTime()
+        if let c = chromeCache, now - c.at < 0.26, hypot(c.point.x - loc.x, c.point.y - loc.y) < 16 {
+            return c.knobs
+        }
         let specs: [(ChromeKnob.Kind, CFString)] = [
             (.close, "AXCloseButton" as CFString),
             (.min, "AXMinimizeButton" as CFString),
@@ -180,8 +186,8 @@ final class SystemControl {
                   let size = size(of: el),
                   size.width > 4, size.height > 4
             else { continue }
-            let cocoa = CGRect(origin: pos, size: size)
-            let q = ScreenGeometry.quartzRect(fromCocoa: cocoa)
+            // AXPosition/AXSize are Quartz (origin top-left), not Cocoa.
+            let q = CGRect(origin: pos, size: size)
             out.append(ChromeKnob(kind: kind, quartz: q, hit: q))
             seen.insert(kind)
         }
@@ -189,6 +195,7 @@ final class SystemControl {
         for i in out.indices where i < spread.count {
             out[i].hit = spread[i]
         }
+        chromeCache = (now, loc, out)
         return out
     }
 
@@ -206,8 +213,8 @@ final class SystemControl {
         dragElement = ax(win)
         dragDest = nil
         dragInFlight = false
-        let cocoa = ScreenGeometry.cocoa(fromQuartz: loc)
-        dragGrabOffset = CGPoint(x: cocoa.x - pos.x, y: cocoa.y - pos.y)
+        // AX and the engine cursor are both Quartz. Mixing Cocoa here inverted Y.
+        dragGrabOffset = CGPoint(x: loc.x - pos.x, y: loc.y - pos.y)
         lastPosted = loc
         return .ok("Greifen")
     }
@@ -220,8 +227,7 @@ final class SystemControl {
         guard dragElement != nil else { return }
         let loc = quartz ?? lastPosted ?? NSEvent.mouseLocation.screenFlipped
         lastPosted = loc
-        let cocoa = ScreenGeometry.cocoa(fromQuartz: loc)
-        dragDest = CGPoint(x: cocoa.x - dragGrabOffset.x, y: cocoa.y - dragGrabOffset.y)
+        dragDest = CGPoint(x: loc.x - dragGrabOffset.x, y: loc.y - dragGrabOffset.y)
         pumpDrag()
     }
 
@@ -292,7 +298,8 @@ final class SystemControl {
         let loc = quartz ?? lastPosted ?? NSEvent.mouseLocation.screenFlipped
         let screen = ScreenGeometry.screenContaining(quartz: loc) ?? NSScreen.main
         guard let screen else { return .fail("Kein Bildschirm") }
-        let vis = screen.visibleFrame
+        // visibleFrame is Cocoa; AXPosition wants Quartz (top-left).
+        let vis = ScreenGeometry.quartzRect(fromCocoa: screen.visibleFrame)
         switch edge {
         case .left:
             _ = setPosition(win, vis.origin)
@@ -472,13 +479,12 @@ final class SystemControl {
            let any = ref as? [AnyObject]
         {
             let windows = any.compactMap(Self.asElement)
-            let cocoa = ScreenGeometry.cocoaRect(fromQuartz: bounds)
             var best: AXUIElement?
             var bestArea: CGFloat = 0
             for w in windows {
                 guard let pos = position(of: w), let size = size(of: w) else { continue }
                 let r = CGRect(origin: pos, size: size)
-                let inter = r.intersection(cocoa)
+                let inter = r.intersection(bounds)
                 let area = inter.width * inter.height
                 if area > bestArea, area > 40 {
                     bestArea = area
@@ -498,8 +504,7 @@ final class SystemControl {
     private func window(at point: CGPoint) -> AXUIElement? {
         let sys = ax(AXUIElementCreateSystemWide())
         var ref: AXUIElement?
-        let cocoa = ScreenGeometry.cocoa(fromQuartz: point)
-        let err = AXUIElementCopyElementAtPosition(sys, Float(cocoa.x), Float(cocoa.y), &ref)
+        let err = AXUIElementCopyElementAtPosition(sys, Float(point.x), Float(point.y), &ref)
         guard err == .success, let start = ref else { return nil }
         return ancestorWindow(start)
     }

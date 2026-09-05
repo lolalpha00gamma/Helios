@@ -1,4 +1,4 @@
-# Helios **1.6.27**
+# Helios **1.6.28**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,18 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.28
+
+1.6.22–1.6.27 bauten nicht: `flingVelFromTail` war zweimal deklariert, CoordTests widersprachen sich (Floor ≤ 0,62 und ≥ 0,66). Latest-Download blieb v1.6.21.
+
+- **Build.** Eine `flingVelFromTail`. Aktions-Tor-Tests folgen 0,52–0,68.
+- **AX ist Quartz.** Fensterzug, Andocken und Elementtreffer nicht mehr über Cocoa-Y — vertikal gegen die Hand ist tot.
+- **Konsole bei Scharf aus.** `hide()` hebt den Launch-Pin. Observer werden beim Beenden entfernt.
+- **Uhren.** Drill und Filmstreifen laufen auf der Kamera-PTS, nicht `CACurrentMediaTime`.
+- **Cover-Kalibrierung** schreibt nicht mehr die globale Homographie. Homographie-Cache hält Lead und Cover.
+- **Ring / Preview.** Auflösungswechsel clobbert keine In-Flight-Slots. Preview liest den Buffer vor `release`.
+- **Stillstand** vergleicht Palmen per Hand-ID, nicht Array-Index.
 
 ## Neu in 1.6.27
 

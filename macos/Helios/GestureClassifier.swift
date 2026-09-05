@@ -171,11 +171,11 @@ enum GestureClassifier {
     ) -> PoseFeatures {
         let scale = palmScale(joints, space: space)
         let palm = palmCenter(joints)
-        let thumb = fingerExtension(joints, .thumb, space: space, conf: conf)
-        let index = fingerExtension(joints, .index, space: space, conf: conf)
-        let middle = fingerExtension(joints, .middle, space: space, conf: conf)
-        let ring = fingerExtension(joints, .ring, space: space, conf: conf)
-        let little = fingerExtension(joints, .little, space: space, conf: conf)
+        let thumb = fingerExtension(joints, .thumb, space: space, conf: conf, scale: scale)
+        let index = fingerExtension(joints, .index, space: space, conf: conf, scale: scale)
+        let middle = fingerExtension(joints, .middle, space: space, conf: conf, scale: scale)
+        let ring = fingerExtension(joints, .ring, space: space, conf: conf, scale: scale)
+        let little = fingerExtension(joints, .little, space: space, conf: conf, scale: scale)
 
         let dist: CGFloat = {
             if let a = joints[.thumbTip], let b = joints[.indexTip] {
@@ -292,7 +292,8 @@ enum GestureClassifier {
         _ joints: [VNHumanHandPoseObservation.JointName: CGPoint],
         _ finger: FingerKind,
         space: AspectSpace,
-        conf: [VNHumanHandPoseObservation.JointName: Float]
+        conf: [VNHumanHandPoseObservation.JointName: Float],
+        scale: CGFloat? = nil
     ) -> (score: CGFloat, weight: CGFloat) {
         let tip = finger.tip
         let pip = finger.pip
@@ -305,7 +306,8 @@ enum GestureClassifier {
         if let w = joints[.wrist] {
             let tipD = space.dist(t, w)
             let pipD = space.dist(p, w)
-            let radial = tipD > pipD ? min(1, (tipD - pipD) / max(0.02, palmScale(joints, space: space) * 0.45)) : 0
+            let pal = scale ?? palmScale(joints, space: space)
+            let radial = tipD > pipD ? min(1, (tipD - pipD) / max(0.02, pal * 0.45)) : 0
             score = score * 0.72 + radial * 0.28
         }
         let wgt = CGFloat((conf[tip] ?? 0.5) + (conf[pip] ?? 0.5) + (conf[mcp] ?? 0.5)) / 3
@@ -393,7 +395,6 @@ struct PinchGate {
         conf: [VNHumanHandPoseObservation.JointName: Float],
         now: TimeInterval
     ) -> (closed: Bool, ratio: CGFloat, distance: CGFloat, closedness: Double) {
-        GestureClassifier.space = space
         let scale = max(GestureClassifier.palmScale(raw, space: space), 0.04)
         let tipConf = min(conf[.thumbTip] ?? 0, conf[.indexTip] ?? 0)
         var dTips: CGFloat?

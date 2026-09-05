@@ -76,11 +76,22 @@ final class GPUFrameRing: @unchecked Sendable {
         let w = CVPixelBufferGetWidth(src)
         let h = CVPixelBufferGetHeight(src)
         lock.lock()
-        if slots.count < 4 || width != w || height != h {
+        let sizeChanged = width != w || height != h
+        let tooSmall = slots.count < 4
+        if (tooSmall || sizeChanged) && !busy.contains(true) {
             slots = (0..<8).compactMap { _ in MetalHub.makeBuffer(width: w, height: h) }
             busy = Array(repeating: false, count: slots.count)
             width = w
             height = h
+        } else if sizeChanged, busy.contains(true) {
+            // In-flight slots keep the old size. Don't clobber them — copy to a
+            // one-off buffer the caller must not release into the ring.
+            lock.unlock()
+            if let dst = MetalHub.makeBuffer(width: w, height: h) {
+                MetalHub.copy(src, into: dst)
+                return (dst, -1)
+            }
+            return (src, -1)
         }
         var idx: Int?
         for i in 0..<busy.count where !busy[i] {

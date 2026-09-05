@@ -36,7 +36,9 @@ struct HUDView: View {
                     airKeyboard
                 }
 
-                trashZone
+                if state.showTrashZone {
+                    trashZone
+                }
 
                 if isPrimary {
                     VStack {
@@ -44,9 +46,13 @@ struct HUDView: View {
                             .padding(.top, 18)
                         Spacer()
                         HStack(alignment: .bottom) {
-                            cheatSheet
+                            if state.showCheats {
+                                cheatSheet
+                            }
                             Spacer()
-                            cameraChip
+                            if state.showPreviewChip {
+                                cameraChip
+                            }
                         }
                         .padding(22)
                     }
@@ -162,7 +168,6 @@ struct HUDView: View {
         )
         .shadow(color: (hot ? HeliosTheme.danger : HeliosTheme.cyan).opacity(hot ? 0.7 : 0.2), radius: hot ? 16 : 4)
         .position(x: r.midX, y: r.midY)
-        .opacity(state.showTrashZone ? 1 : 0)
     }
 
     private var topBar: some View {
@@ -235,7 +240,7 @@ struct HUDView: View {
                 .foregroundStyle(HeliosTheme.amber)
                 .lineLimit(1)
             Spacer()
-            Text("\(NSScreen.screens.count) MON")
+            Text("\(state.screenCount) MON")
                 .font(HeliosTheme.mono)
                 .foregroundStyle(HeliosTheme.cyan.opacity(0.7))
             Text(String(format: "%.0f ms   %.0f fps", state.latencyMs, state.fps))
@@ -328,7 +333,7 @@ struct HUDView: View {
             Text("Pinzette kurz    Klick")
             Text("Pinzette ziehen  Fenster")
             Text("Werfen nur Ruck  Dock / Mini")
-            Text("Zeigen 0,4 s     Tastatur")
+            Text("Zeigen 0,85 s    Tastatur")
             Text("Taste verweilen  Tippen")
             Text("Offene Hand wischen  App")
             Text("Eine Hand hoch/runter  Scroll")
@@ -343,7 +348,6 @@ struct HUDView: View {
         .padding(12)
         .background(HeliosTheme.panel)
         .overlay(Rectangle().stroke(HeliosTheme.cyan.opacity(0.25), lineWidth: 1))
-        .opacity(state.showCheats ? 1 : 0)
     }
 
     private var cameraChip: some View {
@@ -374,7 +378,6 @@ struct HUDView: View {
                 ))
             }
         }
-        .opacity(state.showPreviewChip ? 1 : 0)
     }
 
     private func chip(

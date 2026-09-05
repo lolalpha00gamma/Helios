@@ -508,52 +508,6 @@ enum GestureMath {
         )
     }
 
-    /// Velocity from the last 2–3 samples of the window. first→last of a long
-    /// Continuity slice dilutes the flick; the tail is the actual throw.
-    static func flingVelFromTail(
-        _ trail: [(t: TimeInterval, x: CGFloat, y: CGFloat)],
-        palmWidth: CGFloat,
-        aspect: CGFloat = 16 / 9,
-        centerDead: Bool = true,
-        afterDrag: Bool = false,
-        screenUV: CGPoint? = nil,
-        windowSec: TimeInterval = flingWindow
-    ) -> FlingKind {
-        guard let last = trail.last else { return .none }
-        let slice = trail.filter { last.t - $0.t <= windowSec }
-        guard let first = slice.first, last.t > first.t + 0.04 else { return .none }
-        let unit = max(0.04, palmWidth)
-        let dx = (last.x - first.x) * aspect / unit
-        let dy = (last.y - first.y) / unit
-        let dist = hypot(dx, dy)
-        let tail = Array(slice.suffix(3))
-        let t0 = tail.first?.t ?? first.t
-        let x0 = tail.first?.x ?? first.x
-        let y0 = tail.first?.y ?? first.y
-        let dt = max(0.04, last.t - t0)
-        let tdx = (last.x - x0) * aspect / unit
-        let tdy = (last.y - y0) / unit
-        let speed = hypot(tdx, tdy) / CGFloat(dt)
-        if centerDead {
-            let u = screenUV?.x ?? last.x
-            let v = screenUV?.y ?? last.y
-            if CoordMath.nearUnitCenter(u: u, v: v, radius: flingCenter), dist < flingMinDist * 1.7 {
-                return .none
-            }
-        }
-        let speedNeed = flingMinSpeed * (afterDrag ? flingAfterDragMul : 1)
-        let distNeed = flingMinDist * (afterDrag ? flingAfterDragDist : 1)
-        return classifyFling(
-            dx: dx,
-            dy: dy,
-            speed: speed,
-            dist: dist,
-            speedNeed: speedNeed,
-            distNeed: distNeed,
-            afterDrag: afterDrag
-        )
-    }
-
     static func classifyFling(
         dx: CGFloat,
         dy: CGFloat,

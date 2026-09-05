@@ -90,7 +90,7 @@ struct ControlPanel: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Luft-Tastatur")
                         .font(.system(size: 13, weight: .semibold))
-                    Text("Zeigen 0,4 s öffnet QWERTZ in der Luft. Taste 0,12 s halten tippt — ohne Pinzette. Faust schließt.")
+                    Text("Zeigen 0,85 s öffnet QWERTZ in der Luft. Taste 0,12 s halten tippt — ohne Pinzette. Faust schließt.")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }

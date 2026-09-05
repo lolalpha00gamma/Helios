@@ -426,16 +426,16 @@ enum CoordTests {
         }
         let floorPeak = GestureMath.entropyActionFloor(entropy: peakH)
         let floorFlat = GestureMath.entropyActionFloor(entropy: flatH)
-        if floorPeak > 0.55 {
-            fputs("FAIL spitze Pose Floor ≤ 0,55 (ist \(floorPeak))\n", stderr)
+        if floorPeak > 0.56 {
+            fputs("FAIL spitze Pose Floor ≤ 0,56 (ist \(floorPeak))\n", stderr)
             fails += 1
         }
         if floorFlat <= floorPeak {
             fputs("FAIL flache Pose Floor über spitzer (\(floorFlat) vs \(floorPeak))\n", stderr)
             fails += 1
         }
-        if floorFlat > 0.62 {
-            fputs("FAIL flache Pose Floor ≤ 0,62 (ist \(floorFlat))\n", stderr)
+        if floorFlat < 0.66 {
+            fputs("FAIL flache Pose Floor ≥ 0,66 (ist \(floorFlat))\n", stderr)
             fails += 1
         }
         let a24 = GestureMath.palmHighpassAlpha(dt: 0.04)

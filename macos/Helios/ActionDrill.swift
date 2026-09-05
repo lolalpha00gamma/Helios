@@ -68,6 +68,7 @@ final class ActionDrill: ObservableObject {
     @Published var status = "Bereit — 12 Gesten × 3."
 
     private var phaseBegan: TimeInterval = 0
+    private var clockArmed = false
     private var buffer: [DrillSample] = []
     private let isoFmt: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
@@ -93,7 +94,8 @@ final class ActionDrill: ObservableObject {
         buffer = []
         lastEvidence = ""
         countdown = 3
-        phaseBegan = CACurrentMediaTime()
+        clockArmed = false
+        phaseBegan = 0
         status = "Countdown"
     }
 
@@ -106,6 +108,10 @@ final class ActionDrill: ObservableObject {
 
     func tick(hands: [TrackedHand], now: TimeInterval) {
         guard running, phase != .done, phase != .idle else { return }
+        if !clockArmed {
+            phaseBegan = now
+            clockArmed = true
+        }
         let elapsed = now - phaseBegan
         switch phase {
         case .countdown:
@@ -275,7 +281,8 @@ final class ActionDrill: ObservableObject {
         if repeatIndex + 1 < Self.repeats {
             repeatIndex += 1
             phase = .countdown
-            phaseBegan = CACurrentMediaTime()
+            phaseBegan = 0
+            clockArmed = false
             countdown = 3
             return
         }
@@ -283,7 +290,8 @@ final class ActionDrill: ObservableObject {
             actionIndex += 1
             repeatIndex = 0
             phase = .countdown
-            phaseBegan = CACurrentMediaTime()
+            phaseBegan = 0
+            clockArmed = false
             countdown = 3
             return
         }

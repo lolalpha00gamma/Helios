@@ -148,7 +148,7 @@ final class GestureEngine {
     private var lastTickNow: TimeInterval = 0
     private var lastFusionEntropy: Double = 0
     private var tableSince: TimeInterval?
-    private var tablePalms: [CGPoint]?
+    private var tablePalms: [String: CGPoint] = [:]
     private let system = SystemControl()
     var onLog: ((String, ProtocolKind, Int?) -> Void)?
     var focused: FocusedTarget?
@@ -252,7 +252,7 @@ final class GestureEngine {
         lastTickNow = 0
         lastFusionEntropy = 0
         tableSince = nil
-        tablePalms = nil
+        tablePalms = [:]
     }
 
     func tick(hands incoming: [TrackedHand], now: TimeInterval) {
@@ -761,24 +761,26 @@ final class GestureEngine {
     private func driveTableIdle(hands: [TrackedHand], now: TimeInterval) -> Bool {
         guard mode == .armed, !testMode else {
             tableSince = nil
-            tablePalms = nil
+            tablePalms = [:]
             return false
         }
-        let palms = hands.map(\.palm)
         let still: CGFloat = {
-            guard let prev = tablePalms, prev.count == palms.count, prev.count == hands.count else { return 0 }
+            guard !tablePalms.isEmpty else { return 0 }
             var m: CGFloat = 0
-            for i in palms.indices {
-                m = max(m, space.dist(palms[i], prev[i]) / max(0.04, hands[i].palmWidth))
+            var n = 0
+            for h in hands {
+                guard let prev = tablePalms[h.id] else { continue }
+                m = max(m, space.dist(h.palm, prev) / max(0.04, h.palmWidth))
+                n += 1
             }
-            return m
+            return n == 0 ? 0 : m
         }()
-        tablePalms = palms
-        if GestureMath.tableIdleCandidate(palmsY: palms.map(\.y), stillHW: still, pinchHeld: pinchHeld) {
+        tablePalms = Dictionary(uniqueKeysWithValues: hands.map { ($0.id, $0.palm) })
+        if GestureMath.tableIdleCandidate(palmsY: hands.map(\.palm.y), stillHW: still, pinchHeld: pinchHeld) {
             if tableSince == nil { tableSince = now }
             if now - (tableSince ?? now) >= GestureMath.tableIdleHold {
                 tableSince = nil
-                tablePalms = nil
+                tablePalms = [:]
                 mode = .idle
                 mustRearm = true
                 lastAction = "Hände auf dem Tisch — Idle"

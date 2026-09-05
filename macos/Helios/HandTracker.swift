@@ -123,6 +123,7 @@ final class HandTracker: @unchecked Sendable {
     var lastFusion: FusionDebug?
     var depthAvailable = false
     var fusionTemperature: Double = 0.75
+    private(set) var lastSpace = AspectSpace.hd720
     private var lastHands: [TrackedHand] = []
     private var lastHandsAt: TimeInterval = 0
     private var bodyTick = 0
@@ -151,7 +152,7 @@ final class HandTracker: @unchecked Sendable {
         let w = CVPixelBufferGetWidth(pixelBuffer)
         let h = CVPixelBufferGetHeight(pixelBuffer)
         let space = AspectSpace(width: CGFloat(max(1, w)), height: CGFloat(max(1, h)))
-        GestureClassifier.space = space
+        lastSpace = space
 
         let handler = VNImageRequestHandler(
             cvPixelBuffer: pixelBuffer,
@@ -167,11 +168,8 @@ final class HandTracker: @unchecked Sendable {
                 try handler.perform([request])
             }
         } catch {
-            _ = try? VNImageRequestHandler(
-                cvPixelBuffer: pixelBuffer,
-                orientation: orientation,
-                options: [.ciContext: MetalHub.ci]
-            ).perform([request])
+            // Drop the frame. A second VNImageRequestHandler on the same buffer
+            // almost never recovers and burns the rest of the tick.
         }
         let observations = request.results ?? []
         if observations.isEmpty {

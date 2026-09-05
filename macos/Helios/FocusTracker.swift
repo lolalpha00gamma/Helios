@@ -2,6 +2,7 @@ import AppKit
 import ApplicationServices
 import CoreGraphics
 import Foundation
+import QuartzCore
 
 struct FocusedTarget: Equatable {
     var appName: String
@@ -15,6 +16,27 @@ struct FocusedTarget: Equatable {
 
 enum TargetProbe {
     static var selfPID: pid_t { ProcessInfo.processInfo.processIdentifier }
+    private static let listLock = NSLock()
+    nonisolated(unsafe) private static var listCache: (at: TimeInterval, items: [[String: Any]])?
+
+    private static func windowList() -> [[String: Any]]? {
+        let now = CACurrentMediaTime()
+        listLock.lock()
+        if let c = listCache, now - c.at < 0.08 {
+            let items = c.items
+            listLock.unlock()
+            return items
+        }
+        listLock.unlock()
+        guard let list = CGWindowListCopyWindowInfo(
+            [.optionOnScreenOnly, .excludeDesktopElements],
+            kCGNullWindowID
+        ) as? [[String: Any]] else { return nil }
+        listLock.lock()
+        listCache = (now, list)
+        listLock.unlock()
+        return list
+    }
 
     /// Maus in CGWindowList-Koordinaten (Ursprung oben links am Hauptbildschirm).
     static func cursorInWindowList() -> CGPoint {
@@ -26,10 +48,7 @@ enum TargetProbe {
     }
 
     static func frontmost(skipSelf: Bool = true) -> FocusedTarget? {
-        guard let list = CGWindowListCopyWindowInfo(
-            [.optionOnScreenOnly, .excludeDesktopElements],
-            kCGNullWindowID
-        ) as? [[String: Any]] else { return nil }
+        guard let list = windowList() else { return nil }
         for item in list {
             let pid = (item[kCGWindowOwnerPID as String] as? pid_t) ?? 0
             if skipSelf, pid == selfPID { continue }
@@ -59,10 +78,7 @@ enum TargetProbe {
 
     static func windowAt(quartz: CGPoint, skipSelf: Bool = true) -> FocusedTarget? {
         let p = quartz
-        guard let list = CGWindowListCopyWindowInfo(
-            [.optionOnScreenOnly, .excludeDesktopElements],
-            kCGNullWindowID
-        ) as? [[String: Any]] else { return nil }
+        guard let list = windowList() else { return nil }
 
         for item in list {
             let pid = (item[kCGWindowOwnerPID as String] as? pid_t) ?? 0
@@ -87,10 +103,7 @@ enum TargetProbe {
 
     static func window(id: CGWindowID, skipSelf: Bool = true) -> FocusedTarget? {
         guard id != 0 else { return nil }
-        guard let list = CGWindowListCopyWindowInfo(
-            [.optionOnScreenOnly, .excludeDesktopElements],
-            kCGNullWindowID
-        ) as? [[String: Any]] else { return nil }
+        guard let list = windowList() else { return nil }
         for item in list {
             let wid = CGWindowID((item[kCGWindowNumber as String] as? NSNumber)?.uint32Value ?? 0)
             guard wid == id else { continue }

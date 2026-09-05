@@ -98,6 +98,7 @@ final class AppState: ObservableObject {
 
     private var lastArmedConsole: EngineMode = .idle
     private var lastAppliedCameraID = ""
+    private var mapMemo: [String: SpaceMap] = [:]
     private var cancellables: Set<AnyCancellable> = []
     private var didShutdown = false
     private var focusTick = 0
@@ -120,7 +121,6 @@ final class AppState: ObservableObject {
         }
         engine.onLog = { [weak self] text, kind, conf in
             self?.log.record(text, kind: kind, confidence: conf)
-            self?.objectWillChange.send()
         }
         loadPrefs()
         log.objectWillChange
@@ -296,7 +296,7 @@ final class AppState: ObservableObject {
                 now: arrived,
                 luma: luma
             ) {
-                DispatchQueue.main.async { self?.drainApply() }
+                Task { @MainActor in self?.drainApply() }
             }
         }
         camera.coverPipe.onBuffer = { [weak self] pb, arrived, mirrored, orient in
@@ -347,6 +347,7 @@ final class AppState: ObservableObject {
         engine.stopInputClutch()
         overlay.detach()
         stopCamera()
+        ConsolePolicy.uninstall()
     }
 
     func setTestMode(_ on: Bool) {
@@ -535,12 +536,14 @@ final class AppState: ObservableObject {
 
     func clearCalibration() {
         SpaceMap.clear()
+        invalidateMaps()
         engine.spaceMap = nil
         mapReady = false
         log.record("Kalibrierung gelöscht — Relativ-Zeiger", kind: .info)
     }
 
     func reloadSpaceMap() {
+        invalidateMaps()
         let id = usingCover ? camera.coverID : camera.selectedID
         engine.spaceMap = SpaceMap.load(cameraID: id, displayID: ScreenGeometry.mainDisplayID)
             ?? SpaceMap.load(displayID: ScreenGeometry.mainDisplayID)
@@ -622,6 +625,7 @@ final class AppState: ObservableObject {
             drillSavedTest = nil
         }
         if let done = calibSession.consumeFinished() {
+            invalidateMaps()
             let name = cameraDevices.first(where: { $0.id == done })?.name ?? (done.isEmpty ? deviceName : done)
             log.record("Kalibrierung \(name) — Homographie nimmt Blickwinkel, Weitwinkel und Spiegelung auf.", kind: .info)
             if cameraPair != .single, !camera.coverID.isEmpty, done == camera.selectedID,
@@ -657,7 +661,7 @@ final class AppState: ObservableObject {
         if protocolMode {
             recorder.push(
                 hands: hands,
-                preview: preview,
+                preview: preview ?? self.preview,
                 luma: luma,
                 mode: engine.mode,
                 action: engine.lastAction,
@@ -725,14 +729,29 @@ final class AppState: ObservableObject {
         coverError = camera.coverError
         coverID = camera.coverID
         cameraPair = camera.pair
-        coverMapReady = SpaceMap.load(cameraID: camera.coverID)?.isReady == true
+        coverMapReady = cachedMap(cameraID: camera.coverID)?.isReady == true
         actorSource = usingCover ? "cover" : "lead"
     }
 
     private func drainApply() {
         guard let item = applySlot.take() else { return }
+        GestureClassifier.space = tracker.lastSpace
         let fused = fuseHands(lead: item.hands)
-        apply(hands: fused, latency: item.latency, now: item.now, preview: nil, luma: item.luma)
+        apply(hands: fused, latency: item.latency, now: item.now, preview: preview, luma: item.luma)
+    }
+
+    private func cachedMap(cameraID: String, displayID: CGDirectDisplayID = 0) -> SpaceMap? {
+        let disp = displayID == 0 ? ScreenGeometry.mainDisplayID : displayID
+        let key = "\(cameraID)#\(disp)"
+        if let m = mapMemo[key] { return m }
+        let m = SpaceMap.load(cameraID: cameraID, displayID: disp)
+            ?? (cameraID.isEmpty ? nil : SpaceMap.load(displayID: disp))
+        if let m { mapMemo[key] = m }
+        return m
+    }
+
+    private func invalidateMaps() {
+        mapMemo.removeAll()
     }
 
     private func fuseHands(lead: [TrackedHand]) -> [TrackedHand] {
@@ -741,8 +760,8 @@ final class AppState: ObservableObject {
         let leadID = camera.selectedID
         let coverID = camera.coverID
         let disp = ScreenGeometry.mainDisplayID
-        let leadMap = SpaceMap.load(cameraID: leadID, displayID: disp) ?? SpaceMap.load(displayID: disp)
-        let coverMap = SpaceMap.load(cameraID: coverID, displayID: disp)
+        let leadMap = cachedMap(cameraID: leadID, displayID: disp)
+        let coverMap = coverID.isEmpty ? nil : cachedMap(cameraID: coverID, displayID: disp)
 
         if calibSession.active {
             if !calibSession.cameraID.isEmpty, calibSession.cameraID == coverID {

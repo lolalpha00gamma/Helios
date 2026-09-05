@@ -199,8 +199,11 @@ struct SpaceMap: Codable {
 
     func save() {
         guard let data = try? JSONEncoder().encode(self) else { return }
-        UserDefaults.standard.set(data, forKey: "helios.spaceMap")
-        if displayID != 0 {
+        // Cover-Kalibrierung darf die globale Fallback-Homographie des Lead nicht überschreiben.
+        if cameraID.isEmpty {
+            UserDefaults.standard.set(data, forKey: "helios.spaceMap")
+        }
+        if displayID != 0, cameraID.isEmpty {
             UserDefaults.standard.set(data, forKey: Self.storageKey(displayID: displayID))
         }
         if !cameraID.isEmpty {
@@ -211,6 +214,7 @@ struct SpaceMap: Codable {
                 UserDefaults.standard.set(ids, forKey: "helios.spaceMap.cameras")
             }
         }
+        HomographyStore.clear()
     }
 
     static func clear() {
@@ -233,36 +237,45 @@ struct SpaceMap: Codable {
 }
 
 private enum HomographyStore {
+    private struct Slot {
+        var palms: [XY]
+        var displayID: UInt32
+        var cameraID: String
+        var H: [CGFloat]?
+    }
+
     private static let lock = NSLock()
-    nonisolated(unsafe) private static var palms: [XY] = []
-    nonisolated(unsafe) private static var displayID: UInt32 = 0
-    nonisolated(unsafe) private static var cameraID: String = ""
-    nonisolated(unsafe) private static var H: [CGFloat]?
+    private static let cap = 4
+    nonisolated(unsafe) private static var slots: [Slot] = []
 
     static func get(_ src: [XY], displayID: UInt32, cameraID: String = "") -> [CGFloat]? {
         lock.lock()
         defer { lock.unlock() }
-        if src == palms, displayID == Self.displayID, cameraID == Self.cameraID, let H { return H }
+        if let i = slots.firstIndex(where: {
+            $0.cameraID == cameraID && $0.displayID == displayID && $0.palms == src
+        }) {
+            let hit = slots.remove(at: i)
+            slots.append(hit)
+            return hit.H
+        }
         guard src.count == 4 else {
-            palms = src
-            Self.displayID = displayID
-            Self.cameraID = cameraID
-            H = nil
+            upsert(Slot(palms: src, displayID: displayID, cameraID: cameraID, H: nil))
             return nil
         }
-        H = SpaceMap.homography(from: src.map(\.point), to: SpaceMap.screenCorners(displayID: displayID))
-        palms = src
-        Self.displayID = displayID
-        Self.cameraID = cameraID
+        let H = SpaceMap.homography(from: src.map(\.point), to: SpaceMap.screenCorners(displayID: displayID))
+        upsert(Slot(palms: src, displayID: displayID, cameraID: cameraID, H: H))
         return H
+    }
+
+    private static func upsert(_ slot: Slot) {
+        slots.removeAll { $0.cameraID == slot.cameraID && $0.displayID == slot.displayID }
+        slots.append(slot)
+        if slots.count > cap { slots.removeFirst(slots.count - cap) }
     }
 
     static func clear() {
         lock.lock()
-        palms = []
-        displayID = 0
-        cameraID = ""
-        H = nil
+        slots = []
         lock.unlock()
     }
 }

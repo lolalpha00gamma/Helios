@@ -8,10 +8,10 @@ extension Notification.Name {
 @MainActor
 final class HeliosAppDelegate: NSObject, NSApplicationDelegate {
     nonisolated(unsafe) static weak var state: AppState?
+    nonisolated(unsafe) static var openConsole: (() -> Void)?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.regular)
-        ConsolePolicy.openedByUser()
         ConsolePolicy.dressAll()
     }
 
@@ -27,7 +27,7 @@ final class HeliosAppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         ConsolePolicy.show()
-        NotificationCenter.default.post(name: .heliosOpenConsole, object: nil)
+        HeliosAppDelegate.openConsole?()
         return true
     }
 }
@@ -39,16 +39,7 @@ struct HeliosApp: App {
 
     var body: some Scene {
         Window("Helios", id: "konsole") {
-            ControlPanel()
-                .environmentObject(state)
-                .frame(minWidth: 980, minHeight: 620)
-                .onAppear {
-                    state.start()
-                    ConsolePolicy.dressAll()
-                }
-                .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
-                    state.shutdown()
-                }
+            ConsoleRoot(state: state)
         }
         .windowStyle(.automatic)
         .windowResizability(.contentMinSize)
@@ -92,6 +83,31 @@ struct HeliosApp: App {
         MenuBarExtra("Helios", systemImage: "sun.max.fill") {
             MenuBarMenu(state: state)
         }
+    }
+}
+
+private struct ConsoleRoot: View {
+    @ObservedObject var state: AppState
+    @Environment(\.openWindow) private var openWindow
+
+    var body: some View {
+        ControlPanel()
+            .environmentObject(state)
+            .frame(minWidth: 980, minHeight: 620)
+            .onAppear {
+                state.start()
+                ConsolePolicy.dressAll()
+                HeliosAppDelegate.openConsole = {
+                    ConsolePolicy.show()
+                    openWindow(id: "konsole")
+                }
+            }
+            .onReceive(NotificationCenter.default.publisher(for: .heliosOpenConsole)) { _ in
+                openWindow(id: "konsole")
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+                state.shutdown()
+            }
     }
 }
 
@@ -167,6 +183,18 @@ enum ConsolePolicy {
         dressAll()
     }
 
+    static func uninstall() {
+        for o in observers {
+            NotificationCenter.default.removeObserver(o)
+            NSWorkspace.shared.notificationCenter.removeObserver(o)
+        }
+        observers = []
+        if let clickMonitor {
+            NSEvent.removeMonitor(clickMonitor)
+            self.clickMonitor = nil
+        }
+    }
+
     static func dressAll() {
         for w in NSApp.windows where !isHUD(w) {
             dress(w)
@@ -183,7 +211,7 @@ enum ConsolePolicy {
     }
 
     static func hide() {
-        if pinned { return }
+        pinned = false
         hiding = true
         NSApp.setActivationPolicy(.regular)
         for w in NSApp.windows where !isHUD(w) {
@@ -270,9 +298,11 @@ private struct MenuBarMenu: View {
             NSApp.terminate(nil)
         }
         .keyboardShortcut("q")
-        .onReceive(NotificationCenter.default.publisher(for: .heliosOpenConsole)) { _ in
-            ConsolePolicy.show()
-            openWindow(id: "konsole")
+        .onAppear {
+            HeliosAppDelegate.openConsole = {
+                ConsolePolicy.show()
+                openWindow(id: "konsole")
+            }
         }
     }
 }

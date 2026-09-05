@@ -69,6 +69,10 @@ enum Permissions {
         _ = CGRequestScreenCaptureAccess()
     }
 
+    static func screenCaptureGranted() -> Bool {
+        CGPreflightScreenCaptureAccess()
+    }
+
     @MainActor
     static func bootstrap() async {
         _ = await requestCamera()
@@ -79,7 +83,9 @@ enum Permissions {
         if !inputMonitoringGranted() {
             requestInputMonitoring()
         }
-        requestScreenCapture()
+        if !screenCaptureGranted() {
+            requestScreenCapture()
+        }
     }
 
     nonisolated(unsafe) static var onDemand: (@MainActor (PermissionKind) -> Void)?

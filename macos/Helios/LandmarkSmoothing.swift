@@ -36,7 +36,9 @@ struct LandmarkSmoothing {
                 frameJumps.append(space.dist(old, point) / CGFloat(dt))
             }
         }
-        let med = JointGeom.median(jumps + frameJumps)
+        jumps.append(contentsOf: frameJumps)
+        if jumps.count > 80 { jumps.removeFirst(jumps.count - 80) }
+        let med = JointGeom.median(jumps)
         let cap = max(0.8, 3.5 * med)
         for (name, point) in joints {
             if let old = previous[name] {
@@ -55,8 +57,6 @@ struct LandmarkSmoothing {
                 cleaned[name] = point
             }
         }
-        jumps.append(contentsOf: frameJumps)
-        if jumps.count > 80 { jumps.removeFirst(jumps.count - 80) }
 
         var out: [VNHumanHandPoseObservation.JointName: CGPoint] = [:]
         out.reserveCapacity(cleaned.count)

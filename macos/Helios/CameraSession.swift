@@ -47,7 +47,12 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
 
     private let session = AVCaptureSession()
     private let output = AVCaptureVideoDataOutput()
-    private let cameraQueue = DispatchQueue(label: "helios.camera", qos: .userInteractive)
+    private static let cameraKey = DispatchSpecificKey<UInt8>()
+    private let cameraQueue: DispatchQueue = {
+        let q = DispatchQueue(label: "helios.camera", qos: .userInteractive)
+        q.setSpecific(key: CameraSession.cameraKey, value: 1)
+        return q
+    }()
     private let pump = FramePump()
     private var tap: FrameSink?
     private var lastPreview: TimeInterval = 0
@@ -127,18 +132,28 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
 
     func preparePair(_ pair: CameraPair, devices: [CameraChoice]) {
         self.pair = pair
-        if pair == .single {
-            preferredCoverID = ""
-            return
+        onCamera {
+            if pair == .single {
+                self.preferredCoverID = ""
+                return
+            }
+            let mac = Self.pick(devices, role: .mac)?.id
+            let phone = Self.pick(devices, role: .phone, preferDesk: pair == .macPhone)?.id
+            let osmo = Self.pick(devices, role: .osmo)?.id
+            if let ids = CameraRig.resolve(pair: pair, mac: mac, phone: phone, osmo: osmo) {
+                self.preferredID = ids.lead
+                self.preferredCoverID = ids.cover ?? ""
+                UserDefaults.standard.set(ids.lead, forKey: "helios.cameraID")
+                UserDefaults.standard.set(ids.cover ?? "", forKey: "helios.coverID")
+            }
         }
-        let mac = Self.pick(devices, role: .mac)?.id
-        let phone = Self.pick(devices, role: .phone, preferDesk: pair == .macPhone)?.id
-        let osmo = Self.pick(devices, role: .osmo)?.id
-        if let ids = CameraRig.resolve(pair: pair, mac: mac, phone: phone, osmo: osmo) {
-            preferredID = ids.lead
-            preferredCoverID = ids.cover ?? ""
-            UserDefaults.standard.set(ids.lead, forKey: "helios.cameraID")
-            UserDefaults.standard.set(ids.cover ?? "", forKey: "helios.coverID")
+    }
+
+    private func onCamera(_ work: () -> Void) {
+        if DispatchQueue.getSpecific(key: Self.cameraKey) != nil {
+            work()
+        } else {
+            cameraQueue.sync(execute: work)
         }
     }
 
@@ -560,7 +575,6 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         }
     }
 
-    private let previewQueue = DispatchQueue(label: "helios.preview", qos: .utility)
     private var lastLuma: CGFloat = 0.5
     private var lastLumaAt: TimeInterval = 0
 
@@ -578,9 +592,10 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         handler?(vision, nil, luma, arrived)
         if now - lastPreview >= 0.16 {
             lastPreview = now
-            previewQueue.async { [weak self] in
-                guard let img = self?.makePreview(pb) else { return }
-                DispatchQueue.main.async { self?.pushPreview(img) }
+            // Render while the ring slot is still ours. Async makePreview after
+            // release() reads a buffer the camera may already have overwritten.
+            if let img = makePreview(pb) {
+                DispatchQueue.main.async { [weak self] in self?.pushPreview(img) }
             }
         }
     }
@@ -698,8 +713,17 @@ private final class FrameSink: NSObject, AVCaptureVideoDataOutputSampleBufferDel
 
 /// Zweite AVCaptureSession — anderer Blickwinkel. Vision gedrosselt, kein Depth.
 final class CoverCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, @unchecked Sendable {
-    var onBuffer: ((CVPixelBuffer, TimeInterval, Bool, CGImagePropertyOrientation) -> Void)?
-    var onPreview: ((NSImage) -> Void)?
+    private let cbLock = NSLock()
+    private var bufferCB: ((CVPixelBuffer, TimeInterval, Bool, CGImagePropertyOrientation) -> Void)?
+    private var previewCB: ((NSImage) -> Void)?
+    var onBuffer: ((CVPixelBuffer, TimeInterval, Bool, CGImagePropertyOrientation) -> Void)? {
+        get { cbLock.lock(); defer { cbLock.unlock() }; return bufferCB }
+        set { cbLock.lock(); bufferCB = newValue; cbLock.unlock() }
+    }
+    var onPreview: ((NSImage) -> Void)? {
+        get { cbLock.lock(); defer { cbLock.unlock() }; return previewCB }
+        set { cbLock.lock(); previewCB = newValue; cbLock.unlock() }
+    }
     private(set) var isMirrored = false
     private(set) var visionOrientation: CGImagePropertyOrientation = .up
 
@@ -800,11 +824,13 @@ final class CoverCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         guard now - last >= 0.05 else { return }
         last = now
         guard let pb = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-        onBuffer?(pb, now, isMirrored, visionOrientation)
+        let buffer = onBuffer
+        let preview = onPreview
+        buffer?(pb, now, isMirrored, visionOrientation)
         if lastPreview == 0 || now - lastPreview >= 0.12 {
             lastPreview = now
             if let img = Self.preview(pb) {
-                DispatchQueue.main.async { self.onPreview?(img) }
+                DispatchQueue.main.async { preview?(img) }
             }
         }
     }

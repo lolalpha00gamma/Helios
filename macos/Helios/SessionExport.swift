@@ -41,10 +41,10 @@ struct GestureFrame: Codable {
 @MainActor
 final class SessionRecorder {
     private var frames: [GestureFrame] = []
-    private var thumbs: [(hands: [HandSnap], t: Double)] = []
+    private var thumbs: [(hands: [HandSnap], t: Double, image: NSImage?)] = []
     private var lastFrameAt: TimeInterval = 0
     private var lastThumbAt: TimeInterval = 0
-    private let t0 = CACurrentMediaTime()
+    private var t0: TimeInterval?
     private let maxFrames = 2400
     private let maxThumbs = 16
     private let iso = ISO8601DateFormatter()
@@ -59,11 +59,13 @@ final class SessionRecorder {
         action: String,
         now: TimeInterval
     ) {
+        if t0 == nil { t0 = now }
+        let origin = t0 ?? now
         if now - lastFrameAt < 0.12 { return }
         lastFrameAt = now
         let snaps = hands.map(Self.snap)
         let frame = GestureFrame(
-            t: now - t0,
+            t: now - origin,
             iso: iso.string(from: Date()),
             luma: Double(luma),
             mode: mode.labelDE,
@@ -76,7 +78,7 @@ final class SessionRecorder {
         }
         if now - lastThumbAt >= 0.40, !snaps.isEmpty {
             lastThumbAt = now
-            thumbs.append((snaps, now - t0))
+            thumbs.append((snaps, now - origin, preview))
             if thumbs.count > maxThumbs {
                 thumbs.removeFirst(thumbs.count - maxThumbs)
             }
@@ -189,7 +191,7 @@ final class SessionRecorder {
                     width: cell.width,
                     height: cell.height
                 )
-                GestureDraw.composite(image: nil, hands: thumb.hands, in: box)
+                GestureDraw.composite(image: thumb.image, hands: thumb.hands, in: box)
                 let label = String(format: "%.1fs  %@", thumb.t, thumb.hands.map(\.pose).joined(separator: " · "))
                 (label as NSString).draw(
                     at: CGPoint(x: box.minX + 6, y: box.minY + 4),

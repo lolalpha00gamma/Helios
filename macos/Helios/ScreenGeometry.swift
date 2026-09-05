@@ -2,15 +2,35 @@ import AppKit
 import CoreGraphics
 
 enum ScreenGeometry {
+    private static var cachedUnion: CGRect = .null
+    private static var cachedMaxY: CGFloat = 0
+    private static var cachedHash = 0
+
+    private static func refresh() {
+        let screens = NSScreen.screens
+        var h = screens.count &* 1_000_003
+        for s in screens {
+            let f = s.frame
+            h = h &+ Int(f.minX.rounded()) &+ Int(f.minY.rounded()) &* 31
+                &+ Int(f.width.rounded()) &* 17 &+ Int(f.height.rounded())
+        }
+        if h == cachedHash, cachedMaxY > 0 { return }
+        cachedHash = h
+        cachedUnion = screens.map(\.frame).reduce(.null) { $0.union($1) }
+        cachedMaxY = screens.first {
+            abs($0.frame.minX) < 0.5 && abs($0.frame.minY) < 0.5
+        }?.frame.maxY ?? NSScreen.main?.frame.maxY ?? 0
+    }
+
     static var cocoaUnion: CGRect {
-        NSScreen.screens.map(\.frame).reduce(.null) { $0.union($1) }
+        refresh()
+        return cachedUnion
     }
 
     /// Cocoa-Y des oberen Rands am Hauptbildschirm (Ursprung 0,0). Nicht die Union.
     static var primaryCocoaMaxY: CGFloat {
-        NSScreen.screens.first {
-            abs($0.frame.minX) < 0.5 && abs($0.frame.minY) < 0.5
-        }?.frame.maxY ?? NSScreen.main?.frame.maxY ?? 0
+        refresh()
+        return cachedMaxY
     }
 
     static func quartz(fromCocoa p: CGPoint) -> CGPoint {

@@ -88,15 +88,16 @@ struct PoseHMM {
         if a == b { return 1 }
         if b == .unknown { return 0.05 }
         if a == .unknown { return 0.22 }
-        let close: Set<[HandPose]> = [
-            [.pinch, .fist], [.fist, .pinch],
-            [.pinch, .point], [.point, .pinch],
-            [.point, .peace], [.peace, .point],
-            [.openPalm, .peace], [.peace, .openPalm],
-            [.fist, .thumbsUp], [.thumbsUp, .fist]
-        ]
-        if close.contains([a, b]) { return 0.28 }
-        return 0.08
+        switch (a, b) {
+        case (.pinch, .fist), (.fist, .pinch),
+             (.pinch, .point), (.point, .pinch),
+             (.point, .peace), (.peace, .point),
+             (.openPalm, .peace), (.peace, .openPalm),
+             (.fist, .thumbsUp), (.thumbsUp, .fist):
+            return 0.28
+        default:
+            return 0.08
+        }
     }
 
     private func logSumExp(_ a: Double, _ b: Double) -> Double {

@@ -15,6 +15,7 @@ struct AirKeyHit: Equatable, Identifiable {
 }
 
 enum AirLayout {
+    private static var cache: (rect: CGRect, hits: [AirKeyHit])?
     static let rows: [[(id: String, label: String, code: UInt16, kind: AirKeyHit.Kind)]] = [
         [
             ("1", "1", 0x12, .char), ("2", "2", 0x13, .char), ("3", "3", 0x14, .char),
@@ -46,6 +47,7 @@ enum AirLayout {
     ]
 
     static func hits(inQuartz screen: CGRect) -> [AirKeyHit] {
+        if let c = cache, c.rect == screen { return c.hits }
         let margin: CGFloat = 48
         let boardW = min(screen.width - margin * 2, 1280)
         let boardH: CGFloat = 340
@@ -76,6 +78,7 @@ enum AirLayout {
                 x += w + gap
             }
         }
+        cache = (screen, out)
         return out
     }
 

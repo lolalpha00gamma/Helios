@@ -193,12 +193,20 @@ struct SpaceMap: Codable {
         }
         if displayID != 0,
            let data = UserDefaults.standard.data(forKey: storageKey(displayID: displayID)),
-           let map = try? JSONDecoder().decode(SpaceMap.self, from: data)
+           let map = decodeAnonymous(data)
         {
             return map
         }
         guard let data = UserDefaults.standard.data(forKey: "helios.spaceMap") else { return nil }
-        return try? JSONDecoder().decode(SpaceMap.self, from: data)
+        return decodeAnonymous(data)
+    }
+
+    /// Globale / Display-Keys sind Lead-Fallback. 1.6.27 hat Cover dorthin geschrieben —
+    /// eine Map mit cameraID gehört nicht in den anonymen Slot.
+    private static func decodeAnonymous(_ data: Data) -> SpaceMap? {
+        guard let map = try? JSONDecoder().decode(SpaceMap.self, from: data) else { return nil }
+        if !map.cameraID.isEmpty { return nil }
+        return map
     }
 
     func save() {

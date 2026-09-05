@@ -49,6 +49,19 @@ enum SpaceMapTests {
             fputs("FAIL globale Map ohne cameraID lesbar\n", stderr)
             exit(1)
         }
+        let coverBlob = SpaceMap(
+            palms: [XY(x: 0, y: 0), XY(x: 1, y: 0), XY(x: 1, y: 1), XY(x: 0, y: 1)],
+            cameraID: "cover-poison"
+        )
+        guard let coverData = try? JSONEncoder().encode(coverBlob) else {
+            fputs("FAIL encode Cover-Map\n", stderr)
+            exit(1)
+        }
+        UserDefaults.standard.set(coverData, forKey: globalKey)
+        if SpaceMap.load() != nil {
+            fputs("FAIL globale Cover-Map darf Lead nicht vergiften\n", stderr)
+            exit(1)
+        }
         if let prevGlobal {
             UserDefaults.standard.set(prevGlobal, forKey: globalKey)
         } else {

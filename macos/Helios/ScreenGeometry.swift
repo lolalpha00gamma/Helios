@@ -34,7 +34,7 @@ enum ScreenGeometry {
         }
         lock.unlock()
         let screens = NSScreen.screens
-        let union = screens.map(\.frame).reduce(.null) { $0.union($1) }
+        let union = screens.map(\.frame).reduce(CGRect.null) { $0.union($1) }
         let maxY = screens.first {
             abs($0.frame.minX) < 0.5 && abs($0.frame.minY) < 0.5
         }?.frame.maxY ?? NSScreen.main?.frame.maxY ?? 0

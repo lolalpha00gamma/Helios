@@ -25,8 +25,8 @@ Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Da
 
 - **Ring.** `pendingW/H` — One-off nur solange alte Slots busy sind. `release` baut um, sobald der Ring frei ist.
 - **chromeKnobs** prüft den Cache zuerst. Ohne Fenster wird die Leere 260 ms gehalten.
-- **Cover-Map** nur aus cam-spezifischem Key. Globales `helios.spaceMap` ist Lead-Fallback, nicht Cover.
-- **ScreenGeometry** invalidiert über `didChangeScreenParameters`, nicht per Hash jedes Frames.
+- **Cover-Map** nur aus cam-spezifischem Key. Globales `helios.spaceMap` ist Lead-Fallback, nicht Cover. Eine Map mit `cameraID` im globalen Slot gilt nicht als Lead.
+- **ScreenGeometry** invalidiert über `didChangeScreenParameters`. `swiftc` braucht `CGRect.null`, nicht `.null`.
 - **preparePair** `async` auf der Kamera-Queue, kein `sync` auf dem Main-Thread.
 - **Observer** nur auf dem Center, das sie registriert hat.
 

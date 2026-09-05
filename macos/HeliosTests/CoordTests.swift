@@ -57,11 +57,12 @@ enum CoordTests {
         eq(ax.height, 300, "AX h")
         eq(ax.maxY, primaryH - 80, "AX top in cocoa")
 
-        // AXUIElementCopyElementAtPosition und AXPosition sind Cocoa, nicht Quartz.
+        // AXPosition / CopyElementAtPosition sind Quartz (Ursprung oben links).
+        // Cocoa-Y = primaryMaxY − Quartz-Y — nur NSScreen / NSEvent brauchen die Drehung.
         let quartzCursor = CGPoint(x: 200, y: 100)
         let axHit = CoordMath.cocoa(fromQuartz: quartzCursor, primaryMaxY: primaryH)
-        eq(axHit.x, 200, "AX hit-test x")
-        eq(axHit.y, primaryH - 100, "AX hit-test y (nicht Quartz)")
+        eq(axHit.x, 200, "Cocoa-Y x")
+        eq(axHit.y, primaryH - 100, "Cocoa-Y = primaryMaxY − Quartz-Y")
 
         // Overlay: Quartz-minY ist die obere Kante, nicht maxY.
         let screen = CGRect(x: 0, y: 0, width: 1920, height: 1080)
@@ -864,12 +865,12 @@ enum CoordTests {
             fputs("FAIL 3 px ist Hardware\n", stderr)
             fails += 1
         }
-        let win = CGRect(x: 0, y: 0, width: 800, height: 600)
-        if !GestureMath.twoPinchOppositeHalves(CGPoint(x: 80, y: 300), CGPoint(x: 720, y: 300), window: win) {
+        let pinchWin = CGRect(x: 0, y: 0, width: 800, height: 600)
+        if !GestureMath.twoPinchOppositeHalves(CGPoint(x: 80, y: 300), CGPoint(x: 720, y: 300), window: pinchWin) {
             fputs("FAIL gegenüberliegende Hälften\n", stderr)
             fails += 1
         }
-        if GestureMath.twoPinchOppositeHalves(CGPoint(x: 80, y: 100), CGPoint(x: 90, y: 120), window: win) {
+        if GestureMath.twoPinchOppositeHalves(CGPoint(x: 80, y: 100), CGPoint(x: 90, y: 120), window: pinchWin) {
             fputs("FAIL gleiche Ecke ist nicht gegenüber\n", stderr)
             fails += 1
         }

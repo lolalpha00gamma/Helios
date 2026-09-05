@@ -186,6 +186,10 @@ struct SpaceMap: Codable {
             {
                 return map
             }
+            // Cover/Lead-cam keys are exact. Global helios.spaceMap is lead-only fallback
+            // (empty cameraID). 1.6.27 wrote cover into global — inheriting it here
+            // marked Cover as calibrated without a Cover-Kamera.
+            return nil
         }
         if displayID != 0,
            let data = UserDefaults.standard.data(forKey: storageKey(displayID: displayID)),

@@ -70,23 +70,20 @@ final class GPUFrameRing: @unchecked Sendable {
     private var busy: [Bool] = []
     private var width = 0
     private var height = 0
+    private var pendingW = 0
+    private var pendingH = 0
     private let lock = NSLock()
 
     func copy(_ src: CVPixelBuffer) -> (CVPixelBuffer, Int) {
         let w = CVPixelBufferGetWidth(src)
         let h = CVPixelBufferGetHeight(src)
         lock.lock()
-        let sizeChanged = width != w || height != h
-        let tooSmall = slots.count < 4
-        if (tooSmall || sizeChanged) && !busy.contains(true) {
-            slots = (0..<8).compactMap { _ in MetalHub.makeBuffer(width: w, height: h) }
-            busy = Array(repeating: false, count: slots.count)
-            width = w
-            height = h
-        } else if sizeChanged, busy.contains(true) {
-            // In-flight slots keep the old size. Don't clobber them — copy to a
-            // one-off buffer the caller must not release into the ring.
+        rebuildIfIdle(width: w, height: h)
+        if width != w || height != h {
+            pendingW = w
+            pendingH = h
             lock.unlock()
+            // In-flight slots keep the old size. One-off until release() rebuilds.
             if let dst = MetalHub.makeBuffer(width: w, height: h) {
                 MetalHub.copy(src, into: dst)
                 return (dst, -1)
@@ -118,6 +115,22 @@ final class GPUFrameRing: @unchecked Sendable {
         guard slot >= 0 else { return }
         lock.lock()
         if slot < busy.count { busy[slot] = false }
+        if pendingW > 0 {
+            rebuildIfIdle(width: pendingW, height: pendingH)
+        }
         lock.unlock()
+    }
+
+    /// Caller holds `lock`.
+    private func rebuildIfIdle(width w: Int, height h: Int) {
+        guard w > 0, h > 0 else { return }
+        let need = slots.count < 4 || width != w || height != h
+        guard need, !busy.contains(true) else { return }
+        slots = (0..<8).compactMap { _ in MetalHub.makeBuffer(width: w, height: h) }
+        busy = Array(repeating: false, count: slots.count)
+        width = w
+        height = h
+        pendingW = 0
+        pendingH = 0
     }
 }

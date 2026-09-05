@@ -47,12 +47,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
 
     private let session = AVCaptureSession()
     private let output = AVCaptureVideoDataOutput()
-    private static let cameraKey = DispatchSpecificKey<UInt8>()
-    private let cameraQueue: DispatchQueue = {
-        let q = DispatchQueue(label: "helios.camera", qos: .userInteractive)
-        q.setSpecific(key: CameraSession.cameraKey, value: 1)
-        return q
-    }()
+    private let cameraQueue = DispatchQueue(label: "helios.camera", qos: .userInteractive)
     private let pump = FramePump()
     private var tap: FrameSink?
     private var lastPreview: TimeInterval = 0
@@ -132,28 +127,22 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
 
     func preparePair(_ pair: CameraPair, devices: [CameraChoice]) {
         self.pair = pair
-        onCamera {
+        let snapshot = devices
+        cameraQueue.async { [weak self] in
+            guard let self else { return }
             if pair == .single {
                 self.preferredCoverID = ""
                 return
             }
-            let mac = Self.pick(devices, role: .mac)?.id
-            let phone = Self.pick(devices, role: .phone, preferDesk: pair == .macPhone)?.id
-            let osmo = Self.pick(devices, role: .osmo)?.id
+            let mac = Self.pick(snapshot, role: .mac)?.id
+            let phone = Self.pick(snapshot, role: .phone, preferDesk: pair == .macPhone)?.id
+            let osmo = Self.pick(snapshot, role: .osmo)?.id
             if let ids = CameraRig.resolve(pair: pair, mac: mac, phone: phone, osmo: osmo) {
                 self.preferredID = ids.lead
                 self.preferredCoverID = ids.cover ?? ""
                 UserDefaults.standard.set(ids.lead, forKey: "helios.cameraID")
                 UserDefaults.standard.set(ids.cover ?? "", forKey: "helios.coverID")
             }
-        }
-    }
-
-    private func onCamera(_ work: () -> Void) {
-        if DispatchQueue.getSpecific(key: Self.cameraKey) != nil {
-            work()
-        } else {
-            cameraQueue.sync(execute: work)
         }
     }
 

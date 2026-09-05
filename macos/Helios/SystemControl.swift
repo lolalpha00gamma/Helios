@@ -163,11 +163,14 @@ final class SystemControl {
     }
 
     func chromeKnobs(at quartz: CGPoint? = nil) -> [ChromeKnob] {
-        guard let win = targetWindow(at: quartz) else { return [] }
         let loc = quartz ?? lastPosted ?? NSEvent.mouseLocation.screenFlipped
         let now = CACurrentMediaTime()
         if let c = chromeCache, now - c.at < 0.26, hypot(c.point.x - loc.x, c.point.y - loc.y) < 16 {
             return c.knobs
+        }
+        guard let win = targetWindow(at: loc) else {
+            chromeCache = (now, loc, [])
+            return []
         }
         let specs: [(ChromeKnob.Kind, CFString)] = [
             (.close, "AXCloseButton" as CFString),

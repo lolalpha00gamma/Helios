@@ -117,7 +117,7 @@ enum ConsolePolicy {
     private static var hiding = false
     private static var pinned = false
     private static var consoleHeld = false
-    private static var observers: [NSObjectProtocol] = []
+    private static var observers: [(NotificationCenter, NSObjectProtocol)] = []
     private static var clickMonitor: Any?
 
     static func isHUD(_ w: NSWindow) -> Bool {
@@ -143,32 +143,44 @@ enum ConsolePolicy {
                 if w.isMainWindow { w.resignMain() }
             }
         }
-        observers.append(NotificationCenter.default.addObserver(
-            forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main, using: bounce
+        observers.append((
+            NotificationCenter.default,
+            NotificationCenter.default.addObserver(
+                forName: NSWindow.didBecomeKeyNotification, object: nil, queue: .main, using: bounce
+            )
         ))
-        observers.append(NotificationCenter.default.addObserver(
-            forName: NSWindow.didBecomeMainNotification, object: nil, queue: .main, using: bounce
+        observers.append((
+            NotificationCenter.default,
+            NotificationCenter.default.addObserver(
+                forName: NSWindow.didBecomeMainNotification, object: nil, queue: .main, using: bounce
+            )
         ))
-        observers.append(NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
-        ) { note in
-            let bid = (note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier
-            Task { @MainActor in
-                if let bid, bid != Bundle.main.bundleIdentifier {
+        observers.append((
+            NSWorkspace.shared.notificationCenter,
+            NSWorkspace.shared.notificationCenter.addObserver(
+                forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+            ) { note in
+                let bid = (note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?.bundleIdentifier
+                Task { @MainActor in
+                    if let bid, bid != Bundle.main.bundleIdentifier {
+                        consoleHeld = false
+                    }
+                }
+            }
+        ))
+        observers.append((
+            NotificationCenter.default,
+            NotificationCenter.default.addObserver(
+                forName: NSWindow.willCloseNotification, object: nil, queue: .main
+            ) { note in
+                let hud = note.object is HUDPanel
+                if hud { return }
+                Task { @MainActor in
+                    pinned = false
                     consoleHeld = false
                 }
             }
-        })
-        observers.append(NotificationCenter.default.addObserver(
-            forName: NSWindow.willCloseNotification, object: nil, queue: .main
-        ) { note in
-            let hud = note.object is HUDPanel
-            if hud { return }
-            Task { @MainActor in
-                pinned = false
-                consoleHeld = false
-            }
-        })
+        ))
         if clickMonitor == nil {
             clickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { event in
                 let ok = event.window != nil && !(event.window is HUDPanel)
@@ -184,9 +196,8 @@ enum ConsolePolicy {
     }
 
     static func uninstall() {
-        for o in observers {
-            NotificationCenter.default.removeObserver(o)
-            NSWorkspace.shared.notificationCenter.removeObserver(o)
+        for (center, token) in observers {
+            center.removeObserver(token)
         }
         observers = []
         if let clickMonitor {

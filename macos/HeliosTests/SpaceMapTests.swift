@@ -29,6 +29,32 @@ enum SpaceMapTests {
             fputs("FAIL scale \(q)\n", stderr)
             exit(1)
         }
+
+        let globalKey = "helios.spaceMap"
+        let prevGlobal = UserDefaults.standard.data(forKey: globalKey)
+        let sample = SpaceMap(
+            palms: [XY(x: 0, y: 0), XY(x: 1, y: 0), XY(x: 1, y: 1), XY(x: 0, y: 1)],
+            cameraID: ""
+        )
+        guard let blob = try? JSONEncoder().encode(sample) else {
+            fputs("FAIL encode SpaceMap\n", stderr)
+            exit(1)
+        }
+        UserDefaults.standard.set(blob, forKey: globalKey)
+        if SpaceMap.load(cameraID: "cover-test-cam") != nil {
+            fputs("FAIL Cover erbt globale Homographie\n", stderr)
+            exit(1)
+        }
+        if SpaceMap.load() == nil {
+            fputs("FAIL globale Map ohne cameraID lesbar\n", stderr)
+            exit(1)
+        }
+        if let prevGlobal {
+            UserDefaults.standard.set(prevGlobal, forKey: globalKey)
+        } else {
+            UserDefaults.standard.removeObject(forKey: globalKey)
+        }
+
         print("SpaceMapTests OK")
     }
 

@@ -1,4 +1,4 @@
-# Helios **1.6.28**
+# Helios **1.6.29**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,17 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.29
+
+1.6.28 hat den Ring nach einem Auflösungswechsel nicht wieder aufgebaut, Cover als kalibriert gemeldet ohne Cover-Kamera, und chromeKnobs vor dem Cache AX gerufen.
+
+- **Ring.** `pendingW/H` — One-off nur solange alte Slots busy sind. `release` baut um, sobald der Ring frei ist.
+- **chromeKnobs** prüft den Cache zuerst. Ohne Fenster wird die Leere 260 ms gehalten.
+- **Cover-Map** nur aus cam-spezifischem Key. Globales `helios.spaceMap` ist Lead-Fallback, nicht Cover.
+- **ScreenGeometry** invalidiert über `didChangeScreenParameters`, nicht per Hash jedes Frames.
+- **preparePair** `async` auf der Kamera-Queue, kein `sync` auf dem Main-Thread.
+- **Observer** nur auf dem Center, das sie registriert hat.
 
 ## Neu in 1.6.28
 

@@ -436,7 +436,7 @@ final class AppState: ObservableObject {
         engine.spaceMap = SpaceMap.load(cameraID: selectedCameraID, displayID: ScreenGeometry.mainDisplayID)
             ?? SpaceMap.load(displayID: ScreenGeometry.mainDisplayID)
         mapReady = engine.spaceMap?.isReady == true
-        coverMapReady = SpaceMap.load(cameraID: UserDefaults.standard.string(forKey: "helios.coverID") ?? "")?.isReady == true
+        coverMapReady = coverCalibrated(UserDefaults.standard.string(forKey: "helios.coverID") ?? "")
     }
 
     func setHideConsoleWhenArmed(_ on: Bool) {
@@ -506,7 +506,7 @@ final class AppState: ObservableObject {
         }
         coverID = id
         camera.assign(lead: selectedCameraID, cover: id)
-        coverMapReady = SpaceMap.load(cameraID: id)?.isReady == true
+        coverMapReady = coverCalibrated(id)
         log.record("Cover/Osmo: \(cameraDevices.first(where: { $0.id == id })?.name ?? id)", kind: .info)
     }
 
@@ -539,6 +539,7 @@ final class AppState: ObservableObject {
         invalidateMaps()
         engine.spaceMap = nil
         mapReady = false
+        coverMapReady = false
         log.record("Kalibrierung gelöscht — Relativ-Zeiger", kind: .info)
     }
 
@@ -548,7 +549,7 @@ final class AppState: ObservableObject {
         engine.spaceMap = SpaceMap.load(cameraID: id, displayID: ScreenGeometry.mainDisplayID)
             ?? SpaceMap.load(displayID: ScreenGeometry.mainDisplayID)
         mapReady = engine.spaceMap?.isReady == true
-        coverMapReady = SpaceMap.load(cameraID: camera.coverID)?.isReady == true
+        coverMapReady = coverCalibrated(camera.coverID)
     }
 
     private func overlayVisible() {
@@ -729,7 +730,7 @@ final class AppState: ObservableObject {
         coverError = camera.coverError
         coverID = camera.coverID
         cameraPair = camera.pair
-        coverMapReady = cachedMap(cameraID: camera.coverID)?.isReady == true
+        coverMapReady = coverCalibrated(camera.coverID)
         actorSource = usingCover ? "cover" : "lead"
     }
 
@@ -740,14 +741,23 @@ final class AppState: ObservableObject {
         apply(hands: fused, latency: item.latency, now: item.now, preview: preview, luma: item.luma)
     }
 
-    private func cachedMap(cameraID: String, displayID: CGDirectDisplayID = 0) -> SpaceMap? {
+    private func cachedMap(cameraID: String, displayID: CGDirectDisplayID = 0, fallback: Bool = false) -> SpaceMap? {
         let disp = displayID == 0 ? ScreenGeometry.mainDisplayID : displayID
-        let key = "\(cameraID)#\(disp)"
+        let key = "\(cameraID)#\(disp)#\(fallback ? "f" : "x")"
         if let m = mapMemo[key] { return m }
-        let m = SpaceMap.load(cameraID: cameraID, displayID: disp)
-            ?? (cameraID.isEmpty ? nil : SpaceMap.load(displayID: disp))
-        if let m { mapMemo[key] = m }
-        return m
+        if let m = SpaceMap.load(cameraID: cameraID, displayID: disp) {
+            mapMemo[key] = m
+            return m
+        }
+        if fallback, !cameraID.isEmpty, let m = SpaceMap.load(displayID: disp) {
+            mapMemo[key] = m
+            return m
+        }
+        return nil
+    }
+
+    private func coverCalibrated(_ id: String) -> Bool {
+        !id.isEmpty && SpaceMap.load(cameraID: id)?.isReady == true
     }
 
     private func invalidateMaps() {
@@ -760,7 +770,7 @@ final class AppState: ObservableObject {
         let leadID = camera.selectedID
         let coverID = camera.coverID
         let disp = ScreenGeometry.mainDisplayID
-        let leadMap = cachedMap(cameraID: leadID, displayID: disp)
+        let leadMap = cachedMap(cameraID: leadID, displayID: disp, fallback: true)
         let coverMap = coverID.isEmpty ? nil : cachedMap(cameraID: coverID, displayID: disp)
 
         if calibSession.active {

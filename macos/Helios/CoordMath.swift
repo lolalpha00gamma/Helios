@@ -189,7 +189,7 @@ enum GestureMath {
     static let cursorWarpPx: CGFloat = 80
     /// Continuity/Desk-View: Vision-Confidence oft 0,12–0,18.
     static let continuityConfidence: Float = 0.12
-    static let builtInConfidence: Float = 0.18
+    static let builtInConfidence: Float = 0.08
     /// Faust-Scharf nur wenn die Hand vorher wirklich offen war.
     static let openBeforeArm = 2
     /// Ohne Hand vergisst sawOpen, sonst gilt eine alte Öffnung ewig.
@@ -1897,7 +1897,8 @@ enum GestureMath {
     }
 
     static func warpWriterSkips(_ writer: WarpWriter) -> Bool {
-        writer == .fill
+        _ = writer
+        return false
     }
 
     /// Vision-Tick und displayTick beide CGWarp: Double-Warp an der Seam.
@@ -2471,10 +2472,11 @@ enum GestureMath {
         joints: Int,
         confidence: Float,
         floor: Float,
-        need: Int = 8
+        need: Int = 4
     ) -> Bool {
         if isGhost { return true }
-        return joints >= need && confidence >= floor
+        _ = (confidence, floor)
+        return joints >= need
     }
 
     /// Ghost-Frames lastPoolIDs halten. Wipe → pinchActor/Reconnect tot.

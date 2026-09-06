@@ -951,7 +951,7 @@ final class GestureEngine {
             lastPointerT = now
         } else {
             placeCursor(cursorHandLive, now: now)
-            if !testMode, !system.isDragging, cursorDidMove, cursorHandLive.pose != .fist, let p = cursor {
+            if !testMode, !system.isDragging, cursorDidMove, let p = cursor {
                 if !GestureMath.warpWriterSkips(GestureMath.warpWriter(linkArmed: GestureMath.displayLinkPulseAlive(lastPulse: lastDisplayTick, now: now))) {
                     system.moveCursor(to: p)
                 }
@@ -1459,36 +1459,28 @@ final class GestureEngine {
 
         let actor = preferred(hands)
         let fisting = actor.pose == .fist || (actor.openScore == 0 && actor.pinchRatio > 0.5 && actor.meanConfidence > 0.35)
-        if fisting {
-            if !sawOpen {
-                lastAction = "Erst öffnen, dann Faust"
-                return
-            }
-            fistLostAt = nil
-            if fistSince == nil { fistSince = now }; lastFistAt = now
-            let need: TimeInterval = mustRearm ? GestureMath.rearmHold : GestureMath.armHold
-            let held = now - (fistSince ?? now)
-            if held >= need, now - lastArmToggle > GestureMath.armCooldown {
-                lastArmToggle = now
-                fistSince = nil
-                mustRearm = false
-                ignoreGrabUntilOpen = true
-                mode = .armed
-                pointerSideLock = pointerSide(of: actor)
-                lastAction = "Scharf"
-                cooldownUntil = now + GestureMath.armCooldown
-                onLog?("Faust → Scharf", .executed, Int((hands.map(\.meanConfidence).max() ?? 0) * 100))
-            } else if held >= 0.08 {
-                lastAction = GestureMath.fistArmLabel(
-                    GestureMath.fistArmProgress(held: held, need: need)
-                ) ?? "Faust …"
-            }
-        } else if fistSince != nil {
-            if fistLostAt == nil { fistLostAt = now }
-            if now - (fistLostAt ?? now) > 0.22 {
-                fistSince = nil
-                fistLostAt = nil
-            }
+        if mustRearm, !fisting {
+            lastAction = "Nach Not-Aus: Faust halten"
+            return
+        }
+        if fistSince == nil { fistSince = now }
+        lastFistAt = now
+        let need: TimeInterval = mustRearm ? GestureMath.rearmHold : GestureMath.armHold
+        let held = now - (fistSince ?? now)
+        if held >= need, now - lastArmToggle > GestureMath.armCooldown {
+            lastArmToggle = now
+            fistSince = nil
+            mustRearm = false
+            ignoreGrabUntilOpen = true
+            mode = .armed
+            pointerSideLock = pointerSide(of: actor)
+            lastAction = "Scharf"
+            cooldownUntil = now + GestureMath.armCooldown
+            onLog?("Hand → Scharf", .executed, Int((hands.map(\.meanConfidence).max() ?? 0) * 100))
+        } else if held >= 0.08 {
+            lastAction = GestureMath.fistArmLabel(
+                GestureMath.fistArmProgress(held: held, need: need)
+            ) ?? "Scharf …"
         }
     }
 

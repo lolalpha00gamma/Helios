@@ -29,10 +29,6 @@ enum GestureClassifier {
         let wrist = joints[.wrist]
         let mcps = [joints[.indexMCP], joints[.middleMCP], joints[.ringMCP], joints[.littleMCP]].compactMap { $0 }
         if let med = GestureMath.palmScaleWristMCP(wrist: wrist, mcps: mcps) {
-            let span = GestureMath.palmScaleSpanOf(mcps)
-            if GestureMath.palmScaleSpanVeto(wristMCP: med, span: span) {
-                return GestureMath.obsScaleMarksProp(med)
-            }
             return med
         }
         if let a = joints[.indexMCP], let b = joints[.littleMCP] {

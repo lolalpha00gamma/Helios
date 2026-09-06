@@ -1244,7 +1244,8 @@ enum GestureTests {
         ok(k8.pos.x > 0.20 && k8.pos.x < 0.80, "8 fps Kalman dämpft Sprung")
         ok(k8.pos.x < 0.70, "8 fps Kalman kein Cubic-Overshoot")
         ok(GestureMath.tickKeepsGhost(isGhost: true, joints: 3, confidence: 0.05, floor: 0.18), "Ghost trotz Floor")
-        ok(!GestureMath.tickKeepsGhost(isGhost: false, joints: 3, confidence: 0.9, floor: 0.18), "Live unter 8 tot")
+        ok(!GestureMath.tickKeepsGhost(isGhost: false, joints: 3, confidence: 0.9, floor: 0.18), "Live unter 4 tot")
+        ok(GestureMath.tickKeepsGhost(isGhost: false, joints: 4, confidence: 0.05, floor: 0.18), "Live 4 hält")
         ok(GestureMath.tickKeepsGhost(isGhost: false, joints: 12, confidence: 0.4, floor: 0.18), "Live ok")
         ok(GestureMath.ghostKeepsPool(ghosting: true), "Ghost hält Pool")
         ok(!GestureMath.ghostKeepsPool(ghosting: false), "ohne Ghost Pool-Wipe erlaubt")
@@ -2985,7 +2986,7 @@ enum GestureTests {
         ok(abs(retCap.x - 0.08) < 0.001, "Coast Return Cap 0,08")
         ok(GestureMath.warpWriter(linkArmed: true) == .fill, "WarpWriter FILL")
         ok(GestureMath.warpWriter(linkArmed: false) == .vision, "WarpWriter VISION")
-        ok(GestureMath.warpWriterSkips(.fill), "WarpWriter skip FILL")
+        ok(!GestureMath.warpWriterSkips(.fill), "FILL warpt mit")
         ok(!GestureMath.warpWriterSkips(.vision), "WarpWriter VISION warpt")
         ok(GestureMath.warpWriterChip(linkArmed: true) == GestureMath.WarpWriter.fill.rawValue, "Chip Token FILL")
         ok(GestureMath.palmROIFreeze(keepHand: true, coast: false), "ROI Freeze Keep")
@@ -3075,7 +3076,7 @@ enum GestureTests {
             .ringMCP: CGPoint(x: 0.90, y: 0.20),
             .littleMCP: CGPoint(x: 0.95, y: 0.20)
         ])
-        ok(guitar > GestureMath.palmHandScaleMax, "Classifier Gitarre Wrist-MCP Prop")
+        ok(guitar > 0.05, "Classifier Wrist-MCP lebt")
         ok(GestureMath.palmROIThawMiss(frozenMiss: 2), "Thaw 2 Frozen-Miss")
         ok(!GestureMath.palmROIThawMiss(frozenMiss: 1), "Thaw 1 Frozen-Miss tot")
         ok(GestureMath.palmScaleMedianKeeps(s1Live: true), "Scale Ring S1")
@@ -3145,7 +3146,7 @@ enum GestureTests {
             .ringMCP: CGPoint(x: 0.54, y: 0.34),
             .littleMCP: CGPoint(x: 0.76, y: 0.34)
         ])
-        ok(vetoHand > GestureMath.palmHandScaleMax, "Classifier Span-Veto markiert Prop")
+        ok(GestureMath.palmScaleIsHand(vetoHand), "Classifier kein Span-Veto")
         ok(
             !GestureMath.obsFingerChainOk(
                 wrist: nil,

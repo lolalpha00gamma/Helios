@@ -517,7 +517,7 @@ final class AppState: ObservableObject {
                 return
             }
             let fallback = cam.usingFallback
-            tracker.minObservationConfidence = fallback ? GestureMath.continuityConfidence : 0.22
+            tracker.minObservationConfidence = fallback ? GestureMath.continuityConfidence : GestureMath.builtInConfidence
             let hands = tracker.analyze(
                 pixelBuffer: vision,
                 now: t0,

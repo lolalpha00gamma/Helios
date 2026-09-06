@@ -2064,10 +2064,7 @@ enum GestureMath {
         return obsFingerChainOk(wrist: wrist, mcps: pairedM, tips: pairedT, need: need)
     }
 
-    /// Screenshot-Gitarre spannt das Preview. Close-Hand darf groß sein.
-    /// Sparse 8 fps: jointCount < 8 ohne Flag tot — fingerSparse sonst tot.
-    /// keep:true: Gitarre 0,29 bindet als Hand. Default hart 0,28.
-    /// chainOk: Mid-Gitarre 0,50×0,44 kompakt ohne Fingerkette — Close-Hand hält.
+    /// Close-Hand / Faust / Kante: Kette und Fächer nur bei großem Blob (Gitarre).
     static func obsLooksLikeHand(
         spanW: CGFloat,
         spanH: CGFloat,
@@ -2078,11 +2075,13 @@ enum GestureMath {
         chainOk: Bool = true,
         fanOk: Bool = true
     ) -> Bool {
-        if jointCount < 8 && !sparse { return false }
+        if jointCount < 4 { return false }
+        if jointCount < 5 && !sparse { return false }
         if !palmScaleIsHand(palmScale, keep: keep) { return false }
-        if !sparse && !chainOk { return false }
-        if !sparse && !fanOk { return false }
         if spanW > 0.70 && spanH > 0.58 { return false }
+        let bulky = spanW > 0.50 && spanH > 0.42
+        if bulky && !sparse && !chainOk { return false }
+        if bulky && !sparse && !fanOk { return false }
         return true
     }
 
@@ -2113,25 +2112,21 @@ enum GestureMath {
         return prev == live
     }
 
-    /// Wrist+MCP Mittel. Indoor-Blur < 0,40 tot. Sparse weicher 0,22.
-    /// Tips tot: Gitarre hohe Wrist-Conf, tote Tips — Mittel allein ließ Prop durch.
+    /// Wrist+MCP. Tips oft tot (Faust, Kante) — nicht als Gitarre werten.
     static func obsJointConfOk(
         wrist: Float?,
         mcps: [Float],
         tips: [Float] = [],
-        floor: Float = 0.40,
+        floor: Float = 0.18,
         sparse: Bool = false
     ) -> Bool {
-        let used: Float = sparse ? min(floor, 0.22) : floor
+        let used: Float = sparse ? min(floor, 0.12) : floor
         var vals = mcps
         if let wrist { vals.insert(wrist, at: 0) }
         guard !vals.isEmpty else { return sparse }
         let mean = vals.reduce(0, +) / Float(vals.count)
         if mean + 1e-6 < used { return false }
-        if !tips.isEmpty {
-            let tMean = tips.reduce(0, +) / Float(tips.count)
-            if tMean + 1e-6 < used { return false }
-        }
+        _ = tips
         return true
     }
 

@@ -2651,8 +2651,10 @@ enum GestureTests {
             "echte Hand kompakt"
         )
         ok(
-            GestureMath.obsLooksLikeHand(spanW: 0.55, spanH: 0.70, palmScale: 0.18, jointCount: 16),
-            "Close-Hand groß"
+            !GestureMath.obsLooksLikeHand(
+                spanW: 0.55, spanH: 0.50, palmScale: 0.18, jointCount: 16, chainOk: false
+            ),
+            "großer Blob ohne Kette tot"
         )
         ok(
             !GestureMath.obsLooksLikeHand(spanW: 0.30, spanH: 0.30, palmScale: 0.29, jointCount: 16),
@@ -2667,8 +2669,8 @@ enum GestureTests {
             "Sparse 8 fps Hand"
         )
         ok(
-            !GestureMath.obsLooksLikeHand(spanW: 0.20, spanH: 0.20, palmScale: 0.14, jointCount: 5),
-            "Sparse ohne Flag tot"
+            !GestureMath.obsLooksLikeHand(spanW: 0.20, spanH: 0.20, palmScale: 0.14, jointCount: 4),
+            "4 Gelenke tot"
         )
         ok(
             GestureMath.obsSmoothResets(
@@ -2690,10 +2692,10 @@ enum GestureTests {
         ok(GestureMath.obsHandCountCap(2) == 2, "HandCount Floor 2")
         ok(GestureMath.obsHandCountCap(9) == 8, "HandCount Cap 8")
         ok(
-            !GestureMath.obsLooksLikeHand(
+            GestureMath.obsLooksLikeHand(
                 spanW: 0.16, spanH: 0.18, palmScale: 0.14, jointCount: 16, chainOk: false
             ),
-            "ohne Fingerkette tot"
+            "Faust ohne Fingerkette hält"
         )
         ok(
             GestureMath.obsLooksLikeHand(
@@ -3165,14 +3167,15 @@ enum GestureTests {
             "ein Tip keine Kette"
         )
         ok(GestureMath.obsJointConfOk(wrist: 0.72, mcps: [0.68, 0.70, 0.66]), "Hand Conf")
-        ok(!GestureMath.obsJointConfOk(wrist: 0.28, mcps: [0.22, 0.24, 0.20]), "Blur Conf tot")
+        ok(GestureMath.obsJointConfOk(wrist: 0.28, mcps: [0.22, 0.24, 0.20]), "Faust Conf hält")
+        ok(!GestureMath.obsJointConfOk(wrist: 0.10, mcps: [0.08, 0.09, 0.07]), "Blur Conf tot")
         ok(GestureMath.obsJointConfOk(wrist: 0.28, mcps: [0.22], sparse: true), "Sparse Conf 0,22")
         ok(!GestureMath.obsJointConfOk(wrist: 0.10, mcps: [0.12], sparse: true), "Sparse Conf tot")
         ok(
-            !GestureMath.obsJointConfOk(
+            GestureMath.obsJointConfOk(
                 wrist: 0.80, mcps: [0.70, 0.68, 0.66], tips: [0.10, 0.12, 0.08]
             ),
-            "Gitarre Tips tot"
+            "Faust Tips optional"
         )
         ok(
             GestureMath.obsJointConfOk(
@@ -3300,10 +3303,10 @@ enum GestureTests {
         ok(GestureMath.palmMCPCollinearVeto(fan: fanGuitar), "Gitarre kollinear")
         ok(!GestureMath.palmMCPCollinearVeto(fan: fanHand), "Hand nicht kollinear")
         ok(
-            !GestureMath.obsLooksLikeHand(
+            GestureMath.obsLooksLikeHand(
                 spanW: 0.20, spanH: 0.40, palmScale: 0.14, jointCount: 16, fanOk: false
             ),
-            "fanOk tot = Gitarre"
+            "Kante fanOk tot hält"
         )
         ok(
             GestureMath.obsLooksLikeHand(

@@ -80,7 +80,6 @@ final class HandTracker: @unchecked Sendable {
     private let request: VNDetectHumanHandPoseRequest = {
         let r = VNDetectHumanHandPoseRequest()
         r.maximumHandCount = GestureMath.obsHandCountCap()
-        r.revision = VNDetectHumanHandPoseRequestRevision1
         MetalHub.bindVision(r)
         return r
     }()
@@ -351,7 +350,7 @@ final class HandTracker: @unchecked Sendable {
             var wristC: Float?
             var mcpCs: [Float] = []
             var tipCs: [Float] = []
-            for (name, p) in pts where p.confidence > 0.18 {
+            for (name, p) in pts where p.confidence > 0.10 {
                 raw[name] = CGPoint(x: p.location.x, y: p.location.y)
                 if name == .wrist { wristC = p.confidence }
                 if name == .indexMCP || name == .middleMCP || name == .ringMCP || name == .littleMCP {
@@ -423,7 +422,7 @@ final class HandTracker: @unchecked Sendable {
             var wristC: Float?
             var mcpCs: [Float] = []
             var tipCs: [Float] = []
-            for (name, p) in pts where p.confidence > 0.18 {
+            for (name, p) in pts where p.confidence > 0.10 {
                 raw[name] = CGPoint(x: p.location.x, y: p.location.y)
                 conf[name] = p.confidence
                 if name == .wrist { wristC = p.confidence }
@@ -474,7 +473,7 @@ final class HandTracker: @unchecked Sendable {
             if !GestureMath.obsJointConfOk(wrist: wristC, mcps: mcpCs, tips: tipCs, sparse: sparse) {
                 continue
             }
-            if raw.count < 8, !sparse { continue }
+            if raw.count < 5, !sparse { continue }
 
             var chirality = obs.chirality
             if chirality == .unknown {

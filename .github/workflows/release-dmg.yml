@@ -109,8 +109,6 @@ jobs:
           test ! -d Helios.dmg
           file Helios.dmg
           ls -lh Helios.dmg
-          defaults read "$APP/Contents/Info.plist" CFBundleShortVersionString
-          defaults read "$APP/Contents/Info.plist" CFBundleVersion
 
       - name: Upload Helios.dmg artifact
         uses: actions/upload-artifact@v4

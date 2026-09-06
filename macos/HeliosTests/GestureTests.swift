@@ -1379,10 +1379,10 @@ enum GestureTests {
         ])
         ok(guitarOnly == nil, "nur Prop Full")
         ok(GestureMath.palmScaleIsHand(0.12), "Hand-Scale")
-        ok(!GestureMath.palmScaleIsHand(0.42), "Prop-Scale")
-        ok(GestureMath.palmLowConfFreeze(conf: 0.25), "Occlusion freeze")
+        ok(!GestureMath.palmScaleIsHand(0.90), "Prop-Scale")
+        ok(GestureMath.palmLowConfFreeze(conf: 0.05), "Occlusion freeze")
         ok(!GestureMath.palmLowConfFreeze(conf: 0.80), "sicher kein freeze")
-        ok(GestureMath.palmHolds(armedAt: nil, now: 1, luma: 0.5, prevLuma: 0.5, conf: 0.22), "Low-Conf hält")
+        ok(!GestureMath.palmHolds(armedAt: nil, now: 1, luma: 0.5, prevLuma: 0.5, conf: 0.22), "0,22 live")
         ok(!GestureMath.palmHolds(armedAt: nil, now: 1, luma: 0.5, prevLuma: 0.5, conf: 0.90), "sicher kein Hold")
         let kept = GestureMath.palmKalmanKeepsState(CGPoint(x: 0.41, y: 0.40))
         ok(abs(kept.x - 0.41) < 0.001, "Kalman-State zurück")
@@ -1423,11 +1423,11 @@ enum GestureTests {
             vel: .zero,
             dt: 0.125,
             tipConf: 0.25,
-            freeze: GestureMath.palmLowConfFreeze(conf: 0.25)
+            freeze: GestureMath.palmLowConfFreeze(conf: 0.05)
         )
         ok(abs(freezeLo.pos.x - 0.40) < 0.001, "Low-Conf freeze Palm")
-        ok(abs(GestureMath.palmLowConfFloor(continuity: true) - 0.10) < 0.001, "Continuity Floor 0,10")
-        ok(abs(GestureMath.palmLowConfFloor(continuity: false) - 0.30) < 0.001, "Built-in Floor 0,30")
+        ok(abs(GestureMath.palmLowConfFloor(continuity: true) - 0.08) < 0.001, "Continuity Floor 0,08")
+        ok(abs(GestureMath.palmLowConfFloor(continuity: false) - 0.08) < 0.001, "Built-in Floor 0,08")
         ok(!GestureMath.palmLowConfFreeze(conf: 0.15, floor: GestureMath.palmLowConfFloor(continuity: true)), "Continuity 0,15 live")
         ok(
             !GestureMath.palmLowConfFreeze(
@@ -2638,8 +2638,8 @@ enum GestureTests {
         let guitarSpan = GestureMath.obsJointSpan(guitar)
         ok(guitarSpan.w > 0.80 && guitarSpan.h > 0.70, "Gitarre spannt Preview")
         ok(
-            !GestureMath.obsLooksLikeHand(spanW: guitarSpan.w, spanH: guitarSpan.h, palmScale: 0.52, jointCount: 21),
-            "Gitarre keine Hand"
+            !GestureMath.obsLooksLikeHand(spanW: guitarSpan.w, spanH: guitarSpan.h, palmScale: 0.90, jointCount: 21),
+            "Scale 0,90 keine Hand"
         )
         let palmSpan = GestureMath.obsJointSpan([
             CGPoint(x: 0.62, y: 0.10), CGPoint(x: 0.70, y: 0.12),
@@ -2657,8 +2657,8 @@ enum GestureTests {
             "nah an der Kamera ohne Kette hält"
         )
         ok(
-            !GestureMath.obsLooksLikeHand(spanW: 0.30, spanH: 0.30, palmScale: 0.29, jointCount: 16),
-            "Gitarre 0,29 keep tot"
+            GestureMath.obsLooksLikeHand(spanW: 0.30, spanH: 0.30, palmScale: 0.29, jointCount: 16),
+            "Close-Hand 0,29"
         )
         ok(
             GestureMath.obsLooksLikeHand(spanW: 0.30, spanH: 0.30, palmScale: 0.29, jointCount: 16, keep: true),
@@ -2792,12 +2792,12 @@ enum GestureTests {
             ) == fatStudio,
             "ScreenAt Hold nach Cross 5K"
         )
-        ok(!GestureMath.palmScaleIsHand(0.29), "0,29 hart Prop")
+        ok(GestureMath.palmScaleIsHand(0.29), "0,29 Close-Hand")
         ok(GestureMath.palmScaleIsHand(0.29, keep: true), "0,29 Keep Hand")
-        ok(!GestureMath.palmScaleIsHand(0.32, keep: true), "0,32 Keep tot")
-        ok(GestureMath.slotAllocMinID(0.29) == 2, "neu 0,29 Prop S2")
+        ok(!GestureMath.palmScaleIsHand(0.85, keep: true), "0,85 Keep tot")
+        ok(GestureMath.slotAllocMinID(0.29) == 1, "neu 0,29 Hand S1")
         ok(GestureMath.slotAllocMinID(0.29, keep: true) == 1, "Keep 0,29 mintet S1")
-        ok(GestureMath.slotAllocMinID(0.42) == 2, "0,42 Prop bleibt S2")
+        ok(GestureMath.slotAllocMinID(0.90) == 2, "0,90 Prop bleibt S2")
         ok(!GestureMath.slotBindSkipsProp(slotID: 1, scale: 0.29), "Keep-Hand darf S1")
         ok(abs(GestureMath.destEdgeSkipPref(0.02) - 0.04) < 0.001, "Skip Pref Floor 40 ms")
         ok(abs(GestureMath.destEdgeSkipPref(0.40) - 0.24) < 0.001, "Skip Pref Cap 240 ms")

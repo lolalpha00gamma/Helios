@@ -138,7 +138,7 @@ struct TrackingOverlay: View {
             )
         }
         defer { ctx.opacity = oldOp }
-        let pts = joints.compactMap { $0.value.confidence > 0.18 ? vis($0.value.point, size) : nil }
+        let pts = joints.compactMap { $0.value.confidence > 0.10 ? vis($0.value.point, size) : nil }
         if pts.count >= 3 {
             let xs = pts.map(\.x)
             let ys = pts.map(\.y)

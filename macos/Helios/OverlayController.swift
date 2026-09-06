@@ -268,10 +268,7 @@ final class HandMarkerView: NSView {
             guard let s = settle, s < 1 else { return "" }
             return "  KLICK \(Int((s * 100).rounded()))%"
         }()
-        let hoverMark: String = {
-            guard hovering, let h = hover else { return "" }
-            return "  HOVER \(Int((h * 100).rounded()))%"
-        }()
+        let hoverMark = ""
         let kindMark = GestureMath.hoverRingLabel(ringKind).map { "  \($0)" } ?? ""
         let magnetMark = magnet && ringKind != .magnet ? "  MAGNET" : ""
         let flingMark = fling.map { "  \($0)" } ?? ""

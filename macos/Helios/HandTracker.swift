@@ -39,7 +39,7 @@ struct TrackedHand: Identifiable {
 
     func overlayPoint(_ name: VNHumanHandPoseObservation.JointName) -> CGPoint? {
         let src = displayJoints.isEmpty ? joints : displayJoints
-        guard let j = src[name], j.confidence > 0.18 else { return nil }
+        guard let j = src[name], j.confidence > 0.10 else { return nil }
         return j.point
     }
 

@@ -2065,30 +2065,8 @@ final class GestureEngine {
     /// Während Pinch/Down nicht: die Hand ist still, Clutch nach Klick tötet den Zeiger.
     /// Nach Klick clutchGraceHold: Loslassen ist still, der nächste Weg darf.
     private func freezeIfStill(dx: CGFloat, dy: CGFloat, now: TimeInterval) -> Bool {
-        if !GestureMath.clutchWhilePinch(pinchHeld: pinchHeld, mouseDown: system.isMousePressed)
-            || GestureMath.clutchInGrace(now: now, until: clutchGraceUntil)
-        {
-            palmFrozen = false
-            palmStillSince = nil
-            return false
-        }
-        if palmFrozen {
-            if GestureMath.palmUnstillOf(dx: dx, dy: dy) {
-                palmFrozen = false
-                palmStillSince = nil
-                return false
-            }
-            return true
-        }
-        if GestureMath.palmStillOf(dx: dx, dy: dy) {
-            if palmStillSince == nil { palmStillSince = now }
-            if now - (palmStillSince ?? now) >= GestureMath.palmStillHold {
-                palmFrozen = true
-                return true
-            }
-        } else {
-            palmStillSince = nil
-        }
+        palmFrozen = false
+        palmStillSince = nil
         return false
     }
 

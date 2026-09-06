@@ -1527,7 +1527,7 @@ enum GestureMath {
     /// Occlusion / DIP-Fake: Cursor halten, nicht den Sprung cappen.
     /// Continuity-Joints 0,12–0,25 sind live, nicht tot — Floor 0,30 freeze den Zeiger.
     static func palmLowConfFloor(continuity: Bool) -> CGFloat {
-        continuity ? 0.10 : 0.30
+        continuity ? 0.08 : 0.08
     }
 
     static func palmTipConf(tip: CGFloat, mean: CGFloat) -> CGFloat {
@@ -1825,7 +1825,7 @@ enum GestureMath {
     /// S1 vor Observation-first. Prop (Gitarre/Rumpf, scale ≥ 0,28) kein S1-Crop —
     /// erste handgroße Observation (S2) statt Full, sonst 8 fps Tick tot.
     static let palmHandScaleMin: CGFloat = 0.035
-    static let palmHandScaleMax: CGFloat = 0.28
+    static let palmHandScaleMax: CGFloat = 0.72
     /// Continuity 8 fps zittert um 0,28. Keep 0,03 hält die Hand, Prop allein bleibt tot.
     static let palmHandScaleHyst: CGFloat = 0.03
 

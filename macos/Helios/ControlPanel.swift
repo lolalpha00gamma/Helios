@@ -17,6 +17,7 @@ struct ControlPanel: View {
     }
 
     private var left: some View {
+        ScrollView {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text("HELIOS")
@@ -171,6 +172,7 @@ struct ControlPanel: View {
                         }
                         .buttonStyle(.borderless)
                     }
+                    DisclosureGroup("Feinheiten") {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Text("Atem-Hochpass")
@@ -348,6 +350,7 @@ struct ControlPanel: View {
                     Text("Faust und Pinzette wischen sonst Apps. Peace bleibt Screenshot.")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
+                    }
                 }
             }
 
@@ -391,7 +394,6 @@ struct ControlPanel: View {
                 }
             }
 
-            Spacer()
             Text(state.testMode
                  ? "Testmodus: Gesten werden erkannt, das System bleibt unangetastet."
                  : "Live · \(state.leftHanded ? "Linke" : "Rechte") Handfläche = Position. Pinzette/Faust greift das Fenster unter der Markierung. Offene Hand wischen = App. Beide offen = Not-Aus (bleibt Idle).")
@@ -399,6 +401,7 @@ struct ControlPanel: View {
                 .foregroundStyle(.tertiary)
         }
         .padding(16)
+        }
     }
 
     private func permRow(_ kind: PermissionKind, ok: Bool) -> some View {

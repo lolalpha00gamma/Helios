@@ -142,6 +142,10 @@ struct ControlPanel: View {
                         Button("Idle") { state.engine.forceIdle() }
                     }
                     Toggle("HUD-Overlay", isOn: $state.hudVisible)
+                    Toggle("Leiste oben", isOn: $state.showTopBar)
+                    Text("Aus = weniger SwiftUI, oft über 30 fps. Fadenkreuz bleibt.")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
                     Toggle("Fadenkreuz", isOn: $state.showReticle)
                     Toggle("Kamera-Chip", isOn: $state.showPreviewChip)
                     Toggle("Gelenk-Beschriftung", isOn: $state.showJointLabels)
@@ -356,7 +360,7 @@ struct ControlPanel: View {
 
             GroupBox("Kalibrierung") {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(state.mapReady ? "Ecken gespeichert — Handfläche = Bildschirm." : "Noch nicht kalibriert — Zeiger relativ.")
+                    Text(state.mapReady ? "Reichweite gespeichert — deine 4 Hand-Ecken = Bildschirm." : "Noch nicht kalibriert — Zeiger relativ.")
                         .font(.system(size: 11))
                         .foregroundStyle(state.mapReady ? HeliosTheme.cyan : .secondary)
                     if state.calibActive {
@@ -372,7 +376,7 @@ struct ControlPanel: View {
                         Button("Kalibrierung löschen") { state.clearCalibration() }
                             .buttonStyle(.borderless)
                     }
-                    Text("Je Ecke die Hand dorthin halten, wo für dich die Bildschirmecke ist. Der Cursor wird mit der Ecke verglichen. Danach greifst du Fenster dort, wo sie liegen — ohne zum Rand zu navigieren.")
+                    Text("Je Ecke die Hand so weit in diese Richtung wie sie im Kamerabild bleibt, dann Pinzette. Helios legt diese Reichweite auf die Bildschirmecke — der Cursor muss sie nicht treffen.")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
                 }

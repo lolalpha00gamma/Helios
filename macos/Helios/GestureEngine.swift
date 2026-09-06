@@ -951,7 +951,7 @@ final class GestureEngine {
             lastPointerT = now
         } else {
             placeCursor(cursorHandLive, now: now)
-            if !testMode, !system.isDragging, cursorDidMove, let p = cursor {
+            if !testMode, !system.isDragging, let p = cursor {
                 if !GestureMath.warpWriterSkips(GestureMath.warpWriter(linkArmed: GestureMath.displayLinkPulseAlive(lastPulse: lastDisplayTick, now: now))) {
                     system.moveCursor(to: p)
                 }
@@ -1907,15 +1907,20 @@ final class GestureEngine {
         var dy = follow.y - prevPalm.y
         notePalmAxis(dx: dx, dy: dy)
         applyPalmHighpass(dx: &dx, dy: &dy, now: now)
-        if abs(dx) < deadNowX() { dx = 0 }
-        if abs(dy) < deadNowY() { dy = 0 }
+        if abs(dx) < deadNowX() * 0.35 { dx = 0 }
+        if abs(dy) < deadNowY() * 0.35 { dy = 0 }
         dx = GestureMath.pointerAccel(dx)
         dy = GestureMath.pointerAccel(dy)
         if freezeIfStill(dx: dx, dy: dy, now: now) {
             return cursorSmooth ?? ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
         }
-        if dx == 0 && dy == 0 {
+        let rawMoved = abs(follow.x - prevPalm.x) + abs(follow.y - prevPalm.y) > 0.003
+        if dx == 0 && dy == 0 && !rawMoved {
             return cursorSmooth ?? ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
+        }
+        if dx == 0 && dy == 0 {
+            dx = (follow.x - prevPalm.x) * 0.6
+            dy = (follow.y - prevPalm.y) * 0.6
         }
         cursorDidMove = true
         let from = cursorSmooth ?? ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
@@ -2358,7 +2363,7 @@ final class GestureEngine {
     /// placeCursor setzt nur den HUD. Ohne moveCursor ist der Zeiger tot.
     private func injectCursor(_ hand: TrackedHand, now: TimeInterval) {
         placeCursor(hand, now: now)
-        if !testMode, !system.isDragging, cursorDidMove, let p = cursor {
+        if !testMode, !system.isDragging, let p = cursor {
             if !GestureMath.warpWriterSkips(GestureMath.warpWriter(linkArmed: GestureMath.displayLinkPulseAlive(lastPulse: lastDisplayTick, now: now))) {
                 system.moveCursor(to: p)
                 lastCursorMoveAt = now

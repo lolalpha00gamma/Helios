@@ -244,12 +244,19 @@ struct PinchGate {
         let closeVel = GestureMath.pinchCloseVel(dt: dt, palmScale: scale)
         let tipClosed = GestureMath.pinchUsesTipZ(revision2: true, tipZ: tipZ)
             && GestureMath.pinchTipZClosed(tipZ: tipZ)
-        let wantClose = awayFromPalm && (
+        let facePinch = GestureMath.pinchTowardCamera(
+            reach: reach,
+            ratio: ratio,
+            prox: proxRatio,
+            tipsMissing: dTips == nil,
+            closeR: closeR
+        )
+        let wantClose = facePinch || (awayFromPalm && (
             ratio < closeR
                 || proxRatio < closeR + 0.03
                 || (ratio < closeR + 0.11 && vel < closeVel)
                 || tipClosed
-        )
+        ))
         let wantOpen = GestureMath.pinchWantOpen(
             ratio: ratio,
             proxRatio: proxRatio,
@@ -269,7 +276,7 @@ struct PinchGate {
                 streak = 0
                 return (true, min(ratio, 0.30), dist)
             }
-            let closeByProxy = awayFromPalm && proxRatio < 0.30
+            let closeByProxy = proxRatio < 0.35 && (awayFromPalm || reach < 0.85)
             if closeByProxy { streak += 1 } else { streak = 0 }
             if streak >= 3 {
                 closed = true

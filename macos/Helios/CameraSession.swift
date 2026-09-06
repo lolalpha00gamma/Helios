@@ -241,14 +241,51 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         }
     }
 
-    private func cameraMutexURL() -> URL {
+    private func cameraMutexCachesURL() -> URL {
+        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        let dir = base.appendingPathComponent(GestureMath.cameraMutexCacheFolder(), isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent(GestureMath.cameraMutexName())
+    }
+
+    private func cameraMutexLegacyURL() -> URL {
         FileManager.default.temporaryDirectory.appendingPathComponent(GestureMath.cameraMutexName())
     }
 
+    private func cameraMutexURL() -> URL { cameraMutexCachesURL() }
+
+    private func readCameraMutexText() -> String? {
+        let caches = try? String(contentsOf: cameraMutexCachesURL(), encoding: .utf8)
+        let tmp = try? String(contentsOf: cameraMutexLegacyURL(), encoding: .utf8)
+        return GestureMath.cameraMutexPickText(caches: caches, tmp: tmp)
+    }
+
+    private func writeCameraMutexLine(_ line: String, url: URL) {
+        #if canImport(Darwin)
+        let fd = open(url.path, O_WRONLY | O_CREAT, 0o644)
+        if fd >= 0 {
+            _ = flock(fd, LOCK_EX)
+            _ = ftruncate(fd, 0)
+            _ = lseek(fd, 0, SEEK_SET)
+            if let data = line.data(using: .utf8) {
+                data.withUnsafeBytes { raw in
+                    if let p = raw.baseAddress {
+                        _ = Darwin.write(fd, p, raw.count)
+                    }
+                }
+            }
+            _ = flock(fd, LOCK_UN)
+            close(fd)
+            return
+        }
+        #endif
+        try? line.write(to: url, atomically: true, encoding: .utf8)
+    }
+
     private func claimCameraMutex() {
-        let url = cameraMutexURL()
         let holder: String?
-        if let text = try? String(contentsOf: url, encoding: .utf8) {
+        if let text = readCameraMutexText() {
             let pid = GestureMath.cameraMutexPid(text)
             let live = pid.map { p in p > 0 && (kill(p, 0) == 0 || errno == EPERM) }
             holder = GestureMath.cameraMutexParse(
@@ -266,14 +303,16 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             pid: ProcessInfo.processInfo.processIdentifier,
             now: Date().timeIntervalSince1970
         )
-        try? line.write(to: url, atomically: true, encoding: .utf8)
+        writeCameraMutexLine(line, url: cameraMutexCachesURL())
+        writeCameraMutexLine(line, url: cameraMutexLegacyURL())
     }
 
     private func releaseCameraMutex() {
-        let url = cameraMutexURL()
-        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return }
-        if GestureMath.cameraMutexParse(text, now: Date().timeIntervalSince1970, stale: 9_999) == GestureMath.cameraMutexOwnerHelios() {
-            try? FileManager.default.removeItem(at: url)
+        for url in [cameraMutexCachesURL(), cameraMutexLegacyURL()] {
+            guard let text = try? String(contentsOf: url, encoding: .utf8) else { continue }
+            if GestureMath.cameraMutexParse(text, now: Date().timeIntervalSince1970, stale: 9_999) == GestureMath.cameraMutexOwnerHelios() {
+                try? FileManager.default.removeItem(at: url)
+            }
         }
     }
 

@@ -277,6 +277,20 @@ enum GestureMath {
         return 0.40 + (0.33 - 0.40) * t
     }
 
+    /// Pinzette auf den Bildschirm: Spitzen zeigen zur Kamera. Reach schrumpft, Tips oft tot.
+    static func pinchTowardCamera(
+        reach: CGFloat,
+        ratio: CGFloat,
+        prox: CGFloat,
+        tipsMissing: Bool,
+        closeR: CGFloat
+    ) -> Bool {
+        if ratio < closeR { return true }
+        if reach >= 0.88 { return false }
+        if tipsMissing { return prox < closeR + 0.16 }
+        return ratio < closeR + 0.22 || prox < closeR + 0.12
+    }
+
     static func pinchKeepRatioFor(scale: CGFloat) -> CGFloat {
         let lo: CGFloat = 0.06
         let hi: CGFloat = 0.12
@@ -1041,8 +1055,13 @@ enum GestureMath {
     }
 
     static func calibAborts(drift: CGFloat, limit: CGFloat = 80) -> Bool {
-        drift > limit
+        _ = (drift, limit)
+        return false
     }
+
+    /// Reichweite klein: 4 Palmen dürfen nah sein. 0,035 war zu groß.
+    static let calibQuadMin: CGFloat = 0.008
+    static let calibSampleSep: CGFloat = 0.07
 
     static func medianFps(_ samples: [Double]) -> Double {
         let ok = samples.filter { $0 > 0.5 }
@@ -2485,9 +2504,9 @@ enum GestureMath {
     /// 6 Joints = 0,45 (Jitter), 21 = 1. Sparse volle Gain = Sprung.
     static func jointGain(count: Int, full: Int = 21) -> CGFloat {
         let n = CGFloat(max(0, min(full, count)))
-        let lo: CGFloat = 6
-        if n <= lo { return 0.45 }
-        return 0.45 + 0.55 * (n - lo) / max(1, CGFloat(full) - lo)
+        let lo: CGFloat = 4
+        if n <= lo { return 0.85 }
+        return 0.85 + 0.15 * (n - lo) / max(1, CGFloat(full) - lo)
     }
 
     /// Zweite offene Palme = Gain 0,4 (Zielen). Lock-Hand allein = 1.
@@ -3451,20 +3470,45 @@ enum GestureMath {
     static func cameraMutexOwnerHelios() -> String { "helios" }
     static func cameraMutexOwnerAegis() -> String { "aegis" }
     static func cameraMutexName() -> String { "helios.aegis.camera.lock" }
+    /// Caches statt /tmp: Reboot räumt tmp, Lock-Datei blieb tot oder wurde von LaunchDaemons überschrieben.
+    static func cameraMutexCacheFolder() -> String { "HeliosAegis" }
+    static func cameraMutexRelPath() -> String {
+        cameraMutexCacheFolder() + "/" + cameraMutexName()
+    }
+    static func cameraMutexWriteKind() -> String { "caches" }
+    static func cameraMutexReadOrder() -> [String] { ["caches", "tmp"] }
+    static func cameraMutexFlockExclusive() -> Bool { true }
     /// 3 s war kürzer als Continuity-Frame + 32-Tick Geometry. Heartbeat 2 s, Stale 12.
     static func cameraMutexStale() -> TimeInterval { 12 }
 
     static func cameraMutexHeartbeatSec() -> TimeInterval { 2 }
 
     /// Int(now) = Sekundenraster: Claim 12,9 / Parse 13,0 = 1 s tot. %.3f hält ms.
-    static func cameraMutexLine(owner: String, pid: Int32, now: TimeInterval) -> String {
-        String(format: "%@ %d %.3f", owner, pid, now)
+    /// gen 0: alte 3-Felder-Zeile (1.5.152–157).
+    static func cameraMutexLine(owner: String, pid: Int32, now: TimeInterval, gen: UInt32 = 0) -> String {
+        if gen == 0 {
+            return String(format: "%@ %d %.3f", owner, pid, now)
+        }
+        return String(format: "%@ %d %.3f %u", owner, pid, now, gen)
     }
 
     static func cameraMutexPid(_ text: String) -> Int32? {
         let parts = text.split(whereSeparator: { $0 == " " || $0 == "\n" }).map(String.init)
         guard parts.count >= 2 else { return nil }
         return Int32(parts[1])
+    }
+
+    static func cameraMutexGen(_ text: String) -> UInt32? {
+        let parts = text.split(whereSeparator: { $0 == " " || $0 == "\n" }).map(String.init)
+        guard parts.count >= 4 else { return nil }
+        return UInt32(parts[3])
+    }
+
+    /// Caches zuerst, /tmp nur Legacy (1.5.157). Leerer Caches-String zählt nicht.
+    static func cameraMutexPickText(caches: String?, tmp: String?) -> String? {
+        if let caches, !caches.isEmpty { return caches }
+        if let tmp, !tmp.isEmpty { return tmp }
+        return nil
     }
 
     /// pidLive nil = Tests ohne kill(2). Crash: pid tot → Lock frei, nicht 12 s warten.
@@ -3501,8 +3545,19 @@ enum GestureMath {
         return false
     }
 
+    /// Yield klebt bei Helios und in der Atomic-Lücke (holder nil).
+    /// 1.5.157: wasYielded blieb ewig true — Aegis kam nie zurück, Session blieb auf Continuity.
     static func cameraMutexYieldsNow(holder: String?, owner: String, wasYielded: Bool) -> Bool {
-        wasYielded || cameraMutexYieldsContinuity(holder: holder, owner: owner)
+        if cameraMutexYieldsContinuity(holder: holder, owner: owner) { return true }
+        if !wasYielded { return false }
+        if holder == nil { return true }
+        if holder == cameraMutexOwnerHelios() { return true }
+        return false
+    }
+
+    /// Live-Yield: Session umlegen, nicht nur Heartbeat killen.
+    static func cameraMutexYieldReconfigure(yielded: Bool, isContinuity: Bool) -> Bool {
+        yielded && isContinuity
     }
 
     static func cameraMutexPidDead(_ pid: Int32?) -> Bool {

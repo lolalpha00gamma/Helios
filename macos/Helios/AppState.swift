@@ -61,6 +61,7 @@ final class AppState: ObservableObject {
     @Published var deviceName = "—"
     @Published var engineCursor: CGPoint?
     @Published var hudVisible = true
+    @Published var showTopBar = false
     @Published var showReticle = true
     @Published var showPreviewChip = true
     @Published var showCheats = true
@@ -160,6 +161,7 @@ final class AppState: ObservableObject {
             .sink { [weak self] in self?.objectWillChange.send() }
             .store(in: &cancellables)
         $hudVisible.sink { Prefs.hudVisible = $0 }.store(in: &cancellables)
+        $showTopBar.sink { Prefs.showTopBar = $0 }.store(in: &cancellables)
         $showReticle.sink { Prefs.showReticle = $0 }.store(in: &cancellables)
         $showJointLabels.sink { Prefs.showJointLabels = $0 }.store(in: &cancellables)
         $showCheats.sink { Prefs.showCheats = $0 }.store(in: &cancellables)
@@ -729,6 +731,7 @@ final class AppState: ObservableObject {
         protocolMode = Prefs.protocolMode
         testMode = Prefs.testMode
         hudVisible = Prefs.hudVisible
+        showTopBar = Prefs.showTopBar
         showReticle = Prefs.showReticle
         showJointLabels = Prefs.showJointLabels
         showCheats = Prefs.showCheats
@@ -1120,6 +1123,10 @@ enum Prefs {
     static var hudVisible: Bool {
         get { UserDefaults.standard.object(forKey: "helios.hud") as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "helios.hud") }
+    }
+    static var showTopBar: Bool {
+        get { UserDefaults.standard.object(forKey: "helios.topBar") as? Bool ?? false }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.topBar") }
     }
     static var showReticle: Bool {
         get { UserDefaults.standard.object(forKey: "helios.reticle") as? Bool ?? true }

@@ -66,8 +66,10 @@ struct HUDView: View {
 
                 if isPrimary {
                     VStack {
-                        topBar
-                            .padding(.top, 18)
+                        if state.showTopBar {
+                            topBar
+                                .padding(.top, 18)
+                        }
                         Spacer()
                         HStack(alignment: .bottom) {
                             cheatSheet
@@ -111,7 +113,7 @@ struct HUDView: View {
                     Text("KALIBRIERUNG")
                         .font(.system(size: 13, weight: .bold, design: .monospaced))
                         .foregroundStyle(HeliosTheme.amber)
-                    Text("Ecke \(state.calibCorner)   ·   \(state.calibSession.samples.count)/4")
+                    Text("Reichweite \(state.calibCorner)   ·   \(state.calibSession.samples.count)/4")
                         .font(.system(size: 22, weight: .bold, design: .monospaced))
                         .foregroundStyle(HeliosTheme.cyan)
                     Text(state.calibSession.hint)
@@ -126,7 +128,7 @@ struct HUDView: View {
                                     : HeliosTheme.danger
                             )
                     }
-                    Text("Nur Pinzette bestätigt. Danach öffnen und zur nächsten Ecke gehen.")
+                    Text("So weit in diese Ecke wie die Hand im Kamerabild bleibt. Pinzette bestätigt. Der Cursor muss die Bildschirmecke nicht treffen.")
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(HeliosTheme.amber)
                 }
@@ -291,7 +293,7 @@ struct HUDView: View {
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(HeliosTheme.cyan)
             } else if state.mode == .idle {
-                Text("FAUST HALTEN → SCHARF")
+                Text("HAND IN DIE KAMERA")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(HeliosTheme.amber)
             }

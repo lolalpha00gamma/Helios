@@ -2,7 +2,7 @@ name: Helios.dmg
 
 on:
   push:
-    branches: [main]
+    branches: [main, "build-*"]
   pull_request:
   workflow_dispatch:
 
@@ -58,7 +58,6 @@ jobs:
           echo "title=$TITLE" >> "$GITHUB_OUTPUT"
 
       - name: Coord tests
-        continue-on-error: true
         run: |
           swiftc macos/Helios/CoordMath.swift macos/HeliosTests/CoordTests.swift -o /tmp/coordtests
           /tmp/coordtests

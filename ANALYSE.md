@@ -1,3 +1,32 @@
+# Helios + Aegis — Analyse 2026-09-06 (1.5.148)
+
+Helios **1.5.148** (Build 167). Nur `main`. Repo privat.
+
+DisplayPulse: `NSScreen.displayLink` statt `CADisplayLink(target:)` — SDK 26.5 bricht sonst den App-Build. usesCPUOnly weg. GitHub-Release nur mit echter Helios.dmg dieser Version.
+
+# Helios + Aegis — Analyse 2026-09-06 (1.5.147)
+
+Helios **1.5.147** (Build 166). Nur `main`. Repo privat. `bugfix` ist 1.5.8 — nichts mergen.
+
+1.5.146: Finger-Paare, Tip-Conf, Frozen-Write tot. Smooth fest 0,35. Span nur Index–Klein. DisplayPulse NSScreen.main.
+
+## Warum Overlay und Cursor nach 1.5.146 weiter rissen
+
+1. **obsSmoothJump 0,35 fest.** Continuity 8 fps braucht 0,35. Webcam 24 fps Slot-Steal 0,14 setzt One-Euro nicht — Smoother mischt Gitarre in die Hand.
+2. **palmScaleSpanVeto Index–Klein.** Gitarre ohne die zwei Gelenke: Span 0, Classifier `return med`.
+3. **DisplayPulse NSScreen.main.** Laptop+5K: main oft Laptop 120, Studio-Overlay 60. vsync drift.
+
+## Was 1.5.147 ändert
+
+1. **obsSmoothJumpOf(dt).** 8 fps 0,35, 24 fps ~0,12. chiralityHolds bleibt.
+2. **palmScaleSpanOf.** Max-Paar aller MCP.
+3. **displayLinkHzOf(fpsList:).** Max über NSScreen.screens, nicht main.
+4. Tests + MARKETING_VERSION 1.5.147 (Build 166).
+
+Aegis 2.1.157: MissCoast return, Spark Hash-Rebind. Siehe `lolalpha00gamma/aegis-scanner`.
+
+`bugfix` mergen: nein. Nur `main`. Zwei DisplayLinks (Studio 60 + Laptop 120) bleiben offen.
+
 # Helios + Aegis — Analyse 2026-09-06 (1.5.146)
 
 Helios **1.5.146** (Build 165). Nur `main`. Repo privat. `bugfix` ist 1.5.8 — nichts mergen.

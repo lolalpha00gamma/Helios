@@ -1,7 +1,71 @@
 import SwiftUI
 import Vision
 
-extension FingerKind {
+enum FingerKind: String, CaseIterable, Identifiable {
+    case thumb, index, middle, ring, little
+
+    var id: String { rawValue }
+
+    var labelDE: String {
+        switch self {
+        case .thumb: return "Daumen"
+        case .index: return "Zeige"
+        case .middle: return "Mittel"
+        case .ring: return "Ring"
+        case .little: return "Klein"
+        }
+    }
+
+    var shortDE: String {
+        switch self {
+        case .thumb: return "D"
+        case .index: return "Z"
+        case .middle: return "M"
+        case .ring: return "R"
+        case .little: return "K"
+        }
+    }
+
+    var tip: VNHumanHandPoseObservation.JointName {
+        switch self {
+        case .thumb: return .thumbTip
+        case .index: return .indexTip
+        case .middle: return .middleTip
+        case .ring: return .ringTip
+        case .little: return .littleTip
+        }
+    }
+
+    var pip: VNHumanHandPoseObservation.JointName {
+        switch self {
+        case .thumb: return .thumbIP
+        case .index: return .indexPIP
+        case .middle: return .middlePIP
+        case .ring: return .ringPIP
+        case .little: return .littlePIP
+        }
+    }
+
+    var mcp: VNHumanHandPoseObservation.JointName {
+        switch self {
+        case .thumb: return .thumbMP
+        case .index: return .indexMCP
+        case .middle: return .middleMCP
+        case .ring: return .ringMCP
+        case .little: return .littleMCP
+        }
+    }
+
+    var chain: [VNHumanHandPoseObservation.JointName] {
+        switch self {
+        case .thumb: return [.wrist, .thumbCMC, .thumbMP, .thumbIP, .thumbTip]
+        case .index: return [.wrist, .indexMCP, .indexPIP, .indexDIP, .indexTip]
+        case .middle: return [.wrist, .middleMCP, .middlePIP, .middleDIP, .middleTip]
+        case .ring: return [.wrist, .ringMCP, .ringPIP, .ringDIP, .ringTip]
+        case .little: return [.wrist, .littleMCP, .littlePIP, .littleDIP, .littleTip]
+        }
+    }
+
     var color: Color {
         switch self {
         case .thumb: return Color(red: 1.00, green: 0.72, blue: 0.22)
@@ -11,10 +75,20 @@ extension FingerKind {
         case .little: return Color(red: 0.95, green: 0.45, blue: 0.95)
         }
     }
+
+    /// Farbenblind: Strichmuster je Finger, nicht nur Hue.
+    var overlayDash: [CGFloat] {
+        switch self {
+        case .thumb: return []
+        case .index: return [3, 2]
+        case .middle: return [8, 3]
+        case .ring: return [3, 2, 8, 2]
+        case .little: return [1.5, 3]
+        }
+    }
 }
 
 struct JointLabel: Identifiable {
-
     var id: String
     var text: String
     var point: CGPoint
@@ -25,6 +99,7 @@ struct TrackingOverlay: View {
     var hands: [TrackedHand]
     var showLabels: Bool
     var compact: Bool
+    var actorHandID: String? = nil
 
     var body: some View {
         GeometryReader { geo in
@@ -52,20 +127,58 @@ struct TrackingOverlay: View {
 
     private func drawHand(_ hand: TrackedHand, in ctx: inout GraphicsContext, size: CGSize) {
         let joints = hand.overlayJoints
-        let side = hand.chirality == .left ? HeliosTheme.amber : HeliosTheme.cyan
+        let isActor = actorHandID != nil && hand.id == actorHandID
+        let hue = GestureMath.slotHue(hand.id)
+        let slotCol: Color = hue == "amber" ? HeliosTheme.amber : HeliosTheme.cyan
+        let side = isActor ? HeliosTheme.amber : slotCol
+        let oldOp = ctx.opacity
+        if hand.isGhost {
+            ctx.opacity = oldOp * GestureMath.overlayGhostAlpha(
+                coast: GestureMath.overlayGhostIsCoast(remaining: hand.ghostRemaining)
+            )
+        }
+        defer { ctx.opacity = oldOp }
+        let pts = joints.compactMap { $0.value.confidence > 0.18 ? vis($0.value.point, size) : nil }
+        if pts.count >= 3 {
+            let xs = pts.map(\.x)
+            let ys = pts.map(\.y)
+            let pad: CGFloat = compact ? 10 : 16
+            let rect = CGRect(
+                x: (xs.min() ?? 0) - pad,
+                y: (ys.min() ?? 0) - pad,
+                width: (xs.max() ?? 0) - (xs.min() ?? 0) + pad * 2,
+                height: (ys.max() ?? 0) - (ys.min() ?? 0) + pad * 2
+            )
+            ctx.stroke(
+                Path(roundedRect: rect, cornerRadius: 4),
+                with: .color(side.opacity(isActor ? 0.9 : 0.55)),
+                style: StrokeStyle(lineWidth: isActor ? (compact ? 2.2 : 2.8) : 1, dash: (isActor && !hand.isGhost) ? [] : [4, 3])
+            )
+        }
 
         for finger in FingerKind.allCases {
             var path = Path()
             var started = false
             for name in finger.chain {
                 guard let j = joints[name], j.confidence > 0.18 else { continue }
+                if name == finger.tip, GestureMath.tipOccluded(
+                    tip: j.point, palm: hand.palm, scale: hand.palmScale, extended: hand.isExtended(finger)
+                ) { continue }
                 let p = vis(j.point, size)
                 if started { path.addLine(to: p) } else { path.move(to: p); started = true }
             }
-            ctx.stroke(path, with: .color(finger.color.opacity(0.95)), lineWidth: compact ? 1.6 : 2.4)
+            ctx.stroke(
+                path,
+                with: .color(finger.color.opacity(0.95)),
+                style: StrokeStyle(lineWidth: compact ? 1.6 : 2.4, dash: finger.overlayDash)
+            )
         }
 
         for (name, j) in joints where j.confidence > 0.18 {
+            if let finger = FingerKind.allCases.first(where: { $0.tip == name }),
+               GestureMath.tipOccluded(tip: j.point, palm: hand.palm, scale: hand.palmScale, extended: hand.isExtended(finger)) {
+                continue
+            }
             let p = vis(j.point, size)
             let isTip = FingerKind.allCases.contains { $0.tip == name }
             let r: CGFloat = isTip ? (compact ? 4 : 5.5) : (compact ? 2.2 : 3.2)
@@ -102,12 +215,15 @@ struct TrackingOverlay: View {
     private func labels(in size: CGSize) -> [JointLabel] {
         var out: [JointLabel] = []
         for hand in hands {
-            let sideColor = hand.chirality == .left ? HeliosTheme.amber : HeliosTheme.cyan
+            let hue = GestureMath.slotHue(hand.id)
+            let sideColor: Color = hue == "amber" ? HeliosTheme.amber : HeliosTheme.cyan
             let side = hand.chirality == .left ? "L" : "R"
             if let w = hand.overlayPoint(.wrist) {
+                let pose = hand.isGhost ? "Ghost" : hand.pose.labelDE
+                let slot = GestureMath.slotChip(id: hand.id).map { " \($0)" } ?? ""
                 out.append(JointLabel(
                     id: "\(hand.id)-wrist",
-                    text: compact ? "\(side) \(hand.pose.labelDE)" : "\(side == "L" ? "Links" : "Rechts") · \(hand.pose.labelDE)",
+                    text: compact ? "\(hand.id) \(pose)" : "\(side == "L" ? "Links" : "Rechts") · \(pose)\(slot)",
                     point: w,
                     color: sideColor
                 ))
@@ -137,6 +253,7 @@ struct CameraPreview: View {
     var showLabels: Bool
     var compact: Bool = false
     var placeholder: String = "Kamera starten"
+    var actorHandID: String? = nil
 
     var body: some View {
         GeometryReader { geo in
@@ -149,13 +266,9 @@ struct CameraPreview: View {
                         .interpolation(.medium)
                         .frame(width: rect.width, height: rect.height)
                         .position(x: rect.midX, y: rect.midY)
-                    TrackingOverlay(hands: hands, showLabels: showLabels, compact: compact)
+                    TrackingOverlay(hands: hands, showLabels: showLabels, compact: compact, actorHandID: actorHandID)
                         .frame(width: rect.width, height: rect.height)
                         .position(x: rect.midX, y: rect.midY)
-                } else if !compact {
-                    Text(placeholder)
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
                 }
             }
         }

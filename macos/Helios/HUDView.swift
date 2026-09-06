@@ -10,7 +10,44 @@ struct HUDView: View {
         GeometryReader { geo in
             ZStack(alignment: .topLeading) {
                 if state.killFlash {
-                    HeliosTheme.danger.opacity(0.18)
+                    HeliosTheme.danger.opacity(0.22)
+                    if GestureMath.killRingOnAllDisplays() {
+                        Rectangle()
+                            .strokeBorder(HeliosTheme.danger.opacity(0.92), lineWidth: 16)
+                    }
+                }
+
+                if state.mousePaused, isPrimary {
+                    mousePriorityBanner
+                } else if state.mode == .idle, state.awaitingRearm, isPrimary, !state.testMode {
+                    rearmBanner
+                } else if isPrimary, state.mapDrifted, !state.calibActive, !state.testMode {
+                    mapDriftBanner
+                } else if isPrimary, state.engine.mapMissingChip != nil, state.mapReady, !state.calibActive, !state.testMode {
+                    mapMissingBanner
+                } else if isPrimary, !state.mapReady, !state.calibActive, !state.testMode {
+                    calibHintBanner
+                }
+
+                if isPrimary, state.cameraFallback, !state.calibActive {
+                    cameraFallbackBanner
+                }
+
+                if isPrimary, state.dualCamAvailable, state.cameraFallback, !state.calibActive {
+                    dualCamBanner
+                }
+
+                if isPrimary, state.cameraSlow, state.cameraRunning, !state.calibActive {
+                    cameraSlowBanner
+                }
+
+
+                if isPrimary, state.lumaLow, state.cameraRunning, !state.calibActive {
+                    lumaBanner
+                }
+
+                if isPrimary, state.accessDropped, !state.testMode {
+                    accessDroppedBanner
                 }
 
                 if state.showOutline, let target = state.focused,
@@ -19,26 +56,13 @@ struct HUDView: View {
                    ScreenGeometry.intersects(quartz: target.quartzBounds, screen: screenFrame)
                 {
                     windowOutline(target)
-                        .transaction { $0.animation = nil }
                 }
 
                 if state.calibActive {
                     calibOverlay
                 }
 
-                if isPrimary, state.drill.phase != .idle {
-                    drillOverlay
-                }
-
-                chromeLoupe
-
-                if isPrimary {
-                    airKeyboard
-                }
-
-                if state.showTrashZone {
-                    trashZone
-                }
+                trashZone
 
                 if isPrimary {
                     VStack {
@@ -46,19 +70,16 @@ struct HUDView: View {
                             .padding(.top, 18)
                         Spacer()
                         HStack(alignment: .bottom) {
-                            if state.showCheats {
-                                cheatSheet
-                            }
+                            cheatSheet
                             Spacer()
-                            if state.showPreviewChip {
-                                cameraChip
-                            }
+                            cameraChip
                         }
                         .padding(22)
                     }
                 }
             }
             .frame(width: geo.size.width, height: geo.size.height)
+            .opacity(state.hudDim && !state.killFlash ? GestureMath.hudDimOpacity : 1)
         }
         .allowsHitTesting(false)
     }
@@ -87,9 +108,7 @@ struct HUDView: View {
             }
             if isPrimary {
                 VStack(spacing: 8) {
-                    Text(state.calibSession.cameraLabel.isEmpty
-                         ? "KALIBRIERUNG · ANSCHLAG, NICHT KAMERARAND"
-                         : "KALIBRIERUNG · \(state.calibSession.cameraLabel.uppercased())")
+                    Text("KALIBRIERUNG")
                         .font(.system(size: 13, weight: .bold, design: .monospaced))
                         .foregroundStyle(HeliosTheme.amber)
                     Text("Ecke \(state.calibCorner)   ·   \(state.calibSession.samples.count)/4")
@@ -98,7 +117,16 @@ struct HUDView: View {
                     Text(state.calibSession.hint)
                         .font(.system(size: 13, design: .monospaced))
                         .foregroundStyle(.white.opacity(0.9))
-                    Text("Blickwinkel dieser Quelle. 4 Bildschirmecken, Anschlag in DIESEM Bild. Nur Pinzette bestätigt.")
+                    if let rms = GestureMath.mapRMSLabel(state.calibSession.liveRMS) {
+                        Text(rms)
+                            .font(.system(size: 12, weight: .bold, design: .monospaced))
+                            .foregroundStyle(
+                                GestureMath.mapRMSReady(state.calibSession.liveRMS ?? .infinity)
+                                    ? HeliosTheme.cyan
+                                    : HeliosTheme.danger
+                            )
+                    }
+                    Text("Nur Pinzette bestätigt. Danach öffnen und zur nächsten Ecke gehen.")
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(HeliosTheme.amber)
                 }
@@ -146,8 +174,7 @@ struct HUDView: View {
             if let s = ScreenGeometry.screen(matchingCocoa: screenFrame) {
                 return ScreenGeometry.trashLocal(screen: s)
             }
-            let s: CGFloat = 138
-            return CGRect(x: screenFrame.width - s - 24, y: screenFrame.height - s - 24, width: s, height: s)
+            return ScreenGeometry.trashLocal(on: screenFrame)
         }()
         let hot = state.trashHot
         return VStack(spacing: 6) {
@@ -168,6 +195,27 @@ struct HUDView: View {
         )
         .shadow(color: (hot ? HeliosTheme.danger : HeliosTheme.cyan).opacity(hot ? 0.7 : 0.2), radius: hot ? 16 : 4)
         .position(x: r.midX, y: r.midY)
+        .opacity(state.showTrashZone ? 1 : 0)
+    }
+
+    private var statusChips: [String] {
+        GestureMath.overlayChipCap([
+            state.roiLatchChip,
+            state.engine.palmHighpassChip,
+            state.engine.palmVelChip,
+            state.engine.palmLateralityChip,
+            state.engine.occlusionChip,
+            state.engine.pointerPredictChip,
+            state.engine.warpWriterChip
+        ].compactMap { $0 }.filter { !$0.isEmpty })
+    }
+
+    private func statusChipFill(_ chip: String) -> Color {
+        switch GestureMath.overlayChipTone(chip) {
+        case 1: return HeliosTheme.danger
+        case 2: return HeliosTheme.cyan
+        default: return HeliosTheme.amber
+        }
     }
 
     private var topBar: some View {
@@ -178,23 +226,45 @@ struct HUDView: View {
                 .shadow(color: HeliosTheme.cyan.opacity(0.8), radius: 8)
             statusPill
             grabPill
-            clutchLED
-            peaceRing
-            if !state.lockFreeze.isEmpty {
-                Text(state.lockFreeze.uppercased())
+            Text(state.engine.phaseChip)
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .foregroundStyle(HeliosTheme.void)
+                .background(HeliosTheme.cyan)
+            if let game = state.engine.gameChip {
+                Text(game)
                     .font(.system(size: 10, weight: .bold, design: .monospaced))
                     .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
+                    .padding(.vertical, 3)
+                    .foregroundStyle(HeliosTheme.void)
+                    .background(HeliosTheme.danger)
+            }
+            if let steal = state.engine.stealChip {
+                Text(steal)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
                     .foregroundStyle(HeliosTheme.void)
                     .background(HeliosTheme.amber)
-                    .overlay(Rectangle().stroke(HeliosTheme.amber, lineWidth: 1))
-                    .help("Lock-ID hält einen Fehlframe — kein Teleport")
             }
-            if !state.permissionBanner.isEmpty {
-                Text(state.permissionBanner.uppercased())
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(HeliosTheme.amber)
-            } else if state.testMode {
+            if let slot = state.engine.slotChip {
+                Text(slot)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .foregroundStyle(HeliosTheme.void)
+                    .background(HeliosTheme.cyan.opacity(0.85))
+            }
+            if let kalib = state.engine.mapMissingChip {
+                Text(kalib)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .foregroundStyle(HeliosTheme.void)
+                    .background(HeliosTheme.amber)
+            }
+            if state.testMode {
                 Text("TEST")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .padding(.horizontal, 8)
@@ -207,50 +277,155 @@ struct HUDView: View {
                     .foregroundStyle(HeliosTheme.amber)
             } else if state.mousePaused {
                 Text("MAUS HAT VORRANG")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(HeliosTheme.amber)
-            } else if state.mode == .armed && !state.mapReady && !state.testMode {
-                Text("RELATIV — KALIBRIEREN · AUSSEN ABSOLUT")
+                    .font(.system(size: 13, weight: .bold, design: .monospaced))
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .foregroundStyle(HeliosTheme.void)
+                    .background(HeliosTheme.amber)
+            } else if state.mode == .idle, state.awaitingRearm {
+                Text("NACH NOT-AUS · FAUST \(Self.rearmHoldDE) s")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(HeliosTheme.amber)
             } else if state.mode == .armed && state.engineCursor == nil {
                 Text("MAUS FREI — HAND IN DIE KAMERA")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(HeliosTheme.cyan)
-            } else if state.mode == .armed && !state.testMode {
-                Text("☀ MENÜ → KONSOLE · BEENDEN")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(HeliosTheme.amber)
             } else if state.mode == .idle {
-                Text(state.lastAction.localizedCaseInsensitiveContains("Not-Aus")
-                     ? "NOT-AUS · FAUST ODER 2× KLATSCHEN"
-                     : "FAUST ODER 2× KLATSCHEN → SCHARF")
+                Text("FAUST HALTEN → SCHARF")
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
                     .foregroundStyle(HeliosTheme.amber)
             }
             if let app = state.focused {
-                let p = AppInjectProfile.of(bundleId: app.bundleId)
-                Text(p == .full ? app.appName.uppercased() : "\(app.appName.uppercased()) · \(p.titleDE.uppercased())")
+                Text(app.appName.uppercased())
                     .font(HeliosTheme.mono)
-                    .foregroundStyle(p == .off ? HeliosTheme.amber : HeliosTheme.cyan)
-                    .lineLimit(1)
+                    .foregroundStyle(HeliosTheme.cyan)
             }
             Text(state.lastAction.uppercased())
                 .font(HeliosTheme.mono)
                 .foregroundStyle(HeliosTheme.amber)
-                .lineLimit(1)
+            if let latch = state.engine.latchChip {
+                Text(latch)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .foregroundStyle(HeliosTheme.void)
+                    .background(HeliosTheme.amber)
+            }
+            if state.engine.rightHeld {
+                Text("RECHTS")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .foregroundStyle(HeliosTheme.void)
+                    .background(HeliosTheme.amber)
+            }
+            if let arm = state.engine.fistArmChip {
+                Text(arm)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .foregroundStyle(HeliosTheme.void)
+                    .background(HeliosTheme.cyan)
+            }
+            if let idle = state.engine.deadManChip {
+                Text(idle)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .foregroundStyle(HeliosTheme.void)
+                    .background(HeliosTheme.danger)
+            }
+            if let mod = state.engine.modifierChip {
+                Text(mod)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .foregroundStyle(HeliosTheme.void)
+                    .background(HeliosTheme.cyan)
+            }
+            if let ring = GestureMath.hoverRingLabel(state.engine.hoverKind) {
+                Text(ring)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .foregroundStyle(HeliosTheme.void)
+                    .background(state.engine.hoverKind == .magnet ? HeliosTheme.danger : HeliosTheme.amber)
+            }
+            if let weg = GestureMath.travelHUDLabel(state.engine.travelProgress) {
+                Text(weg)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(HeliosTheme.danger)
+            }
+            if state.engine.pointerClutch, state.grabPhase == .follow {
+                Text("CLUTCH")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .foregroundStyle(HeliosTheme.void)
+                    .background(HeliosTheme.amber)
+            }
+            if let edge = state.engine.destEdgeChip {
+                Text(edge)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .foregroundStyle(HeliosTheme.void)
+                    .background(HeliosTheme.amber)
+            }
+            if let slot = state.actorHandID {
+                if let g = state.hands.first(where: { $0.id == slot && $0.isGhost }) {
+                    Text(String(format: "%@ Ghost %.1f s · %@ %@", slot, g.ghostRemaining, GestureMath.fpsLatchChip(fps: state.fps, ghosting: true, frozen: state.engine.pointerClutch, edge: state.engine.destEdgeChip != nil, band: state.formatChip.isEmpty ? nil : state.formatChip), state.fpsSpark))
+                        .font(HeliosTheme.mono)
+                        .foregroundStyle(HeliosTheme.amber.opacity(0.9))
+                } else {
+                    Text(String(format: "%@ · %@ %@", slot, GestureMath.fpsLatchChip(fps: state.fps, ghosting: false, frozen: state.engine.pointerClutch, edge: state.engine.destEdgeChip != nil, band: state.formatChip.isEmpty ? nil : state.formatChip), state.fpsSpark))
+                        .font(HeliosTheme.mono)
+                        .foregroundStyle(HeliosTheme.cyan.opacity(0.7))
+                }
+            }
             Spacer()
-            Text("\(state.screenCount) MON")
+            Text("\(NSScreen.screens.count) MON")
                 .font(HeliosTheme.mono)
                 .foregroundStyle(HeliosTheme.cyan.opacity(0.7))
-            Text(String(format: "%.0f ms   %.0f fps", state.latencyMs, state.fps))
+            Text(String(format: "%.0f ms   %.0f fps   %@", state.latencyMs, state.fps, GestureMath.visionMsSpark(state.visionMs)))
                 .font(HeliosTheme.mono)
-                .foregroundStyle(state.fpsAmber ? HeliosTheme.amber : HeliosTheme.cyan.opacity(0.8))
+                .foregroundStyle(state.visionMs > GestureMath.axBudgetMs ? HeliosTheme.amber : HeliosTheme.cyan.opacity(0.8))
+            if !state.formatChip.isEmpty {
+                Text(state.formatChip)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(HeliosTheme.amber.opacity(0.9))
+            }
+            ForEach(Array(statusChips.enumerated()), id: \.offset) { _, chip in
+                Text(chip)
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .foregroundStyle(HeliosTheme.void)
+                    .background(statusChipFill(chip).opacity(0.85))
+            }
+            if state.cameraSlow {
+                Text("KAMERA ZU LANGSAM")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(HeliosTheme.danger)
+            }
+            if state.cameraFallback {
+                Text("FALLBACK-CAM")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(HeliosTheme.amber)
+            }
+            if state.mapDrifted {
+                Text("MAP DRIFT")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(HeliosTheme.danger)
+            }
+            if state.hudDim {
+                Text("DIM")
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .foregroundStyle(HeliosTheme.cyan.opacity(0.7))
+            }
         }
         .padding(.horizontal, 22)
         .padding(.vertical, 10)
-        .frame(height: 48)
-        .clipped()
         .background(
             RoundedRectangle(cornerRadius: 4)
                 .fill(HeliosTheme.panel)
@@ -288,10 +463,35 @@ struct HUDView: View {
         let text: String = {
             switch phase {
             case .grab:
+                if let fling = GestureMath.flingGhostLabel(state.engine.flingGhostKind) {
+                    return fling
+                }
                 let n = state.grabTargetName.isEmpty ? "FENSTER" : state.grabTargetName.uppercased()
                 return "GREIFT · \(n)"
-            case .hold: return "HALTEN — NOCH NICHT GEGRIFFEN"
+            case .hold:
+                if let label = GestureMath.hoverRingLabel(state.engine.hoverKind) {
+                    return label
+                }
+                if let s = state.engine.clickSettle, s < 1 {
+                    return "KLICK \(Int((s * 100).rounded())) %"
+                }
+                if let weg = GestureMath.travelHUDLabel(state.engine.travelProgress) {
+                    return weg
+                }
+                if let h = state.engine.hoverProgress, h > 0 {
+                    return "HOVER \(Int((h * 100).rounded())) %"
+                }
+                return "HALTEN — NOCH NICHT GEGRIFFEN"
             case .follow:
+                if let label = GestureMath.hoverRingLabel(state.engine.hoverKind) {
+                    if let h = state.engine.hoverProgress, h > 0.15 {
+                        return "\(label) \(Int((h * 100).rounded())) %"
+                    }
+                    return label
+                }
+                if let h = state.engine.hoverProgress, h > 0.15 {
+                    return "HOVER \(Int((h * 100).rounded())) %"
+                }
                 let h = state.cursorHand == "—" ? "HAND" : state.cursorHand.uppercased()
                 return "HIER · \(h)"
             case .none: return "KEINE HAND"
@@ -306,245 +506,295 @@ struct HUDView: View {
             .overlay(Rectangle().stroke(col, lineWidth: 1.5))
     }
 
-    private var clutchLED: some View {
-        Circle()
-            .fill(state.mousePaused ? HeliosTheme.amber : HeliosTheme.ok)
-            .frame(width: 8, height: 8)
-            .shadow(color: (state.mousePaused ? HeliosTheme.amber : HeliosTheme.ok).opacity(0.8), radius: 4)
-            .help(state.mousePaused ? "Maus hat Vorrang" : "Helios steuert")
-    }
-
-    private var peaceRing: some View {
-        Circle()
-            .trim(from: 0, to: max(0.02, state.peaceProgress))
-            .stroke(HeliosTheme.amber, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-            .frame(width: 16, height: 16)
-            .rotationEffect(.degrees(-90))
-            .opacity(state.peaceProgress > 0 ? 1 : 0)
-    }
-
     private var cheatSheet: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text(state.testMode ? "TEST · GESTEN" : "GESTEN")
                 .font(HeliosTheme.mono)
                 .foregroundStyle(HeliosTheme.cyan)
             Text("Faust halten     Scharf")
-            Text("2× Klatschen     Scharf (Kamera)")
-            Text("Pinzette kurz    Klick")
-            Text("Pinzette ziehen  Fenster")
-            Text("Werfen nur Ruck  Dock / Mini")
-            Text("Zeigen 0,85 s    Tastatur")
-            Text("Taste verweilen  Tippen")
-            Text("Offene Hand wischen  App")
-            Text("Eine Hand hoch/runter  Scroll")
-            Text("Zwei Hände        zwei Zeiger")
-            Text("Pinzette + Ring  Rechtsklick")
+            Text("Pinzette halten  Fenster unter der Hand ziehen")
+            Text("Pinzette / Faust Greifen · Klick")
+            Text("Werfen oben      Wegwerfen")
+            Text("Werfen unten     Minimieren")
+            Text("Offene Hand wischen  App wechseln")
+            Text("Werfen L/R       Andocken")
             Text("Zwei Pinzetten   Skalieren")
-            Text("Peace allein     Aufnahme")
+            Text("Peace halten     Aufnahme")
             Text("Beide offen      Not-Aus")
+            Text("Escape           Pinch abbrechen")
         }
         .font(.system(size: 10, weight: .medium, design: .monospaced))
         .foregroundStyle(HeliosTheme.cyan.opacity(0.75))
         .padding(12)
         .background(HeliosTheme.panel)
         .overlay(Rectangle().stroke(HeliosTheme.cyan.opacity(0.25), lineWidth: 1))
+        .opacity(state.showCheats ? 1 : 0)
     }
 
     private var cameraChip: some View {
-        let coverCalib = state.calibActive && state.calibSession.cameraID == state.coverID && !state.coverID.isEmpty
-        let pair = state.cameraPair != .single
-        return HStack(alignment: .bottom, spacing: 8) {
-            chip(
-                image: coverCalib ? nil : state.preview,
-                hands: state.hands.filter { !$0.id.hasPrefix("C.") },
-                label: state.deviceName,
-                width: pair ? 220 : 360,
-                height: pair ? 124 : 202
-            )
-            .opacity(coverCalib ? 0.35 : 1)
-            if pair {
-                chip(
-                    image: state.coverPreview,
-                    hands: state.coverHands,
-                    label: state.coverRunning
-                        ? "\(state.coverName) · Ergänzung"
-                        : (state.coverError ?? "Osmo nicht live"),
-                    width: 220,
-                    height: 124
-                )
-                .overlay(Rectangle().stroke(
-                    coverCalib || state.actorSource == "cover" ? HeliosTheme.amber : HeliosTheme.cyan.opacity(0.5),
-                    lineWidth: coverCalib ? 2 : 1
-                ))
-            }
-        }
-    }
-
-    private func chip(
-        image: NSImage?,
-        hands: [TrackedHand],
-        label: String,
-        width: CGFloat,
-        height: CGFloat
-    ) -> some View {
         CameraPreview(
-            image: image,
-            hands: hands,
+            image: state.preview,
+            hands: state.hands,
             showLabels: state.showJointLabels,
-            compact: true
+            compact: true,
+            actorHandID: state.actorHandID
         )
-        .frame(width: width, height: height)
+        .frame(width: 360, height: 202)
         .clipped()
         .overlay(Rectangle().stroke(HeliosTheme.cyan.opacity(0.5), lineWidth: 1))
         .overlay(alignment: .topLeading) {
-            Text(label)
+            Text(state.deviceName)
                 .font(.system(size: 9, weight: .medium, design: .monospaced))
                 .foregroundStyle(HeliosTheme.cyan)
                 .padding(6)
         }
+        .opacity(state.showPreviewChip ? 1 : 0)
     }
 
-    @ViewBuilder
-    private var drillOverlay: some View {
-        let d = state.drill
-        ZStack {
-            HeliosTheme.void.opacity(0.45)
-            VStack(spacing: 14) {
-                Text("AKTIONSKALIBRIERUNG")
-                    .font(.system(size: 13, weight: .bold, design: .monospaced))
-                    .foregroundStyle(HeliosTheme.cyan)
-                Text("\(d.stepLabel)  ·  \(d.current.titleDE.uppercased())")
-                    .font(.system(size: 28, weight: .bold, design: .monospaced))
-                    .foregroundStyle(.white)
-                Text("Wiederholung \(min(d.repeatIndex + 1, 3)) / 3")
-                    .font(.system(size: 16, weight: .bold, design: .monospaced))
-                    .foregroundStyle(HeliosTheme.amber)
-                Text(d.current.hint)
-                    .font(.system(size: 14, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.9))
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 640)
-                if d.phase == .countdown {
-                    Text("\(max(1, d.countdown))")
-                        .font(.system(size: 96, weight: .bold, design: .monospaced))
-                        .foregroundStyle(HeliosTheme.cyan)
-                } else if d.phase == .capture {
-                    Text("AUFNAHME")
-                        .font(.system(size: 22, weight: .bold, design: .monospaced))
-                        .foregroundStyle(HeliosTheme.void)
-                        .padding(.horizontal, 18)
-                        .padding(.vertical, 8)
-                        .background(HeliosTheme.amber)
-                    Text(String(format: "%.1f s", d.captureLeft))
-                        .font(.system(size: 28, weight: .bold, design: .monospaced))
-                        .foregroundStyle(HeliosTheme.amber)
-                } else if d.phase == .rest || d.phase == .done {
-                    Text(d.lastEvidence)
-                        .font(.system(size: 16, weight: .bold, design: .monospaced))
-                        .foregroundStyle(HeliosTheme.cyan)
-                        .multilineTextAlignment(.center)
-                }
-                ProgressView(value: d.progress)
-                    .tint(HeliosTheme.cyan)
-                    .frame(width: 360)
-                if d.phase == .done {
-                    Text("FERTIG — IN DER KONSOLE FÜR GROK KOPIEREN")
-                        .font(.system(size: 13, weight: .bold, design: .monospaced))
-                        .foregroundStyle(HeliosTheme.amber)
-                }
-            }
-            .padding(28)
-            .background(HeliosTheme.panel)
-            .overlay(Rectangle().stroke(HeliosTheme.cyan.opacity(0.5), lineWidth: 1))
+    private var mousePriorityBanner: some View {
+        VStack(spacing: 10) {
+            Text("MAUS HAT VORRANG")
+                .font(.system(size: 28, weight: .bold, design: .monospaced))
+                .foregroundStyle(HeliosTheme.void)
+            Text("Echte Mausbewegung — Gesten pausiert")
+                .font(.system(size: 13, design: .monospaced))
+                .foregroundStyle(HeliosTheme.void.opacity(0.8))
         }
+        .padding(.horizontal, 36)
+        .padding(.vertical, 22)
+        .background(HeliosTheme.amber.opacity(0.92))
+        .overlay(Rectangle().stroke(HeliosTheme.void.opacity(0.35), lineWidth: 2))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    @ViewBuilder
-    private var chromeLoupe: some View {
-        if !state.chromeKnobs.isEmpty, let cursor = state.engineCursor {
-            let knobs = state.chromeKnobs
-            let near = knobs.contains {
-                hypot(cursor.x - $0.center.x, cursor.y - $0.center.y) < GestureMath.chromeLoupe
-            }
-            if near {
-                ZStack {
-                    ForEach(Array(knobs.enumerated()), id: \.offset) { _, knob in
-                        let local = ScreenGeometry.local(quartz: knob.center, on: screenFrame)
-                        let hot = state.chromeHot == knob.labelDE
-                        let size: CGFloat = hot ? 88 : 76
-                        VStack(spacing: 6) {
-                            ZStack {
-                                Circle()
-                                    .fill(hot ? HeliosTheme.amber : HeliosTheme.void.opacity(0.78))
-                                    .overlay(
-                                        Circle().stroke(hot ? HeliosTheme.amber : HeliosTheme.cyan, lineWidth: hot ? 5 : 2)
-                                    )
-                                    .frame(width: size, height: size)
-                                if hot, state.chromeDwell > 0.02 {
-                                    Circle()
-                                        .trim(from: 0, to: max(0.02, state.chromeDwell))
-                                        .stroke(HeliosTheme.cyan, style: StrokeStyle(lineWidth: 6, lineCap: .round))
-                                        .rotationEffect(.degrees(-90))
-                                        .frame(width: size - 10, height: size - 10)
-                                }
-                                Text(knob.kind == .close ? "✕" : (knob.kind == .min ? "—" : "+"))
-                                    .font(.system(size: hot ? 28 : 24, weight: .bold, design: .rounded))
-                                    .foregroundStyle(hot ? HeliosTheme.void : HeliosTheme.cyan)
-                            }
-                            Text(knob.labelDE.uppercased())
-                                .font(.system(size: 12, weight: .bold, design: .monospaced))
-                                .foregroundStyle(hot ? HeliosTheme.amber : HeliosTheme.cyan)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 3)
-                                .background(HeliosTheme.panel)
-                        }
-                        .position(x: local.x, y: local.y)
-                    }
-                }
-            }
+    private var rearmBanner: some View {
+        VStack(spacing: 8) {
+            Text("NOT-AUS")
+                .font(.system(size: 22, weight: .bold, design: .monospaced))
+                .foregroundStyle(HeliosTheme.amber)
+            Text("Faust \(Self.rearmHoldDE) s halten → wieder scharf")
+                .font(.system(size: 14, design: .monospaced))
+                .foregroundStyle(.white)
         }
+        .padding(.horizontal, 28)
+        .padding(.vertical, 18)
+        .background(HeliosTheme.void.opacity(0.78))
+        .overlay(Rectangle().stroke(HeliosTheme.amber.opacity(0.7), lineWidth: 2))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
     }
 
-    @ViewBuilder
-    private var airKeyboard: some View {
-        if state.keyboardVisible {
+    private var mapDriftBanner: some View {
+        HStack(spacing: 10) {
+            Text("KALIBRIERUNG VERRUTSCHT")
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundStyle(HeliosTheme.amber)
+            Text("Homographie treibt > 2 s — Relativzeiger. 4 Ecken neu.")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.85))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(HeliosTheme.void.opacity(0.72))
+        .overlay(Rectangle().stroke(HeliosTheme.amber.opacity(0.45), lineWidth: 1))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.top, 86)
+    }
+
+    private var mapMissingBanner: some View {
+        HStack(spacing: 10) {
+            Text("KALIB HIER")
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundStyle(HeliosTheme.void)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(HeliosTheme.amber)
+            Text("Dieser Bildschirm hat keine Homographie — 4 Ecken hier, nicht die Laptop-Map.")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.85))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(HeliosTheme.void.opacity(0.72))
+        .overlay(Rectangle().stroke(HeliosTheme.amber.opacity(0.7), lineWidth: 1))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.top, 86)
+    }
+
+    private var cameraFallbackBanner: some View {
+        HStack(spacing: 10) {
+            Text("CONTINUITY / DESK-VIEW")
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundStyle(HeliosTheme.amber)
+            Text("Keine Built-in-Frontkamera — Gesten ungenauer")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.85))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(HeliosTheme.void.opacity(0.72))
+        .overlay(Rectangle().stroke(HeliosTheme.amber.opacity(0.45), lineWidth: 1))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.top, state.mapReady && !state.mapDrifted ? 86 : 122)
+    }
+
+    private var dualCamBanner: some View {
+        HStack(spacing: 10) {
+            Text("FRONTKAMERA DA")
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundStyle(HeliosTheme.amber)
+            Text("Continuity aktiv — Built-in wäre genauer. Kamera im Panel wählen.")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.85))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(HeliosTheme.void.opacity(0.72))
+        .overlay(Rectangle().stroke(HeliosTheme.amber.opacity(0.45), lineWidth: 1))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.top, 158)
+    }
+
+    private var cameraSlowBanner: some View {
+        HStack(spacing: 10) {
+            Text("KAMERA ZU LANGSAM")
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundStyle(HeliosTheme.danger)
+            Text("unter 6 fps — Zeiger gedämpft")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.85))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(HeliosTheme.void.opacity(0.72))
+        .overlay(Rectangle().stroke(HeliosTheme.danger.opacity(0.45), lineWidth: 1))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.top, 122)
+    }
+
+    private var lumaBanner: some View {
+        HStack(spacing: 10) {
+            Text("ZU DUNKEL")
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundStyle(HeliosTheme.amber)
+            Text("Kein Vision — Licht oder Kamera")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.85))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(HeliosTheme.void.opacity(0.72))
+        .overlay(Rectangle().stroke(HeliosTheme.amber.opacity(0.7), lineWidth: 1))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.top, 86)
+    }
+
+    private var accessDroppedBanner: some View {
+        HStack(spacing: 10) {
+            Text("BEDIENUNGSHILFEN AUS")
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundStyle(HeliosTheme.danger)
+            Text("Datenschutz · Schalter aus und wieder an")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.85))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(HeliosTheme.void.opacity(0.72))
+        .overlay(Rectangle().stroke(HeliosTheme.danger.opacity(0.7), lineWidth: 1))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.top, 86)
+    }
+
+    private var calibHintBanner: some View {
+        HStack(spacing: 10) {
+            Text("RELATIVZEIGER")
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundStyle(HeliosTheme.amber)
+            Text("Kalibrierung: 4 Ecken — genauer, weniger Drift")
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.85))
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 8)
+        .background(HeliosTheme.void.opacity(0.72))
+        .overlay(Rectangle().stroke(HeliosTheme.amber.opacity(0.45), lineWidth: 1))
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        .padding(.top, 86)
+    }
+
+    private static var rearmHoldDE: String {
+        String(format: "%.2f", GestureMath.rearmHold).replacingOccurrences(of: ".", with: ",")
+    }
+}
+
+struct HandBeacon: View {
+    var phase: GrabPhase
+    var hand: String
+    var target: String
+    var local: CGPoint
+
+    var body: some View {
+        let grab = phase == .grab
+        let hold = phase == .hold
+        let col = grab || hold ? HeliosTheme.amber : HeliosTheme.cyan
+        VStack(spacing: 4) {
             ZStack {
-                ForEach(state.keyboardHits) { key in
-                    let r = ScreenGeometry.localRect(quartz: key.frame, on: screenFrame)
-                    let hot = state.keyboardHover == key.id
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 8)
-                            .fill(hot ? HeliosTheme.amber.opacity(0.92) : HeliosTheme.void.opacity(0.78))
-                            .overlay(
-                                RoundedRectangle(cornerRadius: 8)
-                                    .stroke(hot ? HeliosTheme.amber : HeliosTheme.cyan.opacity(0.55), lineWidth: hot ? 3 : 1)
-                            )
-                        if hot, state.keyboardDwell > 0.02 {
-                            RoundedRectangle(cornerRadius: 8)
-                                .trim(from: 0, to: max(0.02, state.keyboardDwell))
-                                .stroke(HeliosTheme.cyan, lineWidth: 3)
-                        }
-                        Text(key.label)
-                            .font(.system(size: min(22, max(13, r.height * 0.42)), weight: .bold, design: .monospaced))
-                            .foregroundStyle(hot ? HeliosTheme.void : .white)
-                    }
-                    .frame(width: r.width, height: r.height)
-                    .position(x: r.midX, y: r.midY)
-                }
-                VStack(spacing: 4) {
-                    Text("LUFT-TASTATUR  ·  0,12 s VERWEILEN TIPPT  ·  FAUST SCHLIESST")
-                        .font(.system(size: 11, weight: .bold, design: .monospaced))
-                        .foregroundStyle(HeliosTheme.cyan)
-                    Text("Taste halten — kein Pinzetten")
-                        .font(.system(size: 10, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.7))
-                }
-                .padding(10)
-                .background(HeliosTheme.panel)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottom)
-                .padding(.bottom, 8)
+                Circle()
+                    .stroke(col.opacity(0.35), lineWidth: 2)
+                    .frame(width: grab ? 120 : 96, height: grab ? 120 : 96)
+                Circle()
+                    .stroke(col, lineWidth: grab ? 4 : 2.5)
+                    .frame(width: 64, height: 64)
+                Image(systemName: grab ? "hand.raised.fill" : hold ? "hand.point.up.left.fill" : "circle.fill")
+                    .font(.system(size: grab ? 22 : 16, weight: .bold))
+                    .foregroundStyle(col)
+            }
+            .shadow(color: col.opacity(0.9), radius: grab ? 16 : 8)
+            Text(phase.labelDE)
+                .font(.system(size: 16, weight: .bold, design: .monospaced))
+                .foregroundStyle(col)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 3)
+                .background(HeliosTheme.void.opacity(0.78))
+            Text(hand.uppercased())
+                .font(.system(size: 11, weight: .bold, design: .monospaced))
+                .foregroundStyle(col)
+            if grab, !target.isEmpty {
+                Text(target.uppercased())
+                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                    .foregroundStyle(HeliosTheme.amber)
+            }
+            Text(String(format: "%.0f  %.0f", local.x, local.y))
+                .font(.system(size: 10, design: .monospaced))
+                .foregroundStyle(col.opacity(0.8))
+        }
+    }
+}
+
+struct Reticle: View {
+    var armed: Bool
+    var body: some View {
+        ZStack {
+            Circle()
+                .stroke(armed ? HeliosTheme.amber : HeliosTheme.cyan, lineWidth: 2)
+                .frame(width: 56, height: 56)
+            Circle()
+                .stroke((armed ? HeliosTheme.amber : HeliosTheme.cyan).opacity(0.35), lineWidth: 1)
+                .frame(width: 88, height: 88)
+            Circle()
+                .fill(armed ? HeliosTheme.amber : HeliosTheme.cyan)
+                .frame(width: 7, height: 7)
+            ForEach(0..<4, id: \.self) { i in
+                Rectangle()
+                    .fill(armed ? HeliosTheme.amber : HeliosTheme.cyan)
+                    .frame(width: i % 2 == 0 ? 16 : 2, height: i % 2 == 0 ? 2 : 16)
+                    .offset(
+                        x: i == 0 ? -40 : i == 1 ? 40 : 0,
+                        y: i == 2 ? -40 : i == 3 ? 40 : 0
+                    )
             }
         }
+        .shadow(color: (armed ? HeliosTheme.amber : HeliosTheme.cyan).opacity(0.85), radius: 10)
     }
 }
 

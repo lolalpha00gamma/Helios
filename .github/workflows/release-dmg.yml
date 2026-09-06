@@ -10,6 +10,11 @@ permissions:
   contents: write
 
 jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo ping && uname -a
+
   package:
     runs-on: macos-26
     steps:
@@ -56,15 +61,7 @@ jobs:
         run: |
           swiftc macos/Helios/CoordMath.swift macos/HeliosTests/CoordTests.swift -o /tmp/coordtests
           /tmp/coordtests
-          swiftc -framework Vision \
-            macos/Helios/CoordMath.swift \
-            macos/Helios/AspectSpace.swift \
-            macos/Helios/HandEstimate.swift \
-            macos/Helios/EstimateFusion.swift \
-            macos/Helios/PoseHMM.swift \
-            macos/Helios/GestureClassifier.swift \
-            macos/HeliosTests/GestureTests.swift \
-            -o /tmp/gesturetests
+          swiftc -framework Vision macos/Helios/GestureClassifier.swift macos/Helios/CoordMath.swift macos/HeliosTests/GestureTests.swift -o /tmp/gesturetests
           /tmp/gesturetests
           swiftc -framework AppKit macos/Helios/CoordMath.swift macos/Helios/ScreenGeometry.swift macos/Helios/SpaceMap.swift macos/HeliosTests/SpaceMapTests.swift -o /tmp/spacemaptests
           /tmp/spacemaptests
@@ -86,7 +83,7 @@ jobs:
             ENABLE_HARDENED_RUNTIME=YES \
             build
 
-      - name: Sign and make DMG
+      - name: Make Helios.dmg
         run: |
           set -euo pipefail
           APP=".derived/Build/Products/Release/Helios.app"
@@ -99,7 +96,6 @@ jobs:
             --timestamp=none \
             --entitlements macos/Helios.entitlements \
             dmgroot/Helios.app
-          codesign --verify --verbose=2 dmgroot/Helios.app || true
           ln -s /Applications dmgroot/Applications
           hdiutil create \
             -volname Helios \
@@ -111,9 +107,9 @@ jobs:
           test -f Helios.dmg
           test ! -d Helios.dmg
           file Helios.dmg
-          hdiutil imageinfo Helios.dmg | head -n 20
-          codesign --force --sign - --timestamp=none Helios.dmg || true
           ls -lh Helios.dmg
+          defaults read "$APP/Contents/Info.plist" CFBundleShortVersionString
+          defaults read "$APP/Contents/Info.plist" CFBundleVersion
 
       - name: Upload Helios.dmg artifact
         uses: actions/upload-artifact@v4
@@ -123,7 +119,7 @@ jobs:
           if-no-files-found: error
 
       - name: Publish Helios.dmg
-        if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request' && github.repository == 'bpms9cmnxc-debug/Helios'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -135,20 +131,17 @@ jobs:
             exit 1
           fi
           NOTES="$(cat <<EOF
-          ## Download
+          ## Helios.dmg
 
-          Nur **Helios.dmg** herunterladen (Disk-Image).
+          Nur **Helios.dmg**. Nicht Source code (zip) / tar.gz.
 
-          Nicht anfassen: *Source code (zip)* und *Source code (tar.gz)* — das ist Quelltext, nicht die App.
-
-          1. Helios.dmg öffnen (Doppelklick)
-          2. Helios nach Programme ziehen
-          3. Rechtsklick → Öffnen (Gatekeeper)
-          4. Kamera, Bedienungshilfen und Eingabeüberwachung erlauben
-
-          Ad-hoc signiert. Developer-ID / Notarisierung braucht ein Apple-Zertifikat in den Repo-Secrets.
+          1. Rechtsklick → Öffnen
+          2. Nach Programme ziehen, alte App ersetzen
+          3. Kamera, Bedienungshilfen, Eingabeüberwachung neu erlauben
           EOF
           )"
+          git tag -a "$TAG" -m "$TITLE" 2>/dev/null || true
+          git push origin "$TAG" || true
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "$TITLE" --notes "$NOTES" --latest || true
           else

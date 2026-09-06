@@ -7,25 +7,18 @@ import Vision
 struct JointSnap: Codable {
     var x: Double
     var y: Double
-    var z: Double?
     var c: Double
 }
 
 struct HandSnap: Codable {
-    var id: String?
     var side: String
     var pose: String
-    var label: String?
     var confidence: Double
-    var poseProb: Double?
-    var quality: Double?
     var openScore: Int
     var pinchRatio: Double
     var pinchClosed: Bool
-    var pinchClosedness: Double?
     var palmX: Double
     var palmY: Double
-    var palmWidth: Double?
     var joints: [String: JointSnap]
 }
 
@@ -41,10 +34,10 @@ struct GestureFrame: Codable {
 @MainActor
 final class SessionRecorder {
     private var frames: [GestureFrame] = []
-    private var thumbs: [(hands: [HandSnap], t: Double, image: NSImage?)] = []
+    private var thumbs: [(hands: [HandSnap], t: Double)] = []
     private var lastFrameAt: TimeInterval = 0
     private var lastThumbAt: TimeInterval = 0
-    private var t0: TimeInterval?
+    private let t0 = CACurrentMediaTime()
     private let maxFrames = 2400
     private let maxThumbs = 16
     private let iso = ISO8601DateFormatter()
@@ -59,13 +52,11 @@ final class SessionRecorder {
         action: String,
         now: TimeInterval
     ) {
-        if t0 == nil { t0 = now }
-        let origin = t0 ?? now
         if now - lastFrameAt < 0.12 { return }
         lastFrameAt = now
         let snaps = hands.map(Self.snap)
         let frame = GestureFrame(
-            t: now - origin,
+            t: now - t0,
             iso: iso.string(from: Date()),
             luma: Double(luma),
             mode: mode.labelDE,
@@ -78,7 +69,7 @@ final class SessionRecorder {
         }
         if now - lastThumbAt >= 0.40, !snaps.isEmpty {
             lastThumbAt = now
-            thumbs.append((snaps, now - origin, preview))
+            thumbs.append((snaps, now - t0))
             if thumbs.count > maxThumbs {
                 thumbs.removeFirst(thumbs.count - maxThumbs)
             }
@@ -117,18 +108,10 @@ final class SessionRecorder {
 
     private func write(to url: URL, log: AuditLog) throws {
         let fm = FileManager.default
-        var isDir: ObjCBool = false
-        if fm.fileExists(atPath: url.path, isDirectory: &isDir) {
-            if !isDir.boolValue {
-                throw NSError(
-                    domain: "Helios",
-                    code: 1,
-                    userInfo: [NSLocalizedDescriptionKey: "Bitte einen Ordner wählen, keine Datei."]
-                )
-            }
-        } else {
-            try fm.createDirectory(at: url, withIntermediateDirectories: true)
+        if fm.fileExists(atPath: url.path) {
+            try fm.removeItem(at: url)
         }
+        try fm.createDirectory(at: url, withIntermediateDirectories: true)
         try log.plainText().write(to: url.appendingPathComponent("protokoll.txt"), atomically: true, encoding: .utf8)
         try log.jsonData().write(to: url.appendingPathComponent("protokoll.json"))
         let jsonl = frames.map { Self.line($0) }.joined(separator: "\n") + "\n"
@@ -144,24 +127,22 @@ final class SessionRecorder {
 
         protokoll.txt   lesbares Protokoll (Erkannt / Ausgeführt / Fehler)
         protokoll.json  dasselbe strukturiert
-        gesten.jsonl    eine Zeile pro Frame: Pose, label (Create ML), Gelenke x/y/z/Konfidenz
+        gesten.jsonl    eine Zeile pro Frame: Pose, Handseite, Gelenke x/y/Konfidenz
         gesten.png      Filmstreifen der letzten Gesten (Kamera + Skelett)
 
-        Gelenke: x/y normiert 0…1 (Kamera), y nach oben. z relativ zum Handgelenk, isotrope Skala.
-        label: englischer Pose-Name (fist, openPalm, pinch, point, thumbsUp, peace, unknown).
-        Training: Create ML Tabular/Time-Series auf 12 Frames × 8 Merkmale, Ausgabe HeliosTemporal.mlmodel.
+        Gelenke sind normiert 0…1 (Kamera), y nach oben.
         """
         try readme.write(to: url.appendingPathComponent("README.txt"), atomically: true, encoding: .utf8)
     }
 
     func filmstrip() -> NSImage {
-        let src: [(hands: [HandSnap], t: Double, image: NSImage?)] = {
+        let src: [(hands: [HandSnap], t: Double)] = {
             if !thumbs.isEmpty { return thumbs }
             let picked = frames.filter { !$0.hands.isEmpty }
             guard !picked.isEmpty else { return [] }
             let step = max(1, picked.count / maxThumbs)
             return picked.enumerated().compactMap { i, f in
-                i % step == 0 ? (hands: f.hands, t: f.t, image: nil as NSImage?) : nil
+                i % step == 0 ? (f.hands, f.t) : nil
             }.suffix(maxThumbs).map { $0 }
         }()
         let cols = 4
@@ -191,7 +172,7 @@ final class SessionRecorder {
                     width: cell.width,
                     height: cell.height
                 )
-                GestureDraw.composite(image: thumb.image, hands: thumb.hands, in: box)
+                GestureDraw.composite(image: nil, hands: thumb.hands, in: box)
                 let label = String(format: "%.1fs  %@", thumb.t, thumb.hands.map(\.pose).joined(separator: " · "))
                 (label as NSString).draw(
                     at: CGPoint(x: box.minX + 6, y: box.minY + 4),
@@ -212,25 +193,18 @@ final class SessionRecorder {
             joints[Self.key(name)] = JointSnap(
                 x: Double(j.point.x),
                 y: Double(j.point.y),
-                z: Double(j.z),
                 c: Double(j.confidence)
             )
         }
         return HandSnap(
-            id: hand.id,
             side: hand.sideDE,
             pose: hand.pose.labelDE,
-            label: hand.pose.rawValue,
             confidence: Double(hand.meanConfidence),
-            poseProb: hand.poseProb,
-            quality: hand.quality,
             openScore: hand.openScore,
             pinchRatio: Double(hand.pinchRatio),
             pinchClosed: hand.pinchClosed,
-            pinchClosedness: hand.pinchClosedness,
             palmX: Double(hand.palm.x),
             palmY: Double(hand.palm.y),
-            palmWidth: Double(hand.palmWidth),
             joints: joints
         )
     }

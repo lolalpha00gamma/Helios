@@ -29,85 +29,108 @@ enum SpaceMapTests {
             fputs("FAIL scale \(q)\n", stderr)
             exit(1)
         }
-
-        let globalKey = "helios.spaceMap"
-        let prevGlobal = UserDefaults.standard.data(forKey: globalKey)
-        let sample = SpaceMap(
+        let collapsed = SpaceMap(palms: [
+            XY(x: 0.5, y: 0.5), XY(x: 0.5, y: 0.5),
+            XY(x: 0.5, y: 0.5), XY(x: 0.5, y: 0.5)
+        ])
+        if !collapsed.isReady {
+            fputs("FAIL collapsed isReady\n", stderr)
+            exit(1)
+        }
+        if collapsed.isUsable {
+            fputs("FAIL singuläre Homographie zählt als usable\n", stderr)
+            exit(1)
+        }
+        let open = SpaceMap(palms: [
+            XY(x: 0.15, y: 0.85), XY(x: 0.85, y: 0.85),
+            XY(x: 0.85, y: 0.15), XY(x: 0.15, y: 0.15)
+        ])
+        if !open.isUsable {
+            fputs("FAIL offenes Quad nicht usable\n", stderr)
+            exit(1)
+        }
+        if GestureMath.spaceMapKey("built-in") == GestureMath.spaceMapKey("continuity") {
+            fputs("FAIL Kamera-Keys gleich\n", stderr)
+            exit(1)
+        }
+        if SpaceMap.storageKey("a") != "helios.spaceMap.a" {
+            fputs("FAIL storageKey\n", stderr)
+            exit(1)
+        }
+        if SpaceMap.storageKey("a", screenID: "9") == SpaceMap.storageKey("a") {
+            fputs("FAIL storageKey screen == camera\n", stderr)
+            exit(1)
+        }
+        if SpaceMap.storageKey("a", screenID: "9") == SpaceMap.storageKey("a", screenID: "8") {
+            fputs("FAIL storageKey screens gleich\n", stderr)
+            exit(1)
+        }
+        let vis = CGRect(x: 100, y: 50, width: 1280, height: 800)
+        let corners = SpaceMap.screenCorners(of: vis)
+        if corners.count != 4 {
+            fputs("FAIL screenCorners count\n", stderr)
+            exit(1)
+        }
+        if abs(corners[0].x - 108) > 0.5 || abs(corners[0].y - 58) > 0.5 {
+            fputs("FAIL screenCorners TL \(corners[0])\n", stderr)
+            exit(1)
+        }
+        if abs(corners[2].x - 1372) > 0.5 || abs(corners[2].y - 842) > 0.5 {
+            fputs("FAIL screenCorners BR \(corners[2])\n", stderr)
+            exit(1)
+        }
+        let mapped = SpaceMap.linear(CGPoint(x: 0.10, y: 0.90), in: vis)
+        if abs(mapped.x - 100) > 0.5 || abs(mapped.y - 50) > 0.5 {
+            fputs("FAIL linear in vis TL \(mapped)\n", stderr)
+            exit(1)
+        }
+        let mappedBR = SpaceMap.linear(CGPoint(x: 0.90, y: 0.10), in: vis)
+        if abs(mappedBR.x - 1380) > 0.5 || abs(mappedBR.y - 850) > 0.5 {
+            fputs("FAIL linear in vis BR \(mappedBR)\n", stderr)
+            exit(1)
+        }
+        let destMap = SpaceMap(
             palms: [XY(x: 0, y: 0), XY(x: 1, y: 0), XY(x: 1, y: 1), XY(x: 0, y: 1)],
-            cameraID: ""
+            dest: [XY(x: 100, y: 50), XY(x: 900, y: 50), XY(x: 900, y: 650), XY(x: 100, y: 650)]
         )
-        guard let blob = try? JSONEncoder().encode(sample) else {
-            fputs("FAIL encode SpaceMap\n", stderr)
+        guard let Hd = destMap.homography() else {
+            fputs("FAIL dest homography nil\n", stderr)
             exit(1)
         }
-        UserDefaults.standard.set(blob, forKey: globalKey)
-        if SpaceMap.load(cameraID: "cover-test-cam") != nil {
-            fputs("FAIL Cover erbt globale Homographie\n", stderr)
+        let mid = apply(Hd, CGPoint(x: 0.5, y: 0.5))
+        if abs(mid.x - 500) > 0.5 || abs(mid.y - 350) > 0.5 {
+            fputs("FAIL dest mid \(mid)\n", stderr)
             exit(1)
         }
-        if SpaceMap.load() == nil {
-            fputs("FAIL globale Map ohne cameraID lesbar\n", stderr)
+        guard let db = destMap.destBounds else {
+            fputs("FAIL destBounds nil\n", stderr)
             exit(1)
         }
-        let coverBlob = SpaceMap(
-            palms: [XY(x: 0, y: 0), XY(x: 1, y: 0), XY(x: 1, y: 1), XY(x: 0, y: 1)],
-            cameraID: "cover-poison"
+        if abs(db.minX - 100) > 0.5 || abs(db.minY - 50) > 0.5 || abs(db.width - 800) > 0.5 || abs(db.height - 600) > 0.5 {
+            fputs("FAIL destBounds \(db)\n", stderr)
+            exit(1)
+        }
+        let collapsedDest = SpaceMap(
+            palms: [XY(x: 0, y: 0), XY(x: 1, y: 0), XY(x: 1, y: 1), XY(x: 0, y: 1)]
         )
-        guard let coverData = try? JSONEncoder().encode(coverBlob) else {
-            fputs("FAIL encode Cover-Map\n", stderr)
+        if collapsedDest.destBounds != nil {
+            fputs("FAIL destBounds ohne dest\n", stderr)
             exit(1)
         }
-        UserDefaults.standard.set(coverData, forKey: globalKey)
-        if SpaceMap.load() != nil {
-            fputs("FAIL globale Cover-Map darf Lead nicht vergiften\n", stderr)
+        if !GestureMath.mapRMSReady(GestureMath.mapRMS([12, 8, 20, 16])) {
+            fputs("FAIL kleine RMS nicht ready\n", stderr)
             exit(1)
         }
-
-        let cam = "helios-test-mismatch"
-        let disp: UInt32 = 99
-        let perCam = SpaceMap(
-            palms: [XY(x: 0, y: 0), XY(x: 1, y: 0), XY(x: 1, y: 1), XY(x: 0, y: 1)],
-            displayID: disp,
-            cameraID: cam
-        )
-        perCam.save()
-        if SpaceMap.load(cameraID: cam)?.isReady != true {
-            fputs("FAIL load ohne displayID findet cam.<id>.<display> nicht\n", stderr)
+        if GestureMath.mapRMSReady(70) {
+            fputs("FAIL 70 px RMS ready\n", stderr)
             exit(1)
         }
-        if SpaceMap.load(cameraID: cam, displayID: disp)?.cameraID != cam {
-            fputs("FAIL load mit displayID verfehlt den Key\n", stderr)
+        let b = CGRect(x: 100, y: 50, width: 800, height: 600)
+        let c = GestureMath.destClamp(CGPoint(x: 5000, y: -20), bounds: b)
+        if c.x > b.maxX - 0.5 || c.y < b.minY + 0.5 {
+            fputs("FAIL destClamp \(c)\n", stderr)
             exit(1)
         }
-        UserDefaults.standard.removeObject(forKey: SpaceMap.camKey(cameraID: cam, displayID: disp))
-        UserDefaults.standard.removeObject(forKey: SpaceMap.camKey(cameraID: cam, displayID: 0))
-        let main = ScreenGeometry.mainDisplayID
-        if main != 0 {
-            let cam2 = "helios-test-screenloop"
-            SpaceMap(
-                palms: [XY(x: 0, y: 0), XY(x: 1, y: 0), XY(x: 1, y: 1), XY(x: 0, y: 1)],
-                displayID: main,
-                cameraID: cam2
-            ).save()
-            UserDefaults.standard.removeObject(forKey: SpaceMap.camKey(cameraID: cam2, displayID: 0))
-            if SpaceMap.load(cameraID: cam2)?.isReady != true {
-                fputs("FAIL load ohne displayID findet bestehenden Display-Key nicht\n", stderr)
-                exit(1)
-            }
-            UserDefaults.standard.removeObject(forKey: SpaceMap.camKey(cameraID: cam2, displayID: main))
-            UserDefaults.standard.removeObject(forKey: SpaceMap.camKey(cameraID: cam2, displayID: 0))
-            if let ids = UserDefaults.standard.stringArray(forKey: "helios.spaceMap.cameras") {
-                UserDefaults.standard.set(ids.filter { $0 != cam && $0 != cam2 }, forKey: "helios.spaceMap.cameras")
-            }
-        } else if let ids = UserDefaults.standard.stringArray(forKey: "helios.spaceMap.cameras") {
-            UserDefaults.standard.set(ids.filter { $0 != cam }, forKey: "helios.spaceMap.cameras")
-        }
-        if let prevGlobal {
-            UserDefaults.standard.set(prevGlobal, forKey: globalKey)
-        } else {
-            UserDefaults.standard.removeObject(forKey: globalKey)
-        }
-
         print("SpaceMapTests OK")
     }
 

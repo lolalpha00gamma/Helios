@@ -23,7 +23,7 @@
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.utilities</string>
 	<key>LSMinimumSystemVersion</key>
-	<string>26.0</string>
+	<string>14.0</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSHighResolutionCapable</key>
@@ -34,5 +34,8 @@
 	<string>Helios legt Finder-Auswahl in den Papierkorb, wenn du ein Objekt wirfst.</string>
 	<key>NSScreenCaptureUsageDescription</key>
 	<string>Helios speichert eine Aufnahme des aktuellen Fensters, wenn du die Peace-Geste hältst.</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Copyright © 2026 Tony Rogers. Alle Rechte vorbehalten.</string>
+
 </dict>
 </plist>

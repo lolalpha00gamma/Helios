@@ -23,95 +23,80 @@ enum CalibCorner: Int, CaseIterable, Codable {
     }
 
     var hintDE: String {
-        "Dein Anschlag \(titleDE) — so weit du kommst, ohne das Bild zu verlassen. Pinch bestätigt."
+        "Halte die Hand ruhig dort, wo für dich die Ecke \(titleDE) ist. Pinch bestätigt."
     }
 }
 
 /// Homographie Kamera-Handfläche → Bildschirm (Quartz). Nur Mapping, keine Erkennung.
 struct SpaceMap: Codable {
     var palms: [XY]
-    var displayID: UInt32 = 0
-    var cameraID: String = ""
+    var cameraID: String? = nil
+    /// Quartz-Ecken zum Kalib-Zeitpunkt. Ohne das mappt homography() auf den Hauptbildschirm.
+    var dest: [XY]? = nil
+    /// CGDirectDisplayID als String. Laptop und Extern teilen sich sonst destBounds.
+    var screenID: String? = nil
 
     var isReady: Bool { palms.count == 4 }
+    /// Vier Punkte reichen nicht: singuläre Homographie fällt auf Relativzeiger.
+    var isUsable: Bool { isReady && homography() != nil }
 
-    enum CodingKeys: String, CodingKey {
-        case palms, displayID, cameraID
-    }
-
-    init(palms: [XY], displayID: UInt32 = 0, cameraID: String = "") {
-        self.palms = palms
-        self.displayID = displayID
-        self.cameraID = cameraID
-    }
-
-    init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        palms = try c.decode([XY].self, forKey: .palms)
-        displayID = try c.decodeIfPresent(UInt32.self, forKey: .displayID) ?? 0
-        cameraID = try c.decodeIfPresent(String.self, forKey: .cameraID) ?? ""
-    }
-
-    static func screenCorners(displayID: CGDirectDisplayID = 0) -> [CGPoint] {
-        let frame: CGRect
-        if displayID != 0,
-           let screen = NSScreen.screens.first(where: { ScreenGeometry.displayID(of: $0) == displayID })
-        {
-            frame = screen.frame
-        } else {
-            frame = ScreenGeometry.cocoaUnion
+    /// Bounding-Box der Kalib-Ecken. Residual gegen linear(in:) sonst auf Primary.
+    var destBounds: CGRect? {
+        guard let dest, dest.count == 4 else { return nil }
+        let xs = dest.map(\.x)
+        let ys = dest.map(\.y)
+        guard let minX = xs.min(), let maxX = xs.max(), let minY = ys.min(), let maxY = ys.max() else {
+            return nil
         }
-        let q = ScreenGeometry.quartzRect(fromCocoa: frame)
-        return [
-            CGPoint(x: q.minX + 8, y: q.minY + 8),
-            CGPoint(x: q.maxX - 8, y: q.minY + 8),
-            CGPoint(x: q.maxX - 8, y: q.maxY - 8),
-            CGPoint(x: q.minX + 8, y: q.maxY - 8)
-        ]
+        let w = maxX - minX
+        let h = maxY - minY
+        guard w > 1, h > 1 else { return nil }
+        return CGRect(x: minX, y: minY, width: w, height: h)
     }
 
-    static func linear(_ palm: CGPoint) -> CGPoint {
-        let q = ScreenGeometry.quartzRect(fromCocoa: ScreenGeometry.cocoaUnion)
+
+    static func screenCorners() -> [CGPoint] {
+        if let s = NSScreen.main {
+            return screenCorners(of: ScreenGeometry.visQuartz(of: s))
+        }
+        return screenCorners(of: ScreenGeometry.quartzRect(fromCocoa: ScreenGeometry.cocoaUnion))
+    }
+
+    static func screenCorners(of q: CGRect, inset: CGFloat = 8) -> [CGPoint] {
+        GestureMath.screenAwareCorners(of: q, inset: inset)
+    }
+
+    static func linear(_ palm: CGPoint, in q: CGRect? = nil) -> CGPoint {
+        let rect = q ?? NSScreen.main.map { ScreenGeometry.visQuartz(of: $0) }
+            ?? ScreenGeometry.quartzRect(fromCocoa: ScreenGeometry.cocoaUnion)
         let u = min(max((palm.x - 0.10) / 0.80, 0), 1)
         let v = min(max((palm.y - 0.10) / 0.80, 0), 1)
-        return CGPoint(x: q.minX + u * q.width, y: q.minY + (1 - v) * q.height)
+        return CGPoint(x: rect.minX + u * rect.width, y: rect.minY + (1 - v) * rect.height)
     }
 
     func apply(_ palm: CGPoint) -> CGPoint {
-        guard isReady, let H = cachedHomography() else { return Self.linear(palm) }
+        guard isReady, let H = homography() else { return Self.linear(palm) }
         let w = H[6] * palm.x + H[7] * palm.y + H[8]
         guard abs(w) > 1e-8 else { return Self.linear(palm) }
         let p = CGPoint(
             x: (H[0] * palm.x + H[1] * palm.y + H[2]) / w,
             y: (H[3] * palm.x + H[4] * palm.y + H[5]) / w
         )
-        return ScreenGeometry.clampQuartz(p)
-    }
-
-    /// Bildschirm → Kamera-Handfläche. Cover-Lage in Lead-Raum.
-    func invert(_ screen: CGPoint) -> CGPoint? {
-        guard isReady, let H = cachedHomography(), let inv = CoordMath.invert3x3(H) else { return nil }
-        return CoordMath.apply3x3(inv, screen)
-    }
-
-    /// Außen absolut (Homographie), innen Relativ-Schritt. `relative` ist schon in Quartz.
-    func hybrid(palm: CGPoint, relative: CGPoint, band: CGFloat = GestureMath.hybridBand) -> CGPoint {
-        let absP = apply(palm)
-        let uv = ScreenGeometry.unitInUnion(quartz: absP)
-        let w = CoordMath.edgeAbsoluteWeight(u: uv.x, v: uv.y, band: band)
-        let p = CGPoint(
-            x: w * absP.x + (1 - w) * relative.x,
-            y: w * absP.y + (1 - w) * relative.y
-        )
+        if destBounds != nil {
+            return GestureMath.destClamp(p, bounds: destBounds)
+        }
         return ScreenGeometry.clampQuartz(p)
     }
 
     func homography() -> [CGFloat]? {
-        cachedHomography()
-    }
-
-    private func cachedHomography() -> [CGFloat]? {
-        HomographyStore.get(palms, displayID: displayID, cameraID: cameraID)
+        guard palms.count == 4 else { return nil }
+        let dst: [CGPoint]
+        if let dest, dest.count == 4 {
+            dst = dest.map(\.point)
+        } else {
+            dst = Self.screenCorners()
+        }
+        return SpaceMap.homography(from: palms.map(\.point), to: dst)
     }
 
     /// 4 Punktpaare, h22 = 1, 8×8 Gauss.
@@ -162,199 +147,125 @@ struct SpaceMap: Codable {
         return b
     }
 
-    static func storageKey(displayID: CGDirectDisplayID) -> String {
-        displayID == 0 ? "helios.spaceMap" : "helios.spaceMap.\(displayID)"
+    static func storageKey(_ cameraID: String?, screenID: String? = nil) -> String {
+        GestureMath.spaceMapKey(cameraID, screenID: screenID)
     }
 
-    static func camKey(cameraID: String, displayID: CGDirectDisplayID) -> String {
-        if cameraID.isEmpty { return storageKey(displayID: displayID) }
-        return displayID == 0
-            ? "helios.spaceMap.cam.\(cameraID)"
-            : "helios.spaceMap.cam.\(cameraID).\(displayID)"
-    }
-
-    static func load(cameraID: String = "", displayID: CGDirectDisplayID = 0) -> SpaceMap? {
-        if !cameraID.isEmpty {
-            if let map = decodeCam(cameraID, displayID) { return map }
-            if displayID != 0 {
-                return decodeCam(cameraID, 0)
-            }
-            // save() schreibt ab 1.6.30 auch den Alias cam.<id> (display 0).
-            // 1.6.29-Maps haben nur cam.<id>.<display> — Screen-Loop holt die.
-            for s in NSScreen.screens {
-                let d = ScreenGeometry.displayID(of: s)
-                if d != 0, let map = decodeCam(cameraID, d) { return map }
-            }
-            return nil
-        }
-        if displayID != 0,
-           let data = UserDefaults.standard.data(forKey: storageKey(displayID: displayID)),
-           let map = decodeAnonymous(data)
-        {
-            return map
-        }
-        guard let data = UserDefaults.standard.data(forKey: "helios.spaceMap") else { return nil }
-        return decodeAnonymous(data)
-    }
-
-    private static func decodeCam(_ cameraID: String, _ displayID: CGDirectDisplayID) -> SpaceMap? {
-        guard let data = UserDefaults.standard.data(forKey: camKey(cameraID: cameraID, displayID: displayID)) else {
-            return nil
-        }
-        return try? JSONDecoder().decode(SpaceMap.self, from: data)
-    }
-
-    /// Globale / Display-Keys sind Lead-Fallback. 1.6.27 hat Cover dorthin geschrieben —
-    /// eine Map mit cameraID gehört nicht in den anonymen Slot.
-    private static func decodeAnonymous(_ data: Data) -> SpaceMap? {
-        guard let map = try? JSONDecoder().decode(SpaceMap.self, from: data) else { return nil }
-        if !map.cameraID.isEmpty { return nil }
-        return map
-    }
-
-    func save() {
-        guard let data = try? JSONEncoder().encode(self) else { return }
-        // Cover-Kalibrierung darf die globale Fallback-Homographie des Lead nicht überschreiben.
-        if cameraID.isEmpty {
-            UserDefaults.standard.set(data, forKey: "helios.spaceMap")
-        }
-        if displayID != 0, cameraID.isEmpty {
-            UserDefaults.standard.set(data, forKey: Self.storageKey(displayID: displayID))
-        }
-        if !cameraID.isEmpty {
-            UserDefaults.standard.set(data, forKey: Self.camKey(cameraID: cameraID, displayID: displayID))
-            if displayID != 0 {
-                UserDefaults.standard.set(data, forKey: Self.camKey(cameraID: cameraID, displayID: 0))
-            }
-            var ids = UserDefaults.standard.stringArray(forKey: "helios.spaceMap.cameras") ?? []
-            if !ids.contains(cameraID) {
-                ids.append(cameraID)
-                UserDefaults.standard.set(ids, forKey: "helios.spaceMap.cameras")
+    static func load(cameraID: String? = nil, screenID: String? = nil) -> SpaceMap? {
+        var keys: [String] = []
+        if let screenID, !screenID.isEmpty {
+            keys.append(storageKey(cameraID, screenID: screenID))
+            keys.append(storageKey(cameraID))
+        } else {
+            keys.append(storageKey(cameraID))
+            if cameraID == nil || cameraID?.isEmpty == true {
+                keys.append("helios.spaceMap")
             }
         }
-        HomographyStore.clear()
-    }
-
-    static func clear() {
-        UserDefaults.standard.removeObject(forKey: "helios.spaceMap")
-        for screen in NSScreen.screens {
-            UserDefaults.standard.removeObject(forKey: storageKey(displayID: ScreenGeometry.displayID(of: screen)))
-        }
-        let ids = UserDefaults.standard.stringArray(forKey: "helios.spaceMap.cameras") ?? []
-        for id in ids {
-            UserDefaults.standard.removeObject(forKey: camKey(cameraID: id, displayID: 0))
-            for screen in NSScreen.screens {
-                UserDefaults.standard.removeObject(
-                    forKey: camKey(cameraID: id, displayID: ScreenGeometry.displayID(of: screen))
-                )
+        let screenQuartz: CGRect? = {
+            if let screenID, !screenID.isEmpty {
+                for s in NSScreen.screens where "\(ScreenGeometry.displayID(of: s))" == screenID {
+                    return ScreenGeometry.quartzBounds(of: s)
+                }
+            }
+            return NSScreen.main.map { ScreenGeometry.quartzBounds(of: $0) }
+        }()
+        var seen = Set<String>()
+        for key in keys where seen.insert(key).inserted {
+            if let data = UserDefaults.standard.data(forKey: key),
+               let map = try? JSONDecoder().decode(SpaceMap.self, from: data),
+               GestureMath.mapFitsScreen(
+                mapScreenID: map.screenID,
+                screenID: screenID,
+                dest: map.destBounds,
+                screen: screenQuartz
+               )
+            {
+                return map
             }
         }
-        UserDefaults.standard.removeObject(forKey: "helios.spaceMap.cameras")
-        HomographyStore.clear()
-    }
-}
-
-private enum HomographyStore {
-    private struct Slot {
-        var palms: [XY]
-        var displayID: UInt32
-        var cameraID: String
-        var H: [CGFloat]?
+        return nil
     }
 
-    private static let lock = NSLock()
-    private static let cap = 4
-    nonisolated(unsafe) private static var slots: [Slot] = []
-
-    static func get(_ src: [XY], displayID: UInt32, cameraID: String = "") -> [CGFloat]? {
-        lock.lock()
-        defer { lock.unlock() }
-        if let i = slots.firstIndex(where: {
-            $0.cameraID == cameraID && $0.displayID == displayID && $0.palms == src
-        }) {
-            let hit = slots.remove(at: i)
-            slots.append(hit)
-            return hit.H
+    func save(cameraID: String? = nil, screenID: String? = nil) {
+        let id = cameraID ?? self.cameraID
+        let sid = screenID ?? self.screenID
+        if let data = try? JSONEncoder().encode(self) {
+            UserDefaults.standard.set(data, forKey: Self.storageKey(id, screenID: sid))
         }
-        guard src.count == 4 else {
-            upsert(Slot(palms: src, displayID: displayID, cameraID: cameraID, H: nil))
-            return nil
+    }
+
+    static func clear(cameraID: String? = nil, screenID: String? = nil) {
+        UserDefaults.standard.removeObject(forKey: storageKey(cameraID, screenID: screenID))
+        if screenID == nil || screenID?.isEmpty == true {
+            UserDefaults.standard.removeObject(forKey: storageKey(cameraID))
+            if cameraID == nil || cameraID?.isEmpty == true {
+                UserDefaults.standard.removeObject(forKey: "helios.spaceMap")
+            }
         }
-        let H = SpaceMap.homography(from: src.map(\.point), to: SpaceMap.screenCorners(displayID: displayID))
-        upsert(Slot(palms: src, displayID: displayID, cameraID: cameraID, H: H))
-        return H
-    }
-
-    private static func upsert(_ slot: Slot) {
-        slots.removeAll { $0.cameraID == slot.cameraID && $0.displayID == slot.displayID }
-        slots.append(slot)
-        if slots.count > cap { slots.removeFirst(slots.count - cap) }
-    }
-
-    static func clear() {
-        lock.lock()
-        slots = []
-        lock.unlock()
     }
 }
 
 @MainActor
 final class CalibrationSession {
+    var cameraID: String?
     private(set) var active = false
     private(set) var corner: CalibCorner = .topLeft
     private(set) var hold: CGFloat = 0
     private(set) var cursorGap: CGFloat = 0
     private(set) var samples: [CalibCorner: CGPoint] = [:]
+    private var cornerGaps: [CalibCorner: CGFloat] = [:]
     private var lastPalm: CGPoint?
+    private var lastMapped: CGPoint?
     private var lastT: TimeInterval = 0
     private var lastCapture: TimeInterval = 0
     private var needRelease = false
     private var needMove = false
     private(set) var hint = "Pinzette an der Ecke halten"
     private(set) var rejected = false
-    private var targetDisplay: CGDirectDisplayID = 0
-    private(set) var cameraID = ""
-    private(set) var cameraLabel = ""
-    private var finishedID: String?
 
     var progress: CGFloat { min(1, hold / 0.9) }
     var remaining: Int { 4 - samples.count }
+    /// Live-RMS der schon genommenen Ecken plus aktuelle Lücke.
+    var liveRMS: CGFloat? {
+        var g = CalibCorner.allCases.compactMap { cornerGaps[$0] }
+        if samples[corner] == nil, cursorGap > 0 { g.append(cursorGap) }
+        guard !g.isEmpty else { return nil }
+        return GestureMath.mapRMS(g)
+    }
+    var visQuartz: CGRect {
+        let q = lastMapped ?? ScreenGeometry.quartz(fromCocoa: NSEvent.mouseLocation)
+        let screen = ScreenGeometry.screenContaining(quartz: q) ?? NSScreen.main
+        if let screen { return ScreenGeometry.visQuartz(of: screen) }
+        return ScreenGeometry.quartzRect(fromCocoa: ScreenGeometry.cocoaUnion)
+    }
 
-    func start(cameraID: String = "", label: String = "") {
+    func start() {
         active = true
         corner = .topLeft
         hold = 0
         samples.removeAll()
+        cornerGaps.removeAll()
         lastPalm = nil
+        lastMapped = nil
         lastCapture = 0
         needRelease = false
         needMove = false
         rejected = false
         lastT = 0
-        targetDisplay = ScreenGeometry.mainDisplayID
-        self.cameraID = cameraID
-        cameraLabel = label
-        finishedID = nil
-        if label.isEmpty {
-            hint = "Ecke oben links: dein Anschlag, nicht der Kamerarand. Pinzette 1 s."
-        } else {
-            hint = "\(label): Ecke oben links — Blickwinkel dieser Quelle. Anschlag, nicht Kamerarand."
-        }
-    }
-
-    func consumeFinished() -> String? {
-        let v = finishedID
-        finishedID = nil
-        return v
+        hint = "Ecke oben links: Hand hin, Pinzette 1 s halten"
     }
 
     func cancel() {
         active = false
         hold = 0
+        lastMapped = nil
     }
 
     func targetQuartz() -> CGPoint {
-        SpaceMap.screenCorners(displayID: targetDisplay)[corner.rawValue]
+        let visQ = visQuartz
+        let corners = SpaceMap.screenCorners(of: visQ)
+        return corners[min(corner.rawValue, corners.count - 1)]
     }
 
     /// Nur Pinzette. Nach jedem Treffer: Hand öffnen und zur nächsten Ecke gehen.
@@ -364,9 +275,16 @@ final class CalibrationSession {
         lastT = now
         let moved = lastPalm.map { hypot(palm.x - $0.x, palm.y - $0.y) } ?? 1
         lastPalm = palm
+        let visQ = visQuartz
+        let mapped = SpaceMap.linear(palm, in: visQ)
+        lastMapped = mapped
         let target = targetQuartz()
-        let cursor = ScreenGeometry.quartz(fromCocoa: NSEvent.mouseLocation)
-        cursorGap = hypot(cursor.x - target.x, cursor.y - target.y)
+        cursorGap = hypot(mapped.x - target.x, mapped.y - target.y)
+        if moved < 0.014 {
+            hold += CGFloat(dt)
+        } else {
+            hold = 0
+        }
 
         if needRelease {
             hold = 0
@@ -378,28 +296,28 @@ final class CalibrationSession {
             return nil
         }
         if needMove {
-            if let last = lastSample(), hypot(palm.x - last.x, palm.y - last.y) < GestureMath.calibCornerSep {
+            if let last = lastSample(), hypot(palm.x - last.x, palm.y - last.y) < 0.20 {
                 hold = 0
-                hint = "Etwas weiter nach \(corner.titleDE) — nur so weit, wie die Hand im Bild bleibt"
+                hint = "Noch zu nah — weiter nach \(corner.titleDE)"
                 return nil
             }
             needMove = false
         }
-        if samples.values.contains(where: { hypot(palm.x - $0.x, palm.y - $0.y) < GestureMath.calibCornerSep }) {
+        if samples.values.contains(where: { hypot(palm.x - $0.x, palm.y - $0.y) < 0.18 }) {
             hold = 0
-            hint = "Zu nah an einer fertigen Ecke — dein nächster Anschlag, ohne das Bild zu verlassen"
+            hint = "Zu nah an einer fertigen Ecke — weiter nach außen"
             rejected = true
             return nil
         }
         if !confirm {
-            hold = 0
             hint = "Pinzette an Ecke \(corner.titleDE) halten (\(remaining) offen)"
             return nil
         }
-        if moved < 0.014 {
-            hold += CGFloat(dt)
-        } else {
+        if GestureMath.calibAborts(drift: cursorGap) {
             hold = 0
+            rejected = true
+            hint = "Hand \(Int(cursorGap)) px neben der Ecke — näher halten"
+            return nil
         }
         if hold < 0.9 {
             hint = "Pinzette halten … \(Int(min(100, hold / 0.9 * 100))) %"
@@ -412,28 +330,46 @@ final class CalibrationSession {
 
         rejected = false
         samples[corner] = palm
+        cornerGaps[corner] = cursorGap
         hold = 0
         lastPalm = nil
         lastCapture = now
         needRelease = true
         if let next = CalibCorner(rawValue: corner.rawValue + 1) {
             corner = next
-            hint = "OK. Öffnen und nach \(next.titleDE) — Anschlag, nicht Kamerarand"
+            hint = "OK. Öffnen und nach \(next.titleDE)"
             return nil
         }
         let ordered: [CalibCorner] = [.topLeft, .topRight, .bottomRight, .bottomLeft]
         let pts = ordered.compactMap { samples[$0] }
-        guard pts.count == 4, Self.quadArea(pts) >= GestureMath.calibMinArea else {
+        guard pts.count == 4, Self.quadArea(pts) >= 0.035 else {
             samples[.bottomLeft] = nil
+            cornerGaps[.bottomLeft] = nil
             corner = .bottomLeft
-            hint = "Ecken zu nah. Unten links so weit du kommst, ohne das Bild zu verlassen."
+            hint = "Ecken zu nah. Unten links weiter außen, dann Pinzette."
             rejected = true
             return nil
         }
-        let map = SpaceMap(palms: pts.map(XY.init), displayID: targetDisplay, cameraID: cameraID)
-        map.save()
+        let rms = GestureMath.mapRMS(ordered.compactMap { cornerGaps[$0] })
+        if !GestureMath.mapRMSReady(rms) {
+            samples[.bottomLeft] = nil
+            cornerGaps[.bottomLeft] = nil
+            corner = .bottomLeft
+            hint = "RMS \(Int(rms.rounded())) px — unten links genauer"
+            rejected = true
+            return nil
+        }
+        let dest = SpaceMap.screenCorners(of: visQ).map(XY.init)
+        let sid: String?
+        if let scr = ScreenGeometry.screenContaining(quartz: CGPoint(x: visQ.midX, y: visQ.midY)) {
+            let n = ScreenGeometry.displayID(of: scr)
+            sid = n == 0 ? nil : "\(n)"
+        } else {
+            sid = nil
+        }
+        var map = SpaceMap(palms: pts.map(XY.init), cameraID: cameraID, dest: dest, screenID: sid)
+        map.save(cameraID: cameraID, screenID: sid)
         active = false
-        finishedID = cameraID
         hint = "Fertig"
         return map
     }

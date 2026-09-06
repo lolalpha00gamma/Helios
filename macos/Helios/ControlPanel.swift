@@ -5,10 +5,8 @@ struct ControlPanel: View {
 
     var body: some View {
         HSplitView {
-            ScrollView {
-                left
-            }
-            .frame(minWidth: 280, idealWidth: 310)
+            left
+                .frame(minWidth: 280, idealWidth: 310)
             preview
                 .frame(minWidth: 440)
             inspector
@@ -32,21 +30,15 @@ struct ControlPanel: View {
                     .background(state.mode == .armed && !state.testMode ? HeliosTheme.amber : HeliosTheme.cyan.opacity(0.15))
                     .foregroundStyle(state.mode == .armed && !state.testMode ? HeliosTheme.void : HeliosTheme.cyan)
             }
-            if let f = state.focused {
-                let p = AppInjectProfile.of(bundleId: f.bundleId)
-                Text("\(f.appName) · Profil \(p.titleDE)")
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(p == .off ? HeliosTheme.amber : .secondary)
-            }
 
             Toggle(isOn: Binding(
                 get: { state.leftHanded },
                 set: { state.setLeftHanded($0) }
             )) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Linkshänder")
+                    Text("Linke Hand dominant")
                         .font(.system(size: 13, weight: .semibold))
-                    Text("Standard aus — rechte Hand steuert. Nur einschalten, wenn du mit links greifst.")
+                    Text("Standard ist rechts. Nur an, wenn die linke Hand zielen und greifen soll.")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
@@ -61,36 +53,6 @@ struct ControlPanel: View {
                     Text("Protokollmodus")
                         .font(.system(size: 13, weight: .semibold))
                     Text("Zeigt Erkennung und ob das System die Aktion wirklich ausgeführt hat.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .toggleStyle(.switch)
-
-            Toggle(isOn: Binding(
-                get: { state.dwellEnabled },
-                set: { state.setDwellEnabled($0) }
-            )) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Dwell-Klick")
-                        .font(.system(size: 13, weight: .semibold))
-                    Text("Offene Hand eine Sekunde still = Klick. Aus by default.")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .toggleStyle(.switch)
-
-            Toggle(isOn: Binding(
-                get: { state.keyboardVisible },
-                set: { on in
-                    if on != state.engine.keyboardVisible { state.engine.toggleKeyboard() }
-                }
-            )) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Luft-Tastatur")
-                        .font(.system(size: 13, weight: .semibold))
-                    Text("Zeigen 0,85 s öffnet QWERTZ in der Luft. Taste 0,12 s halten tippt — ohne Pinzette. Faust schließt.")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }
@@ -158,6 +120,22 @@ struct ControlPanel: View {
                     Button(state.cameraRunning ? "Kamera stoppen" : "Kamera starten") {
                         if state.cameraRunning { state.stopCamera() } else { Task { await state.startCamera() } }
                     }
+                    if state.dualCamAvailable || state.cameraFallback {
+                        Picker("Kamera", selection: Binding(
+                            get: { state.cameraChoice },
+                            set: { state.setCameraChoice($0) }
+                        )) {
+                            ForEach(CameraChoice.allCases) { c in
+                                Text(c.titleDE).tag(c)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        Text(state.cameraFallback
+                             ? "Continuity aktiv — Built-in ist genauer, wenn vorhanden."
+                             : "Built-in und Continuity gefunden. Auto nimmt die Frontkamera.")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
                     HStack {
                         Button("Scharf") { state.engine.forceArm() }
                         Button("Idle") { state.engine.forceIdle() }
@@ -167,27 +145,8 @@ struct ControlPanel: View {
                     Toggle("Kamera-Chip", isOn: $state.showPreviewChip)
                     Toggle("Gelenk-Beschriftung", isOn: $state.showJointLabels)
                     Toggle("Gestenhilfe", isOn: $state.showCheats)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Toggle("App-Umriss", isOn: $state.showOutline)
-                        Text("Nur beim Greifen: Cyan-Rahmen um das Zielfenster. Kein eigenes Fenster, kein App-Wechsel. Standard aus.")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.secondary)
-                    }
+                    Toggle("App-Umriss", isOn: $state.showOutline)
                     Toggle("Papierkorb-Zone", isOn: $state.showTrashZone)
-                    Toggle(isOn: Binding(
-                        get: { state.hideConsoleWhenArmed },
-                        set: { state.setHideConsoleWhenArmed($0) }
-                    )) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Konsole bei Scharf ausblenden")
-                                .font(.system(size: 13, weight: .semibold))
-                            Text("Standard aus. Die Konsole bleibt stehen und stiehlt nicht den Vordergrund — Gesten laufen in der App darunter. Nur einschalten, wenn das Fenster komplett weg soll.")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .toggleStyle(.switch)
-                    cameraPicker
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
                             Text("Zeiger-Empfindlichkeit")
@@ -214,42 +173,191 @@ struct ControlPanel: View {
                     }
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
-                            Text("Fusion-Temperatur")
+                            Text("Atem-Hochpass")
                             Spacer()
-                            Text(String(format: "%.2f", state.fusionTemperature))
+                            Text(String(format: "%.2f", state.palmHighpass))
                                 .font(.system(size: 11, design: .monospaced))
                                 .foregroundStyle(HeliosTheme.cyan)
                         }
                         Slider(
                             value: Binding(
-                                get: { state.fusionTemperature },
-                                set: { state.setFusionTemperature($0) }
+                                get: { state.palmHighpass },
+                                set: { state.setPalmHighpass($0) }
                             ),
-                            in: 0.35...1.40,
-                            step: 0.05
+                            in: 0.08...0.25,
+                            step: 0.01
                         )
-                        Text("Debug. 0,75 Default. Niedriger = Pose spitzer (leichter über 62 %), höher = weicher.")
+                        Text("Schluckt Schulter und Atem. 0,08 lässt durch, 0,25 dämpft den Flick.")
                             .font(.system(size: 10))
                             .foregroundStyle(.secondary)
                     }
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Rand-Dämpfung")
+                            Spacer()
+                            Text(String(format: "%.0f px · %@", state.destEdgePad, {
+                                let screens = ScreenGeometry.quartzScreens
+                                let pt = ScreenGeometry.quartz(fromCocoa: NSEvent.mouseLocation)
+                                let chip = GestureMath.destEdgePadLiveChip(
+                                    width: GestureMath.destEdgeNearest(pt, screens: screens)?.screen.width
+                                        ?? NSScreen.main?.frame.width ?? 1440,
+                                    pref: CGFloat(state.destEdgePad)
+                                )
+                                let name = state.destEdgePadScreenLabel
+                                return name == "—" ? chip : "\(chip) · \(name)"
+                            }()))
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(HeliosTheme.cyan)
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { state.destEdgePad },
+                                set: { state.setDestEdgePad($0) }
+                            ),
+                            in: 24...160,
+                            step: 8
+                        )
+                        Text("Vor dem Bildschirmrand Gain runter. 24 Laptop, 64 auf 5K. Slider schreibt den aktuellen Schirm (UUID).")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Fill-Cap Laptop")
+                            Spacer()
+                            Text(String(format: "%.0f px", state.fillCapLaptop))
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(HeliosTheme.cyan)
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { state.fillCapLaptop },
+                                set: { state.setFillCapLaptop($0) }
+                            ),
+                            in: 8...24,
+                            step: 1
+                        )
+                        Text("Rest-Cap Continuity 8 fps. Hart 12 fraß den Laptop-Flick, 8 lässt durch.")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Fill-Cap Studio")
+                            Spacer()
+                            Text(String(format: "%.0f px", state.fillCapStudio))
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(HeliosTheme.cyan)
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { state.fillCapStudio },
+                                set: { state.setFillCapStudio($0) }
+                            ),
+                            in: 12...48,
+                            step: 2
+                        )
+                        Text("5K / Studio Rest-Cap, getrennt vom Warp. 28 Default, 12 klebt, 48 fliegt über die Naht.")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Naht-Hold")
+                            Spacer()
+                            Text(String(format: "%.0f ms", state.destEdgeSkip * 1000))
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(HeliosTheme.cyan)
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { state.destEdgeSkip },
+                                set: { state.setDestEdgeSkip($0) }
+                            ),
+                            in: 0.04...0.24,
+                            step: 0.02
+                        )
+                        Text("Nach dem Sprung Laptop→5K kein Dämpfer. 80 ms stirbt vor Continuity 8 fps, 160 ms hält einen Tick.")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Palm-Coast")
+                            Spacer()
+                            Text(String(format: "%.0f Ticks", state.palmCoastNeed))
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(HeliosTheme.cyan)
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { state.palmCoastNeed },
+                                set: { state.setPalmCoastNeed($0) }
+                            ),
+                            in: 1...4,
+                            step: 1
+                        )
+                        Text("S1-Miss Ghost. 2 Default, Indoor 4 fps braucht 3. Tick  n+1 gibt frei.")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Dead-Man Faust")
+                            Spacer()
+                            Text(String(format: "%.1f s", state.deadManFist))
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(HeliosTheme.cyan)
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { state.deadManFist },
+                                set: { state.setDeadManFist($0) }
+                            ),
+                            in: 1.6...8.0,
+                            step: 0.2
+                        )
+                        Text("Faust weg, Hand weg. 1,6 s Default, bugfix 2–8 s. Zu kurz = Idle mitten im Satz.")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Fling-Fenster")
+                            Spacer()
+                            Text(String(format: "%.0f ms", state.flingWindow * 1000))
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(HeliosTheme.cyan)
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { state.flingWindow },
+                                set: { state.setFlingWindow($0) }
+                            ),
+                            in: 0.12...0.55,
+                            step: 0.02
+                        )
+                        Text("Fenster-Wurf nur aus diesem Fenster. 120 ms Default, 8 fps oft 250 ms.")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+                    Toggle("Wischen nur offene Hand", isOn: Binding(
+                        get: { state.swipeOpenOnly },
+                        set: { state.setSwipeOpenOnly($0) }
+                    ))
+                    Text("Faust und Pinzette wischen sonst Apps. Peace bleibt Screenshot.")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
                 }
             }
 
             GroupBox("Kalibrierung") {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(state.mapReady ? "Ecken gespeichert — außen absolut, innen relativ (Trackpad)." : "Noch nicht kalibriert — Zeiger relativ.")
+                    Text(state.mapReady ? "Ecken gespeichert — Handfläche = Bildschirm." : "Noch nicht kalibriert — Zeiger relativ.")
                         .font(.system(size: 11))
                         .foregroundStyle(state.mapReady ? HeliosTheme.cyan : .secondary)
-                    if state.cameraPair != .single {
-                        Text("Lead: \(state.deviceName)\(state.mapReady ? " · kalibriert" : " · 4 Ecken fehlen")")
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                        Text("Cover: \(state.coverName)\(state.coverMapReady ? " · kalibriert" : " · 4 Ecken fehlen")")
-                            .font(.system(size: 10, design: .monospaced))
-                            .foregroundStyle(.secondary)
-                    }
                     if state.calibActive {
-                        Text("Jetzt: \(state.calibSession.cameraLabel.isEmpty ? state.deviceName : state.calibSession.cameraLabel) · \(state.calibCorner). Pinzette 1 s halten.")
+                        Text("Jetzt: \(state.calibCorner). Hand ruhig oder Pinzette.")
                             .font(.system(size: 11))
                             .foregroundStyle(HeliosTheme.amber)
                         Button("Abbrechen") { state.cancelCalibration() }
@@ -261,34 +369,7 @@ struct ControlPanel: View {
                         Button("Kalibrierung löschen") { state.clearCalibration() }
                             .buttonStyle(.borderless)
                     }
-                    Text("Mac (Lead) führt alle Aktionen. Osmo/iPhone ist nur zweite Sicht: bessere Fingerlage, kein eigenes Klicken/Ziehen. Kalibrierung: erst Mac 4 Ecken, dann Cover dieselben Bildschirmecken — Pinzette zählt nur, wenn die Mac-Kamera sie auch sieht. Weichen die gemappten Lagen stark ab, bleibt die Mac-Lage.")
-                        .font(.system(size: 10))
-                        .foregroundStyle(.secondary)
-                }
-            }
-
-            GroupBox("Aktionskalibrierung") {
-                VStack(alignment: .leading, spacing: 8) {
-                    if state.drill.phase == .idle {
-                        Button("Übung starten — 12 Gesten × 3") { state.startDrill() }
-                            .buttonStyle(.borderedProminent)
-                    } else {
-                        Text(state.drill.status)
-                            .font(.system(size: 12, design: .monospaced))
-                            .foregroundStyle(HeliosTheme.amber)
-                        Text("\(state.drill.current.titleDE) · Wiederholung \(min(state.drill.repeatIndex + 1, 3))/3")
-                            .font(.system(size: 13, weight: .semibold))
-                        ProgressView(value: state.drill.progress)
-                        HStack {
-                            Button("Abbrechen") { state.cancelDrill() }
-                            if state.drill.phase == .done || !state.drill.trials.isEmpty {
-                                Button("Für Grok kopieren") { state.copyDrillForGrok() }
-                                    .buttonStyle(.borderedProminent)
-                                Button("Dateien…") { state.exportDrill() }
-                            }
-                        }
-                    }
-                    Text("Countdown, dann 2 s Aufnahme, drei Wiederholungen. Kein Klick/Fensterzugriff. Danach hier kopieren und in diesen Chat einfügen.")
+                    Text("Je Ecke die Hand dorthin halten, wo für dich die Bildschirmecke ist. Der Cursor wird mit der Ecke verglichen. Danach greifst du Fenster dort, wo sie liegen — ohne zum Rand zu navigieren.")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
                 }
@@ -298,10 +379,8 @@ struct ControlPanel: View {
                 LabeledContent("Hände", value: "\(state.hands.count)")
                 LabeledContent("Aktion", value: state.lastAction)
                 LabeledContent("Latenz", value: String(format: "%.0f ms · %.0f fps", state.latencyMs, state.fps))
-                LatencySpark(values: state.latencyHistory)
                 LabeledContent("Licht", value: state.luma < 0.28 ? "Dunkel — Verstärkung" : state.luma < 0.45 ? "Gedämpft" : "OK")
                 LabeledContent("Monitore", value: "\(state.screenCount)")
-                LabeledContent("Tiefe", value: state.hasDepth ? "Kanal aktiv (LiDAR/TrueDepth)" : "nur 3D-Lift")
                 if let app = state.focused {
                     LabeledContent("App", value: app.appName)
                 }
@@ -312,9 +391,10 @@ struct ControlPanel: View {
                 }
             }
 
+            Spacer()
             Text(state.testMode
                  ? "Testmodus: Gesten werden erkannt, das System bleibt unangetastet."
-                 : "Live · \(state.leftHanded ? "Linke" : "Rechte") Handfläche = Position. 2× klatschen (sichtbar, kein Mikrofon) weckt Helios im Hintergrund. Pinzette/Faust greift das Fenster unter der Markierung. Offene Hand wischen = App. Beide offen = Not-Aus (bleibt Idle).")
+                 : "Live · \(state.leftHanded ? "Linke" : "Rechte") Handfläche = Position. Pinzette/Faust greift das Fenster unter der Markierung. Offene Hand wischen = App. Beide offen = Not-Aus (bleibt Idle).")
                 .font(.system(size: 11))
                 .foregroundStyle(.tertiary)
         }
@@ -346,105 +426,24 @@ struct ControlPanel: View {
         }
     }
 
-    private var cameraPicker: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text("Kameras")
-                .font(.system(size: 13, weight: .semibold))
-            Button("Quellen neu suchen") {
-                state.rescanCameras()
-            }
-            .buttonStyle(.borderless)
-            .font(.system(size: 11))
-            Picker("Paar", selection: Binding(
-                get: { state.cameraPair },
-                set: { state.selectPair($0) }
-            )) {
-                ForEach(CameraPair.allCases) { p in
-                    Text(p.titleDE).tag(p)
-                }
-            }
-            .labelsHidden()
-            Text(state.cameraPair.detailDE)
-                .font(.system(size: 10))
-                .foregroundStyle(.secondary)
-            if state.cameraPair == .single {
-                if state.cameraDevices.isEmpty {
-                    Text(state.deviceName)
-                        .font(.system(size: 11, design: .monospaced))
-                        .foregroundStyle(.secondary)
-                } else {
-                    Picker("Quelle", selection: Binding(
-                        get: { state.selectedCameraID },
-                        set: { state.selectCamera($0) }
-                    )) {
-                        ForEach(state.cameraDevices) { d in
-                            Text("\(d.name) · \(d.kindDE)\(d.hasDepth ? " · Tiefe" : "")")
-                                .tag(d.id)
-                        }
-                    }
-                    .labelsHidden()
-                }
-            } else {
-                Text("Lead \(state.deviceName)")
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(HeliosTheme.cyan)
-                if !state.cameraDevices.isEmpty {
-                    Picker("Lead", selection: Binding(
-                        get: { state.selectedCameraID },
-                        set: { state.selectLead($0) }
-                    )) {
-                        ForEach(state.cameraDevices) { d in
-                            Text("Lead · \(d.name) · \(d.kindDE)").tag(d.id)
-                        }
-                    }
-                    .labelsHidden()
-                    Picker("Cover / Osmo", selection: Binding(
-                        get: { state.coverID },
-                        set: { state.selectCover($0) }
-                    )) {
-                        Text("— Cover wählen —").tag("")
-                        ForEach(state.cameraDevices.filter { $0.id != state.selectedCameraID }) { d in
-                            Text("Cover · \(d.name) · \(d.kindDE)").tag(d.id)
-                        }
-                    }
-                    .labelsHidden()
-                }
-                Text("Cover \(state.coverRunning ? state.coverName : (state.coverError ?? "nicht aktiv"))")
-                    .font(.system(size: 11, design: .monospaced))
-                    .foregroundStyle(state.coverRunning ? HeliosTheme.cyan : HeliosTheme.amber)
-            }
-            if let err = state.coverError, !err.isEmpty {
-                Text(err)
-                    .font(.system(size: 10))
-                    .foregroundStyle(HeliosTheme.amber)
-            }
-            Text("iPhone: Kontinuität (gleicher iCloud-Account, Kamera-App zu) oder Desk View von oben. Osmo Action 3: am Gerät Webcam-Modus, dann USB-C — der Livestream erscheint rechts unter der Mac-Kamera. Fehlt er: Cover-Picker oben, nicht nur das Paar. Continuity ist oft exklusiv zur Mac-Kamera.")
-                .font(.system(size: 10))
-                .foregroundStyle(.secondary)
-        }
-    }
-
     private var preview: some View {
-        VStack(spacing: 8) {
-            cameraPane(
+        ZStack {
+            CameraPreview(
                 image: state.preview,
-                hands: state.hands.filter { !$0.id.hasPrefix("C.") },
-                name: state.deviceName,
-                live: state.cameraRunning,
-                placeholder: state.cameraError ?? "Kamera starten"
+                hands: state.hands,
+                showLabels: state.showJointLabels,
+                compact: false,
+                placeholder: state.cameraError ?? "Kamera starten",
+                actorHandID: state.actorHandID
             )
-            if state.cameraPair != .single {
-                cameraPane(
-                    image: state.coverPreview,
-                    hands: state.coverHands,
-                    name: state.coverRunning
-                        ? "\(state.coverName) · 2. WINKEL"
-                        : (state.coverError ?? "Osmo / Cover"),
-                    live: state.coverRunning,
-                    placeholder: state.coverError
-                        ?? "Osmo: Webcam-Modus am Gerät, USB-C, dann Cover wählen"
-                )
-                .frame(minHeight: 160, idealHeight: 210)
+            if state.preview == nil {
+                VStack(spacing: 8) {
+                    Image(systemName: "sun.max")
+                        .font(.system(size: 36))
+                        .foregroundStyle(HeliosTheme.cyan)
+                    Text(state.cameraError ?? "Kamera starten")
+                        .foregroundStyle(.secondary)
+                }
             }
         }
         .overlay(alignment: .topLeading) {
@@ -458,47 +457,13 @@ struct ControlPanel: View {
                     .padding(10)
             }
         }
-        .padding(8)
-    }
-
-    private func cameraPane(
-        image: NSImage?,
-        hands: [TrackedHand],
-        name: String,
-        live: Bool,
-        placeholder: String
-    ) -> some View {
-        ZStack {
-            CameraPreview(
-                image: image,
-                hands: hands,
-                showLabels: state.showJointLabels,
-                compact: false,
-                placeholder: placeholder
-            )
-            if image == nil {
-                VStack(spacing: 8) {
-                    Image(systemName: live ? "video" : "video.slash")
-                        .font(.system(size: 28))
-                        .foregroundStyle(HeliosTheme.cyan)
-                    Text(placeholder)
-                        .multilineTextAlignment(.center)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 12)
-                }
-            }
-        }
         .overlay(alignment: .topTrailing) {
-            HStack(spacing: 6) {
-                Circle()
-                    .fill(live && image != nil ? HeliosTheme.ok : HeliosTheme.amber)
-                    .frame(width: 7, height: 7)
-                Text(name)
-                    .font(HeliosTheme.mono)
-                    .foregroundStyle(HeliosTheme.cyan)
-            }
-            .padding(10)
+            Text(state.deviceName)
+                .font(HeliosTheme.mono)
+                .padding(10)
+                .foregroundStyle(HeliosTheme.cyan)
         }
+        .padding(8)
     }
 
     private var inspector: some View {
@@ -506,7 +471,6 @@ struct ControlPanel: View {
             Text("HÄNDE · FINGER")
                 .font(HeliosTheme.mono)
                 .foregroundStyle(HeliosTheme.cyan)
-            FusionStrip(fusion: state.fusion, hasDepth: state.hasDepth)
             if state.hands.isEmpty {
                 Text("Warte auf Erkennung…")
                     .font(.system(size: 12))
@@ -527,12 +491,12 @@ struct ControlPanel: View {
                             .font(.system(size: 11))
                         Spacer()
                     }
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: 6) {
                         Button("Sitzung exportieren…") { state.exportSession() }
                             .keyboardShortcut("e", modifiers: [.command])
                         Button("Protokoll kopieren") { state.copyProtocol() }
                         Button("Filmstreifen kopieren") { state.copyFilmstrip() }
-                        Text("Ein PNG mit der Geste + JSONL/TXT. Label-Feld in gesten.jsonl ist für Create ML.")
+                        Text("Ein PNG mit der Geste + JSONL/TXT. In Grok einfügen, keine Screenshots.")
                             .font(.system(size: 10))
                             .foregroundStyle(.secondary)
                     }
@@ -576,22 +540,21 @@ struct ControlPanel: View {
     private func handCard(_ hand: TrackedHand) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Text("\(hand.id) · \(hand.sideDE)")
+                Text(hand.sideDE)
                     .font(.system(size: 12, weight: .bold, design: .monospaced))
                     .foregroundStyle(hand.chirality == .left ? HeliosTheme.amber : HeliosTheme.cyan)
                 Spacer()
                 Text(hand.pose.labelDE)
                     .font(.system(size: 12, weight: .semibold))
             }
-            ProgressView(value: hand.poseProb)
+            ProgressView(value: Double(hand.meanConfidence))
                 .tint(hand.chirality == .left ? HeliosTheme.amber : HeliosTheme.cyan)
             Text(
                 String(
-                    format: "Pose %.0f %%  ·  Pinzette %@  %.2f  ·  q %.2f",
-                    hand.poseProb * 100,
+                    format: "Konfidenz %.0f %%  ·  Pinzette %@  %.2f",
+                    hand.meanConfidence * 100,
                     hand.pinchClosed ? "ZU" : "OFFEN",
-                    hand.pinchRatio,
-                    hand.quality
+                    hand.pinchRatio
                 )
             )
                 .font(.system(size: 10, design: .monospaced))
@@ -625,29 +588,5 @@ struct ControlPanel: View {
         .padding(8)
         .background(Color.white.opacity(0.04))
         .overlay(Rectangle().stroke(Color.white.opacity(0.08), lineWidth: 1))
-    }
-}
-
-struct LatencySpark: View {
-    var values: [Double]
-
-    var body: some View {
-        GeometryReader { g in
-            let maxV = max(values.max() ?? 1, 1)
-            Path { p in
-                guard values.count > 1 else { return }
-                for (i, v) in values.enumerated() {
-                    let x = g.size.width * CGFloat(i) / CGFloat(max(values.count - 1, 1))
-                    let y = g.size.height * (1 - CGFloat(v / maxV))
-                    if i == 0 { p.move(to: CGPoint(x: x, y: y)) }
-                    else { p.addLine(to: CGPoint(x: x, y: y)) }
-                }
-            }
-            .stroke(HeliosTheme.cyan.opacity(0.85), lineWidth: 1.2)
-        }
-        .frame(height: 28)
-        .background(Color.white.opacity(0.04))
-        .overlay(Rectangle().stroke(Color.white.opacity(0.08), lineWidth: 1))
-        .accessibilityLabel("Latenz der letzten Frames")
     }
 }

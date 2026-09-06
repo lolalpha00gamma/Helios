@@ -17,11 +17,18 @@ enum AppInstall {
         FileManager.default.fileExists(atPath: installedURL.path)
     }
 
-    static var originalURL: URL { Cache.originalURL }
+    static var originalURL: URL {
+        translocatedOriginal(of: Bundle.main.bundleURL) ?? bundleURL
+    }
 
-    static var isTranslocated: Bool { Cache.isTranslocated }
+    static var isTranslocated: Bool {
+        secIsTranslocated(Bundle.main.bundleURL) || bundlePath.contains("AppTranslocation")
+    }
 
-    static var isFromDiskImage: Bool { Cache.isFromDiskImage }
+    static var isFromDiskImage: Bool {
+        let p = originalURL.path
+        return p.hasPrefix("/Volumes/") || p.contains("/.Trash/")
+    }
 
     static var isInstalledCopy: Bool {
         if isTranslocated { return false }
@@ -51,55 +58,32 @@ enum AppInstall {
         return bundlePath
     }
 
-    /// Einmalig. dlopen/xattr nicht auf dem Frame-Pfad.
-    nonisolated(unsafe) private static let secHandle: UnsafeMutableRawPointer? = dlopen(
-        "/System/Library/Frameworks/Security.framework/Security",
-        RTLD_NOW
-    )
-
-    private enum Cache {
-        static let originalURL: URL = translocatedOriginal(of: Bundle.main.bundleURL) ?? AppInstall.bundleURL
-        static let isTranslocated: Bool =
-            secIsTranslocated(Bundle.main.bundleURL) || AppInstall.bundlePath.contains("AppTranslocation")
-        static let isFromDiskImage: Bool = {
-            let p = originalURL.path
-            return p.hasPrefix("/Volumes/") || p.contains("/.Trash/")
-        }()
-    }
-
     /// Kein Dialog. Quarantäne runter, bei Translokation einmal die Originaldatei öffnen.
     @MainActor
     static func settleIfNeeded() {
-        let bundle = bundleURL
-        let original = originalURL
-        let installed = installedExists ? installedURL : nil
-        let translocated = isTranslocated
-        let inApps = originalIsInApplications
-        let dest = originalIsInApplications ? originalURL : installedURL
-        DispatchQueue.global(qos: .utility).async {
-            stripQuarantine(bundle)
-            stripQuarantine(original)
-            if let installed { stripQuarantine(installed) }
-            DispatchQueue.main.async {
-                finishSettle(translocated: translocated, inApps: inApps, dest: dest)
-            }
-        }
-    }
+        stripQuarantine(bundleURL)
+        stripQuarantine(originalURL)
+        if installedExists { stripQuarantine(installedURL) }
 
-    @MainActor
-    private static func finishSettle(translocated: Bool, inApps: Bool, dest: URL) {
-        if !translocated {
+        if !isTranslocated {
             UserDefaults.standard.set(false, forKey: "helios.didRelaunchUnquarantine")
             return
         }
-        guard inApps || installedExists else { return }
+        guard originalIsInApplications || installedExists else { return }
+        let dest = originalIsInApplications ? originalURL : installedURL
         let key = "helios.didRelaunchUnquarantine"
         if UserDefaults.standard.bool(forKey: key) { return }
         UserDefaults.standard.set(true, forKey: key)
         let cfg = NSWorkspace.OpenConfiguration()
         cfg.activates = true
-        NSWorkspace.shared.openApplication(at: dest, configuration: cfg) { _, _ in
-            DispatchQueue.main.async { NSApp.terminate(nil) }
+        NSWorkspace.shared.openApplication(at: dest, configuration: cfg) { app, err in
+            DispatchQueue.main.async {
+                if app != nil, err == nil {
+                    NSApp.terminate(nil)
+                } else {
+                    UserDefaults.standard.set(false, forKey: key)
+                }
+            }
         }
     }
 
@@ -121,8 +105,12 @@ enum AppInstall {
             UserDefaults.standard.set(false, forKey: "helios.didRelaunchUnquarantine")
             let cfg = NSWorkspace.OpenConfiguration()
             cfg.activates = true
-            NSWorkspace.shared.openApplication(at: installedURL, configuration: cfg) { _, _ in
-                DispatchQueue.main.async { NSApp.terminate(nil) }
+            NSWorkspace.shared.openApplication(at: installedURL, configuration: cfg) { app, err in
+                DispatchQueue.main.async {
+                    if app != nil, err == nil {
+                        NSApp.terminate(nil)
+                    }
+                }
             }
         } catch {
             let a = NSAlert()
@@ -171,8 +159,12 @@ enum AppInstall {
         }
     }
 
+    private static func secHandle() -> UnsafeMutableRawPointer? {
+        dlopen("/System/Library/Frameworks/Security.framework/Security", RTLD_NOW)
+    }
+
     private static func secIsTranslocated(_ url: URL) -> Bool {
-        guard let handle = secHandle,
+        guard let handle = secHandle(),
               let raw = dlsym(handle, "SecTranslocateIsTranslocatedURL")
         else { return url.path.contains("AppTranslocation") }
         typealias Fn = @convention(c) (
@@ -187,7 +179,7 @@ enum AppInstall {
     }
 
     private static func translocatedOriginal(of url: URL) -> URL? {
-        guard let handle = secHandle,
+        guard let handle = secHandle(),
               let raw = dlsym(handle, "SecTranslocateCreateOriginalPathForURL")
         else { return nil }
         typealias Fn = @convention(c) (CFURL, UnsafeMutablePointer<Unmanaged<CFError>?>?) -> Unmanaged<CFURL>?

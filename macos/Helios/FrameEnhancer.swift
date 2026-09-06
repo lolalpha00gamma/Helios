@@ -10,34 +10,72 @@ final class FrameEnhancer: @unchecked Sendable {
     private let lock = NSLock()
 
     func luma(of pb: CVPixelBuffer) -> CGFloat {
-        let img = CIImage(cvPixelBuffer: pb)
-        let extent = img.extent
-        guard extent.width > 2, extent.height > 2 else { return 0.5 }
-        let sx = min(32 / extent.width, 1)
-        let sy = min(24 / extent.height, 1)
-        let small = img.transformed(by: CGAffineTransform(scaleX: sx, y: sy))
-        guard let filter = CIFilter(name: "CIAreaAverage") else { return 0.5 }
-        filter.setValue(small, forKey: kCIInputImageKey)
-        filter.setValue(CIVector(cgRect: small.extent), forKey: kCIInputExtentKey)
-        guard let out = filter.outputImage else { return 0.5 }
-        var pixel = [UInt8](repeating: 0, count: 4)
-        MetalHub.ci.render(
-            out,
-            toBitmap: &pixel,
-            rowBytes: 4,
-            bounds: CGRect(x: 0, y: 0, width: 1, height: 1),
-            format: .BGRA8,
-            colorSpace: nil
-        )
-        let b = CGFloat(pixel[0])
-        let g = CGFloat(pixel[1])
-        let r = CGFloat(pixel[2])
-        return (r + g * 2 + b) / (4 * 255)
+        let fmt = CVPixelBufferGetPixelFormatType(pb)
+        if fmt == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange
+            || fmt == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        {
+            return luma420(pb)
+        }
+        CVPixelBufferLockBaseAddress(pb, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(pb, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddress(pb) else { return 0.5 }
+        let w = CVPixelBufferGetWidth(pb)
+        let h = CVPixelBufferGetHeight(pb)
+        let stride = CVPixelBufferGetBytesPerRow(pb)
+        let ptr = base.assumingMemoryBound(to: UInt8.self)
+        var sum: CGFloat = 0
+        var n: CGFloat = 0
+        let stepX = max(1, w / 16)
+        let stepY = max(1, h / 12)
+        var y = 0
+        while y < h {
+            var x = 0
+            let row = ptr.advanced(by: y * stride)
+            while x < w {
+                let i = x * 4
+                let b = CGFloat(row[i])
+                let g = CGFloat(row[i + 1])
+                let r = CGFloat(row[i + 2])
+                sum += r + g * 2 + b
+                n += 1
+                x += stepX
+            }
+            y += stepY
+        }
+        guard n > 0 else { return 0.5 }
+        return sum / (n * 4 * 255)
+    }
+
+    private func luma420(_ pb: CVPixelBuffer) -> CGFloat {
+        CVPixelBufferLockBaseAddress(pb, .readOnly)
+        defer { CVPixelBufferUnlockBaseAddress(pb, .readOnly) }
+        guard let base = CVPixelBufferGetBaseAddressOfPlane(pb, 0) else { return 0.5 }
+        let w = CVPixelBufferGetWidthOfPlane(pb, 0)
+        let h = CVPixelBufferGetHeightOfPlane(pb, 0)
+        let stride = CVPixelBufferGetBytesPerRowOfPlane(pb, 0)
+        let ptr = base.assumingMemoryBound(to: UInt8.self)
+        var sum: CGFloat = 0
+        var n: CGFloat = 0
+        let stepX = max(1, w / 16)
+        let stepY = max(1, h / 12)
+        var y = 0
+        while y < h {
+            var x = 0
+            let row = ptr.advanced(by: y * stride)
+            while x < w {
+                sum += CGFloat(row[x])
+                n += 1
+                x += stepX
+            }
+            y += stepY
+        }
+        guard n > 0 else { return 0.5 }
+        return GestureMath.luma420Lift(osType: CVPixelBufferGetPixelFormatType(pb), luma: sum / (n * 255))
     }
 
     func enhance(_ pb: CVPixelBuffer, luma: CGFloat) -> CVPixelBuffer {
+        guard GestureMath.enhanceDownscales(luma: luma) else { return pb }
         let scaled = downscale(pb) ?? pb
-        guard luma < 0.30 else { return scaled }
         var image = CIImage(cvPixelBuffer: scaled)
         let ev = min(1.4, max(0.12, (0.30 - luma) * 3.2))
         if let f = CIFilter(name: "CIExposureAdjust") {
@@ -55,10 +93,13 @@ final class FrameEnhancer: @unchecked Sendable {
         let s = 960 / CGFloat(w)
         let tw = 960
         let th = max(2, Int((CGFloat(h) * s).rounded()))
+        let fmt = GestureMath.enhanceDestFormat(osType: CVPixelBufferGetPixelFormatType(pb))
         lock.lock()
-        if ping == nil || CVPixelBufferGetWidth(ping!) != tw || CVPixelBufferGetHeight(ping!) != th {
-            ping = MetalHub.makeBuffer(width: tw, height: th)
-            pong = MetalHub.makeBuffer(width: tw, height: th)
+        if ping == nil || CVPixelBufferGetWidth(ping!) != tw || CVPixelBufferGetHeight(ping!) != th
+            || CVPixelBufferGetPixelFormatType(ping!) != fmt
+        {
+            ping = MetalHub.makeBuffer(width: tw, height: th, format: fmt)
+            pong = MetalHub.makeBuffer(width: tw, height: th, format: fmt)
         }
         usePing.toggle()
         let dest = usePing ? ping : pong
@@ -72,10 +113,13 @@ final class FrameEnhancer: @unchecked Sendable {
     private func render(_ image: CIImage, like src: CVPixelBuffer) -> CVPixelBuffer? {
         let w = CVPixelBufferGetWidth(src)
         let h = CVPixelBufferGetHeight(src)
+        let fmt = GestureMath.enhanceDestFormat(osType: CVPixelBufferGetPixelFormatType(src))
         lock.lock()
-        if ping == nil || CVPixelBufferGetWidth(ping!) != w || CVPixelBufferGetHeight(ping!) != h {
-            ping = MetalHub.makeBuffer(width: w, height: h)
-            pong = MetalHub.makeBuffer(width: w, height: h)
+        if ping == nil || CVPixelBufferGetWidth(ping!) != w || CVPixelBufferGetHeight(ping!) != h
+            || CVPixelBufferGetPixelFormatType(ping!) != fmt
+        {
+            ping = MetalHub.makeBuffer(width: w, height: h, format: fmt)
+            pong = MetalHub.makeBuffer(width: w, height: h, format: fmt)
         }
         usePing.toggle()
         let dest = usePing ? ping : pong

@@ -5,6 +5,29 @@ import CoreVideo
 import Foundation
 import QuartzCore
 import SwiftUI
+import ImageIO
+import Vision
+
+/// vsync Fill. Timer.common coalesced gegen ProMotion — Cursor stottert an der Seam.
+private final class DisplayPulse: NSObject {
+    var link: CADisplayLink?
+    var onTick: () -> Void = {}
+
+    func arm(preferred: Float = 120) {
+        stop()
+        let l = CADisplayLink(target: self, selector: #selector(step))
+        l.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: preferred, preferred: preferred)
+        l.add(to: .main, forMode: .common)
+        link = l
+    }
+
+    func stop() {
+        link?.invalidate()
+        link = nil
+    }
+
+    @objc func step() { onTick() }
+}
 
 @MainActor
 final class AppState: ObservableObject {
@@ -12,25 +35,22 @@ final class AppState: ObservableObject {
     let engine = GestureEngine()
     let log = AuditLog()
     let recorder = SessionRecorder()
-    let drill = ActionDrill()
     private let overlay = OverlayController()
     private var permTimer: Timer?
+    private var displayTimer: Timer?
+    private var displayPulse: DisplayPulse?
+    private var displayTimerPeriod: TimeInterval = GestureMath.displayLinkTimerPeriod()
     private var frames: Int = 0
     private var fpsStamp: TimeInterval = CACurrentMediaTime()
-    private var fpsSpark: [(t: TimeInterval, fps: Double)] = []
+    private var fpsSamples: [Double] = []
     private let tracker = HandTracker()
-    private let coverTracker = HandTracker()
-    private let coverSlot = CoverSlot()
-    private var usingCover = false
 
     @Published var hands: [TrackedHand] = []
     @Published var mode: EngineMode = .idle
     @Published var lastAction = "—"
     @Published var fps: Double = 0
-    @Published var fpsAmber = false
+    @Published var fpsSpark = ""
     @Published var latencyMs: Double = 0
-    @Published var latencyHistory: [Double] = []
-    @Published var dwellEnabled = false
     @Published var cameraOK = false
     @Published var accessOK = false
     @Published var cameraRunning = false
@@ -46,7 +66,7 @@ final class AppState: ObservableObject {
     @Published var protocolMode = true
     @Published var leftHanded = false
     @Published var showJointLabels = true
-    @Published var showOutline = false
+    @Published var showOutline = true
     @Published var showTrashZone = true
     @Published var luma: CGFloat = 1
     @Published var focused: FocusedTarget?
@@ -64,83 +84,81 @@ final class AppState: ObservableObject {
     @Published var calibCursorGap: CGFloat = 0
     @Published var mapReady = false
     @Published var mousePaused = false
+    @Published var awaitingRearm = false
     @Published var grabPhase: GrabPhase = .none
     @Published var grabTargetName = ""
-    @Published var chromeKnobs: [ChromeKnob] = []
-    @Published var chromeHot = ""
-    @Published var chromeDwell: CGFloat = 0
-    @Published var keyboardVisible = false
-    @Published var keyboardHits: [AirKeyHit] = []
-    @Published var keyboardHover = ""
-    @Published var keyboardDwell: CGFloat = 0
-    @Published var hideConsoleWhenArmed = false
-    @Published var cameraDevices: [CameraChoice] = []
-    @Published var selectedCameraID = ""
-    @Published var cameraPair: CameraPair = .single
-    @Published var coverName = "—"
-    @Published var coverRunning = false
-    @Published var coverError: String?
-    @Published var coverPreview: NSImage?
-    @Published var coverHands: [TrackedHand] = []
-    @Published var coverID = ""
-    @Published var coverMapReady = false
-    @Published var actorSource = ""
-    @Published var fusion: FusionDebug?
-    @Published var hasDepth = false
-    @Published var permissionBanner = ""
-    @Published var fusionTemperature: Double = 0.75
-    @Published var peaceProgress: CGFloat = 0
-    @Published var lockFreeze = ""
+    @Published var mapDrifted = false
+    @Published var cameraFallback = false
+    @Published var actorHandID: String?
+    @Published var lumaLow = false
+    @Published var cameraSlow = false
+    @Published var dualCamAvailable = false
+    @Published var cameraChoice: CameraChoice = .auto
+    @Published var accessDropped = false
+    @Published var hudDim = false
+    @Published var visionMs: Double = 0
+    @Published var holdRing = false
+    @Published var formatChip = ""
+    @Published var roiLatchChip = ""
+
     let calibSession = CalibrationSession()
     private var lastPanel: TimeInterval = 0
     private var didStart = false
-    private let applySlot = ApplySlot()
+    private let visionInbox = VisionInbox()
+    private var lastScreenHash = ""
+    private var overlayDarkSince: TimeInterval?
+    private var slowSince: TimeInterval?
+    private var sawAccessOK = false
+    private var lastCameraID = ""
+    private var formatStuckSince: TimeInterval?
+    private var lastFormatReselect: TimeInterval = 0
+    private var lumaDarkStreak = 0
+    private var idleSince: TimeInterval?
+    private var lastFrameAt: TimeInterval = 0
+    private var lastLidClosed = false
+    private var axSkipLatched = false
+    private var axCheapStreak = 0
+    private var lastOverlayCursor: CGPoint?
+    private var overlayGhostHold = 0
+    @Published var palmHighpass: Double = 0.15
+    @Published var destEdgePad: Double = 40
+    @Published var destEdgeSkip: Double = 0.16
+    @Published var palmCoastNeed: Double = 2
+    @Published var deadManFist: Double = 1.6
+    @Published var flingWindow: Double = 0.12
+    @Published var swipeOpenOnly = false
+    @Published var fillCapLaptop: Double = 12
+    @Published var fillCapStudio: Double = 28
+    private var destEdgePadMap: [String: CGFloat] = [:]
+    private var fillCapMap: [String: CGFloat] = [:]
+    private var displayPulseHz: Float = 120
+    private var screenObs: NSObjectProtocol?
+    private var overlayHandsFrom: [TrackedHand] = []
+    private var overlayHandsTo: [TrackedHand] = []
+    private var overlayLerpAt: TimeInterval = 0
+    private var overlayLerpDt: TimeInterval = 0.12
 
-    private var lastArmedConsole: EngineMode = .idle
-    private var lastAppliedCameraID = ""
-    private var mapMemo: [String: SpaceMap] = [:]
     private var cancellables: Set<AnyCancellable> = []
-    private var didShutdown = false
     private var focusTick = 0
-    private var focusHoldID: CGWindowID = 0
-    private var focusHoldCount = 0
 
     func start() {
         if didStart { return }
         didStart = true
-        HeliosAppDelegate.state = self
         overlay.attach(state: self)
         engine.startInputClutch()
         engine.calibration = calibSession
-        engine.spaceMap = SpaceMap.load(displayID: ScreenGeometry.mainDisplayID)
-        mapReady = engine.spaceMap?.isReady == true
-        ConsolePolicy.installGuard()
-        Permissions.onDemand = { [weak self] kind in
-            self?.permissionBanner = "Rechte: \(kind.title) — Systemeinstellungen"
-            self?.log.record("Rechte fehlen: \(kind.title)", kind: .blocked)
-        }
+        engine.spaceMap = SpaceMap.load(cameraID: camera.uniqueID, screenID: engine.lastScreenID)
+        mapReady = engine.spaceMap?.isUsable == true
         engine.onLog = { [weak self] text, kind, conf in
             self?.log.record(text, kind: kind, confidence: conf)
+            self?.objectWillChange.send()
         }
         loadPrefs()
         log.objectWillChange
             .sink { [weak self] in self?.objectWillChange.send() }
             .store(in: &cancellables)
-        drill.objectWillChange
-            .sink { [weak self] in self?.objectWillChange.send() }
-            .store(in: &cancellables)
         $hudVisible.sink { Prefs.hudVisible = $0 }.store(in: &cancellables)
-        $showReticle.sink { [weak self] v in
-            Prefs.showReticle = v
-            guard let self else { return }
-            self.overlay.mark(
-                cursors: self.engine.handCursors,
-                phase: self.engine.grabPhase,
-                target: self.engine.grabTargetName,
-                window: self.focused?.quartzBounds,
-                showReticle: v
-            )
-        }.store(in: &cancellables)
+        $showReticle.sink { Prefs.showReticle = $0 }.store(in: &cancellables)
         $showJointLabels.sink { Prefs.showJointLabels = $0 }.store(in: &cancellables)
         $showCheats.sink { Prefs.showCheats = $0 }.store(in: &cancellables)
         $showOutline.sink { Prefs.showOutline = $0 }.store(in: &cancellables)
@@ -151,15 +169,23 @@ final class AppState: ObservableObject {
             .sink { [weak self] _ in
                 guard let self else { return }
                 self.deviceName = self.camera.deviceName
-                self.cameraRunning = self.camera.isRunning
+                let running = self.camera.isRunning
+                if self.cameraRunning, !running {
+                    self.engine.muteDisplayFill()
+                }
+                self.cameraRunning = running
                 self.cameraError = self.camera.errorMessage
-                self.cameraDevices = self.camera.devices
-                self.selectedCameraID = self.camera.selectedID
-                self.coverName = self.camera.coverName
-                self.coverRunning = self.camera.coverRunning
-                self.coverError = self.camera.coverError
-                self.coverID = self.camera.coverID
-                self.cameraPair = self.camera.pair
+                self.cameraFallback = self.camera.usingFallback
+                self.dualCamAvailable = self.camera.dualCamAvailable
+                self.formatChip = self.camera.formatChip
+                let camID = self.camera.uniqueID
+                if camID != self.lastCameraID {
+                    self.lastCameraID = camID
+                    self.calibSession.cameraID = camID
+                    self.engine.spaceMap = SpaceMap.load(cameraID: camID, screenID: self.engine.lastScreenID)
+                    self.mapReady = self.engine.spaceMap?.isUsable == true
+                    self.engine.recenterPointer()
+                }
             }
             .store(in: &cancellables)
 
@@ -172,13 +198,27 @@ final class AppState: ObservableObject {
         permTimer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { [weak self] _ in
             Task { @MainActor in
                 self?.pollFocus()
+                self?.watchFrameSilence()
+                self?.watchClamshellWake()
                 self?.focusTick += 1
                 if (self?.focusTick ?? 0) % 5 == 0 {
                     self?.refreshPermissions()
                 }
             }
         }
-        permTimer?.tolerance = 0.05
+        displayTimerPeriod = GestureMath.displayLinkTimerPeriod()
+        armDisplayTimer(period: displayTimerPeriod)
+        if screenObs == nil {
+            screenObs = NotificationCenter.default.addObserver(
+                forName: NSApplication.didChangeScreenParametersNotification,
+                object: nil,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor in
+                    self?.pollFocus()
+                }
+            }
+        }
         log.record(leftHanded ? "Helios bereit. Linkshänder." : "Helios bereit. Rechtshänder.")
         Task {
             await Permissions.bootstrap()
@@ -187,74 +227,182 @@ final class AppState: ObservableObject {
         }
     }
 
+    private func armDisplayTimer(period: TimeInterval) {
+        displayTimer?.invalidate()
+        displayTimer = nil
+        if GestureMath.displayLinkUsesCA() {
+            let hz = GestureMath.displayLinkHzOf(fps: NSScreen.main?.maximumFramesPerSecond ?? 120)
+            displayTimerPeriod = 1.0 / hz
+            displayPulseHz = Float(hz)
+            if displayPulse == nil {
+                let pulse = DisplayPulse()
+                pulse.onTick = { [weak self] in
+                    MainActor.assumeIsolated {
+                        self?.fireDisplayTick()
+                    }
+                }
+                displayPulse = pulse
+            }
+            displayPulse?.arm(preferred: displayPulseHz)
+            return
+        }
+        displayPulse?.stop()
+        displayTimerPeriod = period
+        let t = Timer(timeInterval: period, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.fireDisplayTick()
+            }
+        }
+        t.tolerance = min(0.004, period * 0.15)
+        RunLoop.main.add(t, forMode: GestureMath.displayLinkTimerCommonMode() ? .common : .default)
+        displayTimer = t
+    }
+
+    private func fireDisplayTick() {
+        let now = CACurrentMediaTime()
+        let age = lastFrameAt > 0 ? now - lastFrameAt : 99
+        guard GestureMath.displayTickNeedsCamera(cameraRunning, frameAge: age) else { return }
+        engine.displayTick(now: now)
+        lerpPublishedHands(now: now)
+        if engine.rawFrameDt >= 0.08, let c = engine.cursor {
+            engineCursor = c
+            overlay.mark(
+                cursor: GestureMath.overlayShowsCursor(mousePaused: engine.mousePaused) ? c : nil,
+                phase: engine.grabPhase,
+                hand: engine.cursorHand,
+                target: engine.grabTargetName,
+                window: engine.grabOutlineQuartz() ?? focused?.quartzBounds,
+                ghost: false,
+                settle: engine.clickSettle,
+                hover: engine.hoverProgress,
+                magnet: engine.trafficMagnet,
+                lights: engine.trafficLights,
+                fling: GestureMath.flingGhostLabel(engine.flingGhostKind),
+                kind: engine.hoverKind
+            )
+        }
+    }
+
+    private func lerpPublishedHands(now: TimeInterval) {
+        guard GestureMath.overlayLerpShould(dt: overlayLerpDt), !overlayHandsTo.isEmpty else { return }
+        let t = GestureMath.overlayLerpT(elapsed: now - overlayLerpAt, frameDt: overlayLerpDt)
+        self.hands = overlayLerpHands(from: overlayHandsFrom, to: overlayHandsTo, t: t)
+    }
+
+    private func overlayLerpHands(from: [TrackedHand], to: [TrackedHand], t: CGFloat) -> [TrackedHand] {
+        to.map { next in
+            guard let prev = from.first(where: { $0.id == next.id }) else { return next }
+            return overlayLerpHand(from: prev, to: next, t: t)
+        }
+    }
+
+    private func overlayLerpHand(from: TrackedHand, to: TrackedHand, t: CGFloat) -> TrackedHand {
+        var h = to
+        let palmVel = GestureMath.overlayVel(from: from.palm, to: to.palm)
+        h.palm = GestureMath.overlayBezier(prev: from.palm, next: to.palm, t: t, vel: palmVel)
+        h.joints = overlayLerpJoints(from.joints, to.joints, t: t)
+        let fromDisp = from.displayJoints.isEmpty ? from.joints : from.displayJoints
+        let toDisp = to.displayJoints.isEmpty ? to.joints : to.displayJoints
+        h.displayJoints = overlayLerpJoints(fromDisp, toDisp, t: t)
+        return h
+    }
+
+    private func overlayLerpJoints(
+        _ a: [VNHumanHandPoseObservation.JointName: TrackedJoint],
+        _ b: [VNHumanHandPoseObservation.JointName: TrackedJoint],
+        t: CGFloat
+    ) -> [VNHumanHandPoseObservation.JointName: TrackedJoint] {
+        var out = b
+        for (name, next) in b {
+            guard let prev = a[name] else { continue }
+            var j = next
+            let vel = GestureMath.overlayVel(from: prev.point, to: next.point)
+            j.point = GestureMath.overlayBezier(prev: prev.point, next: next.point, t: t, vel: vel)
+            out[name] = j
+        }
+        return out
+    }
+
     func refreshPermissions() {
         cameraOK = Permissions.cameraGranted()
-        accessOK = Permissions.accessibilityGranted()
+        let ax = Permissions.accessibilityGranted()
+        if sawAccessOK, !ax {
+            if !accessDropped {
+                accessDropped = true
+                log.record("Bedienungshilfen aus — Schalter in Datenschutz neu setzen.", kind: .failed)
+            }
+        }
+        if ax {
+            accessDropped = false
+            sawAccessOK = true
+        }
+        accessOK = ax
         inputOK = Permissions.inputMonitoringGranted()
         fromDiskImage = AppInstall.needsCopy
         installPath = AppInstall.locationHint
         screenCount = NSScreen.screens.count
-        if cameraOK, accessOK, inputOK {
-            permissionBanner = ""
-        }
     }
 
     func pollFocus() {
-        let sticky = engine.grabPhase == .grab || engine.grabPhase == .hold
-        let raw: FocusedTarget?
-        if let c = engine.cursor {
-            raw = TargetProbe.windowAt(quartz: c)
-        } else if sticky, let prev = focused {
-            raw = TargetProbe.window(id: prev.windowID) ?? prev
-        } else {
-            raw = nil
-        }
-        let next: FocusedTarget?
-        if sticky {
-            next = quietBounds(raw ?? focused)
-            focusHoldCount = 2
-            focusHoldID = next?.windowID ?? 0
-        } else if let raw {
-            if raw.windowID == focused?.windowID {
-                focusHoldID = raw.windowID
-                focusHoldCount = 2
-                next = quietBounds(raw)
-            } else if raw.windowID == focusHoldID {
-                focusHoldCount += 1
-                next = focusHoldCount >= 2 ? raw : focused
-            } else {
-                focusHoldID = raw.windowID
-                focusHoldCount = 1
-                next = focused
-            }
-        } else {
-            focusHoldCount = 0
-            focusHoldID = 0
-            next = nil
-        }
-        if focused != next {
-            focused = next
-        }
-        engine.focused = focused
         trashHot = engine.trashHot
         killFlash = engine.killFlash
+        let hash = GestureMath.screenArrangementHash(NSScreen.screens.map {
+            (id: String(ScreenGeometry.displayID(of: $0)), bounds: ScreenGeometry.quartzBounds(of: $0))
+        })
+        if GestureMath.screenArrangementChanged(prev: lastScreenHash, next: hash) {
+            engine.noteScreenChange()
+            overlay.rebuild()
+            applyDestEdgePadForScreen()
+            applyFillCapForScreen()
+            armDisplayTimer(period: displayTimerPeriod)
+        }
+        lastScreenHash = hash
+        if !cameraRunning {
+            focused = nil
+            engine.focused = nil
+            return
+        }
+        if let grab = engine.grabOutlineQuartz() {
+            if var f = focused {
+                f.quartzBounds = grab
+                focused = f
+                engine.focused = f
+            }
+            return
+        }
+        if GestureMath.pollFocusHolds(
+            moved: engine.pointerMoved,
+            dragging: false,
+            hadFocus: focused != nil
+        ) {
+            return
+        }
+        focused = engine.cursor.flatMap { TargetProbe.windowAt(quartz: $0, skipSelf: false) }
+        engine.focused = focused
     }
 
-    /// Subpixel-/Shadow-Sprünge der CGWindowList nicht in die HUD-Höhe durchreichen.
-    private func quietBounds(_ incoming: FocusedTarget?) -> FocusedTarget? {
-        guard let incoming, let old = focused, old.windowID == incoming.windowID else {
-            return incoming
-        }
-        let a = old.quartzBounds
-        let b = incoming.quartzBounds
-        if abs(a.minX - b.minX) < 4, abs(a.minY - b.minY) < 4,
-           abs(a.width - b.width) < 4, abs(a.height - b.height) < 4
-        {
-            return old
-        }
-        return incoming
+    private func watchFrameSilence() {
+        guard cameraRunning, lastFrameAt > 0 else { return }
+        let now = CACurrentMediaTime()
+        let age = now - lastFrameAt
+        guard GestureMath.frameSilenceRetry(age: age), now - lastFormatReselect >= 2.0 else { return }
+        lastFormatReselect = now
+        camera.reselectFormat()
+        log.record("Kamera stumm \(Int(age)) s — Format neu", kind: .info)
     }
 
+    /// Lid-Open: Continuity oft bei 8, Center Stage wieder an.
+    private func watchClamshellWake() {
+        let closed = Permissions.clamshellClosed()
+        if GestureMath.clamshellWakeReselects(wasClosed: lastLidClosed, nowClosed: closed) {
+            camera.reselectFormat()
+            if GestureMath.axProbeWakeInvalidates(wasClosed: lastLidClosed, nowClosed: closed) {
+                engine.invalidateAXProbe()
+            }
+            log.record("Klappe auf — Format neu", kind: .info)
+        }
+        lastLidClosed = closed
+    }
 
     func startCamera() async {
         let ok = await Permissions.requestCamera()
@@ -271,83 +419,98 @@ final class AppState: ObservableObject {
             Permissions.requestInputMonitoring()
         }
         let tracker = self.tracker
-        let coverTracker = self.coverTracker
         let cam = self.camera
-        let slot = self.applySlot
+        var lumaEnterStreak = 0
         camera.onFrame = { [weak self] vision, _, luma, arrived in
             let t0 = CACurrentMediaTime()
-            var hands = tracker.analyze(
+            DispatchQueue.main.async { self?.lastFrameAt = t0 }
+            let dark = luma < GestureMath.lumaSkip
+            let enter = GestureMath.lumaSkipEnter(dark: dark, streak: lumaEnterStreak)
+            lumaEnterStreak = enter.streak
+            if enter.skip {
+                // Dunkel: Vision aus, aber Hands/Grab/Dead-Man nicht als „keine Hand“ zählen.
+                DispatchQueue.main.async { [weak self] in
+                    guard let self else { return }
+                    self.visionInbox.reset()
+                    self.luma = luma
+                    let hold = GestureMath.lumaSkipHold(
+                        dark: true,
+                        skip: self.lumaLow,
+                        brightStreak: self.lumaDarkStreak
+                    )
+                    self.lumaDarkStreak = hold.streak
+                    self.lumaLow = hold.skip
+                    let t = CACurrentMediaTime()
+                    // Ring sofort weg — nicht 0,4 s am letzten Cursor kleben.
+                    self.overlay.mark(
+                        cursor: nil,
+                        phase: .none,
+                        hand: "—",
+                        target: "",
+                        window: nil
+                    )
+                    if self.overlayDarkSince == nil { self.overlayDarkSince = t }
+                    if t - (self.overlayDarkSince ?? t) >= GestureMath.overlayDarkHold {
+                        self.hands = []
+                        self.overlayHandsFrom = []
+                        self.overlayHandsTo = []
+                        self.overlayLerpAt = 0
+                    }
+                    self.engine.cameraFallback = self.cameraFallback
+                    self.engine.noteDarkFrame(now: t)
+                    self.mode = self.engine.mode
+                    self.lastAction = self.engine.lastAction
+                    self.grabPhase = self.engine.grabPhase
+                }
+                return
+            }
+            let fallback = cam.usingFallback
+            tracker.minObservationConfidence = fallback ? GestureMath.continuityConfidence : 0.22
+            let hands = tracker.analyze(
                 pixelBuffer: vision,
-                now: arrived,
+                now: t0,
                 mirrored: cam.isMirrored,
-                depth: cam.latestDepth,
                 orientation: cam.visionOrientation
             )
-            let leadID = cam.selectedID
-            for i in hands.indices {
-                hands[i].sourceID = leadID
-                hands[i].id = "L." + hands[i].id
-            }
             let visMs = (CACurrentMediaTime() - t0) * 1000
-            let endToEnd = max(0, (t0 - arrived) * 1000)
-            slot.push(
-                hands: hands,
-                latency: max(visMs, endToEnd > 5000 ? visMs : endToEnd),
-                now: arrived,
-                luma: luma
-            ) {
-                Task { @MainActor in self?.drainApply() }
+            let endToEnd = (CACurrentMediaTime() - arrived) * 1000
+            let latency = max(visMs, endToEnd)
+            self?.visionInbox.push(hands: hands, latency: latency, luma: luma, visMs: visMs) {
+                self?.drainVision()
             }
-        }
-        camera.coverPipe.onBuffer = { [weak self] pb, arrived, mirrored, orient in
-            var hands = coverTracker.analyze(
-                pixelBuffer: pb,
-                now: arrived,
-                mirrored: mirrored,
-                depth: nil,
-                orientation: orient
-            )
-            let cid = cam.coverID
-            for i in hands.indices {
-                hands[i].sourceID = cid
-                hands[i].id = "C." + hands[i].id
-            }
-            self?.coverSlot.push(hands)
-        }
-        camera.coverPipe.onPreview = { [weak self] img in
-            Task { @MainActor in self?.coverPreview = img }
         }
         camera.setPreviewSink { [weak self] img in
             self?.preview = img
         }
         camera.start()
-        let names = cameraDevices.map { "\($0.name) [\($0.role.rawValue)]" }.joined(separator: ", ")
-        log.record(names.isEmpty ? "Kamera gestartet." : "Kamera gestartet · \(names)", kind: .info)
+        log.record("Kamera gestartet.")
     }
 
     func stopCamera() {
         camera.onFrame = nil
-        camera.coverPipe.onBuffer = nil
-        camera.coverPipe.onPreview = nil
         camera.stop()
         tracker.reset()
-        coverTracker.reset()
+        engine.reset()
+        engine.muteDisplayFill()
+        axSkipLatched = false
+        axCheapStreak = 0
         cameraRunning = false
-        coverRunning = false
         hands = []
-        coverSlot.push([])
+        focused = nil
+        engine.focused = nil
+        engineCursor = nil
+        overlayHandsFrom = []
+        overlayHandsTo = []
+        overlayLerpAt = 0
+        overlay.mark(
+            cursor: nil,
+            phase: .none,
+            hand: "",
+            target: "",
+            window: nil
+        )
+        visionInbox.reset()
         log.record("Kamera gestoppt.")
-    }
-
-    func shutdown() {
-        if didShutdown { return }
-        didShutdown = true
-        permTimer?.invalidate()
-        permTimer = nil
-        engine.stopInputClutch()
-        overlay.detach()
-        stopCamera()
-        ConsolePolicy.uninstall()
     }
 
     func setTestMode(_ on: Bool) {
@@ -383,23 +546,134 @@ final class AppState: ObservableObject {
         Prefs.pointerGain = g
     }
 
-    func setFusionTemperature(_ t: Double) {
-        fusionTemperature = min(1.4, max(0.35, t))
-        tracker.fusionTemperature = fusionTemperature
-        coverTracker.fusionTemperature = fusionTemperature
-        Prefs.fusionTemperature = fusionTemperature
+    func setPalmHighpass(_ a: Double) {
+        palmHighpass = a
+        engine.palmHighpassPref = GestureMath.palmHighpassAlpha(CGFloat(a))
+        Prefs.palmHighpass = a
     }
 
-    func setDwellEnabled(_ on: Bool) {
-        dwellEnabled = on
-        engine.dwellEnabled = on
-        Prefs.dwellEnabled = on
-        log.record(on ? "Dwell-Klick an" : "Dwell-Klick aus", kind: .info)
+    func setDestEdgePad(_ p: Double) {
+        destEdgePad = Double(GestureMath.destEdgePadPref(CGFloat(p)))
+        engine.destEdgePadPref = GestureMath.destEdgePadPref(CGFloat(destEdgePad))
+        Prefs.destEdgePad = destEdgePad
+        if let id = engine.lastScreenID, !id.isEmpty {
+            destEdgePadMap = GestureMath.destEdgePadMapPut(id: id, pad: CGFloat(destEdgePad), onto: destEdgePadMap)
+            Prefs.destEdgePadMap = destEdgePadMap
+        }
+    }
+
+    private func applyDestEdgePadForScreen() {
+        guard let id = engine.lastScreenID, !id.isEmpty else { return }
+        let screens = ScreenGeometry.quartzScreens
+        let pt = ScreenGeometry.quartz(fromCocoa: NSEvent.mouseLocation)
+        let width = GestureMath.destEdgeNearest(pt, screens: screens)?.screen.width
+            ?? NSScreen.main?.frame.width ?? 1440
+        let pad = GestureMath.destEdgePadByUUID(
+            id: id,
+            width: width,
+            stored: destEdgePadMap,
+            floor: CGFloat(destEdgePad)
+        )
+        destEdgePad = Double(pad)
+        engine.destEdgePadPref = pad
+    }
+
+    var destEdgePadScreenLabel: String {
+        let names = NSScreen.screens.map {
+            (id: "\(ScreenGeometry.displayID(of: $0))", name: $0.localizedName)
+        }
+        return GestureMath.destEdgePadScreenName(id: engine.lastScreenID ?? "", names: names)
+    }
+
+    func setDestEdgeSkip(_ s: Double) {
+        destEdgeSkip = GestureMath.destEdgeSkipPref(s)
+        engine.destEdgeSkipPref = GestureMath.destEdgeSkipPref(s)
+        Prefs.destEdgeSkip = destEdgeSkip
+    }
+
+    func setPalmCoastNeed(_ n: Double) {
+        palmCoastNeed = Double(GestureMath.palmCoastNeedPref(Int(n.rounded())))
+        tracker.palmCoastNeed = GestureMath.palmCoastNeedPref(Int(palmCoastNeed))
+        Prefs.palmCoastNeed = palmCoastNeed
+    }
+
+    func setFillCapLaptop(_ v: Double) {
+        fillCapLaptop = Double(GestureMath.fillCapLaptopPref(CGFloat(v)))
+        engine.fillCapLaptop = GestureMath.fillCapLaptopPref(CGFloat(fillCapLaptop))
+        Prefs.fillCapLaptop = fillCapLaptop
+        putFillCapForScreen(fillCapLaptop)
+    }
+
+    func setFillCapStudio(_ v: Double) {
+        fillCapStudio = Double(GestureMath.fillCapStudioPref(CGFloat(v)))
+        engine.fillCapStudio = GestureMath.fillCapStudioPref(CGFloat(fillCapStudio))
+        Prefs.fillCapStudio = fillCapStudio
+        putFillCapForScreen(fillCapStudio)
+    }
+
+    private func putFillCapForScreen(_ cap: Double) {
+        guard let id = engine.lastScreenID, !id.isEmpty else { return }
+        let screens = ScreenGeometry.quartzScreens
+        let pt = ScreenGeometry.quartz(fromCocoa: NSEvent.mouseLocation)
+        let width = GestureMath.destEdgeNearest(pt, screens: screens)?.screen.width
+            ?? NSScreen.main?.frame.width ?? 1440
+        fillCapMap = GestureMath.fillCapMapPut(id: id, cap: CGFloat(cap), width: width, onto: fillCapMap)
+        engine.fillCapMap = fillCapMap
+        Prefs.fillCapMap = fillCapMap
+    }
+
+    private func applyFillCapForScreen() {
+        engine.fillCapMap = fillCapMap
+        engine.fillCapLaptop = GestureMath.fillCapLaptopPref(CGFloat(fillCapLaptop))
+        engine.fillCapStudio = GestureMath.fillCapStudioPref(CGFloat(fillCapStudio))
+    }
+
+    func setDeadManFist(_ s: Double) {
+        deadManFist = GestureMath.deadManFistPref(s)
+        engine.deadManFistPref = GestureMath.deadManFistPref(s)
+        Prefs.deadManFist = deadManFist
+    }
+
+    func setFlingWindow(_ s: Double) {
+        flingWindow = GestureMath.flingWindowPref(s)
+        engine.flingWindowPref = GestureMath.flingWindowPref(s)
+        Prefs.flingWindow = flingWindow
+    }
+
+    func setSwipeOpenOnly(_ v: Bool) {
+        swipeOpenOnly = v
+        engine.swipeOpenOnly = v
+        Prefs.swipeOpenOnly = v
+    }
+
+    func setCameraChoice(_ choice: CameraChoice) {
+        cameraChoice = choice
+        camera.choice = choice
+        Prefs.cameraChoice = choice
+        tracker.reset()
+        engine.recenterPointer()
+        calibSession.cameraID = camera.uniqueID
+        if cameraRunning {
+            stopCamera()
+            Task { await startCamera() }
+        }
+        log.record("Kamera: \(choice.titleDE)", kind: .info)
     }
 
     private func loadPrefs() {
         leftHanded = Prefs.leftHanded
         pointerGain = Prefs.pointerGain
+        palmHighpass = Prefs.palmHighpass
+        destEdgePad = Prefs.destEdgePad
+        destEdgePadMap = Prefs.destEdgePadMap
+        destEdgeSkip = Prefs.destEdgeSkip
+        palmCoastNeed = Prefs.palmCoastNeed
+        deadManFist = Prefs.deadManFist
+        flingWindow = Prefs.flingWindow
+        swipeOpenOnly = Prefs.swipeOpenOnly
+        fillCapLaptop = Prefs.fillCapLaptop
+        fillCapStudio = Prefs.fillCapStudio
+        fillCapMap = Prefs.fillCapMap
         protocolMode = Prefs.protocolMode
         testMode = Prefs.testMode
         hudVisible = Prefs.hudVisible
@@ -409,125 +683,33 @@ final class AppState: ObservableObject {
         showOutline = Prefs.showOutline
         showTrashZone = Prefs.showTrashZone
         showPreviewChip = Prefs.showPreviewChip
-        dwellEnabled = Prefs.dwellEnabled
-        hideConsoleWhenArmed = Prefs.hideConsoleWhenArmed
-        fusionTemperature = Prefs.fusionTemperature
+        cameraChoice = Prefs.cameraChoice
+        camera.choice = cameraChoice
         engine.leftHanded = leftHanded
         engine.pointerGain = CGFloat(pointerGain)
+        engine.palmHighpassPref = GestureMath.palmHighpassAlpha(CGFloat(palmHighpass))
+        engine.destEdgePadPref = GestureMath.destEdgePadPref(CGFloat(destEdgePad))
+        engine.destEdgeSkipPref = GestureMath.destEdgeSkipPref(destEdgeSkip)
+        tracker.palmCoastNeed = GestureMath.palmCoastNeedPref(Int(palmCoastNeed))
+        engine.deadManFistPref = GestureMath.deadManFistPref(deadManFist)
+        engine.flingWindowPref = GestureMath.flingWindowPref(flingWindow)
+        engine.fillCapLaptop = GestureMath.fillCapLaptopPref(CGFloat(fillCapLaptop))
+        engine.fillCapStudio = GestureMath.fillCapStudioPref(CGFloat(fillCapStudio))
+        engine.fillCapMap = fillCapMap
+        engine.swipeOpenOnly = swipeOpenOnly
         engine.protocolMode = protocolMode
         engine.testMode = testMode
-        engine.dwellEnabled = dwellEnabled
-        engine.hideConsoleWhenArmed = hideConsoleWhenArmed
-        tracker.fusionTemperature = fusionTemperature
-        coverTracker.fusionTemperature = fusionTemperature
-        cameraDevices = CameraSession.discover()
-        if let raw = UserDefaults.standard.string(forKey: "helios.cameraPair"),
-           let p = CameraPair(rawValue: raw)
-        {
-            cameraPair = p
-            camera.preparePair(p, devices: cameraDevices)
-        }
-        selectedCameraID = UserDefaults.standard.string(forKey: "helios.cameraID")
-            ?? cameraDevices.first?.id ?? ""
-        coverID = UserDefaults.standard.string(forKey: "helios.coverID") ?? ""
-        if !selectedCameraID.isEmpty, !cameraDevices.contains(where: { $0.id == selectedCameraID }) {
-            selectedCameraID = cameraDevices.first?.id ?? ""
-        }
-        engine.spaceMap = SpaceMap.load(cameraID: selectedCameraID, displayID: ScreenGeometry.mainDisplayID)
-            ?? SpaceMap.load(displayID: ScreenGeometry.mainDisplayID)
-        mapReady = engine.spaceMap?.isReady == true
-        coverMapReady = coverCalibrated(UserDefaults.standard.string(forKey: "helios.coverID") ?? "")
-    }
-
-    func setHideConsoleWhenArmed(_ on: Bool) {
-        hideConsoleWhenArmed = on
-        engine.hideConsoleWhenArmed = on
-        Prefs.hideConsoleWhenArmed = on
-        if !on {
-            ConsolePolicy.show()
-        }
-        log.record(on ? "Konsole bei Scharf aus" : "Konsole bleibt sichtbar", kind: .info)
-    }
-
-    func selectCamera(_ id: String) {
-        cameraPair = .single
-        UserDefaults.standard.set(CameraPair.single.rawValue, forKey: "helios.cameraPair")
-        selectedCameraID = id
-        camera.selectDevice(id)
-        engine.spaceMap = SpaceMap.load(cameraID: id, displayID: ScreenGeometry.mainDisplayID)
-        mapReady = engine.spaceMap?.isReady == true
-        log.record("Kamera: \(cameraDevices.first(where: { $0.id == id })?.name ?? id)", kind: .info)
-    }
-
-    func selectPair(_ pair: CameraPair) {
-        cameraPair = pair
-        camera.selectPair(pair, devices: cameraDevices, fallbackLead: selectedCameraID)
-        if pair == .single {
-            engine.spaceMap = SpaceMap.load(cameraID: selectedCameraID, displayID: ScreenGeometry.mainDisplayID)
-            log.record("Eine Kamera", kind: .info)
-            return
-        }
-        let mac = CameraSession.pick(cameraDevices, role: .mac)?.name
-        let phone = CameraSession.pick(cameraDevices, role: .phone)?.name
-        let osmo = CameraSession.pick(cameraDevices, role: .osmo)?.name
-        log.record("Paar \(pair.titleDE) · Mac \(mac ?? "—") · iPhone \(phone ?? "—") · Osmo \(osmo ?? "—")", kind: .info)
-        if CameraRig.resolve(
-            pair: pair,
-            mac: CameraSession.pick(cameraDevices, role: .mac)?.id,
-            phone: CameraSession.pick(cameraDevices, role: .phone)?.id,
-            osmo: CameraSession.pick(cameraDevices, role: .osmo)?.id
-        ) == nil {
-            log.record("Paar unvollständig — zweite Kamera fehlt. Osmo: am Gerät Webcam-Modus, USB-C. Dann Quelle unten wählen.", kind: .blocked)
-        }
-    }
-
-    func rescanCameras() {
-        cameraDevices = CameraSession.discover()
-        let names = cameraDevices.map { "\($0.name) [\($0.role.rawValue)]" }.joined(separator: ", ")
-        log.record(names.isEmpty ? "Keine Kamera gefunden." : "Quellen: \(names)", kind: .info)
-        if cameraPair != .single {
-            camera.selectPair(cameraPair, devices: cameraDevices, fallbackLead: selectedCameraID)
-        }
-    }
-
-    func selectLead(_ id: String) {
-        selectedCameraID = id
-        let cover = coverID == id ? "" : coverID
-        camera.assign(lead: id, cover: cover)
-        engine.spaceMap = SpaceMap.load(cameraID: id, displayID: ScreenGeometry.mainDisplayID)
-        mapReady = engine.spaceMap?.isReady == true
-        log.record("Lead: \(cameraDevices.first(where: { $0.id == id })?.name ?? id)", kind: .info)
-    }
-
-    func selectCover(_ id: String) {
-        if id == selectedCameraID {
-            log.record("Cover muss eine andere Kamera sein als Lead.", kind: .blocked)
-            return
-        }
-        coverID = id
-        camera.assign(lead: selectedCameraID, cover: id)
-        coverMapReady = coverCalibrated(id)
-        log.record("Cover/Osmo: \(cameraDevices.first(where: { $0.id == id })?.name ?? id)", kind: .info)
+        engine.clickLockExtra = Prefs.clickLockExtra
+        engine.gameLockExtra = Prefs.gameLockExtra
     }
 
     func startCalibration() {
         hudVisible = true
         overlayVisible()
-        let coverID = camera.coverID
-        let leadID = camera.selectedID
-        let disp = ScreenGeometry.mainDisplayID
-        let leadReady = SpaceMap.load(cameraID: leadID, displayID: disp)?.isReady == true
-        if cameraPair != .single, !coverID.isEmpty, leadReady,
-           SpaceMap.load(cameraID: coverID, displayID: disp)?.isReady != true
-        {
-            calibSession.start(cameraID: coverID, label: camera.coverName)
-            log.record("Kalibrierung zweiter Winkel: \(camera.coverName)", kind: .info)
-        } else {
-            let label = camera.deviceName
-            calibSession.start(cameraID: leadID, label: label)
-            log.record("Kalibrierung: \(label) · Ecke oben links", kind: .info)
-        }
+        calibSession.cameraID = camera.uniqueID
+        calibSession.start()
         engine.calibration = calibSession
+        log.record("Kalibrierung: Ecke oben links", kind: .info)
     }
 
     func cancelCalibration() {
@@ -536,21 +718,13 @@ final class AppState: ObservableObject {
     }
 
     func clearCalibration() {
-        SpaceMap.clear()
-        invalidateMaps()
+        SpaceMap.clear(cameraID: camera.uniqueID, screenID: engine.lastScreenID)
+        SpaceMap.clear(cameraID: camera.uniqueID)
         engine.spaceMap = nil
         mapReady = false
-        coverMapReady = false
+        mapDrifted = false
+        engine.recenterPointer()
         log.record("Kalibrierung gelöscht — Relativ-Zeiger", kind: .info)
-    }
-
-    func reloadSpaceMap() {
-        invalidateMaps()
-        let id = usingCover ? camera.coverID : camera.selectedID
-        engine.spaceMap = SpaceMap.load(cameraID: id, displayID: ScreenGeometry.mainDisplayID)
-            ?? SpaceMap.load(displayID: ScreenGeometry.mainDisplayID)
-        mapReady = engine.spaceMap?.isReady == true
-        coverMapReady = coverCalibrated(camera.coverID)
     }
 
     private func overlayVisible() {
@@ -572,34 +746,17 @@ final class AppState: ObservableObject {
         log.record("Gesten-Filmstreifen in die Zwischenablage", kind: .info)
     }
 
-    private var drillSavedTest: Bool?
-
-    func startDrill() {
-        drillSavedTest = testMode
-        setTestMode(true)
-        engine.forceArm()
-        overlayVisible()
-        drill.start()
-        log.record("Aktionskalibrierung — 12 Gesten × 3, Timer, kein Systemeingriff.", kind: .info)
-    }
-
-    func cancelDrill() {
-        drill.cancel()
-        if let saved = drillSavedTest {
-            setTestMode(saved)
-            drillSavedTest = nil
+    private func drainVision() {
+        while let next = visionInbox.take() {
+            apply(
+                hands: next.hands,
+                latency: next.latency,
+                now: CACurrentMediaTime(),
+                preview: self.preview,
+                luma: next.luma,
+                visMs: next.visMs
+            )
         }
-        log.record("Aktionskalibrierung abgebrochen", kind: .info)
-    }
-
-    func copyDrillForGrok() {
-        drill.copyForGrok()
-        log.record("Aktionskalibrierung in die Zwischenablage — in Grok einfügen.", kind: .info)
-    }
-
-    func exportDrill() {
-        drill.exportFiles()
-        log.record("Aktionskalibrierung exportiert", kind: .info)
     }
 
     fileprivate func apply(
@@ -607,303 +764,176 @@ final class AppState: ObservableObject {
         latency: Double,
         now: TimeInterval,
         preview: NSImage?,
-        luma: CGFloat
+        luma: CGFloat,
+        visMs: Double = 0
     ) {
-        let camID = camera.selectedID
-        if !lastAppliedCameraID.isEmpty, camID != lastAppliedCameraID {
-            engine.recenterPointer()
-            engine.spaceMap = SpaceMap.load(cameraID: camID, displayID: ScreenGeometry.mainDisplayID)
-                ?? SpaceMap.load(displayID: ScreenGeometry.mainDisplayID)
-            mapReady = engine.spaceMap?.isReady == true
-            log.record("Kamerawechsel — Zeiger neu, Homographie geladen.", kind: .info)
+        engine.confidenceFloor = GestureMath.confidenceFloor(fallback: cameraFallback)
+        engine.cameraFallback = cameraFallback
+        engine.clickLockExtra = Prefs.clickLockExtra
+        engine.gameLockExtra = Prefs.gameLockExtra
+        engine.cameraSlow = cameraSlow
+        if luma >= GestureMath.lumaSkip {
+            overlayDarkSince = nil
+            let hold = GestureMath.lumaSkipHold(
+                dark: false,
+                skip: lumaLow,
+                brightStreak: lumaDarkStreak
+            )
+            lumaDarkStreak = hold.streak
+            lumaLow = hold.skip
+        } else {
+            let hold = GestureMath.lumaSkipHold(
+                dark: true,
+                skip: lumaLow,
+                brightStreak: lumaDarkStreak
+            )
+            lumaDarkStreak = hold.streak
+            lumaLow = hold.skip
         }
-        lastAppliedCameraID = camID
-        engine.tick(hands: hands, now: now)
-        if drill.running || drill.phase == .countdown || drill.phase == .capture || drill.phase == .rest {
-            drill.tick(hands: hands, now: now)
+        let expensive = lumaLow || GestureMath.axBudgetSkip(visionMs: visMs, dt: engine.rawFrameDt)
+        let latch = GestureMath.skipAXLatch(
+            expensive: expensive,
+            skip: axSkipLatched,
+            cheapStreak: axCheapStreak
+        )
+        axSkipLatched = latch.skip
+        axCheapStreak = latch.streak
+        let snap = tracker.snapshotFaces()
+        let wasArmed = engine.mode == .armed
+        engine.tick(
+            hands: hands,
+            now: now,
+            skipAX: latch.skip,
+            faces: GestureMath.faceCountFresh(count: snap.count, lastSeen: snap.lastSeen, now: now),
+            luma: luma
+        )
+        if engine.mode == .armed, !wasArmed,
+           GestureMath.fistAELockApplies(continuity: engine.cameraFallback) {
+            camera.lockExposure(seconds: GestureMath.fistAELock)
         }
-        if drill.phase == .done, let saved = drillSavedTest {
-            setTestMode(saved)
-            drillSavedTest = nil
+        visionMs = visMs
+        holdRing = GestureMath.darkRingHolds(darkStreak: lumaDarkStreak)
+        let liveGhost = hands.contains { $0.id == engine.actorHandID && $0.isGhost }
+        let ghostHold = GestureMath.overlayGhostPeakHold(current: liveGhost, remaining: overlayGhostHold)
+        overlayGhostHold = ghostHold.remaining
+        let ghost = ghostHold.ghost
+        let liveCursor = GestureMath.overlayShowsCursor(mousePaused: engine.mousePaused) ? engine.cursor : nil
+        let ringCursor = holdRing ? lastOverlayCursor : liveCursor
+        if !holdRing { lastOverlayCursor = liveCursor }
+        overlay.mark(
+            cursor: ringCursor,
+            phase: engine.grabPhase,
+            hand: engine.cursorHand,
+            target: engine.grabTargetName,
+            window: engine.grabOutlineQuartz() ?? focused?.quartzBounds,
+            ghost: ghost,
+            settle: engine.clickSettle,
+            hover: engine.hoverProgress,
+            magnet: engine.trafficMagnet,
+            lights: engine.trafficLights,
+            fling: GestureMath.flingGhostLabel(engine.flingGhostKind),
+            kind: engine.hoverKind
+        )
+        if GestureMath.overlayLerpShould(dt: engine.rawFrameDt) {
+            overlayHandsFrom = overlayHandsTo.isEmpty ? hands : overlayHandsTo
+            overlayHandsTo = hands
+            overlayLerpAt = now
+            overlayLerpDt = max(0.05, engine.rawFrameDt)
+            self.hands = overlayLerpHands(from: overlayHandsFrom, to: overlayHandsTo, t: 0)
+        } else {
+            overlayHandsFrom = []
+            overlayHandsTo = []
+            self.hands = hands
         }
-        if let done = calibSession.consumeFinished() {
-            invalidateMaps()
-            let name = cameraDevices.first(where: { $0.id == done })?.name ?? (done.isEmpty ? deviceName : done)
-            log.record("Kalibrierung \(name) — Homographie nimmt Blickwinkel, Weitwinkel und Spiegelung auf.", kind: .info)
-            if cameraPair != .single, !camera.coverID.isEmpty, done == camera.selectedID,
-               SpaceMap.load(cameraID: camera.coverID, displayID: ScreenGeometry.mainDisplayID)?.isReady != true
+        roiLatchChip = GestureMath.palmROILatchChip(
+            secondHand: hands.filter { !$0.isGhost }.count >= 2,
+            dt: engine.rawFrameDt
+        ) ?? ""
+        engineCursor = engine.cursor
+        cursorHand = engine.cursorHand
+        grabPhase = engine.grabPhase
+        grabTargetName = engine.grabTargetName
+        actorHandID = engine.actorHandID
+        mode = engine.mode
+        lastAction = engine.lastAction
+        frames += 1
+        let raw = engine.rawFrameDt
+        if cameraFallback, raw > 0.20 {
+            if formatStuckSince == nil { formatStuckSince = now }
+            let hold = now - (formatStuckSince ?? now)
+            let lock = GestureMath.continuityLockRetry(dt: raw, hold: hold)
+            let stuck = GestureMath.continuityStuck(dt: raw, hold: hold)
+            let cool: TimeInterval = lock ? 2.0 : GestureMath.continuityReselectCooldown()
+            if (lock || stuck), now - lastFormatReselect >= cool,
+               !GestureMath.thermalHoldsFormat(medianFps: fps, slowFor: hold),
+               !GestureMath.continuityUsbHold(dt: raw, hold: hold),
+               !GestureMath.formatHopHold(last: lastFormatReselect, now: now)
             {
-                calibSession.start(cameraID: camera.coverID, label: camera.coverName)
-                engine.calibration = calibSession
-                log.record("Zweiter Winkel: \(camera.coverName). Dieselben 4 Bildschirmecken aus dieser Sicht.", kind: .info)
+                lastFormatReselect = now
+                formatStuckSince = now
+                camera.reselectFormat()
+                log.record("Continuity-Format neu — Takt \(String(format: "%.0f", 1.0 / max(0.008, raw))) fps", kind: .info)
+            }
+        } else if !cameraFallback || raw <= 0.20 {
+            formatStuckSince = nil
+        }
+        if now - fpsStamp >= 0.5 {
+            fps = Double(frames) / (now - fpsStamp)
+            frames = 0
+            fpsStamp = now
+            fpsSamples.append(fps)
+            if fpsSamples.count > 8 { fpsSamples.removeFirst(fpsSamples.count - 8) }
+            fpsSpark = GestureMath.fpsSpark(fpsSamples)
+            let med = GestureMath.medianFps(fpsSamples)
+            if let dt = med > 0.5 ? 1.0 / med : nil,
+               displayPulse?.link == nil,
+               let want = GestureMath.displayLinkTimerRetarget(current: displayTimerPeriod, frameDt: dt)
+            {
+                armDisplayTimer(period: want)
+            }
+            if GestureMath.cameraSlowNow(medianFps: med) {
+                if slowSince == nil { slowSince = now }
+                if now - (slowSince ?? now) >= GestureMath.watchdogHold {
+                    cameraSlow = true
+                }
+            } else {
+                slowSince = nil
+                if med >= GestureMath.watchdogFps + 2 {
+                    cameraSlow = false
+                }
             }
         }
-        if engine.clapWake {
-            engine.clapWake = false
-            hudVisible = true
-            overlay.setVisible(true)
-        }
-        overlay.mark(
-            cursors: engine.handCursors,
-            phase: engine.grabPhase,
-            target: engine.grabTargetName,
-            window: focused?.quartzBounds,
-            showReticle: showReticle
-        )
-        frames += 1
-        let wall = CACurrentMediaTime()
-        if wall - fpsStamp >= 0.5 {
-            fps = Double(frames) / (wall - fpsStamp)
-            frames = 0
-            fpsStamp = wall
-            fpsSpark.append((wall, fps))
-            fpsSpark.removeAll { wall - $0.t > GestureMath.fpsSparkSec }
-            fpsAmber = GestureMath.fpsAmber(fps) || GestureMath.fpsSparkAmber(fpsSpark, now: wall)
+        if hands.isEmpty {
+            if idleSince == nil { idleSince = now }
+            hudDim = GestureMath.hudDims(idleFor: now - (idleSince ?? now), armed: engine.mode == .armed)
+        } else {
+            idleSince = nil
+            hudDim = false
         }
         if protocolMode {
             recorder.push(
                 hands: hands,
-                preview: preview ?? self.preview,
+                preview: preview,
                 luma: luma,
                 mode: engine.mode,
                 action: engine.lastAction,
                 now: now
             )
         }
-        if engine.chromeKnobs != chromeKnobs || engine.chromeHot != chromeHot || engine.chromeDwell != chromeDwell {
-            chromeKnobs = engine.chromeKnobs
-            chromeHot = engine.chromeHot
-            chromeDwell = engine.chromeDwell
-        }
-        if engine.keyboardVisible != keyboardVisible
-            || engine.keyboardHover != keyboardHover
-            || engine.keyboardDwell != keyboardDwell
-            || engine.keyboardHits != keyboardHits
-        {
-            keyboardVisible = engine.keyboardVisible
-            keyboardHits = engine.keyboardHits
-            keyboardHover = engine.keyboardHover
-            keyboardDwell = engine.keyboardDwell
-        }
-        if hideConsoleWhenArmed, engine.mode == .armed, !testMode {
-            if lastArmedConsole != .armed {
-                ConsolePolicy.hide()
-            } else {
-                ConsolePolicy.enforce()
-            }
-        }
-        lastArmedConsole = engine.mode
-        let stickyGrab = engine.grabPhase == .grab || engine.grabPhase == .hold
-        if stickyGrab || now - lastPanel >= 0.09 {
-            pollFocus()
-        }
         guard now - lastPanel >= 0.09 else { return }
         lastPanel = now
         self.luma = luma
         latencyMs = latency
-        var hist = latencyHistory
-        hist.append(latency)
-        if hist.count > 30 { hist.removeFirst(hist.count - 30) }
-        latencyHistory = hist
-        mode = engine.mode
-        lastAction = engine.lastAction
-        engineCursor = engine.cursor
-        cursorHand = engine.cursorHand
         trashHot = engine.trashHot
         killFlash = engine.killFlash
         calibActive = calibSession.active
         calibCorner = calibSession.corner.titleDE
         calibHold = calibSession.progress
         calibCursorGap = calibSession.cursorGap
-        mapReady = engine.spaceMap?.isReady == true
+        mapReady = engine.spaceMap?.isUsable == true
+        mapDrifted = engine.mapDrifted
         mousePaused = engine.mousePaused
-        grabPhase = engine.grabPhase
-        grabTargetName = engine.grabTargetName
-        peaceProgress = engine.peaceProgress
-        lockFreeze = engine.lockFreeze
-        self.hands = hands
-        fusion = hands.first?.fusion ?? tracker.lastFusion
-        hasDepth = camera.hasDepth
-        cameraDevices = camera.devices
-        selectedCameraID = camera.selectedID
-        coverName = camera.coverName
-        coverRunning = camera.coverRunning
-        coverError = camera.coverError
-        coverID = camera.coverID
-        cameraPair = camera.pair
-        coverMapReady = coverCalibrated(camera.coverID)
-        actorSource = usingCover ? "cover" : "lead"
-    }
-
-    private func drainApply() {
-        guard let item = applySlot.take() else { return }
-        GestureClassifier.space = tracker.lastSpace
-        let fused = fuseHands(lead: item.hands)
-        apply(hands: fused, latency: item.latency, now: item.now, preview: preview, luma: item.luma)
-    }
-
-    private func cachedMap(cameraID: String, displayID: CGDirectDisplayID = 0, fallback: Bool = false) -> SpaceMap? {
-        let disp = displayID == 0 ? ScreenGeometry.mainDisplayID : displayID
-        let key = "\(cameraID)#\(disp)#\(fallback ? "f" : "x")"
-        if let m = mapMemo[key] { return m }
-        if let m = SpaceMap.load(cameraID: cameraID, displayID: disp) {
-            mapMemo[key] = m
-            return m
-        }
-        if fallback, !cameraID.isEmpty, let m = SpaceMap.load(displayID: disp) {
-            mapMemo[key] = m
-            return m
-        }
-        return nil
-    }
-
-    private func coverCalibrated(_ id: String) -> Bool {
-        !id.isEmpty && SpaceMap.load(cameraID: id, displayID: ScreenGeometry.mainDisplayID)?.isReady == true
-    }
-
-    private func invalidateMaps() {
-        mapMemo.removeAll()
-    }
-
-    private func fuseHands(lead: [TrackedHand]) -> [TrackedHand] {
-        let cover = coverSlot.take()
-        coverHands = cover
-        let leadID = camera.selectedID
-        let coverID = camera.coverID
-        let disp = ScreenGeometry.mainDisplayID
-        let leadMap = cachedMap(cameraID: leadID, displayID: disp, fallback: true)
-        let coverMap = coverID.isEmpty ? nil : cachedMap(cameraID: coverID, displayID: disp)
-
-        if calibSession.active {
-            if !calibSession.cameraID.isEmpty, calibSession.cameraID == coverID {
-                engine.spaceMap = coverMap
-                usingCover = false
-                return coverForCalib(cover, lead: lead)
-            }
-            engine.spaceMap = leadMap
-            usingCover = false
-            return lead
-        }
-
-        usingCover = false
-        engine.spaceMap = leadMap
-        if lead.isEmpty || cover.isEmpty { return lead }
-        return refineLeadWithCover(lead: lead, cover: cover, leadMap: leadMap, coverMap: coverMap)
-    }
-
-    /// Cover-Kalibrierung: Palme aus Osmo, Pinzette nur wenn die Lead-Kamera mitmacht.
-    private func coverForCalib(_ cover: [TrackedHand], lead: [TrackedHand]) -> [TrackedHand] {
-        guard !lead.isEmpty else { return [] }
-        let leadPinch = lead.contains { $0.pinchClosed || $0.pinchClosedness > 0.52 || $0.pose == .pinch }
-        guard leadPinch else {
-            return cover.map {
-                var h = $0
-                h.pinchClosed = false
-                h.pinchClosedness = min(h.pinchClosedness, 0.30)
-                return h
-            }
-        }
-        return cover
-    }
-
-    private func refineLeadWithCover(
-        lead: [TrackedHand],
-        cover: [TrackedHand],
-        leadMap: SpaceMap?,
-        coverMap: SpaceMap?
-    ) -> [TrackedHand] {
-        var out = lead
-        let canMap = leadMap?.isReady == true && coverMap?.isReady == true
-        for i in out.indices {
-            guard let c = matchCover(out[i], cover, leadMap: leadMap, coverMap: coverMap) else { continue }
-            let pinch = CameraRig.pinchAssist(lead: out[i].pinchClosedness, cover: c.pinchClosedness)
-            out[i].pinchClosedness = pinch
-            out[i].quality = min(1, out[i].quality + 0.10 * c.quality)
-            if canMap, let lm = leadMap, let cm = coverMap {
-                let a = lm.apply(out[i].palm)
-                let b = cm.apply(c.palm)
-                if let blended = CameraRig.blendScreen(a, b), let back = lm.invert(blended) {
-                    out[i].palm = CGPoint(
-                        x: min(max(back.x, 0), 1),
-                        y: min(max(back.y, 0), 1)
-                    )
-                }
-            }
-        }
-        return out
-    }
-
-    private func matchCover(
-        _ lead: TrackedHand,
-        _ cover: [TrackedHand],
-        leadMap: SpaceMap?,
-        coverMap: SpaceMap?
-    ) -> TrackedHand? {
-        if lead.chirality != .unknown {
-            let same = cover.filter { $0.chirality == lead.chirality }
-            if same.count == 1 { return same[0] }
-            if same.count > 1, let lm = leadMap, lm.isReady, let cm = coverMap, cm.isReady {
-                let lp = lm.apply(lead.palm)
-                return same.min {
-                    let da = hypot(cm.apply($0.palm).x - lp.x, cm.apply($0.palm).y - lp.y)
-                    let db = hypot(cm.apply($1.palm).x - lp.x, cm.apply($1.palm).y - lp.y)
-                    return da < db
-                }
-            }
-            return same.first
-        }
-        if cover.count == 1, lead.chirality == .unknown { return cover[0] }
-        return nil
-    }
-}
-
-/// Cover-Vision schreibt hier, Lead-Tick liest — analog ApplySlot.
-private final class CoverSlot: @unchecked Sendable {
-    private let lock = NSLock()
-    private var hands: [TrackedHand] = []
-
-    func push(_ h: [TrackedHand]) {
-        lock.lock()
-        hands = h
-        lock.unlock()
-    }
-
-    func take() -> [TrackedHand] {
-        lock.lock()
-        let h = hands
-        lock.unlock()
-        return h
-    }
-}
-
-/// Nur den neuesten Stand nach main — analog FramePump.
-private final class ApplySlot: @unchecked Sendable {
-    private let lock = NSLock()
-    private var pending: (hands: [TrackedHand], latency: Double, now: TimeInterval, luma: CGFloat)?
-    private var queued = false
-
-    func push(
-        hands: [TrackedHand],
-        latency: Double,
-        now: TimeInterval,
-        luma: CGFloat,
-        schedule: () -> Void
-    ) {
-        lock.lock()
-        pending = (hands, latency, now, luma)
-        let need = !queued
-        if need { queued = true }
-        lock.unlock()
-        if need { schedule() }
-    }
-
-    func take() -> (hands: [TrackedHand], latency: Double, now: TimeInterval, luma: CGFloat)? {
-        lock.lock()
-        let item = pending
-        pending = nil
-        queued = false
-        lock.unlock()
-        return item
+        awaitingRearm = engine.awaitingRearm
     }
 }
 
@@ -912,16 +942,120 @@ enum Prefs {
         get { UserDefaults.standard.object(forKey: "helios.leftHanded") as? Bool ?? false }
         set { UserDefaults.standard.set(newValue, forKey: "helios.leftHanded") }
     }
-    static var dwellEnabled: Bool {
-        get { UserDefaults.standard.bool(forKey: "helios.dwell") }
-        set { UserDefaults.standard.set(newValue, forKey: "helios.dwell") }
-    }
     static var pointerGain: Double {
         get {
             let v = UserDefaults.standard.double(forKey: "helios.pointerGain")
             return v == 0 ? 1.6 : min(3.2, max(0.6, v))
         }
         set { UserDefaults.standard.set(newValue, forKey: "helios.pointerGain") }
+    }
+    static var palmHighpass: Double {
+        get {
+            if UserDefaults.standard.object(forKey: "helios.palmHighpass") == nil {
+                return Double(GestureMath.palmHighpassAlphaDefault)
+            }
+            return Double(GestureMath.palmHighpassAlpha(
+                CGFloat(UserDefaults.standard.double(forKey: "helios.palmHighpass"))
+            ))
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.palmHighpass") }
+    }
+    static var destEdgePad: Double {
+        get {
+            if UserDefaults.standard.object(forKey: "helios.destEdgePad") == nil {
+                return Double(GestureMath.destEdgePad)
+            }
+            return Double(GestureMath.destEdgePadPref(
+                CGFloat(UserDefaults.standard.double(forKey: "helios.destEdgePad"))
+            ))
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.destEdgePad") }
+    }
+    static var destEdgePadMap: [String: CGFloat] {
+        get {
+            (UserDefaults.standard.dictionary(forKey: "helios.destEdgePadMap") as? [String: Double])?
+                .mapValues { CGFloat($0) } ?? [:]
+        }
+        set {
+            UserDefaults.standard.set(
+                Dictionary(uniqueKeysWithValues: newValue.map { ($0.key, Double($0.value)) }),
+                forKey: "helios.destEdgePadMap"
+            )
+        }
+    }
+    static var destEdgeSkip: Double {
+        get {
+            if UserDefaults.standard.object(forKey: "helios.destEdgeSkip") == nil {
+                return GestureMath.destEdgeCrossHoldSec
+            }
+            return GestureMath.destEdgeSkipPref(UserDefaults.standard.double(forKey: "helios.destEdgeSkip"))
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.destEdgeSkip") }
+    }
+    static var palmCoastNeed: Double {
+        get {
+            if UserDefaults.standard.object(forKey: "helios.palmCoastNeed") == nil {
+                return 2
+            }
+            return Double(GestureMath.palmCoastNeedPref(Int(UserDefaults.standard.double(forKey: "helios.palmCoastNeed").rounded())))
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.palmCoastNeed") }
+    }
+    static var fillCapLaptop: Double {
+        get {
+            if UserDefaults.standard.object(forKey: "helios.fillCapLaptop") == nil {
+                return 12
+            }
+            return Double(GestureMath.fillCapLaptopPref(
+                CGFloat(UserDefaults.standard.double(forKey: "helios.fillCapLaptop"))
+            ))
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.fillCapLaptop") }
+    }
+    static var fillCapStudio: Double {
+        get {
+            if UserDefaults.standard.object(forKey: "helios.fillCapStudio") == nil {
+                return 28
+            }
+            return Double(GestureMath.fillCapStudioPref(
+                CGFloat(UserDefaults.standard.double(forKey: "helios.fillCapStudio"))
+            ))
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.fillCapStudio") }
+    }
+    static var fillCapMap: [String: CGFloat] {
+        get {
+            (UserDefaults.standard.dictionary(forKey: "helios.fillCapMap") as? [String: Double])?
+                .mapValues { CGFloat($0) } ?? [:]
+        }
+        set {
+            UserDefaults.standard.set(
+                Dictionary(uniqueKeysWithValues: newValue.map { ($0.key, Double($0.value)) }),
+                forKey: "helios.fillCapMap"
+            )
+        }
+    }
+    static var deadManFist: Double {
+        get {
+            if UserDefaults.standard.object(forKey: "helios.deadManFist") == nil {
+                return GestureMath.deadManFist
+            }
+            return GestureMath.deadManFistPref(UserDefaults.standard.double(forKey: "helios.deadManFist"))
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.deadManFist") }
+    }
+    static var flingWindow: Double {
+        get {
+            if UserDefaults.standard.object(forKey: "helios.flingWindow") == nil {
+                return GestureMath.flingWindow
+            }
+            return GestureMath.flingWindowPref(UserDefaults.standard.double(forKey: "helios.flingWindow"))
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.flingWindow") }
+    }
+    static var swipeOpenOnly: Bool {
+        get { UserDefaults.standard.bool(forKey: "helios.swipeOpenOnly") }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.swipeOpenOnly") }
     }
     static var protocolMode: Bool {
         get { UserDefaults.standard.object(forKey: "helios.protocolMode") as? Bool ?? true }
@@ -948,14 +1082,7 @@ enum Prefs {
         set { UserDefaults.standard.set(newValue, forKey: "helios.cheats") }
     }
     static var showOutline: Bool {
-        get {
-            if !UserDefaults.standard.bool(forKey: "helios.outline.offByDefault") {
-                UserDefaults.standard.set(true, forKey: "helios.outline.offByDefault")
-                UserDefaults.standard.set(false, forKey: "helios.outline")
-                return false
-            }
-            return UserDefaults.standard.object(forKey: "helios.outline") as? Bool ?? false
-        }
+        get { UserDefaults.standard.object(forKey: "helios.outline") as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "helios.outline") }
     }
     static var showTrashZone: Bool {
@@ -966,20 +1093,69 @@ enum Prefs {
         get { UserDefaults.standard.object(forKey: "helios.preview") as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "helios.preview") }
     }
-    static var hideConsoleWhenArmed: Bool {
+    static var cameraChoice: CameraChoice {
         get {
-            if UserDefaults.standard.object(forKey: "helios.hideConsole.stay") != nil {
-                return UserDefaults.standard.bool(forKey: "helios.hideConsole.stay")
-            }
-            return false
+            let raw = UserDefaults.standard.string(forKey: "helios.cameraChoice") ?? CameraChoice.auto.rawValue
+            return CameraChoice(rawValue: raw) ?? .auto
         }
-        set { UserDefaults.standard.set(newValue, forKey: "helios.hideConsole.stay") }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: "helios.cameraChoice") }
     }
-    static var fusionTemperature: Double {
-        get {
-            let v = UserDefaults.standard.double(forKey: "helios.fusionTemp")
-            return v == 0 ? 0.75 : min(1.4, max(0.35, v))
+
+    static func supportDir() -> URL {
+        let dir = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Helios", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
+    static func bundleList(_ name: String) -> Set<String> {
+        let url = supportDir().appendingPathComponent(name)
+        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return [] }
+        return GestureMath.prefsBundleList(text)
+    }
+
+    /// ~/Library/Application Support/Helios/click-lock.txt
+    static var clickLockExtra: Set<String> { bundleList("click-lock.txt") }
+    /// ~/Library/Application Support/Helios/game-lock.txt — Vollbild dieser Apps = GAME.
+    static var gameLockExtra: Set<String> { bundleList("game-lock.txt") }
+}
+
+/// Vision-Queue schreibt, Main drain t. Zwischenframes fallen — der letzte bleibt.
+private final class VisionInbox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var latest: (hands: [TrackedHand], latency: Double, luma: CGFloat, visMs: Double)?
+    private var scheduled = false
+
+    func push(
+        hands: [TrackedHand],
+        latency: Double,
+        luma: CGFloat,
+        visMs: Double = 0,
+        onMain: @escaping () -> Void
+    ) {
+        lock.lock()
+        latest = (hands, latency, luma, visMs)
+        let need = !scheduled
+        if need { scheduled = true }
+        lock.unlock()
+        if need {
+            DispatchQueue.main.async(qos: .userInteractive, execute: onMain)
         }
-        set { UserDefaults.standard.set(newValue, forKey: "helios.fusionTemp") }
+    }
+
+    func take() -> (hands: [TrackedHand], latency: Double, luma: CGFloat, visMs: Double)? {
+        lock.lock()
+        defer { lock.unlock() }
+        let v = latest
+        latest = nil
+        if v == nil { scheduled = false }
+        return v
+    }
+
+    func reset() {
+        lock.lock()
+        latest = nil
+        scheduled = false
+        lock.unlock()
     }
 }

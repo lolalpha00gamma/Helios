@@ -15,7 +15,7 @@ Diese Datei gilt für jeden Agenten, jedes Tool und jeden Menschen, der an diese
 - `git checkout -b …` / `git switch -c …`
 - `git push origin <nicht-main>`
 - GitHub: Create branch, Compare & pull request als Arbeitsweg
-- PR #1 oder PR #3 (`bugfix`) mergen
+- Temporäre Agent-Branches, auch wenn das Tool das als Default vorschlägt
 
 ## Wenn ein Tool einen Branch erzwingen will
 

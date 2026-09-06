@@ -70,32 +70,38 @@ final class GPUFrameRing: @unchecked Sendable {
     private var busy: [Bool] = []
     private var width = 0
     private var height = 0
-    private var pendingW = 0
-    private var pendingH = 0
+    private var format: OSType = 0
     private let lock = NSLock()
 
     func copy(_ src: CVPixelBuffer) -> (CVPixelBuffer, Int) {
         let w = CVPixelBufferGetWidth(src)
         let h = CVPixelBufferGetHeight(src)
+        let srcFmt = CVPixelBufferGetPixelFormatType(src)
+        let destFmt: OSType = GestureMath.visionTakesNative(osType: srcFmt)
+            ? srcFmt
+            : kCVPixelFormatType_32BGRA
         lock.lock()
-        rebuildIfIdle(width: w, height: h)
-        if width != w || height != h {
-            pendingW = w
-            pendingH = h
-            lock.unlock()
-            // In-flight slots keep the old size. One-off until release() rebuilds.
-            if let dst = MetalHub.makeBuffer(width: w, height: h) {
-                MetalHub.copy(src, into: dst)
-                return (dst, -1)
-            }
-            return (src, -1)
+        if GestureMath.ringRebuilds(
+            count: slots.count,
+            width: width,
+            height: height,
+            format: format,
+            wantW: w,
+            wantH: h,
+            wantFmt: destFmt
+        ) {
+            slots = (0..<8).compactMap { _ in MetalHub.makeBuffer(width: w, height: h, format: destFmt) }
+            busy = Array(repeating: false, count: slots.count)
+            width = w
+            height = h
+            format = destFmt
         }
         var idx: Int?
         for i in 0..<busy.count where !busy[i] {
             idx = i
             break
         }
-        if idx == nil, let extra = MetalHub.makeBuffer(width: w, height: h) {
+        if idx == nil, GestureMath.ringSlotCap(slots.count), let extra = MetalHub.makeBuffer(width: w, height: h, format: destFmt) {
             slots.append(extra)
             busy.append(false)
             idx = slots.count - 1
@@ -115,22 +121,6 @@ final class GPUFrameRing: @unchecked Sendable {
         guard slot >= 0 else { return }
         lock.lock()
         if slot < busy.count { busy[slot] = false }
-        if pendingW > 0 {
-            rebuildIfIdle(width: pendingW, height: pendingH)
-        }
         lock.unlock()
-    }
-
-    /// Caller holds `lock`.
-    private func rebuildIfIdle(width w: Int, height h: Int) {
-        guard w > 0, h > 0 else { return }
-        let need = slots.count < 4 || width != w || height != h
-        guard need, !busy.contains(true) else { return }
-        slots = (0..<8).compactMap { _ in MetalHub.makeBuffer(width: w, height: h) }
-        busy = Array(repeating: false, count: slots.count)
-        width = w
-        height = h
-        pendingW = 0
-        pendingH = 0
     }
 }

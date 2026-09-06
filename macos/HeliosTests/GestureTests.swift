@@ -3227,6 +3227,35 @@ enum GestureTests {
         ok(!GestureMath.palmROIFrozenWrite(true), "Frozen Write ROI aus tot")
         ok(GestureMath.palmROIFrozenWrite(true, usesROI: true), "Frozen Write ROI an")
         ok(!GestureMath.palmROIFrozenWrite(false, usesROI: true), "Frozen Write ohne Freeze tot")
+        ok(GestureMath.obsSmoothJumpOf(dt: 0.125) > 0.34, "Smooth 8 fps 0,35")
+        ok(GestureMath.obsSmoothJumpOf(dt: 0.042) < 0.13, "Smooth 24 fps enger")
+        ok(
+            GestureMath.obsSmoothResets(
+                prevPalm: CGPoint(x: 0.48, y: 0.50),
+                nextPalm: CGPoint(x: 0.60, y: 0.42),
+                hadPrev: true,
+                dt: 0.042
+            ),
+            "24 fps 0,14 setzt"
+        )
+        ok(
+            !GestureMath.obsSmoothResets(
+                prevPalm: CGPoint(x: 0.48, y: 0.50),
+                nextPalm: CGPoint(x: 0.60, y: 0.42),
+                hadPrev: true,
+                dt: 0.125
+            ),
+            "8 fps 0,14 hält One-Euro"
+        )
+        let spanAll = GestureMath.palmScaleSpanOf([
+            CGPoint(x: 0.20, y: 0.34),
+            CGPoint(x: 0.50, y: 0.34),
+            CGPoint(x: 0.80, y: 0.34)
+        ])
+        ok(spanAll > 0.55, "Span max-Paar nicht nur Index-Klein")
+        ok(abs(GestureMath.displayLinkHzOf(fpsList: [60, 120]) - 120) < 0.001, "DisplayLink max 120")
+        ok(abs(GestureMath.displayLinkHzOf(fpsList: [60]) - 60) < 0.001, "DisplayLink Studio 60")
+        ok(abs(GestureMath.displayLinkHzOf(fpsList: []) - 120) < 0.001, "DisplayLink leer 120")
 
         if fails > 0 {
             fputs("\(fails) GestureTests fehlgeschlagen\n", stderr)

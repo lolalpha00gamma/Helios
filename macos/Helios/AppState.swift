@@ -15,7 +15,8 @@ private final class DisplayPulse: NSObject {
 
     func arm(preferred: Float = 120) {
         stop()
-        let l = CADisplayLink(target: self, selector: #selector(step))
+        guard let screen = NSScreen.main else { return }
+        let l = screen.displayLink(target: self, selector: #selector(step))
         l.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: preferred, preferred: preferred)
         l.add(to: .main, forMode: .common)
         link = l
@@ -231,7 +232,7 @@ final class AppState: ObservableObject {
         displayTimer?.invalidate()
         displayTimer = nil
         if GestureMath.displayLinkUsesCA() {
-            let hz = GestureMath.displayLinkHzOf(fps: NSScreen.main?.maximumFramesPerSecond ?? 120)
+            let hz = GestureMath.displayLinkHzOf(fpsList: NSScreen.screens.map(\.maximumFramesPerSecond))
             displayTimerPeriod = 1.0 / hz
             displayPulseHz = Float(hz)
             if displayPulse == nil {

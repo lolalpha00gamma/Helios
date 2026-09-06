@@ -2068,15 +2068,21 @@ enum GestureMath {
     /// 0,35 = Slot-Steal Gitarre→Hand, nicht One-Euro-Reset.
     static let obsSmoothJump: CGFloat = 0.35
 
+    static func obsSmoothJumpOf(dt: TimeInterval) -> CGFloat {
+        let d = CGFloat(max(0.040, min(0.20, dt)))
+        return obsSmoothJump * (d / 0.125)
+    }
+
     static func obsSmoothResets(
         prevPalm: CGPoint,
         nextPalm: CGPoint,
         hadPrev: Bool,
-        chiralityHolds: Bool = true
+        chiralityHolds: Bool = true,
+        dt: TimeInterval = 0.125
     ) -> Bool {
         guard hadPrev else { return false }
         if !chiralityHolds { return false }
-        return hypot(prevPalm.x - nextPalm.x, prevPalm.y - nextPalm.y) > obsSmoothJump
+        return hypot(prevPalm.x - nextPalm.x, prevPalm.y - nextPalm.y) > obsSmoothJumpOf(dt: dt)
     }
 
     /// Vision L/R-Label ist Rauschen. 1↔2 kein neuer Slot, One-Euro hält.
@@ -3191,6 +3197,18 @@ enum GestureMath {
         return span + 1e-12 >= wristMCP * ratio && wristMCP > 0
     }
 
+    /// Max-Paar über alle MCP, nicht nur Index–Klein. Gitarre ohne die zwei Gelenke sonst Hand.
+    static func palmScaleSpanOf(_ mcps: [CGPoint]) -> CGFloat {
+        guard mcps.count >= 2 else { return 0 }
+        var best: CGFloat = 0
+        for i in 0..<mcps.count {
+            for j in (i + 1)..<mcps.count {
+                best = max(best, hypot(mcps[i].x - mcps[j].x, mcps[i].y - mcps[j].y))
+            }
+        }
+        return best
+    }
+
     static let palmScaleMedianCap = 8
 
     static func palmScaleMedian(_ samples: [CGFloat]) -> CGFloat? {
@@ -3311,6 +3329,11 @@ enum GestureMath {
     /// Studio 60, ProMotion 120. Ein hartes 120 auf 60-Hz-Panel skippt vsync.
     static func displayLinkHzOf(fps: Int) -> Double {
         displayLinkPreferredHz(Double(max(1, fps)))
+    }
+
+    /// NSScreen.main neben 5K: Laptop 120, Studio 60. Max, nicht main.
+    static func displayLinkHzOf(fpsList: [Int]) -> Double {
+        displayLinkHzOf(fps: fpsList.filter { $0 > 0 }.max() ?? 120)
     }
 
     /// bugfix 1.5.8: Dead-Man Faust-Timeout 2–8 s. Default bleibt 1,6.

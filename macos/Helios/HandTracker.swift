@@ -80,7 +80,6 @@ final class HandTracker: @unchecked Sendable {
     private let request: VNDetectHumanHandPoseRequest = {
         let r = VNDetectHumanHandPoseRequest()
         r.maximumHandCount = GestureMath.obsHandCountCap()
-        r.usesCPUOnly = false
         r.revision = VNDetectHumanHandPoseRequestRevision1
         MetalHub.bindVision(r)
         return r
@@ -88,7 +87,6 @@ final class HandTracker: @unchecked Sendable {
 
     private let faceRequest: VNDetectFaceRectanglesRequest = {
         let r = VNDetectFaceRectanglesRequest()
-        r.usesCPUOnly = false
         MetalHub.bindVision(r)
         return r
     }()
@@ -600,7 +598,8 @@ final class HandTracker: @unchecked Sendable {
                 prevPalm: slot.palm,
                 nextPalm: palmGuess,
                 hadPrev: slot.lastSeen > 0 && slot.palm != .zero,
-                chiralityHolds: GestureMath.obsSmoothChiralityHolds(prev: slot.laterality, live: liveCode)
+                chiralityHolds: GestureMath.obsSmoothChiralityHolds(prev: slot.laterality, live: liveCode),
+                dt: lastObsDt
             ) {
                 slot.smooth.reset()
             }

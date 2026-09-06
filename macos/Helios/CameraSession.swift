@@ -5,6 +5,9 @@ import CoreMedia
 import Foundation
 import ImageIO
 import QuartzCore
+#if canImport(Darwin)
+import Darwin
+#endif
 
 enum CameraChoice: String, CaseIterable, Identifiable {
     case auto, builtIn, continuity
@@ -243,12 +246,27 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     }
 
     private func claimCameraMutex() {
+        let url = cameraMutexURL()
+        let holder: String?
+        if let text = try? String(contentsOf: url, encoding: .utf8) {
+            let pid = GestureMath.cameraMutexPid(text)
+            let live = pid.map { p in p > 0 && (kill(p, 0) == 0 || errno == EPERM) }
+            holder = GestureMath.cameraMutexParse(
+                text, now: Date().timeIntervalSince1970, pidLive: live
+            )
+        } else {
+            holder = nil
+        }
+        guard GestureMath.cameraMutexClaimWrites(
+            holder: holder,
+            owner: GestureMath.cameraMutexOwnerHelios()
+        ) else { return }
         let line = GestureMath.cameraMutexLine(
             owner: GestureMath.cameraMutexOwnerHelios(),
             pid: ProcessInfo.processInfo.processIdentifier,
             now: Date().timeIntervalSince1970
         )
-        try? line.write(to: cameraMutexURL(), atomically: true, encoding: .utf8)
+        try? line.write(to: url, atomically: true, encoding: .utf8)
     }
 
     private func releaseCameraMutex() {

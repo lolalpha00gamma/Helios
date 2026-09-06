@@ -3461,14 +3461,30 @@ enum GestureMath {
     /// 3 s war kürzer als Continuity-Frame + 32-Tick Geometry. Heartbeat 2 s, Stale 12.
     static func cameraMutexStale() -> TimeInterval { 12 }
 
+    static func cameraMutexHeartbeatSec() -> TimeInterval { 2 }
+
+    /// Int(now) = Sekundenraster: Claim 12,9 / Parse 13,0 = 1 s tot. %.3f hält ms.
     static func cameraMutexLine(owner: String, pid: Int32, now: TimeInterval) -> String {
-        "\(owner) \(pid) \(Int(now))"
+        String(format: "%@ %d %.3f", owner, pid, now)
     }
 
-    static func cameraMutexParse(_ text: String, now: TimeInterval, stale: TimeInterval = cameraMutexStale()) -> String? {
+    static func cameraMutexPid(_ text: String) -> Int32? {
+        let parts = text.split(whereSeparator: { $0 == " " || $0 == "\n" }).map(String.init)
+        guard parts.count >= 2 else { return nil }
+        return Int32(parts[1])
+    }
+
+    /// pidLive nil = Tests ohne kill(2). Crash: pid tot → Lock frei, nicht 12 s warten.
+    static func cameraMutexParse(
+        _ text: String,
+        now: TimeInterval,
+        stale: TimeInterval = cameraMutexStale(),
+        pidLive: Bool? = nil
+    ) -> String? {
         let parts = text.split(whereSeparator: { $0 == " " || $0 == "\n" }).map(String.init)
         guard parts.count >= 3, let stamp = TimeInterval(parts[2]) else { return nil }
         if now - stamp > stale { return nil }
+        if let pidLive, !pidLive { return nil }
         let owner = parts[0]
         if owner != cameraMutexOwnerHelios() && owner != cameraMutexOwnerAegis() { return nil }
         return owner
@@ -3481,6 +3497,24 @@ enum GestureMath {
 
     static func cameraMutexYieldsContinuity(holder: String?, owner: String) -> Bool {
         holder == cameraMutexOwnerHelios() && owner == cameraMutexOwnerAegis()
+    }
+
+    /// Helios hat Continuity-Vorrang. Aegis schreibt nie über einen fremden Holder.
+    static func cameraMutexClaimWrites(holder: String?, owner: String) -> Bool {
+        if owner == cameraMutexOwnerHelios() { return true }
+        if owner == cameraMutexOwnerAegis() {
+            return holder == nil || holder == cameraMutexOwnerAegis()
+        }
+        return false
+    }
+
+    static func cameraMutexYieldsNow(holder: String?, owner: String, wasYielded: Bool) -> Bool {
+        wasYielded || cameraMutexYieldsContinuity(holder: holder, owner: owner)
+    }
+
+    static func cameraMutexPidDead(_ pid: Int32?) -> Bool {
+        guard let pid else { return true }
+        return pid <= 0
     }
 
     /// bugfix 1.5.8: Dead-Man Faust-Timeout 2–8 s. Default bleibt 1,6.

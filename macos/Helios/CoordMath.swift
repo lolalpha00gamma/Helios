@@ -2064,7 +2064,7 @@ enum GestureMath {
         return obsFingerChainOk(wrist: wrist, mcps: pairedM, tips: pairedT, need: need)
     }
 
-    /// Close-Hand / Faust / Kante: Kette und Fächer nur bei großem Blob (Gitarre).
+    /// ROI-Overlay war der Vollbild-Skelett-Bug, kein Gitarren-Blob. Nur Gelenkzahl + Scale.
     static func obsLooksLikeHand(
         spanW: CGFloat,
         spanH: CGFloat,
@@ -2075,14 +2075,10 @@ enum GestureMath {
         chainOk: Bool = true,
         fanOk: Bool = true
     ) -> Bool {
+        _ = (spanW, spanH, chainOk, fanOk)
         if jointCount < 4 { return false }
         if jointCount < 5 && !sparse { return false }
-        if !palmScaleIsHand(palmScale, keep: keep) { return false }
-        if spanW > 0.70 && spanH > 0.58 { return false }
-        let bulky = spanW > 0.50 && spanH > 0.42
-        if bulky && !sparse && !chainOk { return false }
-        if bulky && !sparse && !fanOk { return false }
-        return true
+        return palmScaleIsHand(palmScale, keep: keep)
     }
 
     /// 0,22 war Flick. Continuity 8 fps 20 cm = Overlay-Snap jede Geste.

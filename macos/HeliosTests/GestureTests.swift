@@ -2651,10 +2651,10 @@ enum GestureTests {
             "echte Hand kompakt"
         )
         ok(
-            !GestureMath.obsLooksLikeHand(
+            GestureMath.obsLooksLikeHand(
                 spanW: 0.55, spanH: 0.50, palmScale: 0.18, jointCount: 16, chainOk: false
             ),
-            "großer Blob ohne Kette tot"
+            "nah an der Kamera ohne Kette hält"
         )
         ok(
             !GestureMath.obsLooksLikeHand(spanW: 0.30, spanH: 0.30, palmScale: 0.29, jointCount: 16),

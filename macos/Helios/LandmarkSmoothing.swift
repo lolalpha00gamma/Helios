@@ -6,7 +6,7 @@ struct LandmarkSmoothing {
     private var previous: [VNHumanHandPoseObservation.JointName: CGPoint] = [:]
     private var deriv: [VNHumanHandPoseObservation.JointName: CGPoint] = [:]
     private var lastT: TimeInterval?
-    var minCutoff: CGFloat = 6.2
+    var minCutoff: CGFloat = 14
     var beta: CGFloat = 0.16
     var dCutoff: CGFloat = 1.8
 

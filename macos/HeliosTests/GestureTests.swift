@@ -312,7 +312,7 @@ enum GestureTests {
         ok(GestureMath.watchdogGainMul(slow: false) == 1, "Watchdog aus voll")
         ok(GestureMath.mapSmoothAlpha(dt: 0.04) == GestureMath.mapSmooth, "24 fps mapSmooth")
         ok(GestureMath.mapSmoothAlpha(dt: 0.125) == GestureMath.mapSmoothContinuity, "8 fps mapSmooth höher")
-        ok(GestureMath.lockFrameRate(60) == 30, "60 fps Format auf 30 kappen")
+        ok(GestureMath.lockFrameRate(60) == 60, "60 fps Format bleibt 60")
         ok(GestureMath.lockFrameRate(24) == 24, "24 fps bleibt 24")
         ok(GestureMath.lockFrameRate(8) == 8, "Continuity 8 bleibt 8")
         ok(!GestureMath.captureForcesLandscapeRight(), "Mac-Cam kein iOS-landscapeRight")
@@ -331,10 +331,12 @@ enum GestureTests {
         ok(GestureMath.visionOrientationRaw(physicalRotationApplied: false, angle: 270) == 8, "Tag 270° → left")
 
         let s720_24 = GestureMath.formatScore(width: 1280, height: 720, fps: 24)
+        let s720_60 = GestureMath.formatScore(width: 1280, height: 720, fps: 60)
         let s360_60 = GestureMath.formatScore(width: 640, height: 360, fps: 60)
         let s540_15 = GestureMath.formatScore(width: 960, height: 540, fps: 15)
         let s800_8 = GestureMath.formatScore(width: 1280, height: 800, fps: 8)
         ok(s720_24 > s360_60, "720p@24 schlägt 360p@60")
+        ok(s720_60 > s720_24, "720p@60 schlägt 720p@24")
         ok(s540_15 > s800_8, "540p@15 schlägt 800p@8")
         ok(GestureMath.formatScore(width: 320, height: 240, fps: 30) < 0, "zu klein unbrauchbar")
         ok(s720_24 > 0 && s540_15 > 0, "brauchbare Formate positiv")
@@ -1264,8 +1266,8 @@ enum GestureTests {
         let roi = GestureMath.palmVisionROI(palm: CGPoint(x: 0.5, y: 0.5), scale: 0.12, secondHand: false)
         ok(roi != nil && (roi?.width ?? 0) > 0.2, "ROI um Palme")
         ok(GestureMath.palmVisionROI(palm: CGPoint(x: 0.5, y: 0.5), scale: 0.12, secondHand: true) == nil, "zwei Hände volles Bild")
-        ok(abs(GestureMath.oneEuroLandmarkCutoff(base: 6.2, dt: 0.125) - 3.2) < 0.001, "8 fps Landmark 3,2")
-        ok(abs(GestureMath.oneEuroLandmarkCutoff(base: 6.2, dt: 0.04) - 6.2) < 0.001, "24 fps Landmark 6,2")
+        ok(abs(GestureMath.oneEuroLandmarkCutoff(base: 6.2, dt: 0.125) - 14) < 0.001, "8 fps Landmark 14")
+        ok(abs(GestureMath.oneEuroLandmarkCutoff(base: 6.2, dt: 0.04) - 10) < 0.001, "24 fps Landmark 10")
         ok(GestureMath.cursorWarpFloor(dt: 0.125) == 64, "8 fps Warp-Floor 64")
         ok(GestureMath.cursorWarpFloor(dt: 0.016) == 48, "24 fps Warp-Floor 48")
         ok(GestureMath.cursorWarpFloor(dt: 0.016, continuity: true) == 64, "Continuity Floor 64")
@@ -1783,8 +1785,8 @@ enum GestureTests {
         ok(!GestureMath.thermalHoldsFormat(medianFps: 24, slowFor: 2.0), "24 fps kein Thermal")
         ok(GestureMath.sessionPresetClampsContinuity(true), "Continuity Preset aus")
         ok(!GestureMath.sessionPresetClampsContinuity(false), "Built-in Preset 720p")
-        ok(GestureMath.lockFrameRate(30, continuity: true) == 24, "Continuity 24 statt 30")
-        ok(GestureMath.lockFrameRate(60) == 30, "Built-in 60 bleibt 30")
+        ok(GestureMath.lockFrameRate(30, continuity: true) == 30, "Continuity 30")
+        ok(GestureMath.lockFrameRate(60) == 60, "Built-in 60 bleibt 60")
         ok(abs(GestureMath.formatPixelBonus(osType: GestureMath.formatFourCC420f, fps: 24) - 32) < 0.001, "420f @ 24 extra")
         let laptopWarp = CGRect(x: 0, y: 0, width: 1440, height: 900)
         let capAxes = GestureMath.cursorWarpCapAxis(steal: laptopWarp, map: laptopWarp)
@@ -2107,8 +2109,8 @@ enum GestureTests {
         ok(!GestureMath.palmWarpHoldReleaseJumps(wasHeld: false, nowHeld: false), "ohne Hold kein Release")
         ok(GestureMath.palmVelChip(zeroed: true, teleport: true, muted: true) == "JUMP · MUTE", "HUD JUMP MUTE")
         ok(GestureMath.palmVelChip(zeroed: true, muted: true) == "MUTE", "HUD MUTE")
-        ok(GestureMath.palmLateralityChip(locked: 1, live: 2) == "L", "HUD L")
-        ok(GestureMath.palmLateralityChip(locked: 2, live: 1) == "R", "HUD R")
+        ok(GestureMath.palmLateralityChip(locked: 1, live: 2) == "← L", "HUD ← L")
+        ok(GestureMath.palmLateralityChip(locked: 2, live: 1) == "R →", "HUD R →")
         ok(GestureMath.palmLateralityChip(locked: 1, live: 1) == nil, "ohne Flip kein Chip")
         ok(GestureMath.continuityIsUSB("ContinuityCamera", modelID: "UVC", localizedName: "iPhone"), "modelID UVC = USB")
         ok(!GestureMath.continuityIsUSB("ContinuityCamera", modelID: "iPhone", localizedName: "iPhone"), "Continuity Wi-Fi ohne UVC")
@@ -3024,7 +3026,7 @@ enum GestureTests {
         let followed = GestureMath.palmROIFollow(palm: CGPoint(x: 0.40, y: 0.50), scale: 0.12)
         ok(followed != nil && followed!.contains(CGPoint(x: 0.40, y: 0.50)), "Coast ROI Follow rect")
         ok(GestureMath.overlayLerpShould(dt: 0.12), "Lerp 8 fps")
-        ok(GestureMath.overlayLerpShould(dt: 0.04), "Lerp 24 fps")
+        ok(!GestureMath.overlayLerpShould(dt: 0.04), "Lerp 24 fps tot")
         ok(!GestureMath.overlayLerpShould(dt: 0.008), "Lerp 120 fps tot")
         ok(abs(GestureMath.overlayBezierEase(0.5) - 0.5) < 0.01, "Bezier mid")
         ok(GestureMath.overlayBezierEase(0.25) > 0.10 && GestureMath.overlayBezierEase(0.25) < 0.25, "Bezier ease in")
@@ -3094,11 +3096,11 @@ enum GestureTests {
             t: 1.5,
             vel: CGPoint(x: 0.20, y: 0)
         )
-        ok(abs(ovPast.x - 0.50) < 0.01, "Overlay Bezier t>1")
+        ok(abs(ovPast.x - 0.40) < 0.01, "Overlay Bezier t>1 snap")
         let ovT = GestureMath.overlayLerpT(elapsed: 0.18, frameDt: 0.12)
-        ok(ovT > 1.4 && ovT < 1.6, "LerpT unclamped")
+        ok(abs(ovT - 1) < 0.01, "LerpT clamp 1")
         let ovCoast = GestureMath.overlayLerpHands(from: ovFrom, to: ovTo, t: 1.5)
-        ok(ovCoast.count == 1 && ovCoast[0].palm.x > 0.40, "Overlay Hands Extrapolate")
+        ok(ovCoast.count == 1 && abs(ovCoast[0].palm.x - 0.40) < 0.01, "Overlay Hands kein Extrapolate")
         ok(GestureMath.palmROIThawProp(frozen: true, hit: true, handHit: false, usesROI: true), "Thaw Prop Gitarre")
         ok(!GestureMath.palmROIThawProp(frozen: true, hit: true, handHit: true, usesROI: true), "Thaw Prop Hand tot")
         ok(!GestureMath.palmROIThawProp(frozen: false, hit: true, handHit: false, usesROI: true), "Thaw Prop ohne Freeze tot")
@@ -3256,6 +3258,67 @@ enum GestureTests {
         ok(abs(GestureMath.displayLinkHzOf(fpsList: [60, 120]) - 120) < 0.001, "DisplayLink max 120")
         ok(abs(GestureMath.displayLinkHzOf(fpsList: [60]) - 60) < 0.001, "DisplayLink Studio 60")
         ok(abs(GestureMath.displayLinkHzOf(fpsList: []) - 120) < 0.001, "DisplayLink leer 120")
+        ok(GestureMath.displayLinkDebounce(last: 0, now: 0.005), "Debounce 5 ms feuert")
+        ok(!GestureMath.displayLinkDebounce(last: 0, now: 0.002), "Debounce 2 ms tot")
+        let laptop = CGRect(x: 0, y: 0, width: 1512, height: 982)
+        let studio = CGRect(x: 1512, y: -800, width: 5120, height: 2880)
+        ok(GestureMath.displayLinkScreenIndex(cursor: CGPoint(x: 200, y: 100), screens: [laptop, studio]) == 0, "Pulse Laptop")
+        ok(GestureMath.displayLinkScreenIndex(cursor: CGPoint(x: 3000, y: -100), screens: [laptop, studio]) == 1, "Pulse Studio")
+        ok(GestureMath.displayLinkIsDest(screenIndex: 1, cursor: CGPoint(x: 3000, y: -100), screens: [laptop, studio]), "Dest Studio")
+        ok(!GestureMath.displayLinkIsDest(screenIndex: 0, cursor: CGPoint(x: 3000, y: -100), screens: [laptop, studio]), "Laptop-Pulse kein Studio-Warp")
+        ok(GestureMath.displayLinkIsDest(screenIndex: nil, cursor: CGPoint(x: 200, y: 100), screens: [laptop, studio]), "ohne Index Dest")
+        ok(
+            GestureMath.displayLinkLayoutToken([(id: 2, hz: 60), (id: 1, hz: 120)])
+                == GestureMath.displayLinkLayoutToken([(id: 1, hz: 120), (id: 2, hz: 60)]),
+            "Layout Token sort"
+        )
+        ok(GestureMath.displayLinkLayoutChanged(prev: "1:120", next: "1:120|2:60"), "Layout 5K")
+        ok(!GestureMath.displayLinkLayoutChanged(prev: "1:120", next: "1:120"), "Layout gleich tot")
+        ok(GestureMath.visionRotationApplied(90) == false, "Rotation applied tot ohne physical")
+        ok(GestureMath.visionOrientationLive(angle: 0, applied: false) == 1, "Live 0 up")
+        ok(GestureMath.visionOrientationLive(angle: 90, applied: true) == 1, "Live applied up")
+        ok(GestureMath.visionOrientationLive(angle: 90, applied: false) == 6, "Live 90 right")
+        ok(GestureMath.visionOrientationLive(angle: 180, applied: false) == 3, "Live 180 down")
+        ok(GestureMath.visionOrientationLive(angle: 270, applied: false) == 8, "Live 270 left")
+        let wrist = CGPoint(x: 0.40, y: 0.20)
+        let fanHand = GestureMath.palmMCPFanDeg(wrist: wrist, mcps: [
+            CGPoint(x: 0.36, y: 0.34),
+            CGPoint(x: 0.42, y: 0.36),
+            CGPoint(x: 0.48, y: 0.35),
+            CGPoint(x: 0.54, y: 0.32)
+        ])
+        ok(fanHand > 18, "Hand-Fächer > 18°")
+        let fanGuitar = GestureMath.palmMCPFanDeg(wrist: wrist, mcps: [
+            CGPoint(x: 0.42, y: 0.30),
+            CGPoint(x: 0.44, y: 0.40),
+            CGPoint(x: 0.46, y: 0.50),
+            CGPoint(x: 0.48, y: 0.60)
+        ])
+        ok(fanGuitar < 18, "Gitarre-Hals < 18°")
+        ok(GestureMath.palmMCPCollinearVeto(fan: fanGuitar), "Gitarre kollinear")
+        ok(!GestureMath.palmMCPCollinearVeto(fan: fanHand), "Hand nicht kollinear")
+        ok(
+            !GestureMath.obsLooksLikeHand(
+                spanW: 0.20, spanH: 0.40, palmScale: 0.14, jointCount: 16, fanOk: false
+            ),
+            "fanOk tot = Gitarre"
+        )
+        ok(
+            GestureMath.obsLooksLikeHand(
+                spanW: 0.20, spanH: 0.20, palmScale: 0.14, jointCount: 16, fanOk: true
+            ),
+            "fanOk Hand"
+        )
+        let ema = GestureMath.palmBindScaleOf(live: 0.29, last: 0.14, ticks: 8)
+        ok(ema < 0.22 && ema > 0.14, "Bind-EMA dämpft Gitarre-Flicker")
+        ok(GestureMath.palmBindScaleOf(live: 0.29, last: 0.14, ticks: 1) == 0.29, "Bind-EMA vor 3 Ticks tot")
+        let lockLine = GestureMath.cameraMutexLine(owner: "helios", pid: 12, now: 1_000)
+        ok(GestureMath.cameraMutexParse(lockLine, now: 1_001) == "helios", "Mutex Helios")
+        ok(GestureMath.cameraMutexParse(lockLine, now: 1_010, stale: 3) == nil, "Mutex stale 3")
+        ok(GestureMath.cameraMutexParse(lockLine, now: 1_011) == "helios", "Mutex 12 s hält")
+        ok(GestureMath.cameraMutexParse(lockLine, now: 1_020) == nil, "Mutex stale 12")
+        ok(GestureMath.cameraMutexYieldsContinuity(holder: "helios", owner: "aegis"), "Aegis weicht Helios")
+        ok(!GestureMath.cameraMutexYieldsContinuity(holder: "aegis", owner: "helios"), "Helios weicht nicht")
 
         if fails > 0 {
             fputs("\(fails) GestureTests fehlgeschlagen\n", stderr)

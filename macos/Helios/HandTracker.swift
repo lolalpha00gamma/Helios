@@ -366,10 +366,11 @@ final class HandTracker: @unchecked Sendable {
                     raw[name] = GestureMath.visionPointFromROI(p, roi: mapROI)
                 }
             }
-            let sc = GestureClassifier.palmScale(raw)
+            let scLive = GestureClassifier.palmScale(raw)
+            let sc = GestureMath.palmBindScaleOf(live: scLive, last: lastS1Scale, ticks: lastS1ScaleRing.count)
             let span = GestureMath.obsJointSpan(Array(raw.values))
-            let mcpN = [VNHumanHandPoseObservation.JointName.indexMCP, .middleMCP, .ringMCP, .littleMCP]
-                .filter { raw[$0] != nil }.count
+            let mcpPts = [raw[.indexMCP], raw[.middleMCP], raw[.ringMCP], raw[.littleMCP]].compactMap { $0 }
+            let mcpN = mcpPts.count
             let sparse = GestureMath.fingerSparseKeepsPalm(
                 rawCount: raw.count,
                 hasWrist: raw[.wrist] != nil,
@@ -380,6 +381,8 @@ final class HandTracker: @unchecked Sendable {
                 mcps: [raw[.indexMCP], raw[.middleMCP], raw[.ringMCP], raw[.littleMCP]],
                 tips: [raw[.indexTip], raw[.middleTip], raw[.ringTip], raw[.littleTip]]
             )
+            let fan = GestureMath.palmMCPFanDeg(wrist: raw[.wrist], mcps: mcpPts)
+            let fanOk = sparse || !GestureMath.palmMCPCollinearVeto(fan: fan)
             let confOk = GestureMath.obsJointConfOk(wrist: wristC, mcps: mcpCs, tips: tipCs, sparse: sparse)
             if GestureMath.obsLooksLikeHand(
                 spanW: span.w,
@@ -388,7 +391,8 @@ final class HandTracker: @unchecked Sendable {
                 jointCount: raw.count,
                 keep: keepBind,
                 sparse: sparse,
-                chainOk: chainOk
+                chainOk: chainOk,
+                fanOk: fanOk
             ), confOk {
                 bindScales[i] = sc
             } else {
@@ -436,9 +440,13 @@ final class HandTracker: @unchecked Sendable {
                 }
             }
             let spanLive = GestureMath.obsJointSpan(Array(raw.values))
-            let scaleLive = GestureClassifier.palmScale(raw)
-            let mcpN = [VNHumanHandPoseObservation.JointName.indexMCP, .middleMCP, .ringMCP, .littleMCP]
-                .filter { raw[$0] != nil }.count
+            let scaleLive = GestureMath.palmBindScaleOf(
+                live: GestureClassifier.palmScale(raw),
+                last: lastS1Scale,
+                ticks: lastS1ScaleRing.count
+            )
+            let mcpPts = [raw[.indexMCP], raw[.middleMCP], raw[.ringMCP], raw[.littleMCP]].compactMap { $0 }
+            let mcpN = mcpPts.count
             let sparse = GestureMath.fingerSparseKeepsPalm(
                 rawCount: raw.count,
                 hasWrist: raw[.wrist] != nil,
@@ -449,6 +457,8 @@ final class HandTracker: @unchecked Sendable {
                 mcps: [raw[.indexMCP], raw[.middleMCP], raw[.ringMCP], raw[.littleMCP]],
                 tips: [raw[.indexTip], raw[.middleTip], raw[.ringTip], raw[.littleTip]]
             )
+            let fanLive = GestureMath.palmMCPFanDeg(wrist: raw[.wrist], mcps: mcpPts)
+            let fanOk = sparse || !GestureMath.palmMCPCollinearVeto(fan: fanLive)
             if !GestureMath.obsLooksLikeHand(
                 spanW: spanLive.w,
                 spanH: spanLive.h,
@@ -456,7 +466,8 @@ final class HandTracker: @unchecked Sendable {
                 jointCount: raw.count,
                 keep: keepBind,
                 sparse: sparse,
-                chainOk: chainLive
+                chainOk: chainLive,
+                fanOk: fanOk
             ) {
                 continue
             }

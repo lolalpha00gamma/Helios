@@ -842,9 +842,7 @@ enum GestureMath {
         )
     }
 
-    /// Kamera-Format: 720p @ 15–30 schlägt 360p @ 60 und 800p @ 8.
-    /// Desk-View 4:3 bis 1920×1440, nicht als 800p@8 wegwerfen.
-    /// Score < 0 = unbrauchbar.
+    /// Kamera-Format: 720p @ 60 schlägt 720p @ 30. 360p @ 60 bleibt hinter 720p @ 24.
     static func formatScore(width: Double, height: Double, fps: Double) -> Double {
         let long = max(width, height)
         let short = min(width, height)
@@ -852,7 +850,11 @@ enum GestureMath {
         let near720 = 1.0 - min(abs(short - 720) / 720, 1)
         let res = near720 * 80 + min(long / 1280, 1.1) * 20
         let fpsTerm: Double
-        if fps >= 24 {
+        if fps >= 60 {
+            fpsTerm = 92
+        } else if fps >= 30 {
+            fpsTerm = 70 + min(fps, 60) - 30
+        } else if fps >= 24 {
             fpsTerm = 55 + min(fps, 30) - 24
         } else if fps >= 15 {
             fpsTerm = 38 + (fps - 15) * 1.5
@@ -1096,10 +1098,16 @@ enum GestureMath {
         return CGPoint(x: windowLocal.midX, y: y)
     }
 
-    /// Ziel-fps des gewählten Formats: Continuity 24 statt hart 30 (Drop auf 8).
+    /// Built-in 60. Continuity 30 wenn das Format es trägt — 24 droppt oft auf 8.
     static func lockFrameRate(_ maxFps: Double, continuity: Bool = false) -> Double {
-        if continuity, maxFps >= 24 { return min(24, maxFps) }
-        if maxFps >= 30 { return 30 }
+        if continuity {
+            if maxFps >= 30 { return 30 }
+            if maxFps >= 24 { return min(24, maxFps) }
+            if maxFps >= 15 { return max(15, min(24, maxFps)) }
+            return max(7, maxFps)
+        }
+        if maxFps >= 60 { return 60 }
+        if maxFps >= 30 { return min(maxFps, 60) }
         if maxFps >= 24 { return max(24, min(30, maxFps)) }
         if maxFps >= 15 { return max(15, min(24, maxFps)) }
         return max(7, maxFps)
@@ -1147,6 +1155,15 @@ enum GestureMath {
         case 270: return 8
         default: return 1
         }
+    }
+
+    /// Connection-Winkel live. Applied = physisch gedreht, Vision sieht aufrechte Pixel.
+    static func visionRotationApplied(_ angle: CGFloat) -> Bool {
+        physicalCaptureRotation() && abs(angle) > 0.5
+    }
+
+    static func visionOrientationLive(angle: CGFloat, applied: Bool) -> UInt32 {
+        visionOrientationRaw(physicalRotationApplied: applied, angle: angle)
     }
 
     /// Palm-Slot: ferne kleine Hände enger binden, sonst kleben zwei auf einem Slot.
@@ -2055,11 +2072,13 @@ enum GestureMath {
         jointCount: Int,
         keep: Bool = false,
         sparse: Bool = false,
-        chainOk: Bool = true
+        chainOk: Bool = true,
+        fanOk: Bool = true
     ) -> Bool {
         if jointCount < 8 && !sparse { return false }
         if !palmScaleIsHand(palmScale, keep: keep) { return false }
         if !sparse && !chainOk { return false }
+        if !sparse && !fanOk { return false }
         if spanW > 0.70 && spanH > 0.58 { return false }
         return true
     }
@@ -2262,9 +2281,9 @@ enum GestureMath {
         return hypot(tip.x - palm.x, tip.y - palm.y) < scale * 0.55
     }
 
-    /// Landmark-One-Euro: 8 fps Base 3,2 statt 6,2 — sonst hängt der Tip hinter dem Flick.
+    /// Landmark-One-Euro: 8 fps höhere Cutoff, sonst hängt der Tip hinter dem Flick.
     static func oneEuroLandmarkCutoff(base: CGFloat, dt: CGFloat) -> CGFloat {
-        dt >= 0.10 ? min(base, 3.2) : base
+        dt >= 0.08 ? max(base, 14) : max(base, 10)
     }
 
     /// HUD: Continuity 8 fps zeigt Hz, Ghost = LATCH. Still-Clutch = HOLD.
@@ -3137,11 +3156,11 @@ enum GestureMath {
 
     static func overlayLerpT(elapsed: TimeInterval, frameDt: TimeInterval) -> CGFloat {
         guard frameDt > 0.001 else { return 1 }
-        return CGFloat(min(2.5, max(0, elapsed / frameDt)))
+        return CGFloat(min(1, max(0, elapsed / frameDt)))
     }
 
-    /// Continuity + 24 fps: Overlay lerpt. 90 fps Same-Tick snap.
-    static func overlayLerpShould(dt: TimeInterval) -> Bool { dt >= 0.012 }
+    /// Nur echtes 8–20 fps. Ab 24 fps Snap — Lerp + Extrapolate hängt in der Luft.
+    static func overlayLerpShould(dt: TimeInterval) -> Bool { dt >= 0.045 }
 
     /// Smoothstep — linear Lerp ruckt 8 fps. Bezier zwischen zwei Vision-Poses.
     static func overlayBezierEase(_ t: CGFloat) -> CGFloat {
@@ -3168,7 +3187,7 @@ enum GestureMath {
         if t <= 1 {
             return overlayPalmLerp(prev: prev, next: next, t: overlayBezierEase(t))
         }
-        return overlayExtrapolate(prev: next, vel: vel, extra: t - 1)
+        return next
     }
 
     /// Overlay-Skelett 90 Hz. IDs aus `to`, Pose aus prev→next, t>1 Extrapolate.
@@ -3207,6 +3226,40 @@ enum GestureMath {
             }
         }
         return best
+    }
+
+    /// Winkel Wrist–MCP-Paar. Hand fächert, Gitarrenhals ist eine Linie.
+    static func palmMCPPairDeg(wrist: CGPoint, a: CGPoint, b: CGPoint) -> CGFloat {
+        let ax = a.x - wrist.x, ay = a.y - wrist.y
+        let bx = b.x - wrist.x, by = b.y - wrist.y
+        let da = hypot(ax, ay), db = hypot(bx, by)
+        guard da > 1e-6, db > 1e-6 else { return 0 }
+        let c = max(-1, min(1, (ax * bx + ay * by) / (da * db)))
+        return acos(c) * 180 / .pi
+    }
+
+    /// Max-Fächer über MCP. Hand 30–90°, Gitarre/Hals < 18°.
+    static func palmMCPFanDeg(wrist: CGPoint?, mcps: [CGPoint]) -> CGFloat {
+        guard let wrist, mcps.count >= 2 else { return 0 }
+        var best: CGFloat = 0
+        for i in 0..<mcps.count {
+            for j in (i + 1)..<mcps.count {
+                best = max(best, palmMCPPairDeg(wrist: wrist, a: mcps[i], b: mcps[j]))
+            }
+        }
+        return best
+    }
+
+    static let palmMCPFanHand: CGFloat = 18
+
+    static func palmMCPCollinearVeto(fan: CGFloat, floor: CGFloat = palmMCPFanHand) -> Bool {
+        fan + 1e-6 < floor
+    }
+
+    /// Bind-Scale 3 Ticks EMA auf lastS1. Gitarre-Flicker 0,29 sonst jeden Tick neu.
+    static func palmBindScaleOf(live: CGFloat, last: CGFloat?, ticks: Int, alpha: CGFloat = 0.45, need: Int = 3) -> CGFloat {
+        guard let last, ticks >= need else { return live }
+        return alpha * live + (1 - alpha) * last
     }
 
     static let palmScaleMedianCap = 8
@@ -3334,6 +3387,97 @@ enum GestureMath {
     /// NSScreen.main neben 5K: Laptop 120, Studio 60. Max, nicht main.
     static func displayLinkHzOf(fpsList: [Int]) -> Double {
         displayLinkHzOf(fps: fpsList.filter { $0 > 0 }.max() ?? 120)
+    }
+
+    /// Dual 60+120: beide Links feuern. Unter minGap kein zweiter Fill — Cursor-Sprung tot.
+    static func displayLinkDebounce(last: TimeInterval, now: TimeInterval, minGap: TimeInterval = 0.004) -> Bool {
+        now - last >= minGap
+    }
+
+    /// Clamshell / 5K: DisplayID+Hz. Unsortiert sonst falsches Rearm.
+    static func displayLinkLayoutToken(_ screens: [(id: UInt32, hz: Int)]) -> String {
+        screens.sorted { $0.id < $1.id }.map { "\($0.id):\($0.hz)" }.joined(separator: "|")
+    }
+
+    static func displayLinkLayoutChanged(prev: String, next: String) -> Bool {
+        prev != next
+    }
+
+    /// Warp nur Zielschirm. Overlay-Lerp läuft trotzdem — Gate auf den ganzen Tick fror das HUD.
+    static func displayLinkIsDest(screenIndex: Int?, cursor: CGPoint?, screens: [CGRect]) -> Bool {
+        guard let screenIndex else { return true }
+        return displayLinkScreenIndex(cursor: cursor, screens: screens) == screenIndex
+    }
+
+    /// Cursor-Schirm zuerst. main lügt neben 5K.
+    static func displayLinkScreenIndex(cursor: CGPoint?, screens: [CGRect]) -> Int {
+        guard !screens.isEmpty else { return 0 }
+        if let cursor {
+            var best = 0
+            var bestArea = CGFloat.greatestFiniteMagnitude
+            var hit = false
+            for (i, r) in screens.enumerated() {
+                if r.contains(cursor) {
+                    let area = r.width * r.height
+                    if !hit || area < bestArea {
+                        best = i
+                        bestArea = area
+                        hit = true
+                    }
+                }
+            }
+            if hit { return best }
+            var near = 0
+            var dBest = CGFloat.greatestFiniteMagnitude
+            for (i, r) in screens.enumerated() {
+                let dx = max(r.minX - cursor.x, 0, cursor.x - r.maxX)
+                let dy = max(r.minY - cursor.y, 0, cursor.y - r.maxY)
+                let d = hypot(dx, dy)
+                if d < dBest {
+                    dBest = d
+                    near = i
+                }
+            }
+            return near
+        }
+        var maxI = 0
+        var maxHzDummy = screens[0].width * screens[0].height
+        for (i, r) in screens.enumerated() where i > 0 {
+            let a = r.width * r.height
+            if a > maxHzDummy {
+                maxHzDummy = a
+                maxI = i
+            }
+        }
+        return maxI
+    }
+
+    static func cameraMutexOwnerHelios() -> String { "helios" }
+    static func cameraMutexOwnerAegis() -> String { "aegis" }
+    static func cameraMutexName() -> String { "helios.aegis.camera.lock" }
+    /// 3 s war kürzer als Continuity-Frame + 32-Tick Geometry. Heartbeat 2 s, Stale 12.
+    static func cameraMutexStale() -> TimeInterval { 12 }
+
+    static func cameraMutexLine(owner: String, pid: Int32, now: TimeInterval) -> String {
+        "\(owner) \(pid) \(Int(now))"
+    }
+
+    static func cameraMutexParse(_ text: String, now: TimeInterval, stale: TimeInterval = cameraMutexStale()) -> String? {
+        let parts = text.split(whereSeparator: { $0 == " " || $0 == "\n" }).map(String.init)
+        guard parts.count >= 3, let stamp = TimeInterval(parts[2]) else { return nil }
+        if now - stamp > stale { return nil }
+        let owner = parts[0]
+        if owner != cameraMutexOwnerHelios() && owner != cameraMutexOwnerAegis() { return nil }
+        return owner
+    }
+
+    static func cameraMutexBlocks(holder: String?, owner: String) -> Bool {
+        guard let holder else { return false }
+        return holder != owner
+    }
+
+    static func cameraMutexYieldsContinuity(holder: String?, owner: String) -> Bool {
+        holder == cameraMutexOwnerHelios() && owner == cameraMutexOwnerAegis()
     }
 
     /// bugfix 1.5.8: Dead-Man Faust-Timeout 2–8 s. Default bleibt 1,6.
@@ -4315,7 +4459,7 @@ enum GestureMath {
     /// Vision-Flip gehalten: HUD `L` / `R`.
     static func palmLateralityChip(locked: Int, live: Int) -> String? {
         guard locked == 1 || locked == 2, locked != live else { return nil }
-        return locked == 1 ? "L" : "R"
+        return locked == 1 ? "← L" : "R →"
     }
 
     /// claimed.contains(.left) vor Bind macht aus der zweiten .left eine .right.
@@ -4346,7 +4490,7 @@ enum GestureMath {
 
     /// displayTick ohne Live-Frames coaster den Cursor in fremde Fenster.
     static func displayTickNeedsCamera(_ running: Bool, frameAge: TimeInterval = 0) -> Bool {
-        running && frameAge >= 0 && frameAge < 0.35
+        running && frameAge >= 0 && frameAge < 0.10
     }
 
     /// visibleFrame ist Cocoa. AXPosition will Quartz — sonst Maske ≠ Fenster nach Snap.

@@ -62,6 +62,9 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     private let handlerLock = NSLock()
     private var frameHandler: ((CVPixelBuffer, NSImage?, CGFloat, TimeInterval) -> Void)?
     private var exposureUnlockWork: DispatchWorkItem?
+    private var activeDevice: AVCaptureDevice?
+    private var geometryTick = 0
+    private var lastRotationAngle: CGFloat = 0
 
     func start() {
         DispatchQueue.main.async { self.errorMessage = nil }
@@ -75,6 +78,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             guard let self else { return }
             self.pump.cancel()
             HeliosCatch({ self.session.stopRunning() }, nil)
+            self.releaseCameraMutex()
+            self.activeDevice = nil
             DispatchQueue.main.async {
                 self.isRunning = false
                 self.usingFallback = false
@@ -134,8 +139,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         }
 
         output.alwaysDiscardsLateVideoFrames = true
-        let sink = FrameSink { [weak self] buffer in
-            self?.accept(buffer)
+        let sink = FrameSink { [weak self] buffer, angle in
+            self?.accept(buffer, angle: angle)
         }
         tap = sink
         output.setSampleBufferDelegate(sink, queue: cameraQueue)
@@ -154,6 +159,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         let started = HeliosCatch({ self.session.startRunning() }, &startErr)
         applyCaptureGeometry(device)
         applyCenterStage(force: true)
+        claimCameraMutex()
+        activeDevice = device
         let running = started && startErr == nil && session.isRunning
         let name = device.localizedName
         let id = device.uniqueID
@@ -204,10 +211,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
                     conn.preferredVideoStabilizationMode = .off
                 }
                 #endif
-                self.visionOrientationFlag = .up
             } else {
                 self.mirroredFlag = false
-                self.visionOrientationFlag = .up
             }
         }, nil)
     }
@@ -230,6 +235,27 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             if let front { return front }
             if let builtIn { return builtIn }
             return extra ?? discovered.first ?? AVCaptureDevice.default(for: .video)
+        }
+    }
+
+    private func cameraMutexURL() -> URL {
+        FileManager.default.temporaryDirectory.appendingPathComponent(GestureMath.cameraMutexName())
+    }
+
+    private func claimCameraMutex() {
+        let line = GestureMath.cameraMutexLine(
+            owner: GestureMath.cameraMutexOwnerHelios(),
+            pid: ProcessInfo.processInfo.processIdentifier,
+            now: Date().timeIntervalSince1970
+        )
+        try? line.write(to: cameraMutexURL(), atomically: true, encoding: .utf8)
+    }
+
+    private func releaseCameraMutex() {
+        let url = cameraMutexURL()
+        guard let text = try? String(contentsOf: url, encoding: .utf8) else { return }
+        if GestureMath.cameraMutexParse(text, now: Date().timeIntervalSince1970, stale: 9_999) == GestureMath.cameraMutexOwnerHelios() {
+            try? FileManager.default.removeItem(at: url)
         }
     }
 
@@ -447,7 +473,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     private var lastPushedFormatChip = ""
     private var stealDrops = 0
 
-    private func accept(_ buffer: CMSampleBuffer) {
+    private func accept(_ buffer: CMSampleBuffer, angle: CGFloat) {
+        lastRotationAngle = angle
         guard let pb = CMSampleBufferGetImageBuffer(buffer) else { return }
         let t0 = CACurrentMediaTime()
         let (owned, slot) = ring.copy(pb)
@@ -477,9 +504,16 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     }
 
     private func process(_ pb: CVPixelBuffer, arrived: TimeInterval) {
-        let w = CVPixelBufferGetWidth(pb)
-        let h = CVPixelBufferGetHeight(pb)
-        let orientRaw = GestureMath.visionBufferOrientation(width: w, height: h, rotationApplied: false)
+        geometryTick += 1
+        if geometryTick % 8 == 0 {
+            claimCameraMutex()
+        }
+        if geometryTick % 32 == 0, let device = activeDevice {
+            applyCaptureGeometry(device)
+            applyCenterStage(force: false)
+        }
+        let applied = GestureMath.visionRotationApplied(lastRotationAngle)
+        let orientRaw = GestureMath.visionOrientationLive(angle: lastRotationAngle, applied: applied)
         visionOrientationFlag = CGImagePropertyOrientation(rawValue: orientRaw) ?? .up
         let luma = enhancer.luma(of: pb)
         let osType = CVPixelBufferGetPixelFormatType(pb)
@@ -515,7 +549,10 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         let w = CVPixelBufferGetWidth(pb)
         let h = CVPixelBufferGetHeight(pb)
         guard w > 1, h > 1 else { return nil }
-        let orientRaw = GestureMath.visionBufferOrientation(width: w, height: h, rotationApplied: false)
+        let orientRaw = GestureMath.visionOrientationLive(
+            angle: lastRotationAngle,
+            applied: GestureMath.visionRotationApplied(lastRotationAngle)
+        )
         let sized = GestureMath.orientedPixelSize(width: w, height: h, orientationRaw: orientRaw)
         let scale = min(1, 480 / CGFloat(sized.width))
         let tw = max(2, Int((CGFloat(sized.width) * scale).rounded()))
@@ -611,13 +648,13 @@ private final class FramePump: @unchecked Sendable {
 }
 
 private final class FrameSink: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
-    let emit: (CMSampleBuffer) -> Void
-    init(emit: @escaping (CMSampleBuffer) -> Void) { self.emit = emit }
+    let emit: (CMSampleBuffer, CGFloat) -> Void
+    init(emit: @escaping (CMSampleBuffer, CGFloat) -> Void) { self.emit = emit }
     func captureOutput(
         _ output: AVCaptureOutput,
         didOutput sampleBuffer: CMSampleBuffer,
         from connection: AVCaptureConnection
     ) {
-        emit(sampleBuffer)
+        emit(sampleBuffer, connection.videoRotationAngle)
     }
 }

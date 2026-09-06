@@ -8,16 +8,15 @@ import SwiftUI
 import ImageIO
 import Vision
 
-/// vsync Fill. Timer.common coalesced gegen ProMotion — Cursor stottert an der Seam.
+/// vsync Fill. Ein Link pro NSScreen — main 120 vs Studio 60 sonst Overlay-Drift.
 private final class DisplayPulse: NSObject {
     var link: CADisplayLink?
     var onTick: () -> Void = {}
 
-    func arm(preferred: Float = 120) {
+    func arm(screen: NSScreen, preferred: Float = 120) {
         stop()
-        guard let screen = NSScreen.main else { return }
         let l = screen.displayLink(target: self, selector: #selector(step))
-        l.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: preferred, preferred: preferred)
+        l.preferredFrameRateRange = CAFrameRateRange(minimum: 24, maximum: preferred, preferred: preferred)
         l.add(to: .main, forMode: .common)
         link = l
     }
@@ -39,7 +38,9 @@ final class AppState: ObservableObject {
     private let overlay = OverlayController()
     private var permTimer: Timer?
     private var displayTimer: Timer?
-    private var displayPulse: DisplayPulse?
+    private var displayPulses: [DisplayPulse] = []
+    private var displayPulseLastFire: TimeInterval = 0
+    private var displayPulseToken = ""
     private var displayTimerPeriod: TimeInterval = GestureMath.displayLinkTimerPeriod()
     private var frames: Int = 0
     private var fpsStamp: TimeInterval = CACurrentMediaTime()
@@ -217,6 +218,7 @@ final class AppState: ObservableObject {
             ) { [weak self] _ in
                 Task { @MainActor in
                     self?.pollFocus()
+                    self?.rearmDisplayPulseIfNeeded()
                 }
             }
         }
@@ -228,35 +230,84 @@ final class AppState: ObservableObject {
         }
     }
 
+    private func stopDisplayPulses() {
+        for p in displayPulses { p.stop() }
+        displayPulses.removeAll()
+    }
+
     private func armDisplayTimer(period: TimeInterval) {
         displayTimer?.invalidate()
         displayTimer = nil
         if GestureMath.displayLinkUsesCA() {
-            let hz = GestureMath.displayLinkHzOf(fpsList: NSScreen.screens.map(\.maximumFramesPerSecond))
+            let screens = NSScreen.screens
+            let hz = GestureMath.displayLinkHzOf(fpsList: screens.map(\.maximumFramesPerSecond))
             displayTimerPeriod = 1.0 / hz
             displayPulseHz = Float(hz)
-            if displayPulse == nil {
+            displayPulseToken = GestureMath.displayLinkLayoutToken(
+                screens.map { (id: ScreenGeometry.displayID(of: $0), hz: $0.maximumFramesPerSecond) }
+            )
+            stopDisplayPulses()
+            if screens.isEmpty {
                 let pulse = DisplayPulse()
                 pulse.onTick = { [weak self] in
                     MainActor.assumeIsolated {
-                        self?.fireDisplayTick()
+                        self?.fireDisplayTickDebounced()
                     }
                 }
-                displayPulse = pulse
+                if let main = NSScreen.main {
+                    pulse.arm(screen: main, preferred: displayPulseHz)
+                    displayPulses.append(pulse)
+                }
+            } else {
+                for (i, screen) in screens.enumerated() {
+                    let local = Float(GestureMath.displayLinkHzOf(fps: screen.maximumFramesPerSecond))
+                    let pulse = DisplayPulse()
+                    let idx = i
+                    pulse.onTick = { [weak self] in
+                        MainActor.assumeIsolated {
+                            self?.fireDisplayTickDebounced(screenIndex: idx)
+                        }
+                    }
+                    pulse.arm(screen: screen, preferred: local)
+                    displayPulses.append(pulse)
+                }
             }
-            displayPulse?.arm(preferred: displayPulseHz)
             return
         }
-        displayPulse?.stop()
+        stopDisplayPulses()
         displayTimerPeriod = period
         let t = Timer(timeInterval: period, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.fireDisplayTick()
+                self?.fireDisplayTickDebounced()
             }
         }
         t.tolerance = min(0.004, period * 0.15)
         RunLoop.main.add(t, forMode: GestureMath.displayLinkTimerCommonMode() ? .common : .default)
         displayTimer = t
+    }
+
+    private func rearmDisplayPulseIfNeeded() {
+        guard GestureMath.displayLinkUsesCA() else { return }
+        let token = GestureMath.displayLinkLayoutToken(
+            NSScreen.screens.map { (id: ScreenGeometry.displayID(of: $0), hz: $0.maximumFramesPerSecond) }
+        )
+        guard GestureMath.displayLinkLayoutChanged(prev: displayPulseToken, next: token) else { return }
+        armDisplayTimer(period: displayTimerPeriod)
+    }
+
+    private func fireDisplayTickDebounced(screenIndex: Int? = nil) {
+        let now = CACurrentMediaTime()
+        if !GestureMath.displayLinkIsDest(
+            screenIndex: screenIndex,
+            cursor: NSEvent.mouseLocation,
+            screens: NSScreen.screens.map(\.frame)
+        ) {
+            lerpPublishedHands(now: now)
+            return
+        }
+        guard GestureMath.displayLinkDebounce(last: displayPulseLastFire, now: now) else { return }
+        displayPulseLastFire = now
+        fireDisplayTick()
     }
 
     private func fireDisplayTick() {
@@ -887,7 +938,7 @@ final class AppState: ObservableObject {
             fpsSpark = GestureMath.fpsSpark(fpsSamples)
             let med = GestureMath.medianFps(fpsSamples)
             if let dt = med > 0.5 ? 1.0 / med : nil,
-               displayPulse?.link == nil,
+               displayPulses.allSatisfy({ $0.link == nil }),
                let want = GestureMath.displayLinkTimerRetarget(current: displayTimerPeriod, frameDt: dt)
             {
                 armDisplayTimer(period: want)

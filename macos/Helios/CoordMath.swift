@@ -818,9 +818,8 @@ enum GestureMath {
         dt >= 0.055 ? 2 : 4
     }
 
-    /// Leere Vision: letzte Hände halten, statt [] und Grab-Abort nach 0,22 s.
-    /// Default Latch — slotHold 0,60 gab [] während S1 noch lebte, Engine releasePointer.
-    static func ghostHands(emptyFor: TimeInterval, hold: TimeInterval = slotLatch) -> Bool {
+    /// Leere Vision: ein Frame halten, nicht 4 s Skelett in der Luft.
+    static func ghostHands(emptyFor: TimeInterval, hold: TimeInterval = 0.10) -> Bool {
         emptyFor >= 0 && emptyFor < hold
     }
 
@@ -1119,6 +1118,9 @@ enum GestureMath {
     static func lockFrameLo(_ maxFps: Double, rangeMin: Double, continuity: Bool = false) -> Double {
         let hi = lockFrameRate(maxFps, continuity: continuity)
         if hi + 1e-9 < lockFrameFloor { return hi }
+        if !continuity, hi >= 60 {
+            return min(hi, max(rangeMin, 30))
+        }
         return min(hi, max(rangeMin, lockFrameFloor))
     }
 
@@ -1533,7 +1535,7 @@ enum GestureMath {
     }
 
     static func palmLowConfFreeze(conf: CGFloat, floor: CGFloat = 0.30, tipHeld: Bool = false) -> Bool {
-        if tipHeld { return true }
+        _ = tipHeld
         return conf > 0 && conf < floor
     }
 
@@ -1856,6 +1858,7 @@ enum GestureMath {
     static func palmCoastNeedAuto(dt: TimeInterval, pref: Int) -> Int {
         let p = palmCoastNeedPref(pref)
         if dt >= 0.20 { return max(p, 3) }
+        if dt <= 0.04 { return 1 }
         return p
     }
 
@@ -2439,7 +2442,7 @@ enum GestureMath {
     }
 
     /// Engine ohne Ghosts (Confidence-Floor): lastPalm 4 s halten, nicht releasePointer.
-    static func slotLatchEmptyKeepsPointer(emptyFor: TimeInterval, latch: TimeInterval = slotLatch) -> Bool {
+    static func slotLatchEmptyKeepsPointer(emptyFor: TimeInterval, latch: TimeInterval = 0.25) -> Bool {
         emptyFor >= 0 && emptyFor < latch
     }
 
@@ -3160,7 +3163,7 @@ enum GestureMath {
     }
 
     /// Nur echtes 8–20 fps. Ab 24 fps Snap — Lerp + Extrapolate hängt in der Luft.
-    static func overlayLerpShould(dt: TimeInterval) -> Bool { dt >= 0.045 }
+    static func overlayLerpShould(dt: TimeInterval) -> Bool { false }
 
     /// Smoothstep — linear Lerp ruckt 8 fps. Bezier zwischen zwei Vision-Poses.
     static func overlayBezierEase(_ t: CGFloat) -> CGFloat {

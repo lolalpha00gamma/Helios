@@ -106,7 +106,7 @@ struct TrackingOverlay: View {
             let size = geo.size
             ZStack {
                 Canvas { ctx, canvasSize in
-                    for hand in hands {
+                    for hand in hands where !hand.isGhost {
                         drawHand(hand, in: &ctx, size: canvasSize)
                     }
                 }
@@ -214,7 +214,7 @@ struct TrackingOverlay: View {
 
     private func labels(in size: CGSize) -> [JointLabel] {
         var out: [JointLabel] = []
-        for hand in hands {
+        for hand in hands where !hand.isGhost {
             let hue = GestureMath.slotHue(hand.id)
             let sideColor: Color = hue == "amber" ? HeliosTheme.amber : HeliosTheme.cyan
             let side = hand.chirality == .left ? "L" : "R"

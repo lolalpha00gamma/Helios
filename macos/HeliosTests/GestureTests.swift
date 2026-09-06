@@ -289,10 +289,10 @@ enum GestureTests {
         ok(GestureMath.poseHoldNeed(dt: 0.016) == 4, "24 fps Pose-Hold 4")
         ok(GestureMath.poseHoldNeed(dt: 0.125) == 2, "8 fps Pose-Hold 2")
         ok(GestureMath.poseHoldNeed(dt: 0.067) == 2, "15 fps Pose-Hold wie 8")
-        ok(GestureMath.ghostHands(emptyFor: 0.12), "ein Continuity-Frame Ghost")
-        ok(GestureMath.ghostHands(emptyFor: 0.50), "0,50 s noch Ghost")
-        ok(GestureMath.ghostHands(emptyFor: 0.61), "0,61 s Latch-Ghost, nicht tot")
-        ok(GestureMath.ghostHands(emptyFor: 2.0), "2 s Latch-Ghost")
+        ok(GestureMath.ghostHands(emptyFor: 0.05), "ein Continuity-Frame Ghost")
+        ok(!GestureMath.ghostHands(emptyFor: 0.50), "0,50 s kein Ghost")
+        ok(!GestureMath.ghostHands(emptyFor: 0.61), "0,61 s kein Latch-Ghost")
+        ok(!GestureMath.ghostHands(emptyFor: 2.0), "2 s kein Ghost")
         ok(!GestureMath.ghostHands(emptyFor: 4.1), "nach Latch kein Ghost")
         ok(!GestureMath.ghostHands(emptyFor: -0.01), "negativ kein Ghost")
         ok(!GestureMath.ghostHands(emptyFor: 0.61, hold: GestureMath.slotHold), "HUD-Hold 0,60 tot")
@@ -1200,7 +1200,8 @@ enum GestureTests {
         let heldSmooth = GestureMath.cursorWarpHoldsSmooth(from: .zero, to: CGPoint(x: 200, y: 0))
         ok(heldSmooth == .zero, "Warp schreibt Smooth")
         ok(GestureMath.cursorWarpHoldsSmooth(from: .zero, to: CGPoint(x: 40, y: 0)) == nil, "kein Warp nil")
-        ok(GestureMath.slotLatchEmptyKeepsPointer(emptyFor: 2.0), "2 s Engine hält Pointer")
+        ok(GestureMath.slotLatchEmptyKeepsPointer(emptyFor: 0.12), "ein Dropout hält Pointer")
+        ok(!GestureMath.slotLatchEmptyKeepsPointer(emptyFor: 2.0), "2 s Pointer tot")
         ok(GestureMath.slotLatchEmptyKeepsPointer(emptyFor: 0), "erster leerer Tick hält")
         ok(!GestureMath.slotLatchEmptyKeepsPointer(emptyFor: 4.1), "nach Latch Pointer tot")
         ok(!GestureMath.slotLatchEmptyKeepsPointer(emptyFor: -0.01), "negativ kein Pointer-Latch")
@@ -1429,12 +1430,12 @@ enum GestureTests {
         ok(abs(GestureMath.palmLowConfFloor(continuity: false) - 0.30) < 0.001, "Built-in Floor 0,30")
         ok(!GestureMath.palmLowConfFreeze(conf: 0.15, floor: GestureMath.palmLowConfFloor(continuity: true)), "Continuity 0,15 live")
         ok(
-            GestureMath.palmLowConfFreeze(
+            !GestureMath.palmLowConfFreeze(
                 conf: 0.15,
                 floor: GestureMath.palmLowConfFloor(continuity: true),
                 tipHeld: true
             ),
-            "DIP-Fake hält"
+            "DIP-Fake kein Freeze"
         )
         ok(
             !GestureMath.palmHolds(
@@ -1443,10 +1444,10 @@ enum GestureTests {
             "Continuity mean 0,15 kein Freeze"
         )
         ok(
-            GestureMath.palmHolds(
+            !GestureMath.palmHolds(
                 armedAt: nil, now: 1, luma: 0.5, prevLuma: 0.5, conf: 0.80, continuity: true, tipHeld: true
             ),
-            "tipHeld freeze auch sicher"
+            "tipHeld kein Freeze bei sicherer Conf"
         )
         ok(abs(GestureMath.palmTipConf(tip: 0.55, mean: 0.18) - 0.55) < 0.001, "Tip vor Mean")
         ok(abs(GestureMath.palmTipConf(tip: 0, mean: 0.18) - 0.18) < 0.001, "ohne Tip Mean")
@@ -1766,6 +1767,7 @@ enum GestureTests {
         ok(abs(axisX.x - 80) < 0.001, "X geklemmt")
         ok(abs(axisX.y - 30) < 0.001, "Y-Flick am X-Warp frei")
         ok(abs(GestureMath.lockFrameLo(30, rangeMin: 1) - 15) < 1e-9, "Continuity 1–30 Floor 15")
+        ok(abs(GestureMath.lockFrameLo(60, rangeMin: 1) - 30) < 1e-9, "Built-in 60 Floor 30")
         ok(abs(GestureMath.lockFrameLo(30, rangeMin: 24) - 24) < 1e-9, "Built-in 24–30 bleibt 24")
         ok(abs(GestureMath.lockFrameLo(8, rangeMin: 1) - 8) < 1e-9, "8 fps kein 15-Floor")
         ok(abs(GestureMath.lockFrameLo(15, rangeMin: 1) - 15) < 1e-9, "15 bleibt 15")
@@ -3025,7 +3027,7 @@ enum GestureTests {
         ok(!GestureMath.palmROICoastFollows(false), "Coast ROI Follow tot")
         let followed = GestureMath.palmROIFollow(palm: CGPoint(x: 0.40, y: 0.50), scale: 0.12)
         ok(followed != nil && followed!.contains(CGPoint(x: 0.40, y: 0.50)), "Coast ROI Follow rect")
-        ok(GestureMath.overlayLerpShould(dt: 0.12), "Lerp 8 fps")
+        ok(!GestureMath.overlayLerpShould(dt: 0.12), "Lerp 8 fps tot")
         ok(!GestureMath.overlayLerpShould(dt: 0.04), "Lerp 24 fps tot")
         ok(!GestureMath.overlayLerpShould(dt: 0.008), "Lerp 120 fps tot")
         ok(abs(GestureMath.overlayBezierEase(0.5) - 0.5) < 0.01, "Bezier mid")

@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   package:
-    runs-on: macos-26
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -70,6 +70,28 @@ jobs:
           swiftc -framework AppKit macos/Helios/CoordMath.swift macos/Helios/ScreenGeometry.swift macos/Helios/SpaceMap.swift macos/HeliosTests/SpaceMapTests.swift -o /tmp/spacemaptests
           /tmp/spacemaptests
 
+      - name: Import Developer ID certificate
+        if: github.event_name != 'pull_request'
+        env:
+          BUILD_CERTIFICATE_BASE64: ${{ secrets.BUILD_CERTIFICATE_BASE64 }}
+          P12_PASSWORD: ${{ secrets.P12_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BUILD_CERTIFICATE_BASE64:-}" ] || [ -z "${P12_PASSWORD:-}" ]; then
+            echo "Secrets BUILD_CERTIFICATE_BASE64 oder P12_PASSWORD fehlen." >&2
+            exit 1
+          fi
+          echo "$BUILD_CERTIFICATE_BASE64" | base64 --decode > cert.p12
+          security create-keychain -p actions build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p actions build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          security import cert.p12 -k build.keychain -P "$P12_PASSWORD" -A -T /usr/bin/codesign -T /usr/bin/security
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k actions build.keychain
+          security list-keychains -d user -s build.keychain login.keychain
+          rm -f cert.p12
+          security find-identity -p codesigning -v
+
       - name: Build Helios.app
         run: |
           xcodebuild \
@@ -87,7 +109,11 @@ jobs:
             ENABLE_HARDENED_RUNTIME=YES \
             build
 
-      - name: Sign and make DMG
+      - name: Sign app, make DMG, notarize
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           set -euo pipefail
           APP=".derived/Build/Products/Release/Helios.app"
@@ -95,12 +121,32 @@ jobs:
           rm -rf dmgroot Helios.dmg
           mkdir dmgroot
           cp -R "$APP" dmgroot/Helios.app
-          codesign --force --sign - \
-            --options runtime \
-            --timestamp=none \
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            codesign --force --sign - \
+              --options runtime \
+              --timestamp=none \
+              --entitlements macos/Helios.entitlements \
+              dmgroot/Helios.app
+            ln -s /Applications dmgroot/Applications
+            hdiutil create -volname Helios -srcfolder dmgroot -ov -format UDZO -fs HFS+ Helios.dmg
+            exit 0
+          fi
+
+          IDENTITY=$(security find-identity -p codesigning -v | awk -F'"' '/Developer ID Application/{print $2; exit}')
+          if [ -z "$IDENTITY" ]; then
+            echo "Kein Developer ID Application Zertifikat im Keychain." >&2
+            security find-identity -p codesigning -v || true
+            exit 1
+          fi
+          echo "Signing as $IDENTITY"
+
+          codesign --force --options runtime --timestamp \
             --entitlements macos/Helios.entitlements \
+            --sign "$IDENTITY" \
             dmgroot/Helios.app
-          codesign --verify --verbose=2 dmgroot/Helios.app || true
+          codesign --verify --deep --strict --verbose=2 dmgroot/Helios.app
+
           ln -s /Applications dmgroot/Applications
           hdiutil create \
             -volname Helios \
@@ -110,10 +156,22 @@ jobs:
             -fs HFS+ \
             Helios.dmg
           test -f Helios.dmg
-          test ! -d Helios.dmg
-          file Helios.dmg
-          hdiutil imageinfo Helios.dmg | head -n 20
-          codesign --force --sign - --timestamp=none Helios.dmg || true
+
+          codesign --force --timestamp --sign "$IDENTITY" Helios.dmg
+          codesign --verify --verbose=2 Helios.dmg
+
+          if [ -z "${APPLE_ID:-}" ] || [ -z "${APPLE_APP_PASSWORD:-}" ] || [ -z "${APPLE_TEAM_ID:-}" ]; then
+            echo "APPLE_ID / APPLE_APP_PASSWORD / APPLE_TEAM_ID fehlen — Notarisierung übersprungen." >&2
+            exit 1
+          fi
+
+          xcrun notarytool submit Helios.dmg \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+          xcrun stapler staple Helios.dmg
+          xcrun stapler validate Helios.dmg
           ls -lh Helios.dmg
 
       - name: Upload Helios.dmg artifact
@@ -144,10 +202,9 @@ jobs:
 
           1. Helios.dmg öffnen (Doppelklick)
           2. Helios nach Programme ziehen
-          3. Rechtsklick → Öffnen (Gatekeeper)
-          4. Kamera, Bedienungshilfen und Eingabeüberwachung erlauben
+          3. Beim ersten Start ggf. Kamera, Bedienungshilfen und Eingabeüberwachung erlauben
 
-          Ad-hoc signiert. Developer-ID / Notarisierung braucht ein Apple-Zertifikat in den Repo-Secrets.
+          Signiert mit Developer ID und notarisiert.
           EOF
           )"
           if gh release view "$TAG" >/dev/null 2>&1; then

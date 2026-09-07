@@ -188,7 +188,7 @@ struct HUDView: View {
                     .foregroundStyle(HeliosTheme.void)
                     .background(HeliosTheme.amber)
                     .overlay(Rectangle().stroke(HeliosTheme.amber, lineWidth: 1))
-                    .help("Lock-ID hält einen Fehlframe — kein Teleport")
+                    .help("Lock-ID hält einen Fehlframe — R1/R2 = Recover nach Dropout, kein Teleport")
             }
             if !state.permissionBanner.isEmpty {
                 Text(state.permissionBanner.uppercased())

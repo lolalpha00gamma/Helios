@@ -271,6 +271,14 @@ final class GestureEngine {
                     system.endWindowDrag()
                 }
                 dragging = false
+                if GestureMath.emptyHandsHoldDropsPinch() {
+                    if pinchHeld {
+                        swipeMuteUntil = now + GestureMath.swipeMuteAfterPinch
+                        pinchReleasedAt = now
+                    }
+                    pinchHeld = false
+                    pinchBecameDrag = false
+                }
                 return
             }
             releasePointer()
@@ -337,6 +345,9 @@ final class GestureEngine {
                 until: recoverUntil,
                 span: recoverSpan
             )
+            if let chip = GestureMath.emptyHandsRecoverChip(now: now, until: recoverUntil, span: recoverSpan) {
+                lockFreeze = lockFreeze.isEmpty ? chip : "\(lockFreeze) \(chip)"
+            }
         } else {
             freezeGain = 1
         }

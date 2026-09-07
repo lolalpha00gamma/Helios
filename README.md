@@ -1,4 +1,4 @@
-# Helios **1.6.30**
+# Helios **1.6.31**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,14 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.31
+
+1.6.30 hat Cover-Maps und preparePair. Dropout gab AX frei, ließ pinchHeld aber stehen — die Hand kommt zurück, Gate öffnet, Klick. Recover war unsichtbar.
+
+- **emptyHandsHoldDropsPinch.** Freeze droppt Pinch + Drag-Flag. Mute wie echtes Loslassen. Kein Dropout-Klick.
+- **emptyHandsRecoverChip** `R1`/`R2` im HUD während recoverUntil. Freeze-Chip bleibt für Miss.
+- Tests + MARKETING_VERSION 1.6.31 (Build 64).
 
 ## Neu in 1.6.30
 

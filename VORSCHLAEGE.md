@@ -1,6 +1,14 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.27**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+Stand: **1.6.31**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.31 erledigt
+
+1.6.30 Cover-Maps / preparePair. Freeze trug pinchHeld. Recover unsichtbar.
+
+1. **emptyHandsHoldDropsPinch.** Dropout droppt Gate, Mute wie Loslassen.
+2. **emptyHandsRecoverChip** `R1`/`R2` während recoverUntil.
+3. Tests + MARKETING_VERSION 1.6.31 (Build 64).
 
 ## In 1.6.27 erledigt
 
@@ -262,12 +270,15 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Per-App Scroll-Invert** (Safari natural, Xcode classic) ohne Rebuild.
 - **Auto-Nachkalibrierung** nach 20 min Drift (Palm vs. Homographie-Residual > 80 px).
 - **Fling-Bestätigungs-Tick** optional, aus by default.
-- **HUD Recover-Chip** `R1`/`R2` während `recoverUntil` — sonst sieht man nur freeze.
+- **Continuity-Geisterhand** am letzten Palm, solange freeze — sonst HUD leer.
 - **Zwei-Pinzetten-Achse im HUD** `H`/`V`, analog Lock-Chip.
-- **emptyHandsHold darf pinchHeld nicht über Dropout tragen** — AX ist frei, Gate wäre ein Klick.
 - **fps-Sparkline 8 s** im HUD, nicht nur amber-Bool.
 - **Clutch-Radius in mm**, nicht 48 px auf 5K.
-- **Continuity-Geisterhand** am letzten Palm, solange freeze — sonst HUD leer.
+- **Dropout-Mute HUD** `P drop` wenn emptyHandsHold Pinch stirbt — sonst sieht man nur freeze.
+- **pinchReleasedAt an sampleDt** koppeln, nicht Wall — 8 fps sonst 0,12 s tot über 1 Frame.
+- **Recover-Gain an palmWidth-Sprung** — Hand kommt näher, Gain bleibt klein.
+- **CGWarp-ACK** nach Warp sofort NSEvent lesen, RMS > reanchor nicht 4 Hz warten.
+- **Cover-PTS und Lead-PTS gleiche Epoche**, sonst Fusion-dt lügt.
 
 ## Größere Erweiterungen
 
@@ -314,6 +325,10 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **AX-Drag Timeout < sampleDt** — 8 fps sonst ein Sprung pro Tick, Coalesce greift nie.
 - **Space-Wechsel invalidiert focused Window** — Stage Manager lässt den Zug am Phantom.
 - **Per-Finger Kontakt** (Daumen–Index / palmWidth) statt nur Closedness-Skalar.
+- **Shared XPC `helios.aegis.camera`** mit Aegis — eine TCC, ein Buffer. Größter Effizienzgewinn.
+- **Watch-IMU Pinch-Confirm** wenn Continuity die Spitzen verliert.
+- **VNDetectHumanBodyPose** als Prop-Veto (Gitarre, zweite Person).
+- **Cursor-Magnetismus** 8 px an AX-Hit, optional, aus by default.
 
 ## Nicht tun
 

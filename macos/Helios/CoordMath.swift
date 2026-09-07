@@ -321,6 +321,17 @@ enum GestureMath {
         isDragging
     }
 
+    /// Freeze trägt pinchHeld. Hands zurück → Gate-Auf = Klick. AX ist schon frei.
+    static func emptyHandsHoldDropsPinch() -> Bool { true }
+
+    /// R1 erste Recover-Hälfte, R2 zweite. HUD sonst nur freeze während Miss.
+    static func emptyHandsRecoverChip(now: TimeInterval, until: TimeInterval, span: TimeInterval) -> String? {
+        guard until > now else { return nil }
+        let s = max(0.08, span)
+        let remain = until - now
+        return remain / s > 0.5 ? "R1" : "R2"
+    }
+
     /// Continuity 8 fps: 2 Frames. Built-in: 3, sonst ein Jitter-Tick skaliert.
     static let twoPinchEdgeNeed = 3
     static func twoPinchConfirmFrames(dt: TimeInterval, builtIn: Int = twoPinchEdgeNeed) -> Int {

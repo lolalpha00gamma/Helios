@@ -1012,6 +1012,22 @@ enum CoordTests {
             fputs("FAIL 24 fps Spark nicht amber\n", stderr)
             fails += 1
         }
+        if !GestureMath.emptyHandsHoldDropsPinch() {
+            fputs("FAIL Freeze droppt Pinch\n", stderr)
+            fails += 1
+        }
+        if GestureMath.emptyHandsRecoverChip(now: 1.0, until: 1.0, span: 0.25) != nil {
+            fputs("FAIL Recover-Chip tot am Ende\n", stderr)
+            fails += 1
+        }
+        if GestureMath.emptyHandsRecoverChip(now: 1.0, until: 1.25, span: 0.25) != "R1" {
+            fputs("FAIL Recover-Chip R1 am Start\n", stderr)
+            fails += 1
+        }
+        if GestureMath.emptyHandsRecoverChip(now: 1.20, until: 1.25, span: 0.25) != "R2" {
+            fputs("FAIL Recover-Chip R2 am Ende\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

@@ -1,15 +1,16 @@
 import CoreGraphics
 import Vision
 
-/// One-Euro-Filter plus Ausreißerabwehr (3,5 · Median-Sprung, 10 Frames).
+/// One-Euro-Filter plus Ausreißerabwehr.
+/// minCutoff niedrig = ruhiger Zeiger. beta hoch = schnelle Wischer kommen durch.
 struct LandmarkSmoothing {
     private var previous: [VNHumanHandPoseObservation.JointName: CGPoint] = [:]
     private var deriv: [VNHumanHandPoseObservation.JointName: CGPoint] = [:]
     private var lastT: TimeInterval?
     private var jumps: [CGFloat] = []
-    var minCutoff: CGFloat = 11.0
-    var beta: CGFloat = 0.28
-    var dCutoff: CGFloat = 2.6
+    var minCutoff: CGFloat = 2.4
+    var beta: CGFloat = 0.55
+    var dCutoff: CGFloat = 1.4
     var space = AspectSpace.hd720
 
     mutating func reset() {
@@ -39,16 +40,16 @@ struct LandmarkSmoothing {
         jumps.append(contentsOf: frameJumps)
         if jumps.count > 80 { jumps.removeFirst(jumps.count - 80) }
         let med = JointGeom.median(jumps)
-        let cap = max(0.8, 3.5 * med)
+        let cap = max(0.55, 2.8 * med)
         for (name, point) in joints {
             if let old = previous[name] {
                 let speed = space.dist(old, point) / CGFloat(dt)
-                if speed > cap, med > 0.05 {
+                if speed > cap, med > 0.04 {
                     let isoOld = space.iso(old)
                     let isoNew = space.iso(point)
                     let v = deriv[name] ?? .zero
                     let pred = CGPoint(x: isoOld.x + v.x * dt, y: isoOld.y + v.y * dt)
-                    let blend = CGPoint(x: pred.x * 0.7 + isoNew.x * 0.3, y: pred.y * 0.7 + isoNew.y * 0.3)
+                    let blend = CGPoint(x: pred.x * 0.82 + isoNew.x * 0.18, y: pred.y * 0.82 + isoNew.y * 0.18)
                     cleaned[name] = space.fromIso(blend)
                 } else {
                     cleaned[name] = point

@@ -1,5 +1,24 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
+Stand: 2026-09-07. Helios **1.6.32** (Build 65). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+
+## 0. 1.6.32 — Continuity-Uhr, nicht Schwellen
+
+Warum 1.6.31 auf dem iPhone-Cam weiter riss:
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | HMM-Hold 50 ms < 125 ms Frame | `switchHold(dt)` ≈ 1 Frame, 2. tick wechselt |
+| 2 | pinch-EMA τ 45 ms, α ≈ 0,94 | `pinchTau(dt)` |
+| 3 | TemporalNet 12 Frames = 1,5 s | `maxAge` 0,80 s, 8 fps 3 Frames |
+| 4 | Release-Tot 120 ms = 1 Frame | `pinchReleaseNeed(dt)` ≥ 200 ms |
+| 5 | Recover-Gain ignoriert Palm-Sprung | `emptyHandsRecoverPalmMul` |
+| 6 | Pinch-Drop unsichtbar | HUD `P drop` |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, 3D-Pinch (steht auf der Liste).
+
+# Analyse, Fehlerbehebung, öffentlicher Abgleich
+
 Stand: 2026-09-02. Helios 1.6.19. Erkennung (1.6.0/1.6.1) bleibt; 1.6.2
 ist Koordinaten, AX, Threads, HUD. 1.6.14: Pinzette-Lock friert,
 Entropie-Tor, dt-Hochpass, Tisch-Idle, App-Profil, HMM lastRealProb.

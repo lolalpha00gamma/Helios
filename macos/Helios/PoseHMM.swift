@@ -22,6 +22,16 @@ struct PoseHMM {
         lastRealProb = 0
     }
 
+    /// 24 fps bleibt 50 ms (~3 Frames). 8 fps: 2 Frames, sonst Flicker jeden Tick.
+    static func switchHold(dt: TimeInterval) -> TimeInterval {
+        max(0.05, min(0.22, max(0.008, dt) * 0.95))
+    }
+
+    /// Pinch-EMA. 45 ms bei 60 fps, ~90 ms bei 8 fps — sonst ist α ≈ 0,94 (kein Glätten).
+    static func pinchTau(dt: TimeInterval) -> TimeInterval {
+        max(0.045, min(0.12, max(0.008, dt) * 0.70))
+    }
+
     mutating func step(
         emission: [HandPose: Double],
         pinchClosedness: Double,
@@ -51,7 +61,7 @@ struct PoseHMM {
         logP = Dictionary(uniqueKeysWithValues: next.map { ($0.key, log(max(1e-12, $0.value))) })
 
         let best = next.max(by: { $0.value < $1.value }) ?? (.unknown, 0)
-        let pinchTau = 0.045
+        let pinchTau = Self.pinchTau(dt: dt)
         let a = 1 - exp(-dt / pinchTau)
         pinch = pinch * (1 - a) + pinchClosedness * a
 
@@ -67,9 +77,10 @@ struct PoseHMM {
             }
         }
 
+        let holdNeed = Self.switchHold(dt: dt)
         if best.key != current {
             if holdSince == nil { holdSince = now }
-            if now - (holdSince ?? now) >= 0.05, best.value >= 0.48 {
+            if now - (holdSince ?? now) >= holdNeed, best.value >= 0.48 {
                 current = best.key
                 holdSince = nil
             }

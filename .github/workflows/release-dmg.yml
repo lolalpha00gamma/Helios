@@ -56,13 +56,14 @@ jobs:
         run: |
           swiftc macos/Helios/CoordMath.swift macos/HeliosTests/CoordTests.swift -o /tmp/coordtests
           /tmp/coordtests
-          swiftc -framework Vision \
+          swiftc -framework Vision -framework CoreML \
             macos/Helios/CoordMath.swift \
             macos/Helios/AspectSpace.swift \
             macos/Helios/HandEstimate.swift \
             macos/Helios/EstimateFusion.swift \
             macos/Helios/PoseHMM.swift \
             macos/Helios/GestureClassifier.swift \
+            macos/Helios/TemporalNet.swift \
             macos/HeliosTests/GestureTests.swift \
             -o /tmp/gesturetests
           /tmp/gesturetests

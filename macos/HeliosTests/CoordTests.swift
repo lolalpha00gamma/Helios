@@ -1028,6 +1028,34 @@ enum CoordTests {
             fputs("FAIL Recover-Chip R2 am Ende\n", stderr)
             fails += 1
         }
+        if GestureMath.emptyHandsHoldDropsPinchChip(dropped: true) != "P drop" {
+            fputs("FAIL P-drop Chip\n", stderr)
+            fails += 1
+        }
+        if GestureMath.emptyHandsHoldDropsPinchChip(dropped: false) != nil {
+            fputs("FAIL P-drop Chip tot\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.emptyHandsRecoverPalmMul(prev: 0.12, next: 0.12) - 1) > 0.01 {
+            fputs("FAIL Palm-Mul gleich = 1\n", stderr)
+            fails += 1
+        }
+        if GestureMath.emptyHandsRecoverPalmMul(prev: 0.12, next: 0.22) > 0.80 {
+            fputs("FAIL Palm-Mul Sprung dämpft\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchReleaseNeed(dt: 0.016) > 0.13 {
+            fputs("FAIL Release-Need 24 fps bleibt 120 ms\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchReleaseNeed(dt: 0.125) < 0.18 {
+            fputs("FAIL Release-Need 8 fps ≥ 200 ms\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinchReleaseBlocks(now: 1.15, releasedAt: 1.0, dt: 0.125) {
+            fputs("FAIL Release 8 fps blockt 150 ms\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

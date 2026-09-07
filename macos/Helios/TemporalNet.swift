@@ -7,8 +7,10 @@ import Vision
 /// Fehlt das Modell, läuft ein GRU-ähnlicher Heuristik-Schätzer (Gewicht 0 wenn
 /// History zu kurz — available=false).
 final class TemporalNet {
-    private var history: [[Double]] = []
+    private var history: [(t: TimeInterval, f: [Double])] = []
     private let window = 12
+    /// 8 fps × 6 Frames = 0,75 s. 60 fps bleibt bei `window` 12 (0,2 s).
+    static let maxAge: TimeInterval = 0.80
     private var model: MLModel?
     private var skip = 0
     private var last: HandEstimate = .empty(.temporal)
@@ -30,15 +32,28 @@ final class TemporalNet {
         skip = 0
     }
 
-    func push(features: [Double], now _: TimeInterval) -> HandEstimate {
-        history.append(features)
+    static func historyNeed(count: Int, dt: TimeInterval) -> Bool {
+        count >= (dt >= 0.10 ? 3 : 6)
+    }
+
+    static func historyKeeps(now: TimeInterval, stamped: TimeInterval, maxAge: TimeInterval = maxAge) -> Bool {
+        now - stamped <= maxAge
+    }
+
+    func push(features: [Double], now: TimeInterval) -> HandEstimate {
+        history.append((now, features))
+        history.removeAll { now - $0.t > Self.maxAge }
         if history.count > window { history.removeFirst(history.count - window) }
-        guard history.count >= 6 else {
+        let dt = history.count >= 2
+            ? history[history.count - 1].t - history[history.count - 2].t
+            : 0.016
+        guard Self.historyNeed(count: history.count, dt: dt) else {
             last = .empty(.temporal)
             return last
         }
         skip += 1
-        if skip % 2 == 0, last.available, model != nil { return last }
+        // 8 fps: jedes Frame. 60 fps: jedes zweite, Modell-Cache.
+        if dt < 0.08, skip % 2 == 0, last.available, model != nil { return last }
 
         if let model, let fromML = inferML(model) {
             last = fromML
@@ -49,8 +64,9 @@ final class TemporalNet {
     }
 
     private func inferHeuristic() -> HandEstimate {
-        let lastF = history.last ?? []
-        let first = history[max(0, history.count - 6)]
+        let feats = history.map(\.f)
+        let lastF = feats.last ?? []
+        let first = feats[max(0, feats.count - 6)]
         func at(_ i: Int, _ arr: [Double]) -> Double { i < arr.count ? arr[i] : 0 }
         let ext = (0..<5).map { at($0, lastF) }
         let pinch = at(5, lastF)
@@ -86,7 +102,7 @@ final class TemporalNet {
     }
 
     private func inferML(_ model: MLModel) -> HandEstimate? {
-        let feat = history.flatMap { $0 }
+        let feat = history.flatMap(\.f)
         guard let arr = try? MLMultiArray(shape: [1, NSNumber(value: feat.count)], dataType: .double) else {
             return nil
         }

@@ -1,6 +1,16 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.31**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+Stand: **1.6.32**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen. Gelesen, nicht gemergt: IOHID Event-Tap, JSONL, AX-ein-Call.
+
+## In 1.6.32 erledigt
+
+1.6.31 Dropout-Klick tot, Recover sichtbar. Continuity 8 fps: HMM 50 ms, Temporal 12 Frames, Release 120 ms, Recover-Gain ignoriert Palm-Sprung.
+
+1. **PoseHMM.switchHold(dt) / pinchTau(dt).** 8 fps zwei Frames, nicht jeder Tick.
+2. **TemporalNet.maxAge 0,80 s.** Fenster in Sekunden. 8 fps 3 Frames reichen.
+3. **pinchReleaseNeed(dt).** 8 fps ≥ 200 ms.
+4. **emptyHandsRecoverPalmMul** + HUD `P drop`.
+5. Tests + MARKETING_VERSION 1.6.32 (Build 65).
 
 ## In 1.6.31 erledigt
 
@@ -249,6 +259,8 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 
 ## Nächste Fixes (klein, hoher Nutzen)
 
+- **3D-Pinch** (Daumen–Zeigefinger aus Lift3D-z). 2D-Reach lügt, wenn die Faust in die Kamera zeigt.
+- **HMM-Emission × Landmark-Qualität.** Schlechte Spitzen nicht 0,70 Faust.
 - **Session-Replay** der Landmark-CSV direkt im HUD, Frame für Frame — ohne Xcode.
 - **Kalibrier-Quad sichtbar** als dünnes Viereck der vier Anschläge, nicht nur Ecken-Marken.
 - **Peace-Fortschritt auch in der Konsole**, nicht nur HUD-Ring.
@@ -274,16 +286,13 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Zwei-Pinzetten-Achse im HUD** `H`/`V`, analog Lock-Chip.
 - **fps-Sparkline 8 s** im HUD, nicht nur amber-Bool.
 - **Clutch-Radius in mm**, nicht 48 px auf 5K.
-- **Dropout-Mute HUD** `P drop` wenn emptyHandsHold Pinch stirbt — sonst sieht man nur freeze.
-- **pinchReleasedAt an sampleDt** koppeln, nicht Wall — 8 fps sonst 0,12 s tot über 1 Frame.
-- **Recover-Gain an palmWidth-Sprung** — Hand kommt näher, Gain bleibt klein.
 - **CGWarp-ACK** nach Warp sofort NSEvent lesen, RMS > reanchor nicht 4 Hz warten.
 - **Cover-PTS und Lead-PTS gleiche Epoche**, sonst Fusion-dt lügt.
 
 ## Größere Erweiterungen
 
-## Größere Erweiterungen
-
+- **Shared XPC `helios.aegis.camera`** mit Aegis — eine TCC, ein Buffer. Größter einzelner Effizienzgewinn. (`bugfix` hatte den Ansatz, 1.5.7-Tree nicht mergen.)
+- **MediaPipe Hands Sidecar** für Continuity 8 fps — VNDetectHumanHandPose verliert Spitzen, Reach fällt, Faust wird Pinzette.
 - **Developer ID + Notarisierung.** Ohne das muss TCC nach jedem Update neu an.
 - **VoiceOver-Ansage** der letzten Aktion, ausgeschaltet by default.
 - **Fenstertiling über Stage Manager** statt nur AX-Snap.

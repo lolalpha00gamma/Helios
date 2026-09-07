@@ -252,8 +252,17 @@ enum GestureMath {
     }
 
     static func pinchReleaseBlocks(now: TimeInterval, releasedAt: TimeInterval?) -> Bool {
+        pinchReleaseBlocks(now: now, releasedAt: releasedAt, dt: 0.016)
+    }
+
+    /// 24 fps bleibt 120 ms. 8 fps sonst ein Frame tot — Folge-Klick nach Dropout.
+    static func pinchReleaseNeed(dt: TimeInterval) -> TimeInterval {
+        max(pinchReleaseDead, min(0.32, max(0.008, dt) * 1.6))
+    }
+
+    static func pinchReleaseBlocks(now: TimeInterval, releasedAt: TimeInterval?, dt: TimeInterval) -> Bool {
         guard let t = releasedAt else { return false }
-        return now - t < pinchReleaseDead
+        return now - t < pinchReleaseNeed(dt: dt)
     }
 
     static func clutchIgnores(delta: CGFloat) -> Bool {
@@ -330,6 +339,20 @@ enum GestureMath {
         let s = max(0.08, span)
         let remain = until - now
         return remain / s > 0.5 ? "R1" : "R2"
+    }
+
+    /// Dropout-Mute sichtbar — sonst sieht man nur freeze, der Klick ist schon tot.
+    static func emptyHandsHoldDropsPinchChip(dropped: Bool) -> String? {
+        dropped ? "P drop" : nil
+    }
+
+    /// Hand kommt näher/weiter nach Dropout: Gain klein halten, sonst Teleport.
+    static func emptyHandsRecoverPalmMul(prev: CGFloat, next: CGFloat) -> CGFloat {
+        let p = max(0.02, prev)
+        let n = max(0.02, next)
+        let jump = max(n / p, p / n)
+        if jump < 1.28 { return 1 }
+        return CGFloat(max(0.35, min(1, 1.28 / Double(jump))))
     }
 
     /// Continuity 8 fps: 2 Frames. Built-in: 3, sonst ein Jitter-Tick skaliert.

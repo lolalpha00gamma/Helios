@@ -275,6 +275,9 @@ final class GestureEngine {
                     if pinchHeld {
                         swipeMuteUntil = now + GestureMath.swipeMuteAfterPinch
                         pinchReleasedAt = now
+                        if let chip = GestureMath.emptyHandsHoldDropsPinchChip(dropped: true) {
+                            lockFreeze = lockFreeze.isEmpty ? chip : "\(lockFreeze) \(chip)"
+                        }
                     }
                     pinchHeld = false
                     pinchBecameDrag = false
@@ -339,12 +342,14 @@ final class GestureEngine {
             recoverSpan = GestureMath.emptyHandsRecoverSpan(dt: sampleDt)
             recoverUntil = now + recoverSpan
         }
+        let nextPalmW = hands.map(\.palmWidth).max() ?? lastPalmWidth
         if now < recoverUntil {
-            freezeGain = GestureMath.emptyHandsRecoverLive(
+            let live = GestureMath.emptyHandsRecoverLive(
                 now: now,
                 until: recoverUntil,
                 span: recoverSpan
             )
+            freezeGain = live * GestureMath.emptyHandsRecoverPalmMul(prev: lastPalmWidth, next: nextPalmW)
             if let chip = GestureMath.emptyHandsRecoverChip(now: now, until: recoverUntil, span: recoverSpan) {
                 lockFreeze = lockFreeze.isEmpty ? chip : "\(lockFreeze) \(chip)"
             }
@@ -352,7 +357,7 @@ final class GestureEngine {
             freezeGain = 1
         }
         lastHandSeen = now
-        lastPalmWidth = hands.map(\.palmWidth).max() ?? lastPalmWidth
+        lastPalmWidth = nextPalmW
         mousePaused = !system.allowsInjection && !system.fromInstallMedia
 
         if system.fromInstallMedia {
@@ -1219,7 +1224,7 @@ final class GestureEngine {
                 index: hand.indexScore
             ))
         if isGrab && !pinchHeld {
-            if GestureMath.pinchReleaseBlocks(now: now, releasedAt: pinchReleasedAt) {
+            if GestureMath.pinchReleaseBlocks(now: now, releasedAt: pinchReleasedAt, dt: sampleDt) {
                 return
             }
             pinchHeld = true

@@ -151,6 +151,29 @@ enum GestureTests {
         }
         ok(heldProb >= 0.60, "HMM-Hold behält Pose-Prob über dem Aktions-Tor (ist \(heldProb))")
 
+        var eight = PoseHMM()
+        var eightPose = HandPose.unknown
+        for i in 0..<8 {
+            var em: [HandPose: Double] = [:]
+            for k in HandPose.allCases { em[k] = 0.04 }
+            em[.openPalm] = 0.72
+            eightPose = eight.step(emission: em, pinchClosedness: 0.1, now: Double(i) * 0.125, dt: 0.125).pose
+        }
+        ok(eightPose == .openPalm, "HMM 8 fps auf offene Hand")
+        var emFlip: [HandPose: Double] = [:]
+        for k in HandPose.allCases { emFlip[k] = 0.05 }
+        emFlip[.fist] = 0.70
+        eightPose = eight.step(emission: emFlip, pinchClosedness: 0.1, now: 8 * 0.125, dt: 0.125).pose
+        ok(eightPose == .openPalm, "HMM 8 fps hält Pose über 1 Continuity-Frame")
+        eightPose = eight.step(emission: emFlip, pinchClosedness: 0.1, now: 9 * 0.125, dt: 0.125).pose
+        ok(eightPose == .fist, "HMM 8 fps wechselt nach 2 Frames")
+        ok(abs(PoseHMM.switchHold(dt: 0.016) - 0.05) < 0.001, "HMM-Hold 24 fps 50 ms")
+        ok(PoseHMM.switchHold(dt: 0.125) >= 0.11, "HMM-Hold 8 fps ≥ 1 Frame")
+        ok(TemporalNet.historyNeed(count: 3, dt: 0.125), "Temporal 8 fps braucht 3 Frames")
+        ok(!TemporalNet.historyNeed(count: 3, dt: 0.016), "Temporal 24 fps braucht 6 Frames")
+        ok(!TemporalNet.historyKeeps(now: 1.90, stamped: 1.0), "Temporal maxAge wirft 0,9 s")
+        ok(TemporalNet.historyKeeps(now: 1.40, stamped: 1.0), "Temporal maxAge hält 0,4 s")
+
         let openFeats = GestureClassifier.features(joints: open, pinch: 0.22, space: .hd720)
         ok((openFeats.probs[.unknown] ?? 1) < 0.12, "unknown-Masse nach Logit −1,8 klein")
         ok((openFeats.probs[.openPalm] ?? 0) > 0.55, "offene Hand bleibt über Aktions-Tor")

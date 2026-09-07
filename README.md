@@ -1,4 +1,4 @@
-# Helios **1.6.31**
+# Helios **1.6.32**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,18 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.32
+
+1.6.31 droppt Pinch bei Dropout, aber Continuity 8 fps blieb zäh: HMM-Hold war 50 ms (ein Frame schaltet immer), TemporalNet dachte in 12 Frames (= 1,5 s tot), Recover teleportierte bei Palm-Sprung, Release-Tot war 120 ms (= 1 Frame), HUD zeigte den Pinch-Drop nicht.
+
+- **HMM `switchHold(dt)`.** 24 fps bleibt 50 ms. 8 fps zwei Frames, sonst Faust↔Pinzette jeden Tick.
+- **HMM `pinchTau(dt)`.** EMA glättet bei 8 fps nicht mehr mit α ≈ 0,94.
+- **TemporalNet in Sekunden.** `maxAge` 0,80 s, 8 fps braucht 3 Frames, Skip nur unter 12 ms.
+- **pinchReleaseNeed(dt).** 8 fps ≥ 200 ms — kein Folge-Klick nach Freeze.
+- **emptyHandsRecoverPalmMul.** Palme näher nach Dropout → Gain klein.
+- **HUD `P drop`** wenn Freeze den Pinch killt. R1/R2 bleiben.
+- Tests + MARKETING_VERSION 1.6.32 (Build 65).
 
 ## Neu in 1.6.31
 

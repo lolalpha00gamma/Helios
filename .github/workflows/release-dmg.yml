@@ -3,15 +3,25 @@ name: Helios.dmg
 on:
   push:
     branches: [main]
-  pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - 'AGENT.md'
+      - 'CLAUDE.md'
+      - 'agent.md'
   workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: helios-dmg-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   package:
     runs-on: macos-latest
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 

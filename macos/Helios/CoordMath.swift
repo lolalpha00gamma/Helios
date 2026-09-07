@@ -157,8 +157,8 @@ enum GestureMath {
     static let swipeMinSpeed: CGFloat = 1.8
     static let swipeMinDt: TimeInterval = 0.06
     static let swipeMaxDt: TimeInterval = 0.55
-    static let keyboardDwell: TimeInterval = 0.12
-    static let keyboardRepeat: TimeInterval = 0.20
+    static let keyboardDwell: TimeInterval = 0.22
+    static let keyboardRepeat: TimeInterval = 0.28
     static let calibMinArea: CGFloat = 0.012
     static let calibCornerSep: CGFloat = 0.06
     static let hybridBand: CGFloat = 0.15
@@ -272,7 +272,7 @@ enum GestureMath {
 
     /// 24 fps 120 ms. 8 fps sonst Tastatur am Vorbeifliegen.
     static func keyboardDwellNeed(dt: TimeInterval) -> TimeInterval {
-        max(keyboardDwell, min(0.28, max(0.008, dt) * 1.8))
+        max(keyboardDwell, min(0.40, max(0.008, dt) * 2.4))
     }
 
     static func pinchReleaseBlocks(now: TimeInterval, releasedAt: TimeInterval?, dt: TimeInterval) -> Bool {

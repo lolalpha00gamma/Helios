@@ -310,7 +310,9 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         session.beginConfiguration()
         session.inputs.forEach { session.removeInput($0) }
         session.outputs.forEach { session.removeOutput($0) }
-        if session.canSetSessionPreset(.hd1280x720) {
+        if session.canSetSessionPreset(.hd1920x1080) {
+            session.sessionPreset = .hd1920x1080
+        } else if session.canSetSessionPreset(.hd1280x720) {
             session.sessionPreset = .hd1280x720
         } else if session.canSetSessionPreset(.high) {
             session.sessionPreset = .high
@@ -529,8 +531,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         }
     }
 
-    /// 720p / hoher fps schlägt 1080p — Vision ist der Flaschenhals, nicht die Auflösung.
-    /// Tiefenformate gibt es auf dem Mac nicht (`AVCaptureDepthDataOutput` ist iOS).
+    /// 1080p30 vor 720p60 — QuickTime/Preview sollen scharf sein, Vision kommt danach.
     fileprivate static func bestFormat(on device: AVCaptureDevice) -> AVCaptureDevice.Format? {
         var best: AVCaptureDevice.Format?
         var bestScore = -1.0
@@ -540,10 +541,11 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             let h = Double(dims.height)
             guard w >= 640, h >= 360, w <= 1920, h <= 1088 else { continue }
             let fps = format.videoSupportedFrameRateRanges.map(\.maxFrameRate).max() ?? 0
-            guard fps >= 15 else { continue }
-            let fpsTerm = min(fps, 120)
+            guard fps >= 24 else { continue }
+            let fpsTerm = min(fps, 60)
+            let near1080 = 1.0 - min(abs(h - 1080) / 1080, 1)
             let near720 = 1.0 - min(abs(h - 720) / 720, 1)
-            let score = fpsTerm * 12 + near720 * 30
+            let score = fpsTerm * 6 + near1080 * 48 + near720 * 12
             if score > bestScore {
                 bestScore = score
                 best = format
@@ -581,7 +583,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         let handler = frameHandler
         handlerLock.unlock()
         handler?(vision, nil, luma, arrived)
-        if now - lastPreview >= 0.16 {
+        if now - lastPreview >= 0.033 {
             lastPreview = now
             // Render while the ring slot is still ours. Async makePreview after
             // release() reads a buffer the camera may already have overwritten.
@@ -599,7 +601,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         let w = CVPixelBufferGetWidth(pb)
         let h = CVPixelBufferGetHeight(pb)
         guard w > 1, h > 1 else { return nil }
-        let scale = min(1, 480 / CGFloat(w))
+        let scale = min(1, 1280 / CGFloat(w))
         let tw = max(2, Int((CGFloat(w) * scale).rounded()))
         let th = max(2, Int((CGFloat(h) * scale).rounded()))
         let src = CIImage(cvPixelBuffer: pb)
@@ -729,7 +731,9 @@ final class CoverCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         session.beginConfiguration()
         session.inputs.forEach { session.removeInput($0) }
         session.outputs.forEach { session.removeOutput($0) }
-        if session.canSetSessionPreset(.hd1280x720) {
+        if session.canSetSessionPreset(.hd1920x1080) {
+            session.sessionPreset = .hd1920x1080
+        } else if session.canSetSessionPreset(.hd1280x720) {
             session.sessionPreset = .hd1280x720
         } else if session.canSetSessionPreset(.high) {
             session.sessionPreset = .high
@@ -812,13 +816,13 @@ final class CoverCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         from connection: AVCaptureConnection
     ) {
         let now = CACurrentMediaTime()
-        guard now - last >= 0.05 else { return }
+        guard now - last >= 0.033 else { return }
         last = now
         guard let pb = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
         let buffer = onBuffer
         let preview = onPreview
         buffer?(pb, now, isMirrored, visionOrientation)
-        if lastPreview == 0 || now - lastPreview >= 0.12 {
+        if lastPreview == 0 || now - lastPreview >= 0.033 {
             lastPreview = now
             if let img = Self.preview(pb) {
                 DispatchQueue.main.async { preview?(img) }
@@ -830,7 +834,7 @@ final class CoverCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         let w = CVPixelBufferGetWidth(pb)
         let h = CVPixelBufferGetHeight(pb)
         guard w > 1, h > 1 else { return nil }
-        let scale = min(1, 480 / CGFloat(w))
+        let scale = min(1, 960 / CGFloat(w))
         let tw = max(2, Int((CGFloat(w) * scale).rounded()))
         let th = max(2, Int((CGFloat(h) * scale).rounded()))
         let src = CIImage(cvPixelBuffer: pb)

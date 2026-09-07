@@ -83,6 +83,6 @@ enum AirLayout {
     }
 
     static func hit(at p: CGPoint, keys: [AirKeyHit]) -> AirKeyHit? {
-        keys.first { $0.frame.insetBy(dx: -4, dy: -4).contains(p) }
+        keys.first { $0.frame.insetBy(dx: -14, dy: -10).contains(p) }
     }
 }

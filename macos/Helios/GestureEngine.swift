@@ -699,7 +699,8 @@ final class GestureEngine {
             now: now,
             lidClosed: lidClosed,
             cameraFallback: cameraFallback,
-            extraScreens: extraScreens
+            extraScreens: extraScreens,
+            hasLiveHand: hands.contains { !$0.isGhost }
         ), mode == .armed, !GestureMath.stealHoldsPocket(steal: pointerStealLatched)
         {
             abortGrab(reason: "Gaze-Idle", now: now)
@@ -868,16 +869,20 @@ final class GestureEngine {
 
         handleArming(hands: liveHands, now: now)
 
-
         if !live {
             injectCursor(primary, now: now)
             grabPhase = (primary.pose == .pinch || primary.pose == .fist) ? .hold : .follow
             grabTargetName = focused?.appName ?? ""
             if liveHands.contains(where: { $0.pose == .pinch || $0.pose == .fist }) {
                 lastAction = mustRearm ? "Nach Not-Aus: Faust \(String(format: "%.2f", GestureMath.rearmHold)) s" : "Faust halten → Scharf"
+            } else {
+                lastAction = "Hier"
             }
             dragging = false
             return
+        }
+        if lastAction.contains("Faust halten") || lastAction == "Scharf" {
+            lastAction = "Hier"
         }
 
         let poolIDs = GestureMath.pointerPoolReconnect(
@@ -960,7 +965,8 @@ final class GestureEngine {
             abortHold: now < pointerFrozenUntil,
             mouseDown: system.isMousePressed,
             clickLocked: pressLocksClick,
-            becameDrag: pinchBecameDrag
+            becameDrag: pinchBecameDrag,
+            pinchHeld: pinchHeld
         ) || GestureMath.pointerStealBlocksCursor(steal: poolIDs.isEmpty)
         if freezePointer {
             // Pool leer: lastPalm nicht von der anderen Hand — sonst Reconnect an sie.
@@ -1455,7 +1461,7 @@ final class GestureEngine {
                 let held = now - (stealRelockSince ?? now)
                 let skip = NSEvent.modifierFlags.contains(.option)
                 if GestureMath.pointerStealRelock(freeze: freeze, otherFist: fisting, held: held, modifierSkip: skip) {
-                    pointerSideLock = pointerSide(of: actor)
+                    pointerSideLock = .any
                     pointerHandID = actor.id
                     pointerStealLatched = false
                     pointerStealCursor = false
@@ -1489,7 +1495,7 @@ final class GestureEngine {
             mustRearm = false
             ignoreGrabUntilOpen = true
             mode = .armed
-            pointerSideLock = pointerSide(of: actor)
+            pointerSideLock = .any
             lastAction = "Scharf"
             cooldownUntil = now + GestureMath.armCooldown
             onLog?("Hand → Scharf", .executed, Int((hands.map(\.meanConfidence).max() ?? 0) * 100))
@@ -1537,6 +1543,7 @@ final class GestureEngine {
             return hands.first(where: { $0.id == "S1" }) ?? hands[0]
         }
         let use = pool
+        if use.count == 1 { return use[0] }
         // Slot vor Chirality — sonst teleportiert der Zeiger nach L↔R / Abort.
         if let id = keep, let same = use.first(where: { $0.id == id }) {
             return same
@@ -1912,7 +1919,12 @@ final class GestureEngine {
             lastPinchPID = nil
         }
         if ignoreGrabUntilOpen {
-            if hand.pose == .openPalm || hand.pose == .point || hand.openScore >= 2 {
+            let poseOpen = hand.pose == .openPalm || hand.pose == .point || hand.pose == .pinch
+            if GestureMath.pinchGrabClearsArmLock(
+                pinchClosed: hand.pinchClosed || hand.pose == .pinch,
+                poseIsOpen: poseOpen,
+                openScore: hand.openScore
+            ) {
                 ignoreGrabUntilOpen = false
             } else {
                 return
@@ -1934,7 +1946,7 @@ final class GestureEngine {
             tipZ: hand.tipZ,
             revision2: true
         )
-        let wristAbort = GestureMath.pinchHoldAborts(mad: max(madNowX(), madNowY()), rest: GestureMath.palmStill)
+        let wristAbort = !closed && GestureMath.pinchHoldAborts(mad: max(madNowX(), madNowY()), rest: GestureMath.palmStill)
         let keepGrab = isGrab && !wristAbort
         if keepGrab && !pinchHeld {
             pinchHeld = true
@@ -1995,11 +2007,9 @@ final class GestureEngine {
                 }
                 if let origin = pinchSettlePalm {
                     let palmMoved = hypot(hand.palm.x - origin.x, hand.palm.y - origin.y)
-                    let cursorMoved: CGFloat = {
-                        guard let a = pinchCursor0, let b = cursor else { return palmMoved * 1440 }
-                        return hypot(a.x - b.x, a.y - b.y)
-                    }()
-                    if let kind = GestureMath.pinchClickVsDrag(moved: cursorMoved) {
+                    let span = (NSScreen.main?.frame.width ?? 1440)
+                    let movedPx = palmMoved * span
+                    if let kind = GestureMath.pinchClickVsDrag(moved: movedPx, clickMax: 18, dragMin: 28) {
                         if kind == "drag" {
                             if pressLocksClick {
                                 lastAction = testMode ? "Test: BUTTON" : "BUTTON"
@@ -2180,9 +2190,6 @@ final class GestureEngine {
                 system.cancelPress()
                 lastAction = testMode ? "Test: Loslassen" : "Loslassen"
                 onLog?("Loslassen", testMode ? .blocked : .executed, Int(hand.meanConfidence * 100))
-            } else if cursorTravel >= travelPx {
-                system.cancelPress()
-                lastAction = "kein Klick — Cursor wanderte"
             } else if GestureMath.nearFlingClick(speed: releaseSpeed) {
                 system.cancelPress()
                 lastAction = "kein Klick — fast Wurf"
@@ -2199,17 +2206,11 @@ final class GestureEngine {
                 }
                 lastClickAt = 0
                 lastClickTravelled = false
-            } else if GestureMath.pinchClickAbortsOcc(hand.tipHeld) {
-                system.cancelPress()
-                lastAction = "kein Klick — OCC"
             } else if overlapMute {
                 system.cancelPress()
                 lastAction = "kein Klick — S1∩S2"
-            } else if held >= clickNeed, held < GestureMath.pinchClickMax {
-                if GestureMath.pinchDownBlocked(speed: releaseSpeed) {
-                    system.cancelPress()
-                    lastAction = "kein Klick — Hand zu schnell"
-                } else if GestureMath.pinchClickBlocksAfterScroll(lastScroll: lastScrollAt, now: now) {
+            } else if GestureMath.pinchClickWindowOk(held: held, need: clickNeed) {
+                if GestureMath.pinchClickBlocksAfterScroll(lastScroll: lastScrollAt, now: now) {
                     system.cancelPress()
                     lastAction = "kein Klick — nach Scroll"
                 } else if GestureMath.pinchClickBlocksAfterCoast(lastCoastEnd: lastCoastEnd, now: now) {
@@ -2411,6 +2412,12 @@ final class GestureEngine {
     private func holdGhost(_ hands: [TrackedHand], now: TimeInterval) {
         peaceSince = nil
         thumbsSince = nil
+        guard !hands.isEmpty else {
+            lastAction = "Keine Hand"
+            grabPhase = .none
+            dragging = false
+            return
+        }
         if GestureMath.pocketIdle(
             cameraFallback: cameraFallback,
             lastInterior: lastInteriorSeen,

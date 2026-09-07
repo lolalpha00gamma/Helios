@@ -152,7 +152,7 @@ struct ControlPanel: View {
                     Toggle("Gestenhilfe", isOn: $state.showCheats)
                     Toggle("App-Umriss", isOn: $state.showOutline)
                     Toggle("Papierkorb-Zone", isOn: $state.showTrashZone)
-                    Text("Handfläche in der Kamera = Cursor auf dem Bildschirm. Links im Bild ist links auf dem Schirm. Kein Schwung, kein Hochpass, kein Trackpad-Modus.")
+                    Text("Handfläche = Cursor. Pinzette zu und auf = Klick. Halten und bewegen = Fenster. Rechte Hand in der rechten Kamerahälfte.")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }

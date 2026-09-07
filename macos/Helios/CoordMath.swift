@@ -300,8 +300,8 @@ enum GestureMath {
         tipsMissing: Bool,
         closeR: CGFloat
     ) -> Bool {
-        if ratio < closeR { return true }
         if reach >= 0.88 { return false }
+        if ratio < closeR { return true }
         if tipsMissing { return prox < closeR + 0.16 }
         return ratio < closeR + 0.22 || prox < closeR + 0.12
     }
@@ -574,10 +574,12 @@ enum GestureMath {
         abortHold: Bool,
         mouseDown: Bool,
         clickLocked: Bool,
-        becameDrag: Bool
+        becameDrag: Bool,
+        pinchHeld: Bool = false
     ) -> Bool {
         if abortHold { return true }
         if becameDrag { return false }
+        if pinchHeld { return true }
         return mouseDown && clickLocked
     }
 
@@ -847,8 +849,8 @@ enum GestureMath {
     }
 
     static func pinchCloseNeed(dt: TimeInterval, justOpened: Bool = false) -> Int {
-        if justOpened, dt < 0.20 { return 2 }
-        return dt >= 0.055 ? 1 : 2
+        if justOpened, dt >= 0.20 { return 1 }
+        return 2
     }
 
     /// Pose-Hold nach PinchGate. 8/15 fps: Gate schon zu → 0 Extra-Frames.
@@ -866,6 +868,11 @@ enum GestureMath {
     /// Leere Vision: ein Frame halten, nicht 4 s Skelett in der Luft.
     static func ghostHands(emptyFor: TimeInterval, hold: TimeInterval = 0.10) -> Bool {
         emptyFor >= 0 && emptyFor < hold
+    }
+
+    /// HUD-Rest. Latch 4 s nur Slot-ID, nicht Overlay.
+    static func ghostRemain(emptyFor: TimeInterval, hold: TimeInterval = 0.10) -> TimeInterval {
+        max(0, hold - emptyFor)
     }
 
     /// HUD: „S1 Ghost 0,4 s“. remaining = latch − emptyFor.
@@ -1470,8 +1477,8 @@ enum GestureMath {
         )
     }
 
-    /// Extra-Hold 0,55 s ohne Bewegung → Rechtsklick.
-    static let rightClickExtra: TimeInterval = 0.55
+    /// Extra-Hold 1,2 s ohne Bewegung → Rechtsklick. 0,55 s war jeder normale Klick.
+    static let rightClickExtra: TimeInterval = 1.20
 
     static func rightClickHold(
         held: TimeInterval,
@@ -1936,9 +1943,10 @@ enum GestureMath {
         palmCoastKeepsS1(miss: miss, need: need)
     }
 
-    /// Dropout leer: emitEmpty wischte lastS1 vor Coast. Gleicher Need wie S1-Miss.
+    /// Dropout leer: nicht coasten. 4 s Ghost in der Luft war die Sitzung.
     static func palmCoastEmptyKeeps(miss: Int, need: Int = 2) -> Bool {
-        palmCoastKeepsS1(miss: miss, need: need)
+        _ = (miss, need)
+        return false
     }
 
     /// Ghost-Pose still = Cursor-Halt, dann Sprung. Vel je Tick, Cap 0,08 Bild.
@@ -2150,6 +2158,15 @@ enum GestureMath {
         return jointCount >= 3
     }
 
+    /// Palme folgen ohne Schwung. Klein = zittern schlucken, groß = Snap.
+    static func palmFollowEMA(prev: CGPoint?, live: CGPoint) -> CGPoint {
+        guard let prev else { return live }
+        let d = hypot(live.x - prev.x, live.y - prev.y)
+        if d > 0.20 { return live }
+        let a: CGFloat = d > 0.025 ? 0.78 : (d > 0.008 ? 0.36 : 0.16)
+        return CGPoint(x: prev.x + a * (live.x - prev.x), y: prev.y + a * (live.y - prev.y))
+    }
+
     /// 0,22 war Flick. Continuity 8 fps 20 cm = Overlay-Snap jede Geste.
     /// 0,35 = Slot-Steal Gitarre→Hand, nicht One-Euro-Reset.
     static let obsSmoothJump: CGFloat = 0.35
@@ -2182,10 +2199,10 @@ enum GestureMath {
         wrist: Float?,
         mcps: [Float],
         tips: [Float] = [],
-        floor: Float = 0.18,
+        floor: Float = 0.08,
         sparse: Bool = false
     ) -> Bool {
-        let used: Float = sparse ? min(floor, 0.12) : floor
+        let used: Float = sparse ? min(floor, 0.06) : floor
         var vals = mcps
         if let wrist { vals.insert(wrist, at: 0) }
         guard !vals.isEmpty else { return sparse }
@@ -2570,8 +2587,9 @@ enum GestureMath {
         hasDIP: Bool,
         floor: Float = pinchOcclusionFloor
     ) -> Bool {
-        _ = (tipConf, hasDIP, floor)
-        return false
+        guard hasDIP else { return false }
+        guard let tipConf else { return true }
+        return tipConf < floor
     }
 
     /// Letzter echter Tip vor DIP — DIP als Fake-Tip drückt Pinch-Ratio.
@@ -2610,7 +2628,24 @@ enum GestureMath {
     }
 
     /// OCC-Release kein Klick. Follow hält Ratio, Jitter bleibt.
-    static func pinchClickAbortsOcc(_ occ: Bool) -> Bool { occ }
+    /// OCC *ist* die Pinzette (Spitzen tot bei Kontakt). Release darf klicken.
+    static func pinchClickAbortsOcc(_ occ: Bool) -> Bool {
+        _ = occ
+        return false
+    }
+
+    /// Nach Faust-Scharf: Pinzette zählt als „offen genug“, sonst tot bis Spreizen.
+    static func pinchGrabClearsArmLock(pinchClosed: Bool, poseIsOpen: Bool, openScore: Int) -> Bool {
+        pinchClosed || poseIsOpen || openScore >= 2
+    }
+
+    /// Loslassen klickt, solange Need da ist. Obere Decke 0,55 s machte Rechtsklick/nichts.
+    static func pinchClickWindowOk(held: TimeInterval, need: TimeInterval) -> Bool {
+        held >= need
+    }
+
+    /// Vision-Joint unter 0,10: Kante/rechte Hand oft 0,06–0,09.
+    static func obsJointIngestFloor() -> Float { 0.06 }
 
 
     /// pinchActor last-3 analog pointerPoolReconnect.
@@ -2844,9 +2879,10 @@ enum GestureMath {
         return abs(span - old) > max(scaleRel * max(old, span), dead)
     }
 
-    /// Pinch-Hold: Wrist-MAD > Rest × 2,8. Zitter-Hand sonst zieht Fenster.
+    /// Wrist-MAD killte jeden Klick der zittrigen Hand. Gate-Auf ist der Abort.
     static func pinchHoldAborts(mad: CGFloat, rest: CGFloat = palmStill) -> Bool {
-        mad > max(rest * 2.8, 0.022)
+        _ = (mad, rest)
+        return false
     }
 
     static func fling(
@@ -2992,6 +3028,7 @@ enum GestureMath {
     }
 
     /// Knie am Rand darf Scharf halten wenn VNFace sitzt. Clamshell immer Idle.
+    /// Live-Hand: Continuity sieht oft keine Gesichter — nicht Idle.
     static func armedIdle(
         faces: Int,
         lastFace: TimeInterval,
@@ -2999,9 +3036,11 @@ enum GestureMath {
         now: TimeInterval,
         lidClosed: Bool = false,
         cameraFallback: Bool = false,
-        extraScreens: Bool = false
+        extraScreens: Bool = false,
+        hasLiveHand: Bool = false
     ) -> Bool {
         if lidBlocksArm(lidClosed: lidClosed, cameraFallback: cameraFallback, extraScreens: extraScreens) { return true }
+        if hasLiveHand { return false }
         if pocketIdle(cameraFallback: cameraFallback, lastInterior: lastInterior, now: now) { return true }
         if faceCountIdle(faces: faces, lastSeen: lastFace, now: now) { return true }
         if faces > 0 { return false }
@@ -5144,7 +5183,8 @@ enum GestureMath {
 
     /// S1 Laterality nach Bind. Gitarre als S2 darf S1-Seite nicht klauen.
     static func palmLateralityBlocksS2(s1Locked: Int, live: Int, slotID: Int) -> Bool {
-        slotID != 1 && (s1Locked == 1 || s1Locked == 2) && live == s1Locked
+        _ = (s1Locked, live, slotID)
+        return false
     }
 
     /// AXPosition ist Quartz. Cocoa-Cursor minus Quartz-Pos invertiert Y — Maske ≠ Fenster.
@@ -5186,8 +5226,7 @@ enum GestureMath {
     }
 
     static func jointConfRestores(holds: Bool, isTip: Bool) -> Bool {
-        _ = (holds, isTip)
-        return false
+        holds && !isTip
     }
 
     /// 0° Capture: Pixel stehen. height>width nicht .right — sonst 90° Palm nach Format-Hop.
@@ -5231,8 +5270,8 @@ enum GestureMath {
     }
 
     static func slotLateralityPrefers(slotCode: Int, liveCode: Int, haveMatch: Bool) -> Bool {
-        if !haveMatch { return true }
-        return slotLateralityMatches(slotCode: slotCode, liveCode: liveCode)
+        _ = (slotCode, liveCode, haveMatch)
+        return true
     }
 
     /// Screen unter dem Punkt. inset −8 überlappte die Seam 16 px — Laptop first stahl den 5K.

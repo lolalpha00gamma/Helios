@@ -79,8 +79,9 @@ enum GestureClassifier {
             let mid = CGPoint(x: (t.x + i.x) / 2, y: (t.y + i.y) / 2)
             return hypot(mid.x - w.x, mid.y - w.y) / scale
         }()
-        // Pinzette vor Zeigen: Vision hält den Zeigefinger oft „extended“, obwohl die Spitzen zu sind.
-        if ratio < 0.42, fingers <= 1, pinchPtReach > 0.82 {
+        // Pinzette: Spitzen zu UND vor der Palme. Faust hat oft Ratio < 0,42,
+        // Reach aber nur ~1,0 (Spitzen an den MCP). Sitzung 1.5.184: Faust↔Pinzette.
+        if ratio < 0.42, fingers <= 1, pinchPtReach > 1.45 {
             return .pinch
         }
         if index && !middle && !ring && !little {
@@ -91,10 +92,6 @@ enum GestureClassifier {
            tip.y > wrist.y + 0.08, ratio > 0.35
         {
             return .thumbsUp
-        }
-        // Geschlossene Spitzen ohne Reach sind keine Faust — sonst arming während Pinch.
-        if fingers == 0, ratio < 0.38 {
-            return .pinch
         }
         if fingers == 0 {
             return .fist
@@ -114,9 +111,9 @@ enum GestureClassifier {
         return n
     }
 
-    static let fingerOpenMaxBend: CGFloat = 18
-    /// MCP→Tip kürzer als 1,52× Palma: 40°-Kralle zur Kamera, 2D-Winkel ≈ 0°.
-    static let fingerOpenMinSpan: CGFloat = 1.52
+    static let fingerOpenMaxBend: CGFloat = 32
+    /// MCP→Tip. 1,52 war nur Palma frontal. 90°-Kante ~1,1. Faust-Sitzung ~0,5.
+    static let fingerOpenMinSpan: CGFloat = 1.10
 
     /// PIP-Beugung gegen die Streckung, nicht der Innenwinkel.
     /// Gerade: 0°. Faust ~90°+. 40°-Kralle darf nicht als offen zählen.
@@ -153,12 +150,13 @@ enum GestureClassifier {
         mcp: VNHumanHandPoseObservation.JointName,
         slack: CGFloat = 0.008
     ) -> Bool {
-        guard let t = joints[tip], let p = joints[pip], let m = joints[mcp], let w = joints[.wrist] else {
+        guard let t = joints[tip], let p = joints[pip], let m = joints[mcp] else {
             return false
         }
-        let tipD = hypot(t.x - w.x, t.y - w.y)
-        let pipD = hypot(p.x - w.x, p.y - w.y)
-        let mcpD = hypot(m.x - w.x, m.y - w.y)
+        let origin = joints[.wrist] ?? m
+        let tipD = hypot(t.x - origin.x, t.y - origin.y)
+        let pipD = hypot(p.x - origin.x, p.y - origin.y)
+        let mcpD = hypot(m.x - origin.x, m.y - origin.y)
         guard tipD > pipD + slack, pipD > mcpD * 0.86 else { return false }
         // Radial allein zählt 40°-Kralle noch als offen — Not-Aus an fast gestreckten Fingern.
         if let bend = pipBendDegrees(joints, tip: tip, pip: pip, mcp: mcp), bend > fingerOpenMaxBend {
@@ -241,7 +239,7 @@ struct PinchGate {
         lastT = now
 
         let closeR = GestureMath.pinchCloseRatioOf(scale: scale, slot: slot)
-        let awayFromPalm = reach > 0.78
+        let awayFromPalm = reach > 1.25
         let closeVel = GestureMath.pinchCloseVel(dt: dt, palmScale: scale)
         let tipClosed = GestureMath.pinchUsesTipZ(revision2: true, tipZ: tipZ)
             && GestureMath.pinchTipZClosed(tipZ: tipZ)

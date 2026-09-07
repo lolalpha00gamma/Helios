@@ -1,3 +1,38 @@
+# Helios 1.5.187 — Faust bleibt Faust, Ghost tot
+
+Helios **1.5.187** (Build 206). Nur `main`. Repo privat.
+
+Sitzung 10:26: Faust↔Pinzette 39×, Gaze-Idle trotz Hand, S1 Ghost 4 s, HUD „Faust halten“ obwohl SCHARF.
+
+1. Pinzette nur Reach > 1,45. Faust-Spitzen an den MCP sind keine Pinzette.
+2. Live-Hand: kein Gaze-Idle. Continuity sieht Hände, kein Gesicht.
+3. Ghost-Rest 0,10 s statt Latch 4 s. Coast-Empty tot.
+4. HUD nach Scharf = „Hier“.
+
+# Helios 1.5.186 — Klick feuert, rechte Hand, Stabilität
+
+Helios **1.5.186** (Build 205). Nur `main`. Repo privat.
+
+1.5.185 folgte der Palme, aber Klick/Ziehen tot: OCC (Spitzen weg = Pinzette) brach den Klick, Faust-Scharf verlangte Spreizen vor der Pinzette, Wrist-MAD und 0,55 s Deckel. Rechte Hand starb unter Joint-Floor 0,10 / Conf 0,18.
+
+1. OCC ist die Pinzette. Loslassen klickt, ohne Weg- und OCC-Veto.
+2. Nach Scharf darf die Pinzette sofort. Wrist-MAD bricht den Hold nicht.
+3. Klick ohne 0,55 s Deckel. Rechtsklick erst nach 1,2 s.
+4. Rechte/Kanten-Hand: Joint 0,06, Conf 0,08, 3 Gelenke, Gitarre-Veto nur neben S1.
+5. Still-EMA enger (0,16 / 0,18). Flick bleibt 0,78. Kein Hochpass, kein Schwung.
+
+# Helios 1.5.185 — Klick, Ziehen, rechte Hand
+
+Helios **1.5.185** (Build 204). Nur `main`. Repo privat.
+
+1.5.184 folgte der Palme, aber L/R-Lock leerte den Pool (keine Aktionen), Roh-Jitter brach die Pinzette, <8 Gelenke warf die rechte Hand weg.
+
+1. Kein Seiten-Lock. Scharf haelt den Slot, nicht Vision-Links/Rechts.
+2. L/R aus Position. Spiegel: links im Bild = linke Hand.
+3. Leichte EMA auf Palme/Gelenken — kein Hochpass, kein Schwung zurueck.
+4. Pinzette haelt den Cursor. Loslassen = Klick. Palme ziehen = Fenster.
+5. Faust/Kante: 4 Gelenke reichen. DIP-Occlusion wieder fuer die Pinzette.
+
 # Helios + Aegis — Analyse 2026-09-07 (1.5.184)
 
 Helios **1.5.184** (Build 203). Nur `main`. Repo privat.

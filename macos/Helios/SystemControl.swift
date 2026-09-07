@@ -143,6 +143,7 @@ final class SystemControl {
         lastPosted = p
         lastPostAt = CACurrentMediaTime()
         CGWarpMouseCursorPosition(p)
+        CGAssociateMouseAndMouseCursorPosition(1)
         let src = CGEventSource(stateID: .privateState)
         let type: CGEventType = mousePressed ? .leftMouseDragged : .mouseMoved
         let e = CGEvent(mouseEventSource: src, mouseType: type, mouseCursorPosition: p, mouseButton: .left)

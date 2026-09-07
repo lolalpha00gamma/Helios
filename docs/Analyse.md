@@ -1,5 +1,21 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
+Stand: 2026-09-07. Helios **1.6.33** (Build 66). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+
+## 0. 1.6.33 — Rest-Uhren unter einem Continuity-Frame
+
+1.6.32: HMM/Temporal/Release. Danach klickte 1 Frame, Zoom startete 1 Frame, Tastatur feuerte am Vorbeiflug.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | pinchClickMinHold 50 ms < 125 ms | `pinchClickMinNeed(dt)` ≥ 150 ms bei 8 fps |
+| 2 | twoPinchConfirm 120 ms = 1 Tick | `twoPinchConfirmNeed(dt)` zwei Frames |
+| 3 | keyboardDwell 120 ms | `keyboardDwellNeed(dt)` |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, 3D-Pinch (steht auf der Liste).
+
+# Analyse, Fehlerbehebung, öffentlicher Abgleich
+
 Stand: 2026-09-07. Helios **1.6.32** (Build 65). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
 
 ## 0. 1.6.32 — Continuity-Uhr, nicht Schwellen

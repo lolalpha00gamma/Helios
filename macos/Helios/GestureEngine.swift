@@ -993,7 +993,7 @@ final class GestureEngine {
             if system.isDragging { system.endWindowDrag() }
         }
         // Tick belegen, sonst stiehlt Greifen die erste Pinzette.
-        guard now - (twoPinchSince ?? now) >= GestureMath.twoPinchConfirm else { return true }
+        guard now - (twoPinchSince ?? now) >= GestureMath.twoPinchConfirmNeed(dt: sampleDt) else { return true }
         let mapped: [CGPoint] = pinches.map { hand in
             if let p = cursorTracks[hand.id] { return p }
             if let map = spaceMap, map.isReady { return map.apply(hand.palm) }
@@ -1341,15 +1341,15 @@ final class GestureEngine {
                 onLog?("Loslassen", testMode ? .blocked : .executed, Int(hand.poseProb * 100))
             } else if let knob = knobsNow.first(where: { $0.labelDE == hotName }) {
                 fireChrome(knob)
-            } else if GestureMath.isClick(held: held, palmMovedHW: palmMoved, cursorMovedPx: cursorPx) {
+            } else if GestureMath.isClick(held: held, palmMovedHW: palmMoved, cursorMovedPx: cursorPx, dt: sampleDt) {
                 perform("Klick", need: .input, confidence: Float(max(hand.poseProb, hand.pinchClosedness))) { system.click() }
-            } else if held < GestureMath.pinchClickMinHold {
+            } else if held < GestureMath.pinchClickMinNeed(dt: sampleDt) {
                 lastAction = "zu kurz"
             } else {
                 lastAction = "gehalten — kein Zug"
                 onLog?("Pinzette gehalten, keine Aktion", .info, Int(hand.poseProb * 100))
             }
-            cooldownUntil = now + 0.12
+            cooldownUntil = now + GestureMath.pinchReleaseNeed(dt: sampleDt)
         }
     }
 
@@ -1664,9 +1664,10 @@ final class GestureEngine {
             return
         }
         let held = now - (kbDwellAt ?? now)
-        keyboardDwell = CGFloat(min(1, held / GestureMath.keyboardDwell))
+        let dwellNeed = GestureMath.keyboardDwellNeed(dt: sampleDt)
+        keyboardDwell = CGFloat(min(1, held / dwellNeed))
         if now < cooldownUntil { return }
-        if held >= GestureMath.keyboardDwell {
+        if held >= dwellNeed {
             typeAir(key)
             kbDwellAt = now
             cooldownUntil = now + GestureMath.keyboardRepeat

@@ -260,6 +260,21 @@ enum GestureMath {
         max(pinchReleaseDead, min(0.32, max(0.008, dt) * 1.6))
     }
 
+    /// 24 fps 50 ms. 8 fps ≥ 1,4 Frames — Jitter-Pinzette ist kein Klick.
+    static func pinchClickMinNeed(dt: TimeInterval) -> TimeInterval {
+        max(pinchClickMinHold, min(0.22, max(0.008, dt) * 1.4))
+    }
+
+    /// 24 fps 120 ms. 8 fps zwei Frames, sonst ein Tick startet Zoom.
+    static func twoPinchConfirmNeed(dt: TimeInterval) -> TimeInterval {
+        max(twoPinchConfirm, min(0.32, max(0.008, dt) * 1.6))
+    }
+
+    /// 24 fps 120 ms. 8 fps sonst Tastatur am Vorbeifliegen.
+    static func keyboardDwellNeed(dt: TimeInterval) -> TimeInterval {
+        max(keyboardDwell, min(0.28, max(0.008, dt) * 1.8))
+    }
+
     static func pinchReleaseBlocks(now: TimeInterval, releasedAt: TimeInterval?, dt: TimeInterval) -> Bool {
         guard let t = releasedAt else { return false }
         return now - t < pinchReleaseNeed(dt: dt)
@@ -566,8 +581,8 @@ enum GestureMath {
     }
 
     /// Kurze, stillstehende Pinzette = Klick, nicht Greifen.
-    static func isClick(held: TimeInterval, palmMovedHW: CGFloat, cursorMovedPx: CGFloat) -> Bool {
-        guard held >= pinchClickMinHold, held <= pinchClickMaxHold else { return false }
+    static func isClick(held: TimeInterval, palmMovedHW: CGFloat, cursorMovedPx: CGFloat, dt: TimeInterval = 0.016) -> Bool {
+        guard held >= pinchClickMinNeed(dt: dt), held <= pinchClickMaxHold else { return false }
         return palmMovedHW < pinchDragNeed && cursorMovedPx < pinchClickStillPx
     }
 

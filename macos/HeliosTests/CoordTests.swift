@@ -1056,6 +1056,38 @@ enum CoordTests {
             fputs("FAIL Release 8 fps blockt 150 ms\n", stderr)
             fails += 1
         }
+        if GestureMath.pinchClickMinNeed(dt: 0.016) > 0.06 {
+            fputs("FAIL Click-Min 24 fps bleibt 50 ms\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchClickMinNeed(dt: 0.125) < 0.15 {
+            fputs("FAIL Click-Min 8 fps ≥ 150 ms\n", stderr)
+            fails += 1
+        }
+        if GestureMath.isClick(held: 0.08, palmMovedHW: 0.10, cursorMovedPx: 3, dt: 0.125) {
+            fputs("FAIL 80 ms kein Klick bei 8 fps\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.isClick(held: 0.08, palmMovedHW: 0.10, cursorMovedPx: 3, dt: 0.016) {
+            fputs("FAIL 80 ms Klick bei 24 fps\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoPinchConfirmNeed(dt: 0.016) > 0.13 {
+            fputs("FAIL Zwei-Pinzetten 24 fps 120 ms\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoPinchConfirmNeed(dt: 0.125) < 0.18 {
+            fputs("FAIL Zwei-Pinzetten 8 fps ≥ 200 ms\n", stderr)
+            fails += 1
+        }
+        if GestureMath.keyboardDwellNeed(dt: 0.016) > 0.13 {
+            fputs("FAIL Tastatur 24 fps 120 ms\n", stderr)
+            fails += 1
+        }
+        if GestureMath.keyboardDwellNeed(dt: 0.125) < 0.20 {
+            fputs("FAIL Tastatur 8 fps ≥ 200 ms\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

@@ -1,6 +1,16 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.32**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen. Gelesen, nicht gemergt: IOHID Event-Tap, JSONL, AX-ein-Call.
+Stand: **1.6.33**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen. Gelesen, nicht gemergt: IOHID Event-Tap, JSONL, AX-ein-Call.
+
+## In 1.6.33 erledigt
+
+1.6.32 Continuity-Uhr für HMM/Temporal/Release. Klick 50 ms, Zwei-Pinzetten 120 ms, Tastatur 120 ms = ein 8-fps-Tick.
+
+1. **pinchClickMinNeed(dt).** 8 fps ≥ 150 ms.
+2. **twoPinchConfirmNeed(dt).** 8 fps zwei Frames.
+3. **keyboardDwellNeed(dt).** Vorbeifliegen tot.
+4. **Klick-Cooldown** = pinchReleaseNeed(dt), nicht hart 120 ms.
+5. Tests + MARKETING_VERSION 1.6.33 (Build 66).
 
 ## In 1.6.32 erledigt
 
@@ -259,6 +269,7 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 
 ## Nächste Fixes (klein, hoher Nutzen)
 
+- **chromeDwellHold × dt** analog keyboardDwellNeed — 0,55 s ist ok, Ampel-StillPx 18 auf 5K zu klein.
 - **3D-Pinch** (Daumen–Zeigefinger aus Lift3D-z). 2D-Reach lügt, wenn die Faust in die Kamera zeigt.
 - **HMM-Emission × Landmark-Qualität.** Schlechte Spitzen nicht 0,70 Faust.
 - **Session-Replay** der Landmark-CSV direkt im HUD, Frame für Frame — ohne Xcode.
@@ -291,6 +302,8 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 
 ## Größere Erweiterungen
 
+- **VNSequenceRequestHandler auf Capture-Queue** — Landmark-Hop statt CGImage-Hop (Aegis 2.1.187 Pattern).
+- **DisplayLink 90 Hz Overlay** unabhängig von Continuity 8 fps. Lerp schon da, Clock ist Kamera.
 - **Shared XPC `helios.aegis.camera`** mit Aegis — eine TCC, ein Buffer. Größter einzelner Effizienzgewinn. (`bugfix` hatte den Ansatz, 1.5.7-Tree nicht mergen.)
 - **MediaPipe Hands Sidecar** für Continuity 8 fps — VNDetectHumanHandPose verliert Spitzen, Reach fällt, Faust wird Pinzette.
 - **Developer ID + Notarisierung.** Ohne das muss TCC nach jedem Update neu an.

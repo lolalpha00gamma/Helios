@@ -1,4 +1,4 @@
-# Helios **1.6.32**
+# Helios **1.6.33**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,16 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.33
+
+1.6.32 hat HMM/Temporal/Release auf Continuity-Zeit. Klick-Min blieb 50 ms, Zwei-Pinzetten-Confirm 120 ms, Tastatur 120 ms — ein 8-fps-Tick.
+
+- **pinchClickMinNeed(dt).** 24 fps 50 ms. 8 fps ≥ 150 ms — Jitter ist kein Klick.
+- **twoPinchConfirmNeed(dt).** 8 fps zwei Frames, sonst Zoom aus einem Tick.
+- **keyboardDwellNeed(dt).** Vorbeifliegen tippt nicht.
+- **Klick-Cooldown** = `pinchReleaseNeed(dt)`, nicht hart 120 ms.
+- Tests + MARKETING_VERSION 1.6.33 (Build 66).
 
 ## Neu in 1.6.32
 

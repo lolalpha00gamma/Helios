@@ -580,7 +580,7 @@ final class HandTracker: @unchecked Sendable {
                         conf[name] = min(joint.confidence, 0.35)
                     }
                 }
-                if raw.count < 8 { continue }
+                if raw.count < 4 { continue }
             }
             let liveCodeEarly = GestureMath.palmLateralityCode(chirality == .left, right: chirality == .right)
             let slotID = bindSlot(palm: palmGuess, scale: scale, claimed: &claimedSlots, now: now, liveCode: liveCodeEarly)
@@ -691,10 +691,11 @@ final class HandTracker: @unchecked Sendable {
             ) {
                 slot.smooth.reset()
             }
-            let smoothed = raw
+            let smoothed = slot.smooth.apply(raw, now: now)
             let gateJoints = GestureMath.pinchGateUsesSmoothed(closed: slot.pinch.closed) ? smoothed : raw
             let pinchState = slot.pinch.update(raw: gateJoints, conf: conf, now: now, tipZ: tipZ, dt: lastObsDt, slot: slotID)
-            slot.palm = palmGuess
+            let palmLive = GestureClassifier.palmCenter(smoothed)
+            slot.palm = GestureMath.palmFollowEMA(prev: slot.lastSeen > 0 ? slot.palm : nil, live: palmLive)
             slot.lastSeen = now
             slot.scale = GestureMath.palmScaleKalman(prev: slot.scale, live: scale)
             slots[slotID] = slot
@@ -704,12 +705,10 @@ final class HandTracker: @unchecked Sendable {
             for (name, point) in smoothed {
                 joints[name] = TrackedJoint(point: point, confidence: conf[name] ?? 0)
             }
-            for (name, point) in raw {
-                display[name] = TrackedJoint(point: point, confidence: conf[name] ?? 0)
-            }
+            display = joints
 
             let pinch = pinchState.distance
-            let palm = GestureClassifier.palmCenter(raw)
+            let palm = slot.palm
             var pose = GestureClassifier.classify(joints: smoothed, pinch: pinch)
             if pinchState.closed, pose == .unknown || pose == .point || pose == .fist {
                 pose = .pinch
@@ -779,6 +778,7 @@ final class HandTracker: @unchecked Sendable {
                 fps: GestureMath.palmChiralityFreezeFps(dt: lastObsDt)
             )
         )
+        assignChiralityByPalmX(&hands, mirrored: mirrored)
         lastHands = hands
         let keepLast = GestureMath.palmScaleIsHand(lastS1Scale, keep: true)
         if GestureMath.palmScaleMedianKeeps(s1Live: s1Live),
@@ -941,6 +941,29 @@ final class HandTracker: @unchecked Sendable {
     }
 
     /// Observation-Index und Chirality springen. Dieselbe Hand über Palm-Nähe halten.
+    /// Vision-L/R flippt. Spiegel: links im Bild = linke Hand.
+    private func assignChiralityByPalmX(_ hands: inout [TrackedHand], mirrored: Bool) {
+        let live = hands.indices.filter { !hands[$0].isGhost }
+        guard !live.isEmpty else { return }
+        if live.count >= 2 {
+            let sorted = live.sorted { hands[$0].palm.x < hands[$1].palm.x }
+            let leftIdx = mirrored ? sorted[0] : sorted[sorted.count - 1]
+            let rightIdx = mirrored ? sorted[sorted.count - 1] : sorted[0]
+            hands[leftIdx].chirality = .left
+            hands[rightIdx].chirality = .right
+            return
+        }
+        let i = live[0]
+        let x = hands[i].palm.x
+        if mirrored {
+            if x < 0.45 { hands[i].chirality = .left }
+            else if x > 0.55 { hands[i].chirality = .right }
+        } else {
+            if x < 0.45 { hands[i].chirality = .right }
+            else if x > 0.55 { hands[i].chirality = .left }
+        }
+    }
+
     private func bindSlot(palm: CGPoint, scale: CGFloat, claimed: inout Set<Int>, now: TimeInterval, liveCode: Int = 0) -> Int {
         let bind = GestureMath.slotBind(dt: lastObsDt, scale: scale)
         let latch = GestureMath.slotLatchBind(dt: lastObsDt, scale: scale)

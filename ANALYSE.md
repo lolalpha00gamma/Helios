@@ -1,3 +1,15 @@
+# Helios 1.5.185 — Klick, Ziehen, rechte Hand
+
+Helios **1.5.185** (Build 204). Nur `main`. Repo privat.
+
+1.5.184 folgte der Palme, aber L/R-Lock leerte den Pool (keine Aktionen), Roh-Jitter brach die Pinzette, <8 Gelenke warf die rechte Hand weg.
+
+1. Kein Seiten-Lock. Scharf haelt den Slot, nicht Vision-Links/Rechts.
+2. L/R aus Position. Spiegel: links im Bild = linke Hand.
+3. Leichte EMA auf Palme/Gelenken — kein Hochpass, kein Schwung zurueck.
+4. Pinzette haelt den Cursor. Loslassen = Klick. Palme ziehen = Fenster.
+5. Faust/Kante: 4 Gelenke reichen. DIP-Occlusion wieder fuer die Pinzette.
+
 # Helios + Aegis — Analyse 2026-09-07 (1.5.184)
 
 Helios **1.5.184** (Build 203). Nur `main`. Repo privat.

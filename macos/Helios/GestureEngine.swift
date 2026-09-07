@@ -960,7 +960,8 @@ final class GestureEngine {
             abortHold: now < pointerFrozenUntil,
             mouseDown: system.isMousePressed,
             clickLocked: pressLocksClick,
-            becameDrag: pinchBecameDrag
+            becameDrag: pinchBecameDrag,
+            pinchHeld: pinchHeld
         ) || GestureMath.pointerStealBlocksCursor(steal: poolIDs.isEmpty)
         if freezePointer {
             // Pool leer: lastPalm nicht von der anderen Hand — sonst Reconnect an sie.
@@ -1455,7 +1456,7 @@ final class GestureEngine {
                 let held = now - (stealRelockSince ?? now)
                 let skip = NSEvent.modifierFlags.contains(.option)
                 if GestureMath.pointerStealRelock(freeze: freeze, otherFist: fisting, held: held, modifierSkip: skip) {
-                    pointerSideLock = pointerSide(of: actor)
+                    pointerSideLock = .any
                     pointerHandID = actor.id
                     pointerStealLatched = false
                     pointerStealCursor = false
@@ -1489,7 +1490,7 @@ final class GestureEngine {
             mustRearm = false
             ignoreGrabUntilOpen = true
             mode = .armed
-            pointerSideLock = pointerSide(of: actor)
+            pointerSideLock = .any
             lastAction = "Scharf"
             cooldownUntil = now + GestureMath.armCooldown
             onLog?("Hand → Scharf", .executed, Int((hands.map(\.meanConfidence).max() ?? 0) * 100))
@@ -1537,6 +1538,7 @@ final class GestureEngine {
             return hands.first(where: { $0.id == "S1" }) ?? hands[0]
         }
         let use = pool
+        if use.count == 1 { return use[0] }
         // Slot vor Chirality — sonst teleportiert der Zeiger nach L↔R / Abort.
         if let id = keep, let same = use.first(where: { $0.id == id }) {
             return same
@@ -1995,11 +1997,9 @@ final class GestureEngine {
                 }
                 if let origin = pinchSettlePalm {
                     let palmMoved = hypot(hand.palm.x - origin.x, hand.palm.y - origin.y)
-                    let cursorMoved: CGFloat = {
-                        guard let a = pinchCursor0, let b = cursor else { return palmMoved * 1440 }
-                        return hypot(a.x - b.x, a.y - b.y)
-                    }()
-                    if let kind = GestureMath.pinchClickVsDrag(moved: cursorMoved) {
+                    let span = (NSScreen.main?.frame.width ?? 1440)
+                    let movedPx = palmMoved * span
+                    if let kind = GestureMath.pinchClickVsDrag(moved: movedPx, clickMax: 22, dragMin: 48) {
                         if kind == "drag" {
                             if pressLocksClick {
                                 lastAction = testMode ? "Test: BUTTON" : "BUTTON"

@@ -574,10 +574,12 @@ enum GestureMath {
         abortHold: Bool,
         mouseDown: Bool,
         clickLocked: Bool,
-        becameDrag: Bool
+        becameDrag: Bool,
+        pinchHeld: Bool = false
     ) -> Bool {
         if abortHold { return true }
         if becameDrag { return false }
+        if pinchHeld { return true }
         return mouseDown && clickLocked
     }
 
@@ -2150,6 +2152,15 @@ enum GestureMath {
         return jointCount >= 3
     }
 
+    /// Palme folgen ohne Schwung. Klein = zittern schlucken, groß = Snap.
+    static func palmFollowEMA(prev: CGPoint?, live: CGPoint) -> CGPoint {
+        guard let prev else { return live }
+        let d = hypot(live.x - prev.x, live.y - prev.y)
+        if d > 0.20 { return live }
+        let a: CGFloat = d > 0.025 ? 0.78 : (d > 0.008 ? 0.50 : 0.32)
+        return CGPoint(x: prev.x + a * (live.x - prev.x), y: prev.y + a * (live.y - prev.y))
+    }
+
     /// 0,22 war Flick. Continuity 8 fps 20 cm = Overlay-Snap jede Geste.
     /// 0,35 = Slot-Steal Gitarre→Hand, nicht One-Euro-Reset.
     static let obsSmoothJump: CGFloat = 0.35
@@ -2570,8 +2581,9 @@ enum GestureMath {
         hasDIP: Bool,
         floor: Float = pinchOcclusionFloor
     ) -> Bool {
-        _ = (tipConf, hasDIP, floor)
-        return false
+        guard hasDIP else { return false }
+        guard let tipConf else { return true }
+        return tipConf < floor
     }
 
     /// Letzter echter Tip vor DIP — DIP als Fake-Tip drückt Pinch-Ratio.
@@ -2846,7 +2858,7 @@ enum GestureMath {
 
     /// Pinch-Hold: Wrist-MAD > Rest × 2,8. Zitter-Hand sonst zieht Fenster.
     static func pinchHoldAborts(mad: CGFloat, rest: CGFloat = palmStill) -> Bool {
-        mad > max(rest * 2.8, 0.022)
+        mad > max(rest * 6, 0.048)
     }
 
     static func fling(
@@ -5144,7 +5156,8 @@ enum GestureMath {
 
     /// S1 Laterality nach Bind. Gitarre als S2 darf S1-Seite nicht klauen.
     static func palmLateralityBlocksS2(s1Locked: Int, live: Int, slotID: Int) -> Bool {
-        slotID != 1 && (s1Locked == 1 || s1Locked == 2) && live == s1Locked
+        _ = (s1Locked, live, slotID)
+        return false
     }
 
     /// AXPosition ist Quartz. Cocoa-Cursor minus Quartz-Pos invertiert Y — Maske ≠ Fenster.
@@ -5186,8 +5199,7 @@ enum GestureMath {
     }
 
     static func jointConfRestores(holds: Bool, isTip: Bool) -> Bool {
-        _ = (holds, isTip)
-        return false
+        holds && !isTip
     }
 
     /// 0° Capture: Pixel stehen. height>width nicht .right — sonst 90° Palm nach Format-Hop.
@@ -5231,8 +5243,8 @@ enum GestureMath {
     }
 
     static func slotLateralityPrefers(slotCode: Int, liveCode: Int, haveMatch: Bool) -> Bool {
-        if !haveMatch { return true }
-        return slotLateralityMatches(slotCode: slotCode, liveCode: liveCode)
+        _ = (slotCode, liveCode, haveMatch)
+        return true
     }
 
     /// Screen unter dem Punkt. inset −8 überlappte die Seam 16 px — Laptop first stahl den 5K.

@@ -1620,366 +1620,44 @@ final class GestureEngine {
             )
         ) {
             cursorDidMove = false
-            return cursorSmooth ?? (spaceMap?.isUsable == true ? spaceMap!.apply(palm) : ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped))
+            return cursorSmooth ?? snapPalm(palm)
         }
         if now < pointerFrozenUntil {
-            return cursorSmooth ?? (spaceMap?.isUsable == true ? spaceMap!.apply(palm) : ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped))
+            return cursorSmooth ?? snapPalm(palm)
         }
         if pointerNeedsRebase {
-            rememberPalm(palm)
             pointerNeedsRebase = false
-            palmEuroX.reset()
-            palmEuroY.reset()
-            palmVel = .zero
-            palmVelScreen = .zero
-            palmSlowActor = nil
-            palmVelActor = nil
-            lastMapped = nil
-            lastMapped2 = nil
-            lastVelZeroed = true
-            lastVelJump = false
-            jumpMuteFill = false
-            warpHeldJump = false
-            lastDestCrossAt = nil
-            palmVelAt = nil
-            palmKalmanPX = 0
-            palmKalmanPY = 0
-            cursorSteps.removeAll()
-            lastPointerT = now
-            cursorDidMove = false
-            if let map = spaceMap, map.isUsable, !mapMissingHere {
-                return cursorSmooth ?? map.apply(palm)
-            }
-            return cursorSmooth ?? ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
         }
-        if let map = spaceMap, map.isUsable, !mapMissingHere {
-            let meas = GestureMath.continuityReconnectPalm(
-                prev: lastPalm,
-                current: palm,
-                firstAfterLock: continuityFirstAfterLock
-            )
-            lastPalmConf = GestureMath.palmTipConf(
-                tip: CGFloat(hand.confidence(.indexTip)),
-                mean: CGFloat(hand.meanConfidence)
-            )
-            lastTipHeld = hand.tipHeld
-            let freezePalm = GestureMath.palmHolds(
-                armedAt: armedAt, now: now, luma: lastLuma, prevLuma: lumaPrev,
-                conf: lastPalmConf, continuity: cameraFallback, tipHeld: lastTipHeld
-            )
-            palmHoldFill = freezePalm
-            let kalman = GestureMath.palmKalman(
-                prev: lastPalm, meas: meas, vel: palmVel, dt: frameDt,
-                luma: lastLuma, tipConf: lastPalmConf, freeze: freezePalm,
-                mad: deadNow(), madX: madNowX(), madY: madNowY(), pX: palmKalmanPX, pY: palmKalmanPY
-            )
-            palmVel = kalman.vel
-            palmKalmanPX = kalman.pX
-            palmKalmanPY = kalman.pY
-            let followSrc = GestureMath.palmKalmanKeepsState(kalman.pos)
-            if continuityFirstAfterLock { continuityFirstAfterLock = false }
-            let followPalm = GestureMath.predictPalm(
-                current: followSrc,
-                prev: lastPalm,
-                dt: frameDt,
-                lead: GestureMath.predictLeadAfterKalman(frameDt)
-            )
-            let q = map.apply(followPalm)
-            if pointerHandID != hand.id {
-                if now < pointerFrozenUntil {
-                    return cursorSmooth ?? q
-                }
-                pointerHandID = hand.id
-                rememberPalm(palm)
-                palmStillSince = now
-                palmFrozen = false
-                cursorDidMove = false
-                palmEuroX.reset()
-                palmEuroY.reset()
-                palmVel = .zero
-                palmVelScreen = .zero
-                palmSlowActor = nil
-                palmVelActor = nil
-                lastMapped = nil
-                lastMapped2 = nil
-                lastVelZeroed = true
-                lastVelJump = false
-                jumpMuteFill = false
-                warpHeldJump = false
-                palmVelAt = nil
-                palmKalmanPX = 0
-                palmKalmanPY = 0
-                cursorSteps.removeAll()
-                // Homographie nicht auf die neue Hand snappen — das ist der Teleport.
-                if cursorSmooth == nil {
-                    cursorSmooth = q
-                }
-                return cursorSmooth ?? q
-            }
-            let prevPalm = lastPalm ?? followSrc
-            var dx = followSrc.x - prevPalm.x
-            var dy = followSrc.y - prevPalm.y
-            rememberPalm(followSrc)
-            notePalmAxis(dx: dx, dy: dy)
-            applyPalmHighpass(dx: &dx, dy: &dy, now: now)
-            if abs(dx) < deadNowX() { dx = 0 }
-            if abs(dy) < deadNowY() { dy = 0 }
-            let moved = hypot(dx, dy)
-            if freezeIfStill(dx: dx, dy: dy, now: now) {
-                cursorDidMove = false
-                return cursorSmooth ?? q
-            }
-            if dx == 0 && dy == 0 {
-                cursorDidMove = false
-                return cursorSmooth ?? q
-            }
-            cursorDidMove = true
-            let from = cursorSmooth ?? q
-            let snapRestore = GestureMath.cursorWarpSnapsRestore(
-                teleport: GestureMath.cursorWarpIsTeleport(
-                    from: from,
-                    to: q,
-                    cap: max(warpCapAxes().x, warpCapAxes().y)
-                ),
-                mapped: true
-            )
-            if snapRestore {
-                cursorSmooth = GestureMath.cursorWarpRestoreOf(from: from, to: q, snap: true)
-                lastVelJump = true
-                lastVelZeroed = true
-                jumpMuteFill = true
-                warpHeldJump = false
-                palmVelScreen = .zero
-                palmVelAt = GestureMath.palmVelAtOf(now: now, teleport: true)
-                lastWarpChip = rememberWarpChip("JUMP")
-                lastPointerT = now
-                return cursorSmooth ?? q
-            }
-            let baseline = SpaceMap.linear(palm, in: map.destBounds)
-            let residual = hypot(q.x - baseline.x, q.y - baseline.y)
-            let dt = GestureMath.sampleDt(now: now, last: lastPointerT)
-            lastPointerT = now
-            var a = GestureMath.mapSmoothAlpha(dt: dt) * GestureMath.mapGain(residual: residual)
-            a *= GestureMath.mapFollowMul(moved)
-            a *= GestureMath.jointGain(count: hand.joints.count)
-            a *= GestureMath.twoHandClutchGain(secondOpen: clutchOtherOpen)
-            if residual > GestureMath.mapDriftResidual {
-                a = min(a, 0.42)
-                if residualHighSince == nil { residualHighSince = now }
-                if now - (residualHighSince ?? now) >= GestureMath.mapDriftHold {
-                    mapDrifted = true
-                }
-            } else {
-                residualHighSince = nil
-                if residual < 240 { mapDrifted = false }
-            }
-            let s = CGPoint(x: a * q.x + (1 - a) * from.x, y: a * q.y + (1 - a) * from.y)
-            let screensNow = ScreenGeometry.quartzScreens
-            let dest = GestureMath.destEdgeScreenAt(
-                point: from,
-                screens: screensNow,
-                steal: stealScreen,
-                map: map.destBounds,
-                main: nil
-            )
-            let padNow = GestureMath.destEdgePadNow(screen: dest, pref: destEdgePadPref)
-            let crosses = destEdgeSkips(
-                GestureMath.destEdgeCrosses(from: from, to: s, screens: screensNow),
-                now: now
-            )
-            let stepped = crosses
-                ? s
-                : GestureMath.destEdgeStep(from: from, to: s, screen: dest, dt: rawFrameDt, pad: padNow, screens: screensNow)
-            var edged = GestureMath.destEdgeApplies(dragging: system.isDragging, pinchHeld: pinchHeld, clickLocked: pressLocksClick) ? stepped : s
-            let warpAxesMap = warpCapAxes()
-            let warp = max(warpAxesMap.x, warpAxesMap.y)
-            lastWarpChip = rememberWarpChip(
-                GestureMath.cursorWarpChip(from: from, to: edged, capX: warpAxesMap.x, capY: warpAxesMap.y)
-            )
-            if !GestureMath.cursorWarpIsTeleport(from: from, to: edged, cap: warp) {
-                edged = GestureMath.cursorWarpAxis(from: from, to: edged, capX: GestureMath.cursorWarpCapX(width: dest?.width), capY: warpAxesMap.y)
-                let vel = CGPoint(x: edged.x - from.x, y: edged.y - from.y)
-                edged = predictPointer(from: edged, vel: vel, mute: crosses)
-            } else if let held = GestureMath.cursorWarpHoldsSmoothOf(from: from, to: edged, capX: warpAxesMap.x, capY: warpAxesMap.y) {
-                return applyWarpHold(held)
-            }
-            noteCursorStep(from: from, to: edged)
-            let screens = NSScreen.screens.map { scr in
-                (id: "\(ScreenGeometry.displayID(of: scr))", bounds: ScreenGeometry.quartzBounds(of: scr))
-            }
-            let nextKey = GestureMath.screenKey(point: edged, screens: screens)
-            if GestureMath.screenChanged(prevID: lastScreenID, nextID: nextKey) {
-                var loadedUsable = false
-                if let nextKey {
-                    let cam = spaceMap?.cameraID
-                    if let loaded = SpaceMap.load(cameraID: cam, screenID: nextKey), loaded.isUsable {
-                        spaceMap = loaded
-                        loadedUsable = true
-                    }
-                }
-                if GestureMath.screenBlendSkipsCross(crosses) {
-                    blendFrom = nil
-                } else if GestureMath.mapWarmupUsesRelative(hasMap: loadedUsable, screenChanged: true) {
-                    blendFrom = from
-                    blendStarted = now
-                } else {
-                    blendFrom = nil
-                }
-            }
-            lastScreenID = nextKey
-            if GestureMath.screenBlendSkipsCross(crosses) {
-                blendFrom = nil
-            }
-            if let bFrom = blendFrom {
-                let t = GestureMath.screenBlendT(elapsed: now - blendStarted)
-                let blended = GestureMath.screenBlend(from: bFrom, to: edged, t: t)
-                if t >= 1 { blendFrom = nil }
-                cursorSmooth = blended
-                return blended
-            }
-            cursorSmooth = edged
-            return edged
-        }
-        if spaceMap?.isReady == true, spaceMap?.isUsable != true {
-            mapDrifted = true
-        }
-        cursorDidMove = false
-        if pointerHandID != hand.id {
-            if now < pointerFrozenUntil {
-                // Freeze hält den Cursor. Slot-Switch erst danach.
-                return cursorSmooth ?? ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
-            }
-            pointerHandID = hand.id
-            rememberPalm(palm)
-            palmStillSince = now
-            palmFrozen = false
-            palmEuroX.reset()
-            palmEuroY.reset()
-            palmVel = .zero
-            palmVelScreen = .zero
-            palmSlowActor = nil
-            palmVelActor = nil
-            lastMapped = nil
-            lastMapped2 = nil
-            lastVelZeroed = true
-            lastVelJump = false
-            jumpMuteFill = false
-            warpHeldJump = false
-            lastDestCrossAt = nil
-            palmVelAt = nil
-            palmKalmanPX = 0
-            palmKalmanPY = 0
-            cursorSteps.removeAll()
-            let start = ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
-            cursorSmooth = start
-            return start
-        }
-        let prevPalm = lastPalm ?? palm
-        lastPalmConf = GestureMath.palmTipConf(
-            tip: CGFloat(hand.confidence(.indexTip)),
-            mean: CGFloat(hand.meanConfidence)
-        )
-        lastTipHeld = hand.tipHeld
-        let freezePalm = GestureMath.palmHolds(
-            armedAt: armedAt, now: now, luma: lastLuma, prevLuma: lumaPrev,
-            conf: lastPalmConf, continuity: cameraFallback, tipHeld: lastTipHeld
-        )
-        palmHoldFill = freezePalm
-        let kalman = GestureMath.palmKalman(
-            prev: lastPalm, meas: palm, vel: palmVel, dt: frameDt,
-            luma: lastLuma, tipConf: lastPalmConf, freeze: freezePalm,
-            mad: deadNow(), madX: madNowX(), madY: madNowY(), pX: palmKalmanPX, pY: palmKalmanPY
-        )
-        palmVel = kalman.vel
-        palmKalmanPX = kalman.pX
-        palmKalmanPY = kalman.pY
-        let followSrc = GestureMath.palmKalmanKeepsState(kalman.pos)
-        rememberPalm(followSrc)
-        let follow = GestureMath.relativePredicts(dt: frameDt)
-            ? GestureMath.predictPalm(
-                current: followSrc,
-                prev: prevPalm,
-                dt: frameDt,
-                lead: GestureMath.predictLeadAfterKalman(frameDt)
-            )
-            : followSrc
-        var dx = follow.x - prevPalm.x
-        var dy = follow.y - prevPalm.y
-        notePalmAxis(dx: dx, dy: dy)
-        applyPalmHighpass(dx: &dx, dy: &dy, now: now)
-        if abs(dx) < deadNowX() * 0.35 { dx = 0 }
-        if abs(dy) < deadNowY() * 0.35 { dy = 0 }
-        dx = GestureMath.pointerAccel(dx)
-        dy = GestureMath.pointerAccel(dy)
-        if freezeIfStill(dx: dx, dy: dy, now: now) {
-            return cursorSmooth ?? ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
-        }
-        let rawMoved = abs(follow.x - prevPalm.x) + abs(follow.y - prevPalm.y) > 0.003
-        if dx == 0 && dy == 0 && !rawMoved {
-            return cursorSmooth ?? ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
-        }
-        if dx == 0 && dy == 0 {
-            dx = (follow.x - prevPalm.x) * 0.6
-            dy = (follow.y - prevPalm.y) * 0.6
-        }
+        pointerHandID = hand.id
+        rememberPalm(palm)
+        palmVel = .zero
+        palmVelScreen = .zero
+        lastVelJump = false
+        lastVelZeroed = true
+        jumpMuteFill = true
+        warpHeldJump = false
+        palmHoldFill = false
+        palmFrozen = false
         cursorDidMove = true
-        let from = cursorSmooth ?? ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
-        let dropout = lastPointerT > 0 ? now - lastPointerT : 0
-        let dt = GestureMath.sampleDt(now: now, last: lastPointerT)
         lastPointerT = now
-        let g = GestureMath.pointerGainMul(dt: CGFloat(dt))
-            * GestureMath.watchdogGainMul(slow: cameraSlow)
-            * GestureMath.depthGain(palmScale: hand.palmScale)
-            * GestureMath.appGain(bundle: focused?.bundleId)
-            * GestureMath.jointGain(count: hand.joints.count)
-            * GestureMath.twoHandClutchGain(secondOpen: clutchOtherOpen)
-        let palmStep = ScreenGeometry.stepCursor(from: from, dPalm: CGPoint(x: dx * g, y: dy * g), gain: pointerGain)
-        let sx = palmEuroX.filter(palmStep.x, now: now)
-        let sy = palmEuroY.filter(palmStep.y, now: now)
-        let s = clampMapped(CGPoint(x: sx, y: sy), freeze: pointerStealLatched || pointerStealCursor)
-        let screensNow = ScreenGeometry.quartzScreens
-        let dest = GestureMath.destEdgeScreenAt(
-            point: from,
-            screens: screensNow,
-            steal: stealScreen,
-            map: spaceMap?.destBounds,
-            main: nil
-        )
-        let padNow = GestureMath.destEdgePadNow(screen: dest, pref: destEdgePadPref)
-        let crosses = destEdgeSkips(
-            GestureMath.destEdgeCrosses(from: from, to: s, screens: screensNow),
-            now: now
-        )
-        let edgeStep = crosses
-            ? s
-            : GestureMath.destEdgeStep(from: from, to: s, screen: dest, dt: rawFrameDt, pad: padNow, screens: screensNow)
-        var edged = GestureMath.destEdgeApplies(dragging: system.isDragging, pinchHeld: pinchHeld, clickLocked: pressLocksClick) ? edgeStep : s
-        let warpAxesRel = warpCapAxes()
-        let warpRel = max(warpAxesRel.x, warpAxesRel.y)
-        lastWarpChip = rememberWarpChip(
-            GestureMath.cursorWarpChip(from: from, to: edged, capX: warpAxesRel.x, capY: warpAxesRel.y)
-        )
-        if !GestureMath.cursorWarpIsTeleport(from: from, to: edged, cap: warpRel) {
-            edged = GestureMath.cursorWarpAxis(from: from, to: edged, capX: GestureMath.cursorWarpCapX(width: dest?.width), capY: warpAxesRel.y)
-            let vel = CGPoint(x: edged.x - from.x, y: edged.y - from.y)
-            edged = predictPointer(from: edged, vel: vel, mute: crosses)
-        } else if let held = GestureMath.cursorWarpHoldsSmoothOf(from: from, to: edged, capX: warpAxesRel.x, capY: warpAxesRel.y) {
-            if GestureMath.cursorWarpSnapsRestore(teleport: true, mapped: false, dropout: dropout) {
-                cursorSmooth = GestureMath.cursorWarpRestoreOf(from: from, to: edged, snap: true)
-                lastVelJump = true
-                lastVelZeroed = true
-                jumpMuteFill = true
-                warpHeldJump = false
-                palmVelScreen = .zero
-                palmVelAt = GestureMath.palmVelAtOf(now: now, teleport: true)
-                lastWarpChip = rememberWarpChip("JUMP")
-                return cursorSmooth ?? edged
-            }
-            return applyWarpHold(held)
+        lastDisplayTick = now
+        let q = snapPalm(palm)
+        cursorSmooth = q
+        lastMapped = q
+        lastMapped2 = q
+        seedLastScreen(point: q)
+        return q
+    }
+
+    /// Palme → Bildschirm. Kein Highpass, kein Coast, keine Blend.
+    private func snapPalm(_ palm: CGPoint) -> CGPoint {
+        let raw: CGPoint
+        if let map = spaceMap, map.isUsable, !mapMissingHere {
+            raw = map.apply(palm)
+        } else {
+            raw = SpaceMap.linear(palm)
         }
-        noteCursorStep(from: from, to: edged)
-        cursorSmooth = edged
-        return edged
+        return clampMapped(raw, freeze: pointerStealLatched || pointerStealCursor)
     }
 
     /// Relativ-Pfad und displayTick: Screen unter dem Cursor, Freeze hält lastScreen.
@@ -2234,130 +1912,8 @@ final class GestureEngine {
         return pred
     }
 
-    /// 60 Hz zwischen Continuity-Frames. Kamera-Tick bleibt Quelle. Cap × 0,4 gegen Overshoot.
     func displayTick(now: TimeInterval) {
-        if GestureMath.displayTickMutesJump(jumpMuteFill, held: warpHeldJump) {
-            if GestureMath.displayTickClearsJumpMute(held: warpHeldJump) {
-                jumpMuteFill = false
-            }
-            lastDisplayTick = GestureMath.displayLinkRebase()
-            return
-        }
-        if GestureMath.displayTickBlocksSteal(
-            steal: pointerStealLatched || pointerStealCursor,
-            frameDt: rawFrameDt,
-            poolEmpty: pointerStealCursor
-        ) {
-            return
-        }
-        if GestureMath.displayTickBlocksHold(freeze: palmHoldFill) { return }
-        if GestureMath.displayTickBlocksStill(frozen: palmFrozen) { return }
-        if GestureMath.displayTickCoalesced(now: now, lastMove: lastCursorMoveAt) { return }
-        let elapsed = now - lastTickT
-        let period = GestureMath.displayLinkPeriodAdaptive(frameDt: rawFrameDt)
-        guard GestureMath.displayLinkFires(frameDt: rawFrameDt, elapsed: elapsed, period: period) else { return }
-        guard !testMode, !system.isDragging, mode == .armed else { return }
-        guard var from = cursorSmooth, let prev = lastMapped2 else { return }
-        if !pinchHeld, !system.isDragging, !system.isMousePressed {
-            let truth = ScreenGeometry.quartz(fromCocoa: NSEvent.mouseLocation)
-            if let snapped = GestureMath.pointerReanchor(warped: from, truth: truth) {
-                from = snapped
-                cursorSmooth = snapped
-                lastMapped = snapped
-                lastMapped2 = snapped
-            }
-        }
-        let cam = GestureMath.displayLinkVelCamera(from: from, camera: lastMapped)
-        let screensNow = ScreenGeometry.quartzScreens
-        let destHolding = GestureMath.destEdgeSkipNow(
-            crosses: false,
-            now: now,
-            lastAt: lastDestCrossAt,
-            hold: GestureMath.destEdgeSkipHold(pref: destEdgeSkipPref, frameDt: rawFrameDt)
-        ).skip
-        let dest = GestureMath.destEdgeScreenAt(
-            point: from,
-            screens: screensNow,
-            steal: stealScreen,
-            map: spaceMap?.destBounds,
-            main: NSScreen.main.map { ScreenGeometry.quartzBounds(of: $0) },
-            hold: stealScreen,
-            holding: destHolding
-        )
-        let padNow = GestureMath.destEdgePadNow(screen: dest, pref: destEdgePadPref)
-        let scale = GestureMath.displayLinkMappedScale(bounds: dest)
-        let velRaw = GestureMath.displayLinkVelocity(
-            prev: prev,
-            current: cam,
-            frameDt: rawFrameDt,
-            palmVel: palmVel,
-            mappedScale: scale.x,
-            mappedScaleY: scale.y,
-            palmVelScreen: palmVelScreen,
-            still: palmFrozen,
-            mad: deadNow(),
-            fresh: GestureMath.palmVelScreenFresh(savedAt: palmVelAt, now: now)
-        )
-        let velCoast = GestureMath.displayLinkCoast(
-            velRaw,
-            elapsed: elapsed,
-            tauX: GestureMath.displayLinkCoastTauAxis(
-                base: GestureMath.displayLinkCoastTau(screen: dest),
-                mul: GestureMath.destEdgeNeighborMul(
-                    GestureMath.destEdgeMulX(point: from, screen: dest, pad: padNow, toward: velRaw.x),
-                    GestureMath.destEdgeHasNeighbor(point: from, toward: velRaw.x, screens: screensNow, axisX: true)
-                )
-            ),
-            tauY: GestureMath.displayLinkCoastTauAxis(
-                base: GestureMath.displayLinkCoastTau(screen: dest),
-                mul: GestureMath.destEdgeNeighborMul(
-                    GestureMath.destEdgeMulY(point: from, screen: dest, pad: padNow, toward: velRaw.y),
-                    GestureMath.destEdgeHasNeighbor(point: from, toward: velRaw.y, screens: screensNow, axisX: false)
-                )
-            )
-        )
-        let toward = GestureMath.destEdgeFillToward(
-            from: from,
-            vel: velCoast,
-            screens: screensNow,
-            lead: GestureMath.destEdgeFillLead(pad: padNow)
-        )
-        let skip = destEdgeSkips(GestureMath.destEdgeSkipsCross(toward), now: now)
-        let vel = skip
-            ? velCoast
-            : GestureMath.destEdgeFill(velCoast, point: from, screen: dest, frameDt: rawFrameDt, pad: padNow, screens: screensNow)
-        guard GestureMath.displayTickCoasts(hypot(vel.x, vel.y)) else {
-            lastDisplayTick = now
-            return
-        }
-        let share = GestureMath.displayTickWarpShare(floor: warpCap(), frameDt: rawFrameDt, period: period)
-        let restCap = GestureMath.fillCapByUUID(
-            id: lastScreenID ?? "",
-            width: dest?.width ?? 1440,
-            stored: fillCapMap,
-            laptop: fillCapLaptop,
-            studio: fillCapStudio
-        )
-        let cap = min(
-            GestureMath.displayTickCapSteal(
-                base: GestureMath.displayLinkCap(speed: hypot(vel.x, vel.y), rest: restCap) * GestureMath.displayLinkStepMul(period: period),
-                relock: stealRelockSince != nil
-            ),
-            share
-        )
-        let stepDt = GestureMath.displayLinkElapsed(now: now, last: lastDisplayTick, period: period)
         lastDisplayTick = now
-        let fillAxes = warpCapAxes()
-        let capX = min(cap, fillAxes.x)
-        let capY = min(cap, fillAxes.y)
-        let raw = GestureMath.displayLinkCursorOf(from: from, velocity: vel, elapsed: stepDt, capX: capX, capY: capY)
-        let next = clampMapped(raw, freeze: pointerStealLatched || pointerStealCursor)
-        cursorSmooth = next
-        cursor = next
-        if GestureMath.displayTickFillsPress(pressed: system.isMousePressed, dragging: system.isDragging) {
-            system.moveCursor(to: next)
-            lastCursorMoveAt = now
-        }
     }
 
     /// placeCursor setzt nur den HUD. Ohne moveCursor ist der Zeiger tot.

@@ -613,7 +613,7 @@ final class HandTracker: @unchecked Sendable {
             ) {
                 slot.smooth.reset()
             }
-            let smoothed = slot.smooth.apply(raw, now: now)
+            let smoothed = raw
             let gateJoints = GestureMath.pinchGateUsesSmoothed(closed: slot.pinch.closed) ? smoothed : raw
             let pinchState = slot.pinch.update(raw: gateJoints, conf: conf, now: now, tipZ: tipZ, dt: lastObsDt)
             slot.palm = palmGuess
@@ -631,8 +631,8 @@ final class HandTracker: @unchecked Sendable {
             }
 
             let pinch = pinchState.distance
-            let palm = GestureClassifier.palmCenter(smoothed)
-            var pose = GestureClassifier.classify(joints: smoothed, pinch: pinch)
+            let palm = GestureClassifier.palmCenter(raw)
+            var pose = GestureClassifier.classify(joints: raw, pinch: pinch)
             if pinchState.closed, pose == .unknown || pose == .point || pose == .fist {
                 pose = .pinch
             }
@@ -640,11 +640,11 @@ final class HandTracker: @unchecked Sendable {
             if pinchState.closed, pose == .unknown || pose == .point || pose == .fist {
                 pose = .pinch
             }
-            let openScore = GestureClassifier.openScore(joints: smoothed)
+            let openScore = GestureClassifier.openScore(joints: raw)
             let ratio = pinchState.ratio
             var ext: Set<String> = []
             for f in FingerKind.allCases {
-                if GestureClassifier.isExtended(smoothed, tip: f.tip, pip: f.pip, mcp: f.mcp) {
+                if GestureClassifier.isExtended(raw, tip: f.tip, pip: f.pip, mcp: f.mcp) {
                     ext.insert(f.rawValue)
                 }
             }

@@ -870,7 +870,7 @@ final class GestureEngine {
 
 
         if !live {
-            placeCursor(primary, now: now)
+            injectCursor(primary, now: now)
             grabPhase = (primary.pose == .pinch || primary.pose == .fist) ? .hold : .follow
             grabTargetName = focused?.appName ?? ""
             if liveHands.contains(where: { $0.pose == .pinch || $0.pose == .fist }) {
@@ -969,17 +969,10 @@ final class GestureEngine {
             }
             lastPointerT = now
         } else {
-            placeCursor(cursorHandLive, now: now)
-            if !testMode, !system.isDragging, let p = cursor {
-                if !GestureMath.warpWriterSkips(GestureMath.warpWriter(linkArmed: GestureMath.displayLinkPulseAlive(lastPulse: lastDisplayTick, now: now))) {
-                    system.moveCursor(to: p)
-                }
-            }
+            injectCursor(cursorHandLive, now: now)
         }
         if !testMode, system.isMousePressed, !system.isDragging, !poolIDs.isEmpty, let p = cursor {
-            if !GestureMath.warpWriterSkips(GestureMath.warpWriter(linkArmed: GestureMath.displayLinkPulseAlive(lastPulse: lastDisplayTick, now: now))) {
-                system.moveCursor(to: p)
-            }
+            system.moveCursor(to: p)
         }
         updateTrashHot()
 
@@ -1670,14 +1663,9 @@ final class GestureEngine {
         return q
     }
 
+    /// Palme im Bild = Cursor auf dem Schirm. Keine Homographie: alte Kalib war Cursor-Ecke, nicht Reichweite.
     private func snapPalm(_ palm: CGPoint) -> CGPoint {
-        let raw: CGPoint
-        if let map = spaceMap, map.isUsable, !mapMissingHere {
-            raw = map.apply(palm)
-        } else {
-            raw = SpaceMap.linear(palm)
-        }
-        return clampMapped(raw, freeze: pointerStealLatched || pointerStealCursor)
+        clampMapped(SpaceMap.linear(palm), freeze: pointerStealLatched || pointerStealCursor)
     }
 
     /// Relativ-Pfad und displayTick: Screen unter dem Cursor, Freeze hält lastScreen.
@@ -1785,110 +1773,6 @@ final class GestureEngine {
     private func placeCursor(_ hand: TrackedHand, now: TimeInterval) {
         cursor = actorMapped(hand, now: now)
         cursorHand = hand.sideDE
-        if let c = cursor {
-            if !(pointerStealLatched || pointerStealCursor) {
-                let screens = ScreenGeometry.quartzScreens
-                stealScreen = GestureMath.destClampScreen(
-                    point: c,
-                    mapBounds: spaceMap?.destBounds,
-                    screens: screens,
-                    freeze: false,
-                    lastScreen: stealScreen,
-                    mapScreenID: spaceMap?.screenID,
-                    currentScreenID: lastScreenID
-                )
-                seedLastScreen(point: c)
-            }
-            let velReset = GestureMath.palmVelScreenResets(actor: pointerHandID, prev: palmVelActor)
-            var teleport = false
-            if velReset {
-                palmVelScreen = GestureMath.palmVelScreenAfterActor(resets: true, vel: palmVelScreen)
-                if GestureMath.palmMappedClears(resets: true) {
-                    lastMapped = nil
-                    lastMapped2 = nil
-                }
-                palmVelActor = pointerHandID
-                lastVelZeroed = true
-                lastVelJump = false
-                jumpMuteFill = true
-                warpHeldJump = false
-                palmVelAt = GestureMath.palmVelAtOf(now: now, teleport: false, reset: true)
-            } else if cursorDidMove, let prev = lastMapped {
-                let dt = CGFloat(max(0.08, rawFrameDt))
-                let raw = CGPoint(x: (c.x - prev.x) / dt, y: (c.y - prev.y) / dt)
-                let screens = ScreenGeometry.quartzScreens
-                let cap = GestureMath.destEdgePadAt(
-                    point: c,
-                    screens: screens,
-                    pref: destEdgePadPref,
-                    steal: stealScreen,
-                    map: spaceMap?.destBounds,
-                    main: NSScreen.main.map { ScreenGeometry.quartzBounds(of: $0) }
-                )
-                let tx = GestureMath.palmVelScreenTeleportX(from: prev, to: c, cap: cap)
-                let ty = GestureMath.palmVelScreenTeleportY(from: prev, to: c, cap: cap)
-                let warpJump = GestureMath.palmWarpHoldReleaseJumps(wasHeld: warpHeldJump, nowHeld: false)
-                let both = (tx && ty) || warpJump
-                teleport = tx || ty || warpJump
-                // destEdgeFillAxis dämpft am Fill-Punkt. palmVelScreen nicht nochmal destEdgeVel — 0,35² klebt.
-                // Hypot-Teleport darf Y-Coast nicht 0 setzen — nur die Achse, die wirklich sprang.
-                let rawVel = GestureMath.palmVelScreenOf(
-                    raw: raw,
-                    teleportX: tx || warpJump,
-                    teleportY: ty || warpJump
-                )
-                if tx || ty || warpJump {
-                    palmVelScreen = rawVel
-                } else {
-                    palmVelScreen = GestureMath.palmVelScreenEMA(
-                        prev: palmVelScreen,
-                        raw: rawVel,
-                        dt: rawFrameDt
-                    )
-                }
-                lastVelZeroed = both
-                lastVelJump = teleport
-                jumpMuteFill = both
-                warpHeldJump = false
-                palmVelAt = GestureMath.palmVelAtOf(now: now, teleport: both)
-            } else if warpHeldJump {
-                teleport = true
-                palmVelScreen = .zero
-                lastVelZeroed = true
-                lastVelJump = true
-                jumpMuteFill = true
-                palmVelAt = GestureMath.palmVelAtOf(now: now, teleport: true)
-            } else {
-                let fresh = GestureMath.palmVelScreenFresh(savedAt: palmVelAt, now: now)
-                palmVelScreen = GestureMath.palmVelScreenKeep(
-                    moved: false,
-                    mad: deadNow(),
-                    vel: palmVelScreen,
-                    hold: palmHoldFill || palmFrozen,
-                    fresh: fresh
-                )
-                lastVelZeroed = !fresh
-                lastVelJump = false
-                jumpMuteFill = false
-            }
-            let velHeld = GestureMath.hudChipPeakHold(
-                current: GestureMath.palmVelChip(zeroed: lastVelZeroed, teleport: lastVelJump, muted: jumpMuteFill),
-                held: lastVelChip,
-                remaining: velChipHold,
-                need: 1
-            )
-            lastVelChip = velHeld.chip
-            velChipHold = velHeld.remaining
-            lastLateralityChip = GestureMath.palmLateralityChip(
-                locked: GestureMath.palmLateralityCode(hand.chirality == .left, right: hand.chirality == .right),
-                live: hand.lateralityLive
-            )
-            lastOcclusionChip = GestureMath.fingerOcclusionChip(held: hand.tipHeld)
-            let pair = GestureMath.palmMappedPair(current: c, prev: lastMapped, teleport: teleport || velReset || warpHeldJump)
-            lastMapped2 = pair.mapped2
-            lastMapped = pair.mapped
-            lastDisplayTick = GestureMath.displayLinkRebase()
-        }
     }
 
     /// destEdgeCross + Hold ≥ 1,25 Continuity-Ticks. 80 ms stirbt vor dem 8-fps-Frame.
@@ -1936,14 +1820,12 @@ final class GestureEngine {
         lastDisplayTick = now
     }
 
-    /// placeCursor setzt nur den HUD. Ohne moveCursor ist der Zeiger tot.
+    /// Jeder Vision-Tick warpt. displayTick coastet nicht. Idle folgt trotzdem.
     private func injectCursor(_ hand: TrackedHand, now: TimeInterval) {
         placeCursor(hand, now: now)
-        if !testMode, !system.isDragging, let p = cursor {
-            if !GestureMath.warpWriterSkips(GestureMath.warpWriter(linkArmed: GestureMath.displayLinkPulseAlive(lastPulse: lastDisplayTick, now: now))) {
-                system.moveCursor(to: p)
-                lastCursorMoveAt = now
-            }
+        if !testMode, let p = cursor {
+            system.moveCursor(to: p)
+            lastCursorMoveAt = now
         }
     }
 

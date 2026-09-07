@@ -274,6 +274,7 @@ final class HandMarkerView: NSView {
         let flingMark = fling.map { "  \($0)" } ?? ""
         label.string = "\(phase.labelDE)  \(hand.uppercased())" + ghostMark + settleMark + hoverMark + kindMark + magnetMark + flingMark + (grab && !target.isEmpty ? "  \(target.uppercased())" : "")
         label.position = CGPoint(x: local.x + 52, y: local.y)
+        label.isHidden = phase == .follow || phase == .none
         if grab, let wr = window, ScreenGeometry.intersects(quartz: wr, screen: screenFrame) {
             let r = ScreenGeometry.localRect(quartz: wr, on: screenFrame)
             let path = CGMutablePath()

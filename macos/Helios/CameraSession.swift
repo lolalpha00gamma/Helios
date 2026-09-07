@@ -37,7 +37,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     /// Nutzerwahl. Auto = Built-in zuerst.
     var choice: CameraChoice = .auto
     /// Hung-live: SIGTERM-Zeit je PID. Nächster Claim → SIGKILL nach 2 s.
-    private static var mutexTermSentAt: [Int32: TimeInterval] = [:]
+    nonisolated(unsafe) private static var mutexTermSentAt: [Int32: TimeInterval] = [:]
     private var mutexTermChip: String?
 
     /// Vision-Buffer, optionales Preview, Helligkeit 0…1, Ankunftszeit

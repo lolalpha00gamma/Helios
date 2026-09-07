@@ -142,6 +142,7 @@ final class SystemControl {
         let p = ScreenGeometry.clampQuartz(point)
         lastPosted = p
         lastPostAt = CACurrentMediaTime()
+        CGWarpMouseCursorPosition(p)
         let src = CGEventSource(stateID: .privateState)
         let type: CGEventType = mousePressed ? .leftMouseDragged : .mouseMoved
         let e = CGEvent(mouseEventSource: src, mouseType: type, mouseCursorPosition: p, mouseButton: .left)

@@ -1,3 +1,441 @@
+# Helios + Aegis — Analyse 2026-09-07 (1.5.184)
+
+Helios **1.5.184** (Build 203). Nur `main`. Repo privat.
+
+Taktikwechsel, diesmal vollständig:
+
+1. Cursor = `SpaceMap.linear(palm)` jeden Vision-Tick. Kein Highpass, kein Coast, kein Kalman, keine alte Homographie. Hand links → Cursor links.
+2. Idle warpt trotzdem. Vorher folgte der Zeiger nur nach Faust-Scharf — HUD bewegte sich, der Cursor nicht.
+3. Overlay = Live-Joints. Ghost/Lerp/DIP-Restore/Coast tot. Skelett bleibt nicht in der Luft.
+4. Vision-Hand mit ≥3 Gelenken durch. Scale/Span-Veto raus.
+5. Panel: Feinheiten-Slider weg. `mutexTermSentAt` Swift-6-safe, sonst kein DMG.
+
+# Helios + Aegis — Analyse 2026-09-07 (1.5.183)
+
+Helios **1.5.183** (Build 202). Nur `main`. Repo privat.
+
+Taktikwechsel: Palme → Bildschirm direkt. Highpass/Coast/One-Euro/Overlay-Lerp tot. Die haben den Cursor zurückgezogen und das Skelett verspätet.
+
+# Helios + Aegis — Analyse 2026-09-07 (1.5.182)
+
+Helios **1.5.182** (Build 201). Aegis **2.1.183 alpha** (Build 208). Nur `main`. `bugfix` ist 1.5.8 — nichts mergen.
+
+1.5.181: Ghost-Knochen, Kalman-P, Peak-Assign. Overlay-Opacity sprang 1→0,50. HUD nur Actor-Ghost (S1). Aegis Peak ohne Remint-Map tot — Advance wischte tot-UUID.
+
+## Warum Overlay und Namen nach 1.5.181 weiter rissen
+
+1. **overlayLerpHands kopiert `to.isGhost`.** Opacity diskret. Continuity 8 fps: S2-Coast knallt 50 % Alpha, Knochen lerpen.
+2. **HUD Actor-Slot.** overlayGhostAny zählt S2, Statuschip nicht. Zwei-Pinzette 8 fps ohne Why.
+3. **Aegis leftoverHoldRemintMap leer.** Vision mintet UUID, x/Hash miss. PeakHeld bleibt alt. leftoverOverlayPeakAdvance `!live` wischt Ada. Overlay „?“ trotz Assign-Live.
+4. **leftoverOverlayPeakRemain nicht in remintKeys.** Peak-Remain-only Keys fehlten im Plan.
+5. Von `bugfix` (1.5.8 / 2.1.15) bewusst nicht gemergt: IOHID Event-Tap, AX SetPosition/Frame, Per-App-Gain, JSONL.
+
+## Was 1.5.182 / 2.1.183 ändert
+
+1. overlayGhostBlend + overlayLerpGhostBlend — Opacity 1→0,50 über dt. TrackedHand.ghostBlend.
+2. overlayGhostSlotChip HUD `S2 · ghost` / `S1+S2 · ghost`.
+3. Aegis leftoverOverlayPeakIoUAdopt unique IoU ≥ 0,40. leftoverOverlayPeakStoredBoxes Streak vor Kalman.
+4. leftoverOverlayPeakRemain in remintKeys.
+5. Tests + MARKETING 1.5.182 / 2.1.183 (Build 201 / 208). Schema 15 bleibt.
+
+`bugfix` mergen: nein.
+
+# Helios + Aegis — Analyse 2026-09-07 (1.5.181)
+
+Helios **1.5.181** (Build 200). Aegis **2.1.182 alpha** (Build 207). Nur `main`. `bugfix` ist 1.5.8 — nichts mergen.
+
+1.5.180: Lerp-Hitch, Reanchor-RMS, Overlay-Dt. Canvas `where !isGhost` fraß S2-Coast. Kalman-P = 0 auf Fill-Gap. Aegis leftoverMirrorPending kopierte Peak nicht.
+
+## Warum Overlay und Zeiger nach 1.5.180 weiter rissen
+
+1. **TrackingOverlay filtert Ghosts.** 1.5.174 overlayGhostAny + drawHand-Opacity saßen. Canvas und Labels `where !hand.isGhost` zeichneten S2-Coast nie. Continuity 8 fps: zweite Hand tot.
+2. **palmKalmanPX/Y = 0 auf Fill-Gap.** Display-Uhr reset't Kamera-P. Vel 0 ist richtig, P tot → nächster Fill fliegt.
+3. **Aegis leftoverMirrorPending** remintete leftoverNameLockHeld, nicht leftoverOverlayPeakHeld. Assign-Live → Peak auf alter UUID, Overlay „?“ Tick 1.
+4. Von `bugfix` bewusst nicht gemergt: IOHID Event-Tap, AX SetPosition/Frame, Per-App-Gain, JSONL.
+
+## Was 1.5.181 / 2.1.182 ändert
+
+1. overlayDrawsGhost — Canvas + Wrist-Chip Ghost.
+2. pointerKalmanResetsPOnGap false — Vel 0, P hält.
+3. Aegis leftoverAssignAtomic PeakHeld/Remain in leftoverMirrorPending.
+4. Tests + MARKETING 1.5.181 / 2.1.182 (Build 200 / 207). Schema 15 bleibt.
+
+`bugfix` mergen: nein.
+
+# Helios + Aegis — Analyse 2026-09-07 (1.5.180)
+
+Helios **1.5.180** (Build 199). Aegis **2.1.181 alpha** (Build 206). Nur `main`. `bugfix` ist 1.5.8 — nichts mergen.
+
+1.5.179: Overlay-Lerp an, Fill-Uhr Ghost, Reanchor-Split. Hub-Doppelframe snappt Lerp. Floor 0,05 freeze. Reanchor hart 8 px. Aegis Overlay „?“ nach Remint.
+
+## Warum es nach 1.5.179 weiter riss
+
+1. **Hub-Doppelframe 8–20 ms.** overlayLerpShould false → Tabellen leer, 8 fps Snap.
+2. **overlayLerpDt Floor 0,05.** t=1 nach 50 ms, Freeze 75 ms.
+3. **pointerReanchor 8 px hart.** 60 fps 5 px Drift bleibt, Studio snappt.
+4. **Aegis Remint-UUID.** Hist keep 1 vs Need 3 → 1–3 Frames „?“.
+
+## Was 1.5.180 / 2.1.181 ändert
+
+1. overlayLerpHitchKeeps Cap 2, From/To halten
+2. overlayLerpDtOf ohne Floor
+3. pointerReanchorRms(dt)
+4. leftoverOverlayPeak 3 Frames, PeakName Display
+5. Tests + MARKETING 1.5.180 / 2.1.181 (Build 199 / 206)
+
+`bugfix` mergen: nein.
+
+# Helios + Aegis — Analyse 2026-09-07 (1.5.179)
+
+Helios **1.5.179** (Build 198). Aegis **2.1.180 alpha** (Build 205). Nur `main`. `bugfix` ist 1.5.8 — nichts mergen.
+
+1.5.178: Fill-Gap Kamera-Rebase, MAD-Cap. OverlayLerp blieb false. Fill-Gap lastHandSeen ohne Ghost. Reanchor am displayTick. Aegis StoreName vor Gast, Held nach TTL tot.
+
+## Warum es nach 1.5.178 weiter riss
+
+1. **overlayLerpShould hart false.** Continuity 8 fps Skelett-Ruck. overlayLerpT clamp 1 — Lerp wieder sicher.
+2. **Fill-Gap lastHandSeen.** liveHandRefreshesDeadMan = !ghost. S1-Coast, lastHandSeen friert, Fill tot, Overlay ghostet.
+3. **pointerReanchor am displayTick und Fill.** NSEvent > 8 px zieht 90 Hz Fill zurück. Kamera-Tick darf reanchorn.
+4. **Aegis leftoverNameLockHeldSurvive emptyKeeps:false.** TTL → Held weg. StoreName braucht poseAt/Until. Hist keep 1 vs Need 3 → „?“.
+
+## Was 1.5.179 / 2.1.180 ändert
+
+1. overlayLerpShould 0,045…0,20
+2. lastFillSeen / obsFillSeesHand(ghost:true). Dead-Man bleibt !ghost
+3. pointerReanchorAppliesFill false an Fill + displayTick
+4. leftoverOverlayGuestOf sticky + Hist-Tail, leftoverNameLockHeldCoast
+5. Tests + MARKETING 1.5.179 / 2.1.180 (Build 198 / 205)
+
+`bugfix` mergen: nein.
+
+# Helios + Aegis — Analyse 2026-09-07 (1.5.174)
+
+Helios **1.5.174** (Build 193). Nur `main`. `bugfix` ist 1.5.8 — nichts mergen.
+
+1.5.173: S2 Hist+Coast. applyCoastGhost ghostete live S2. Overlay nur S1. Vision-Flip. spanW verworfen. Hung-live.
+
+## Warum Overlay nach 1.5.173 weiter riss
+
+1. **applyCoastGhost Rest = Ghost.** S1-Dropout tötet Zwei-Pinzette.
+2. **S2 ohne Vel/Ghost-Skelett.** lastS2Palm tot für Overlay.
+3. **overlayGhostPeakHold actorHandID.** S2 1 Frame.
+4. **Kein Chirality-Freeze.** S1↔S2 nach beiden gesehen.
+5. **obsLooksLikeHand `_ = spanW`.** Gitarre mit 16 Mini-Joints = Hand.
+6. **Faust 2-Frame Gate.** Click nach dem Falten.
+7. **Mutex live nie kill.** Aegis ¾R unsichtbar, Twin-Tie beide tot.
+
+## Was 1.5.174 ändert
+
+1. **palmCoastRestStaysLive.** Nur fehlendes Slot Ghost, mit Vel.
+2. **overlayGhostAny + S2 Chip ghost.**
+3. **palmChiralityFreeze 800 ms.**
+4. **palmSpanBandVeto** in obsLooksLikeHand.
+5. **fistFormingPreArm.** Hung-live 12 s.
+6. Tests + MARKETING 1.5.174 (Build 193). Aegis 2.1.176 Enroll/Twin-Tie.
+
+`bugfix` mergen: nein. IOHID/AX/CameraBroker bleiben Liste.
+
+# Helios + Aegis — Analyse 2026-09-07 (1.5.173)
+
+Helios **1.5.173** (Build 192). Nur `main`. `bugfix` ist 1.5.8 — nichts mergen.
+
+1.5.172: Live-Scale Bind, S2 Conf. S1-Hist veto'te S2. lastS2 nil nach 1 Miss. Keep 0,72 machte Gitarre 0,29 neben Palma zur Hand.
+
+## Warum Overlay nach 1.5.172 weiter riss
+
+1. **palmBindScaleClass(hist: lastS1ScaleRing) auf alle Obs.** S1 Compact 0,14, S2 0,29 → Hist-Veto Scale 1. Zweite Hand tot.
+2. **lastS2Palm nil nach 1 Miss.** S1 Coast 2–4 Ticks, S2 0. 8 fps Zwei-Pinzette tot.
+3. **Keep-Radius im Gitarrenband.** nearLast + keep:true = isHand(0,29). Gitarre neben Palma = S1.
+4. **obsLooksLikeHand nur isHand.** 16 Joints 0,31 = Prop. Dense-Hand zur Kamera nie S2.
+5. **S1∩S2 Pinch.** Hand-über-Hand Click ohne Mute.
+6. **Aegis ROI um alle Kalman.** Ada still im Crop, Twin-Print-Budget tot. Overlay ohne `still`.
+
+## Was 1.5.173 ändert
+
+1. **palmBindScaleHistOf.** S2 eigener Ring. Unbound leer.
+2. **s2MissTicks / palmCoastKeepsS2.** lastS2 hält 2–4 Ticks.
+3. **palmScaleIsHand keep ohne Band.** Approaching (steigend < 0,12) = Hand. Sprung = Gitarre.
+4. **palmScaleRanksHand.** 16 Joints im Band = Hand, 6 = Prop. Compact vor Joint-Group.
+5. **palmPinchMuteOverlap.** driveGrab `kein Klick — S1∩S2`. Scale davor.
+6. **palmScaleClassChip.** HUD `S1 0.14` / `S1 Gitarre`.
+7. Tests + MARKETING 1.5.173 (Build 192). Aegis 2.1.175 Skip-HUD + ROI.
+
+`bugfix` mergen: nein. IOHID/AX/CameraBroker bleiben Liste.
+
+# Helios + Aegis — Analyse 2026-09-07 (1.5.172)
+
+Helios **1.5.172** (Build 191). Nur `main`. `bugfix` ist 1.5.8 — nichts mergen.
+
+1.5.171: isHand-Band 0,28/0,40. Keep nur lastS1. `palmBindScaleOf` mischte trotzdem lastS1 0,14 in Gitarre 0,29 → 0,21 = isHand. Compact-Tie, Conf 0,95. S2-Dip las lastS1Conf.
+
+## Warum Overlay nach 1.5.171 weiter Gitarre nahm
+
+1. **palmBindScaleOf auf alle Observations.** ticks≥3: 0,45×0,29+0,55×0,14 = 0,21. isHand-Band 0,28 tot. Compact beide < 0,28, Conf 0,95 = S1 Prop.
+2. **obsLooksLikeHand(scaleLive EMA).** Zweiter Loop dieselbe Mischung. Guitar-Hist-Veto nur bei med < 0,22 — Tick 0 Ring leer.
+3. **S2 Conf-Dip = lastS1.** 1-Frame Dip der zweiten Hand `continue`. Zwei-Hand-Pinzette tot.
+4. **Aegis printBudget min(stillFor) / max(|yaw|).** Twin bewegt → Ada druckt mit. leftoverPrintYawMerge kopierte Ada-Yaw, Δ 0, Skip bleibt global tot.
+
+## Was 1.5.172 ändert
+
+1. **palmBindScaleClass / Live-Scale.** Bind und looksLikeHand auf scLive. EMA nur lastS1 Overlay.
+2. **palmSlotConfPrev / KeepNear / lastS2.** S2 Dip hält. Keep S2 ohne S1-Hist.
+3. Tests + MARKETING 1.5.172 (Build 191). Aegis 2.1.174 Print je Gesicht.
+
+`bugfix` mergen: nein. IOHID/AX/CameraBroker bleiben Liste.
+
+# Helios + Aegis — Analyse 2026-09-07 (1.5.171)
+
+Helios **1.5.171** (Build 190). Nur `main`. `bugfix` ist 1.5.8 — nichts mergen.
+
+1.5.170: Compact vor Conf. `palmHandScaleMax` blieb 0,72 — Gitarre 0,29 war weiter `palmScaleIsHand`. Keep global auf alle Blobs.
+
+## Was 1.5.171 ändert
+
+1. **palmHandScaleMax 0,28 / Close 0,40 / KeepMax 0,72.** Neu-Alloc: Desk oder Nah. Band 0,28…0,40 = Prop. Keep nur lastS1.
+2. **palmSlotNearLast / palmSlotBindConf.** Keep und Conf-EMA nur am Incumbent.
+3. Compact, MedianRecords, Guitar-Hist, Conf-Dip aus 1.5.170 bleiben.
+4. Tests + MARKETING 1.5.171 (Build 190). Aegis 2.1.173.
+
+`bugfix` mergen: nein.
+
+# Helios + Aegis — Analyse 2026-09-07 (1.5.170)
+
+
+Helios **1.5.170** (Build 189). Nur `main`. `bugfix` ist 1.5.8 — nichts mergen.
+
+1.5.169: Hist-Prior vor Conf. Ohne Hist gewann Gitarre Conf 0,95. Guitar-Hist (S1 0,29) ließ Compact-Prior 1 = 1, Conf wieder Gitarre. leftoverFaceTrackKalmanPredict unverdrahtet. printBudget ohne Still.
+
+## Warum Overlay nach 1.5.169 weiter Gitarre nahm
+
+1. **palmBindHandsFirst Conf ohne Compact.** 0,29 und 0,14 sind beide palmScaleIsHand (< 0,72). Tick 0, Ring leer: Conf 0,95 = S1 Prop.
+2. **Hist-Prior bei Guitar-Median.** med 0,29, jump 0 → Prior 1 für Gitarre und Hand. Compact erholt S1 nicht.
+3. **lastS1ScaleRing nahm 0,29.** Sobald Gitarre S1 war, Ring = Guitar-Cluster. Veto tot, Prior tot.
+4. **1-Frame Conf-Dip.** minConf skippt S1, Bind mintet Gitarre.
+
+## Was 1.5.170 ändert
+
+1. **palmBindCompactPrefers** vor Conf. Compact < 0,28 vor Gitarre-Range, auch ohne Hist.
+2. **palmScaleHistPrior Guitar-Hist.** med ≥ 0,28 → Compact 1, Gitarre 0.
+3. **palmScaleMedianRecords** — 0,29 nicht in den Ring.
+4. **palmSlotConfHolds** — 1-Frame Dip hält S1.
+5. Tests + MARKETING 1.5.170 (Build 189). Aegis 2.1.172 stillFor/Kalman-Predict/Coast-Stamp/??.
+
+`bugfix` mergen: nein. IOHID/AX/Per-App-Gain/JSONL bleiben Liste.
+
+# Helios + Aegis — Analyse 2026-09-06 (1.5.167)
+
+
+Helios **1.5.167** (Build 186). Nur `main`. Repo privat. `bugfix` ist 1.5.8 — nichts mergen.
+
+1.5.166: Hist-Veto Live. Mutex-Read kill't tote PIDs, WRITE unter LOCK_EX nicht. Aegis 12 s tot nach Helios-Crash.
+
+## Was 1.5.167 ändert
+
+1. **cameraMutexWriteAllowed / LockedLine(pidLive:).** CameraSession kill(2) vor LOCK_EX-Write. Toter Holder → Lock frei.
+2. Tests + MARKETING 1.5.167 (Build 186). Aegis 2.1.169 Remint-Lookup.
+
+`bugfix` mergen: nein.
+
+# Helios + Aegis — Analyse 2026-09-06 (1.5.166)
+
+
+Helios **1.5.166** (Build 185). Nur `main`. Repo privat. `bugfix` ist 1.5.8 — nichts mergen.
+
+1.5.165: Bind-Conf. Gitarre 0,29 vs Hand-Cluster 0,14 — Conf-Tie, kein Hist-Veto. Bind-EMA 0,21 unter Scale-Max 0,72.
+
+## Warum Overlay nach 1.5.165 weiter Gitarre nahm
+
+1. **palmBindScaleOf EMA.** 0,45×0,29+0,55×0,14 = 0,21. Scale-Max 0,72 = Hand. Conf-Tie sitzt, Sprung nicht.
+2. **Aegis printBudget |yaw|.** Langsame Drehung 5° skippt Print. leftoverHold-Zahl vom Frontal-Tick tauft Twin.
+3. **Coast ohne Vec.** skipPrints + livePrintEmpty = leftoverHold 0,85, nicht Cache-Cosine.
+
+## Was 1.5.166 ändert
+
+1. **palmScaleHistVeto auf Live-Scale.** Enges Cluster + Sprung ≥ 0,12 über 0,28 = Prop. EMA-Bound tot.
+2. Tests + MARKETING 1.5.166 (Build 185). Aegis 2.1.168 Coast-Vec + Print-Yaw-Δ.
+
+`bugfix` mergen: nein.
+
+# Helios + Aegis — Analyse 2026-09-06 (1.5.165)
+
+Helios **1.5.165** (Build 184). Nur `main`. Repo privat. `bugfix` ist 1.5.8 — nichts mergen.
+
+1.5.164: expected-gen CAS, ClaimChip. Aegis FaceTrack remintete Hold, nicht Name-Hist/Print-Trail. Overlay Gast nach UUID-Remint. Bind Observation-Order.
+
+## Was 1.5.165 ändert
+
+1. **palmBindHandsFirst(confs:).** Höhere Vision-Conf vor Observation-Order. Gitarre/Zweite Hand stiehlt S1 nicht mehr nur weil Vision sie zuerst liefert.
+2. Tests + MARKETING 1.5.165 (Build 184). Aegis 2.1.167 remintet Live-Skalare + Arrays.
+
+`bugfix` mergen: nein.
+
+# Helios + Aegis — Analyse 2026-09-06 (1.5.164)
+
+Helios **1.5.164** (Build 183). Nur `main`. Repo privat. `bugfix` ist 1.5.8 — nichts mergen.
+
+1.5.163: ClaimBackoff. LockedLine bumpte Gen ohne SH-Read-Abgleich. HUD ohne Fail-Count.
+
+## Was 1.5.164 ändert
+
+1. **cameraMutexCasAllows / expectedGen.** Aegis mismatch tot, Helios Vorrang.
+2. **cameraMutexClaimChip.** `helios · 1nb` / `backoff` im HUD.
+3. Tests + MARKETING 1.5.164 (Build 183).
+
+`bugfix` mergen: nein.
+
+# Helios + Aegis — Analyse 2026-09-06 (1.5.163)
+
+Helios **1.5.163** (Build 182). Nur `main`. Repo privat. `bugfix` ist 1.5.8 — nichts mergen.
+
+1.5.162: ClaimDue 80 ms, fsync, Yield-Pref. LOCK_NB-Fail retried alle 80 ms.
+
+## Was 1.5.163 ändert
+
+1. **cameraMutexClaimBackoffFails 3 / ClaimBackoffDt 400 ms.** SkipClaim busy und Write-Fail zählen.
+2. Tests + MARKETING 1.5.163 (Build 182).
+
+`bugfix` mergen: nein.
+
+# Helios + Aegis — Analyse 2026-09-06 (1.5.159)
+
+Helios **1.5.159** (Build 178). Nur `main`. Repo privat.
+
+Kalib speichert Reichweite, nicht Cursor-an-Ecke. Pinzette zur Kamera. Leiste oben aus per Default. Cursor folgt ohne DidMove-Gate.
+
+# Helios + Aegis — Analyse 2026-09-06 (1.5.158)
+
+Helios **1.5.158** (Build 177). Nur `main`. Repo privat. `bugfix` ist 1.5.8 — nichts mergen.
+
+1.5.157: Cursor warpt, Hand reicht zum Scharf. Mutex weiter in `/tmp` ohne flock. Aegis-Yield klebte ewig und ließ die Continuity-Session laufen — 8 fps, zwei Prozesse, eine Kamera.
+
+## Warum Kamera und Overlay nach 1.5.157 weiter rissen
+
+1. **Lock in `/tmp`, Write ohne flock.** `atomically: true` ist Rename, kein Exclusive. Zwei Claims lesen „frei“ und schreiben beide. tmp-Cleaner / Reboot löscht den Stamp, Aegis glaubt die Cam sei frei.
+2. **Yield klebt.** `YieldsNow = wasYielded || Helios`. Einmal gewichen, nie zurück. Heartbeat stoppt, Session bleibt auf Continuity.
+3. **Kein Dual-Read.** Helios und Aegis mussten dieselbe tmp-Datei treffen. Ein veralteter Partner sieht nichts.
+4. README hing bei **1.5.152** während Binary 1.5.157 war.
+
+## Was 1.5.158 ändert
+
+1. **Caches + Dual-Read/Write.** `~/Library/Caches/HeliosAegis/helios.aegis.camera.lock`, Legacy `/tmp` weiter gelesen und geschrieben.
+2. **fcntl flock LOCK_EX** vor dem Write. Torn Rename tot.
+3. **YieldsNow** löst wenn Holder Aegis ist. `YieldReconfigure` (Aegis 2.1.161) legt die Session auf Built-in um.
+4. README / ANALYSE / Vorschläge = MARKETING 1.5.158 (Build 177).
+
+`bugfix` mergen: nein. CameraBroker-XPC, Overlay-Metal, Body-Pose-Veto bleiben Liste.
+
+# Helios + Aegis — Analyse 2026-09-06 (1.5.157)
+
+Helios **1.5.157** (Build 176). Nur `main`. Repo privat.
+
+Cursor tot weil: Engine droppt <8 Joints, Faust-Pose kein Warp, DisplayLink skippt Vision, Arm nur nach Öffnen+Faust. Jetzt: 4 Joints reichen, jede Hand scharf nach 0,55 s, Vision warpt immer, Faust bewegt den Zeiger.
+
+# Helios + Aegis — Analyse 2026-09-06 (1.5.156)
+
+Helios **1.5.156** (Build 175). Nur `main`. Repo privat.
+
+Cursor-Clutch und Conf-Freeze 0,30 hielten den Zeiger. Close-Hand Scale-Cap 0,28 war tot. Einstellungen hinter Feinheiten, Panel scrollt. Hover = Pinzetten-Vorschau, kein extra Modus.
+
+# Helios + Aegis — Analyse 2026-09-06 (1.5.155)
+
+Helios **1.5.155** (Build 174). Nur `main`. Repo privat.
+
+Vollbild-Skelett war ROI-Overlay (Gelenke im Crop aufs Preview). Span-/Gitarren-Veto ist tot. Faust nah an der Kamera nicht mehr als Blob.
+
+# Helios + Aegis — Analyse 2026-09-06 (1.5.154)
+
+Helios **1.5.154** (Build 173). Nur `main`. Repo privat.
+
+Faust und flache 90°-Kante starben an Fingerkette, MCP-Fächer, Tip-Conf 0,40 und Revision1. Overlay-Gitarre bleibt am großen Span. Latest Vision-Revision.
+
+# Helios + Aegis — Analyse 2026-09-06 (1.5.153)
+
+Helios **1.5.153** (Build 172). Nur `main`. Repo privat. `bugfix` ist 1.5.8 — nichts mergen.
+
+Ghost 4 s, DIP-Kalman-Freeze, Overlay-Lerp und Pointer-Latch 4 s waren die Restursache für Pose in der Luft. Overlay nur Live. Ghost 100 ms. Built-in 30–60 fps. Mutex aus 1.5.152 bleibt.
+
+# Helios + Aegis — Analyse 2026-09-06 (1.5.152)
+
+Helios **1.5.152** (Build 171). Nur `main`. Repo privat. `bugfix` ist 1.5.8 — nichts mergen.
+
+1.5.151: 60 fps, Overlay-Snap t>1, One-Euro 14. Mutex `Int(now)` Sekundenraster. PID in der Lockzeile ungenutzt. Crash = 12 s toter Lock. Aegis-Heartbeat überschreibt Helios alle 2 s — Continuity hoppt.
+
+## Warum Overlay, Cursor und Kamera nach 1.5.151 weiter rissen
+
+1. **Mutex-Stamp `Int(now)`.** Claim 12,9 / Parse 13,0 zählt als 1 s. Heartbeat und Stale lügen um bis zu 999 ms.
+2. **PID tot.** Zeile schreibt pid, Parse liest ihn nicht. Helios-Crash hält Aegis 12 s vom Lock.
+3. **Aegis-Heartbeat ohne Claim-Gate.** Helios startet, schreibt Lock, Aegis Timer schreibt alle 2 s zurück. Zwei Sessions, 8 fps, TCC.
+4. **Yield nur beim Configure.** Helios nach Aegis: Aegis bleibt auf Continuity und kämpft.
+
+## Was 1.5.152 ändert
+
+1. **cameraMutexLine %.3f.** Millisekunden, alte Sekunden-Zeilen bleiben lesbar.
+2. **cameraMutexPid / Parse pidLive.** Toter PID = Lock frei. CameraSession `kill(pid,0)`.
+3. **cameraMutexClaimWrites.** Helios Vorrang. Aegis schreibt nie über Helios.
+4. **cameraMutexYieldsNow.** Aegis-Heartbeat liest neu, weicht live, stoppt den Timer.
+5. Tests + MARKETING_VERSION 1.5.152 (Build 171).
+
+Aegis 2.1.160: Claim-Gate, HungarianX n>8 Greedy+2-opt, Detect-Skip. Siehe `lolalpha00gamma/aegis-scanner`.
+
+`bugfix` mergen: nein. Nur `main`. Frame-Pump XPC und flock bleiben auf der Liste.
+
+# Helios + Aegis — Analyse 2026-09-06 (1.5.151)
+
+Helios **1.5.151** (Build 170). Nur `main`. Repo privat.
+
+Latenz: Built-in 60 fps statt Kappe 30. Overlay-Lerp nur unter 22 fps, t>1 snap (kein Extrapolate in die Luft). One-Euro Cutoff 14 bei 8 fps. Display-Coast 100 ms statt 350.
+
+# Helios + Aegis — Analyse 2026-09-06 (1.5.150)
+
+Helios **1.5.150** (Build 169). Nur `main`. Repo privat. `bugfix` ist 1.5.8 — nichts mergen.
+
+1.5.149: DisplayPulse je Screen, Cursor-Gate auf den **ganzen** Tick, Geometry 32 Frames, Vision trotzdem `.up`. FrameSink warf `videoRotationAngle` weg. Clamshell/5K ließ tote Links stehen.
+
+## Warum Overlay und Cursor nach 1.5.149 weiter rissen
+
+1. **Cursor-Gate fraß Overlay-Lerp.** Pulse vom anderen Schirm `return` vor Debounce. HUD auf dem 5K fror zwischen 8-fps-Frames. Warp lief auf dem Quellschirm-vsync.
+2. **Kein Layout-Rearm.** `didChangeScreenParameters` nur `pollFocus`. Klappe zu / 5K an: CADisplayLink auf totem Panel, neuer Schirm ohne Link.
+3. **FrameSink ohne Winkel.** `visionBufferOrientation(..., rotationApplied: false)` ist immer `.up`. Continuity 90° = 90°-Palm. Geometry-Reassert setzt Connection 0°, liest den Live-Winkel nicht.
+
+## Was 1.5.150 ändert
+
+1. **displayLinkIsDest.** Warp nur Zielschirm. Overlay-Lerp läuft trotzdem.
+2. **displayLinkLayoutToken.** Rearm bei Clamshell/5K.
+3. **visionOrientationLive.** FrameSink gibt `connection.videoRotationAngle` weiter. Applied → up, sonst Tag 0/90/180/270.
+4. Tests + MARKETING_VERSION 1.5.150 (Build 169).
+
+Aegis 2.1.159: HungarianX Print-Cost, Spark Hash persist. Siehe `lolalpha00gamma/aegis-scanner`.
+
+`bugfix` mergen: nein. Nur `main`. Frame-Pump XPC und IOHID bleiben auf der Liste.
+
+# Helios + Aegis — Analyse 2026-09-06 (1.5.149)
+
+Helios **1.5.149** (Build 168). Nur `main`. Repo privat. `bugfix` ist 1.5.8 — nichts mergen.
+
+1.5.147/148: Smooth dt, Span max-Paar, DisplayPulse `NSScreen.displayLink` auf **main**. Studio 60 + Laptop 120 ein Link. Gitarre-Hals passiert Span/Conf/Kette. 20× Remint in Aegis divergiert. Helios+Aegis reißen Continuity.
+
+## Warum Overlay und Cursor nach 1.5.148 weiter rissen
+
+1. **DisplayPulse = NSScreen.main.** Hz war max(screens), der Link saß auf main. Laptop 120 treibt Studio-Overlay. vsync drift, Seam-Stutter.
+2. **Kein MCP-Fächer-Veto.** Gitarrenhals ist kollinear. Fingerkette und Span lassen eine Linie mit 4 MCP durch. S1 = Prop.
+3. **Bind-Scale roh.** Gitarre 0,29 / Hand 0,14 flackert jeden Tick. lastS1Scale ungenutzt vor Bind.
+4. **Kamera ohne Mutex.** Helios und Aegis starten Continuity parallel — 8 fps, TCC-Dialog, Format-Hop.
+5. **Capture-Geometrie einmal.** Klappe/Continuity dreht den Buffer, Vision bleibt .up.
+
+## Was 1.5.149 ändert
+
+1. **DisplayPulse je NSScreen** + `displayLinkDebounce` 4 ms + **Cursor-Screen-Gate**. Fill nur der Schirm unter der Maus — Laptop 120 feuert nicht den Studio-Tick.
+2. **palmMCPFanDeg / palmMCPCollinearVeto 18°.** Gitarre-Hals tot, Close-Hand hält. `obsLooksLikeHand fanOk`.
+3. **palmBindScaleOf** EMA 3 Ticks auf lastS1. Gitarre-Flicker bleibt Hand-Band.
+4. **cameraMutex** Datei `helios.aegis.camera.lock`. Heartbeat alle 8 Frames, Stale 12 s (3 s war tot auf Continuity 8 fps). Helios claimed, Aegis weicht auf Built-in.
+5. **applyCaptureGeometry alle 32 Frames.** Lid/Continuity ohne KVO-Crash.
+6. **HUD Chirality `← L` / `R →`** (`bugfix` Pfeil, nicht mergen).
+7. Tests + MARKETING_VERSION 1.5.149 (Build 168).
+
+Aegis 2.1.158: Remint-Plan einmal, Spark Hash-Persist, Quality-Produkt, Continuity-Taufe 0,76, Unsure-Chip verdrahtet, Mutex-Heartbeat. Siehe `lolalpha00gamma/aegis-scanner`.
+
+`bugfix` mergen: nein. Nur `main`. Zwei echte DisplayLinks sitzen. Frame-Pump XPC bleibt auf der Liste.
+
 # Helios + Aegis — Analyse 2026-09-06 (1.5.148)
 
 Helios **1.5.148** (Build 167). Nur `main`. Repo privat.

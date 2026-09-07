@@ -2134,7 +2134,7 @@ enum GestureMath {
         return obsFingerChainOk(wrist: wrist, mcps: pairedM, tips: pairedT, need: need)
     }
 
-    /// ROI-Overlay war der Vollbild-Skelett-Bug, kein Gitarren-Blob. Nur Gelenkzahl + Scale.
+    /// Vision hat eine Hand erkannt. Scale/Span-Veto warf Faust und Kante weg.
     static func obsLooksLikeHand(
         spanW: CGFloat,
         spanH: CGFloat,
@@ -2146,13 +2146,8 @@ enum GestureMath {
         fanOk: Bool = true,
         approaching: Bool = false
     ) -> Bool {
-        _ = (chainOk, fanOk)
-        if jointCount < 4 { return false }
-        if jointCount < 5 && !sparse { return false }
-        if !palmScaleRanksHand(palmScale, count: jointCount, keep: keep, approaching: approaching) { return false }
-        let span = max(spanW, spanH)
-        if palmSpanBandVeto(scale: palmScale, span: span) { return false }
-        return true
+        _ = (spanW, spanH, palmScale, keep, sparse, chainOk, fanOk, approaching)
+        return jointCount >= 3
     }
 
     /// 0,22 war Flick. Continuity 8 fps 20 cm = Overlay-Snap jede Geste.
@@ -2575,9 +2570,8 @@ enum GestureMath {
         hasDIP: Bool,
         floor: Float = pinchOcclusionFloor
     ) -> Bool {
-        guard hasDIP else { return false }
-        guard let tipConf else { return true }
-        return tipConf < floor
+        _ = (tipConf, hasDIP, floor)
+        return false
     }
 
     /// Letzter echter Tip vor DIP — DIP als Fake-Tip drückt Pinch-Ratio.
@@ -3272,7 +3266,7 @@ enum GestureMath {
     static func overlayLerpHitchChip(keep: Bool) -> String? { keep ? "LERP hitch" : nil }
 
     /// S2-Coast-Knochen. Canvas `where !isGhost` fraß 1.5.174 overlayGhostAny.
-    static func overlayDrawsGhost() -> Bool { true }
+    static func overlayDrawsGhost() -> Bool { false }
 
     /// Fill-Gap ist Display-Uhr, P sitzt auf Kamera-Uhr. Reset → nächster Fill fliegt.
     static func pointerKalmanResetsPOnGap() -> Bool { false }
@@ -3579,7 +3573,8 @@ enum GestureMath {
     }
 
     static func palmCoastEmitsGhost(live: Bool, miss: Int, need: Int) -> Bool {
-        !live && palmCoastKeepsS1(miss: miss, need: need)
+        _ = (live, miss, need)
+        return false
     }
 
     /// S1+S2 gelockt. Vision-Flip 8 fps sonst S1↔S2.
@@ -5191,7 +5186,8 @@ enum GestureMath {
     }
 
     static func jointConfRestores(holds: Bool, isTip: Bool) -> Bool {
-        holds && !isTip
+        _ = (holds, isTip)
+        return false
     }
 
     /// 0° Capture: Pixel stehen. height>width nicht .right — sonst 90° Palm nach Format-Hop.

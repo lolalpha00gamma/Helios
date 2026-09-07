@@ -547,7 +547,7 @@ final class HandTracker: @unchecked Sendable {
             if !GestureMath.obsJointConfOk(wrist: wristC, mcps: mcpCs, tips: tipCs, sparse: sparse) {
                 continue
             }
-            if raw.count < 5, !sparse { continue }
+            if raw.count < 3 { continue }
 
             var chirality = obs.chirality
             if chirality == .unknown {

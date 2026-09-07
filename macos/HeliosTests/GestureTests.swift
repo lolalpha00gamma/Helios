@@ -1177,9 +1177,9 @@ enum GestureTests {
         ok(okStep.x == 40, "Warp < 80 px folgen")
         ok(GestureMath.cursorWarpHeld(from: .zero, to: CGPoint(x: 81, y: 0)), "81 px Warp")
         ok(!GestureMath.cursorWarpHeld(from: .zero, to: CGPoint(x: 40, y: 0)), "40 px kein Warp")
-        ok(GestureMath.fingerOcclusionHoldsDIP(tipConf: nil, hasDIP: true), "Tip fehlt, DIP da")
-        ok(GestureMath.fingerOcclusionHoldsDIP(tipConf: 0.05, hasDIP: true), "Tip tot, DIP da")
-        ok(GestureMath.fingerOcclusionHoldsDIP(tipConf: 0.22, hasDIP: true), "Phantom-Tip 0,22 → DIP")
+        ok(!GestureMath.fingerOcclusionHoldsDIP(tipConf: nil, hasDIP: true), "DIP-Fake tot")
+        ok(!GestureMath.fingerOcclusionHoldsDIP(tipConf: 0.05, hasDIP: true), "DIP-Fake tot")
+        ok(!GestureMath.fingerOcclusionHoldsDIP(tipConf: 0.22, hasDIP: true), "DIP-Fake tot")
         ok(!GestureMath.fingerOcclusionHoldsDIP(tipConf: 0.9, hasDIP: true), "Tip ok")
         ok(!GestureMath.fingerOcclusionHoldsDIP(tipConf: nil, hasDIP: false), "ohne DIP kein Hold")
         ok(GestureMath.fingerOcclusionUsesLastTip(lastTip: CGPoint(x: 0.44, y: 0.80)), "letzter Tip vor DIP")
@@ -2153,7 +2153,7 @@ enum GestureTests {
         ok(GestureMath.jointConfIsTip("indexTip"), "indexTip ist Tip")
         ok(!GestureMath.jointConfIsTip("wrist"), "wrist kein Tip")
         ok(!GestureMath.jointConfRestores(holds: true, isTip: true), "Tip nicht restore")
-        ok(GestureMath.jointConfRestores(holds: true, isTip: false), "Palm restore")
+        ok(!GestureMath.jointConfRestores(holds: true, isTip: false), "Palm restore tot")
         ok(!GestureMath.jointConfRestores(holds: false, isTip: false), "ohne Hold kein Restore")
         ok(!GestureMath.continuityIsUSB("USB-WiFi-Bridge", localizedName: "Wi-Fi"), "Wi-Fi schlägt USB-String")
         ok(GestureMath.continuityIsUSB("USB-WiFi-Bridge", transportUSB: true, localizedName: "Wi-Fi"), "transportUSB schlägt Wi-Fi")
@@ -2642,8 +2642,8 @@ enum GestureTests {
         let guitarSpan = GestureMath.obsJointSpan(guitar)
         ok(guitarSpan.w > 0.80 && guitarSpan.h > 0.70, "Gitarre spannt Preview")
         ok(
-            !GestureMath.obsLooksLikeHand(spanW: guitarSpan.w, spanH: guitarSpan.h, palmScale: 0.90, jointCount: 21),
-            "Scale 0,90 keine Hand"
+            GestureMath.obsLooksLikeHand(spanW: guitarSpan.w, spanH: guitarSpan.h, palmScale: 0.90, jointCount: 21),
+            "Vision-Hand bleibt Hand"
         )
         let palmSpan = GestureMath.obsJointSpan([
             CGPoint(x: 0.62, y: 0.10), CGPoint(x: 0.70, y: 0.12),
@@ -2673,8 +2673,8 @@ enum GestureTests {
             "Sparse 8 fps Hand"
         )
         ok(
-            !GestureMath.obsLooksLikeHand(spanW: 0.20, spanH: 0.20, palmScale: 0.14, jointCount: 4),
-            "4 Gelenke tot"
+            GestureMath.obsLooksLikeHand(spanW: 0.20, spanH: 0.20, palmScale: 0.14, jointCount: 4),
+            "4 Gelenke halten"
         )
         ok(
             GestureMath.obsSmoothResets(
@@ -3736,16 +3736,16 @@ enum GestureTests {
             "LooksLike Dense im Band"
         )
         ok(
-            !GestureMath.obsLooksLikeHand(
+            GestureMath.obsLooksLikeHand(
                 spanW: 0.20, spanH: 0.20, palmScale: 0.31, jointCount: 6
             ),
-            "LooksLike Sparse im Band tot"
+            "LooksLike Sparse hält"
         )
         ok(GestureMath.overlayChipTone("S1 Gitarre") == 1, "Gitarre Chip Danger")
         ok(GestureMath.overlayChipTone("S1 0.14") == 2, "Scale Chip Cyan")
         ok(GestureMath.palmCoastRestStaysLive(id: "S2", coasting: "S1"), "S1-Coast S2 live")
         ok(!GestureMath.palmCoastRestStaysLive(id: "S1", coasting: "S1"), "Coast Slot tot")
-        ok(GestureMath.palmCoastEmitsGhost(live: false, miss: 1, need: 2), "S2 Ghost 1 Tick")
+        ok(!GestureMath.palmCoastEmitsGhost(live: false, miss: 1, need: 2), "Coast Ghost tot")
         ok(!GestureMath.palmCoastEmitsGhost(live: true, miss: 0, need: 2), "Live kein Ghost")
         ok(GestureMath.overlayGhostAny(slots: [("S1", false), ("S2", true)]), "Ghost Any S2")
         ok(!GestureMath.overlayGhostAny(slots: [("S1", false), ("S2", false)]), "Ghost Any tot")
@@ -3762,10 +3762,10 @@ enum GestureTests {
         ok(!GestureMath.palmSpanBandIsHand(scale: 0.31, span: 0.04, count: 16), "Dense Mini-Span Prop")
         ok(GestureMath.palmSpanBandIsHand(scale: 0.31, span: 0.12, count: 16), "Dense Span Hand")
         ok(
-            !GestureMath.obsLooksLikeHand(
+            GestureMath.obsLooksLikeHand(
                 spanW: 0.04, spanH: 0.04, palmScale: 0.31, jointCount: 16
             ),
-            "LooksLike Mini-Span tot"
+            "LooksLike Mini-Span hält"
         )
         ok(GestureMath.fistFormingPreArm(prevOpen: 4, liveOpen: 2), "Pre-Arm 4→2")
         ok(!GestureMath.fistFormingPreArm(prevOpen: 4, liveOpen: 3), "Pre-Arm 1 Finger tot")
@@ -3898,7 +3898,7 @@ enum GestureTests {
         ok(GestureMath.overlayLerpHitchChip(keep: false) == nil, "LERP hitch tot")
         ok(GestureMath.overlayChipTone("LERP hitch") == 2, "LERP Tone cyan")
         ok(GestureMath.overlayChipTone("REAN 8") == 2, "REAN Tone cyan")
-        ok(GestureMath.overlayDrawsGhost(), "Ghost-Knochen im Overlay")
+        ok(!GestureMath.overlayDrawsGhost(), "Ghost-Knochen tot")
         ok(!GestureMath.pointerKalmanResetsPOnGap(), "Fill-Gap hält Kalman-P")
         ok(abs(GestureMath.overlayGhostBlend(ghost: false, remaining: 0) - 1) < 1e-9, "Blend live 1")
         ok(abs(GestureMath.overlayGhostBlend(ghost: true, remaining: 0) - 0.50) < 1e-9, "Blend Coast 0,50")

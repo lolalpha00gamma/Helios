@@ -106,7 +106,7 @@ struct TrackingOverlay: View {
             let size = geo.size
             ZStack {
                 Canvas { ctx, canvasSize in
-                    for hand in hands where GestureMath.overlayDrawsGhost() || !hand.isGhost {
+                    for hand in hands where !hand.isGhost {
                         drawHand(hand, in: &ctx, size: canvasSize)
                     }
                 }

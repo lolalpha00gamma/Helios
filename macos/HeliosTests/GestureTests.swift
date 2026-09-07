@@ -2774,10 +2774,10 @@ enum GestureTests {
             "40 px Overlap Pad 5K 64"
         )
         ok(GestureMath.slotAllocMinID(0.12) == 1, "Hand mintet S1")
-        ok(GestureMath.slotAllocMinID(0.42) == 2, "Prop mintet S2")
-        ok(GestureMath.slotBindSkipsProp(slotID: 1, scale: 0.42), "Prop stiehlt S1 nicht")
+        ok(GestureMath.slotAllocMinID(0.42) == 1, "Nah-Hand mintet S1")
+        ok(!GestureMath.slotBindSkipsProp(slotID: 1, scale: 0.42), "Nah-Hand darf S1")
         ok(!GestureMath.slotBindSkipsProp(slotID: 1, scale: 0.12), "Hand darf S1")
-        ok(!GestureMath.slotBindSkipsProp(slotID: 2, scale: 0.42), "Prop darf S2")
+        ok(!GestureMath.slotBindSkipsProp(slotID: 2, scale: 0.42), "Nah darf S2")
         ok(GestureMath.pointerKeepPrefersHand(["S2", "S1"]) == "S1", "Pool S1 vor Observation-first")
         ok(GestureMath.pointerKeepInPool(keepID: nil, poolIDs: ["S2", "S1"]) == "S1", "ohne Keep S1")
         ok(GestureMath.pointerKeepInPool(keepID: "S2", poolIDs: ["S2", "S1"]) == "S2", "Keep bleibt")
@@ -2796,10 +2796,10 @@ enum GestureTests {
             ) == fatStudio,
             "ScreenAt Hold nach Cross 5K"
         )
-        ok(GestureMath.palmScaleIsHand(0.29), "0,29 Close-Hand")
+        ok(!GestureMath.palmScaleIsHand(0.29), "0,29 Gitarre nicht Hand")
         ok(GestureMath.palmScaleIsHand(0.29, keep: true), "0,29 Keep Hand")
         ok(!GestureMath.palmScaleIsHand(0.85, keep: true), "0,85 Keep tot")
-        ok(GestureMath.slotAllocMinID(0.29) == 1, "neu 0,29 Hand S1")
+        ok(GestureMath.slotAllocMinID(0.29) == 2, "neu 0,29 Prop S2")
         ok(GestureMath.slotAllocMinID(0.29, keep: true) == 1, "Keep 0,29 mintet S1")
         ok(GestureMath.slotAllocMinID(0.90) == 2, "0,90 Prop bleibt S2")
         ok(!GestureMath.slotBindSkipsProp(slotID: 1, scale: 0.29), "Keep-Hand darf S1")
@@ -3011,8 +3011,9 @@ enum GestureTests {
         ok(!GestureMath.displayLinkPulseAlive(lastPulse: 1.00, now: 1.12), "Pulse 120 ms tot")
         ok(GestureMath.displayLinkPulseStale(false), "Pulse Stale")
         let kHand = GestureMath.palmScaleKalman(prev: 0.27, live: 0.40)
-        ok(kHand < GestureMath.palmHandScaleMax, "Kalman Hand nicht Prop")
-        ok(GestureMath.palmScaleIsHand(kHand, keep: false), "Kalman Clamp unter 0,28")
+        ok(kHand < GestureMath.palmHandScaleKeepMax, "Kalman nicht Body")
+        ok(GestureMath.palmScaleIsHand(kHand, keep: true), "Kalman Keep Hand")
+        ok(!GestureMath.palmScaleIsHand(kHand, keep: false), "Kalman 0,29 ohne Keep Prop")
         ok(GestureMath.warpWriter(linkArmed: GestureMath.displayLinkPulseAlive(lastPulse: 0, now: 1)) == .vision, "Pulse tot VISION")
         ok(GestureMath.warpWriter(linkArmed: GestureMath.displayLinkPulseAlive(lastPulse: 1, now: 1.02)) == .fill, "Pulse lebt FILL")
         ok(GestureMath.palmROIThawHit(didFull: true, hit: true), "Thaw Full Hit")
@@ -3033,7 +3034,8 @@ enum GestureTests {
         ok(!GestureMath.palmROICoastFollows(false), "Coast ROI Follow tot")
         let followed = GestureMath.palmROIFollow(palm: CGPoint(x: 0.40, y: 0.50), scale: 0.12)
         ok(followed != nil && followed!.contains(CGPoint(x: 0.40, y: 0.50)), "Coast ROI Follow rect")
-        ok(!GestureMath.overlayLerpShould(dt: 0.12), "Lerp 8 fps tot")
+        ok(!GestureMath.overlayLerpShould(dt: 0.12), "Lerp tot")
+        ok(!GestureMath.overlayLerpShould(dt: 0.25), "Lerp Lücke tot")
         ok(!GestureMath.overlayLerpShould(dt: 0.04), "Lerp 24 fps tot")
         ok(!GestureMath.overlayLerpShould(dt: 0.008), "Lerp 120 fps tot")
         ok(abs(GestureMath.overlayBezierEase(0.5) - 0.5) < 0.01, "Bezier mid")
@@ -3135,6 +3137,18 @@ enum GestureTests {
         )
         ok(bindDense.first == 1, "Bind denser Hand vor Gitarre")
         ok(GestureMath.palmBindHandsFirst(scales: [0.25, 0.27], counts: [4, 16]).first == 1, "Bind counts ohne last")
+        ok(
+            GestureMath.palmBindHandsFirst(
+                scales: [0.14, 0.14], counts: [16, 16], confs: [0.30, 0.90]
+            ).first == 1,
+            "Bind Conf vor Observation-Order"
+        )
+        ok(
+            GestureMath.palmBindHandsFirst(
+                scales: [0.14, 0.14], counts: [16, 16], confs: [0.90, 0.30]
+            ).first == 0,
+            "Bind Conf hält Index 0"
+        )
         ok(GestureMath.palmLateralityBlocksS2(s1Locked: 1, live: 1, slotID: 2), "S2 stiehlt S1 L")
         ok(!GestureMath.palmLateralityBlocksS2(s1Locked: 1, live: 2, slotID: 2), "S2 R frei")
         ok(!GestureMath.palmLateralityBlocksS2(s1Locked: 1, live: 1, slotID: 1), "S1 selbst tot")
@@ -3349,12 +3363,554 @@ enum GestureTests {
         ok(GestureMath.cameraMutexReadOrder() == ["caches", "tmp"], "Mutex Read Caches zuerst")
         ok(GestureMath.cameraMutexWriteKind() == "caches", "Mutex Write Caches")
         ok(GestureMath.cameraMutexFlockExclusive(), "Mutex flock")
+        ok(GestureMath.cameraMutexFlockNonblock(), "Mutex flock NB")
+        ok(GestureMath.cameraMutexFlockReadShared(), "Mutex flock SH")
+        ok(!GestureMath.cameraMutexWriteTmp(), "Mutex tmp-Write tot")
+        ok(GestureMath.cameraMutexSkipClaim(readBusy: true), "Mutex Skip Claim busy")
+        ok(!GestureMath.cameraMutexSkipClaim(readBusy: false), "Mutex Skip Claim frei")
+        ok(
+            GestureMath.cameraMutexWriteAllowed(
+                existing: GestureMath.cameraMutexLine(owner: "helios", pid: 1, now: 1_000, gen: 3),
+                owner: "aegis",
+                now: 1_001
+            ) == false,
+            "Aegis CAS tot über Helios"
+        )
+        ok(
+            GestureMath.cameraMutexWriteAllowed(
+                existing: GestureMath.cameraMutexLine(owner: "aegis", pid: 2, now: 1_000),
+                owner: "helios",
+                now: 1_001
+            ),
+            "Helios CAS überschreibt Aegis"
+        )
+        ok(GestureMath.cameraMutexBumpGen(nil) == 1, "Mutex Gen 1")
+        let casLine = GestureMath.cameraMutexLockedLine(
+            existing: GestureMath.cameraMutexLine(owner: "aegis", pid: 2, now: 1_000, gen: 4),
+            owner: "helios",
+            pid: 9,
+            now: 1_001
+        )
+        ok(GestureMath.cameraMutexGen(casLine ?? "") == 5, "Mutex CAS gen++")
+        ok(
+            GestureMath.cameraMutexLockedLine(
+                existing: GestureMath.cameraMutexLine(owner: "helios", pid: 1, now: 1_000, gen: 2),
+                owner: "aegis",
+                pid: 3,
+                now: 1_001
+            ) == nil,
+            "Aegis LockedLine tot"
+        )
+        ok(GestureMath.overlayChipTone("YIELD") == 2, "YIELD Cyan")
+        ok(GestureMath.overlayChipTone("helios") == 2, "helios Cyan")
         ok(GestureMath.cameraMutexPickText(caches: "helios 1 1.000", tmp: "aegis 2 2.000") == "helios 1 1.000", "Pick Caches")
         ok(GestureMath.cameraMutexPickText(caches: nil, tmp: "aegis 2 2.000") == "aegis 2 2.000", "Pick Legacy tmp")
         let genLine = GestureMath.cameraMutexLine(owner: "helios", pid: 12, now: 1_000, gen: 7)
         ok(GestureMath.cameraMutexGen(genLine) == 7, "Mutex Gen")
         ok(GestureMath.cameraMutexParse(genLine, now: 1_001) == "helios", "Mutex Gen Parse")
         ok(abs(GestureMath.cameraMutexHeartbeatSec() - 2) < 0.01, "Heartbeat 2 s")
+        ok(GestureMath.cameraMutexPickText(caches: "", tmp: "aegis 1 1.000", cachesEmpty: true) == nil, "Pick empty Caches tot")
+        ok(GestureMath.cameraMutexPickText(caches: "", tmp: "aegis 1 1.000") == "aegis 1 1.000", "Pick Legacy ohne empty-Flag")
+        ok(abs(GestureMath.cameraMutexYieldGrace() - 4) < 0.01, "Yield Grace 4 s")
+        ok(
+            GestureMath.cameraMutexYieldAutoReturn(
+                yielded: true, holder: nil, owner: "aegis", since: 0, now: 5
+            ),
+            "Auto-Return nach Grace"
+        )
+        ok(
+            !GestureMath.cameraMutexYieldAutoReturn(
+                yielded: true, holder: "helios", owner: "aegis", since: 0, now: 9
+            ),
+            "Auto-Return tot solange Helios hält"
+        )
+        ok(GestureMath.cameraMutexChip(holder: nil, yielded: true) == "YIELD", "Mutex Chip YIELD")
+        ok(GestureMath.cameraMutexClaimCadence() == 1, "Claim Cadence 1")
+        ok(GestureMath.cameraMutexClaimEveryFrame(), "Claim jeden Frame")
+        ok(GestureMath.cameraMutexClaimNow(tick: 1), "Claim Tick 1")
+        ok(GestureMath.cameraMutexClaimNow(tick: 7), "Claim Tick 7")
+        ok(GestureMath.cameraMutexClaimDue(last: 0, now: 0.08), "ClaimDue 80 ms")
+        ok(!GestureMath.cameraMutexClaimDue(last: 0, now: 0.07), "ClaimDue vor 80 ms tot")
+        ok(GestureMath.cameraMutexClaimBackoffFails() == 3, "ClaimBackoff 3")
+        ok(abs(GestureMath.cameraMutexClaimBackoffDt() - 0.40) < 0.01, "ClaimBackoff 400 ms")
+        ok(!GestureMath.cameraMutexClaimDue(last: 0, now: 0.08, fails: 3), "ClaimBackoff vor 400 ms tot")
+        ok(GestureMath.cameraMutexClaimDue(last: 0, now: 0.40, fails: 3), "ClaimBackoff 400 ms fällig")
+        ok(GestureMath.cameraMutexClaimDue(last: 0, now: 0.08, fails: 2), "ClaimBackoff vor 3 frei")
+        ok(GestureMath.cameraMutexFsyncBeforeUnlock(), "Mutex fsync")
+        ok(abs(GestureMath.cameraMutexYieldGracePref(1) - 2) < 0.01, "Yield Grace Floor 2")
+        ok(abs(GestureMath.cameraMutexYieldGracePref(9) - 8) < 0.01, "Yield Grace Cap 8")
+        ok(abs(GestureMath.cameraMutexYieldGracePref(4) - 4) < 0.01, "Yield Grace 4")
+        ok(GestureMath.cameraMutexYieldAutoReturnPref(false) == false, "Yield Auto-Return aus")
+        ok(GestureMath.cameraMutexYieldAutoReturnPref(true), "Yield Auto-Return an")
+        ok(GestureMath.continuityWatchdogRestart(medianFps: 8, hold: 2, usb: true), "USB Watchdog 8 fps")
+        ok(!GestureMath.continuityWatchdogRestart(medianFps: 8, hold: 2, usb: false), "Wi-Fi 8 fps kein Restart")
+        ok(!GestureMath.continuityWatchdogRestart(medianFps: 8, hold: 1, usb: true), "USB Watchdog vor 2 s tot")
+        ok(GestureMath.continuityWatchdogUSB("420f USB 24"), "Chip USB")
+        ok(!GestureMath.continuityWatchdogUSB("420f WIFI 8"), "Chip Wi-Fi")
+        ok(GestureMath.cameraMutexExpectedGen(nil) == 0, "Expected Gen 0")
+        let aegisGen = GestureMath.cameraMutexLine(owner: "aegis", pid: 2, now: 1_000, gen: 4)
+        ok(
+            GestureMath.cameraMutexLockedLine(
+                existing: aegisGen, owner: "aegis", pid: 2, now: 1_001, expectedGen: 4
+            ) != nil,
+            "Aegis CAS Gen match"
+        )
+        ok(
+            GestureMath.cameraMutexLockedLine(
+                existing: aegisGen, owner: "aegis", pid: 2, now: 1_001, expectedGen: 3
+            ) == nil,
+            "Aegis CAS Gen mismatch tot"
+        )
+        ok(
+            GestureMath.cameraMutexLockedLine(
+                existing: aegisGen, owner: "helios", pid: 9, now: 1_001, expectedGen: 3
+            ) != nil,
+            "Helios CAS trotz Gen mismatch"
+        )
+        ok(GestureMath.cameraMutexCasAllows(existing: aegisGen, owner: "helios", expectedGen: 3), "CAS Helios Vorrang")
+        ok(!GestureMath.cameraMutexCasAllows(existing: aegisGen, owner: "aegis", expectedGen: 3), "CAS Aegis mismatch")
+        ok(GestureMath.cameraMutexClaimChip(holder: "helios", yielded: false) == "helios", "Claim Chip Holder")
+        ok(GestureMath.cameraMutexClaimChip(holder: "helios", yielded: true, fails: 3) == "YIELD", "Claim Chip YIELD")
+        ok(GestureMath.cameraMutexClaimChip(holder: "helios", yielded: false, fails: 3) == "helios · backoff", "Claim Chip backoff")
+        ok(GestureMath.cameraMutexClaimChip(holder: "aegis", yielded: false, fails: 1) == "aegis · 1nb", "Claim Chip 1nb")
+        ok(GestureMath.overlayChipTone("helios · backoff") == 1, "backoff Chip Ton")
+        ok(GestureMath.overlayChipTone("helios · 1nb") == 1, "nb Chip Ton")
+        ok(GestureMath.overlayChipTone("helios") == 2, "helios Chip Ton")
+        ok(!GestureMath.palmScaleHistVeto(scale: 0.14, hist: []), "Hist leer kein Veto")
+        ok(
+            GestureMath.palmScaleHistVeto(scale: 0.29, hist: [0.14, 0.13, 0.15, 0.14]),
+            "Gitarre 0,29 vs Hand-Cluster"
+        )
+        ok(
+            !GestureMath.palmScaleHistVeto(scale: 0.22, hist: [0.14, 0.16, 0.18, 0.20]),
+            "Annäherung streut kein Veto"
+        )
+        ok(
+            !GestureMath.palmScaleHistVeto(scale: 0.21, hist: [0.14, 0.13, 0.15, 0.14]),
+            "EMA-Bound 0,21 kein Veto — Live 0,29"
+        )
+        ok(GestureMath.palmScaleHistPrior(scale: 0.14, hist: [0.14, 0.13, 0.15, 0.14]) == 1, "Prior Hand")
+        ok(GestureMath.palmScaleHistPrior(scale: 0.29, hist: [0.14, 0.13, 0.15, 0.14]) == 0, "Prior Gitarre tot")
+        let totHold = GestureMath.cameraMutexLine(owner: "helios", pid: 1, now: 1_000, gen: 3)
+        ok(
+            GestureMath.cameraMutexWriteAllowed(
+                existing: totHold, owner: "aegis", now: 1_001, pidLive: false
+            ),
+            "Write tot PID frei"
+        )
+        ok(
+            GestureMath.cameraMutexWriteAllowed(
+                existing: totHold, owner: "aegis", now: 1_001, pidLive: true
+            ) == false,
+            "Write live PID tot"
+        )
+        ok(
+            GestureMath.cameraMutexLockedLine(
+                existing: totHold, owner: "aegis", pid: 3, now: 1_001, pidLive: false
+            ) != nil,
+            "LockedLine tot PID frei"
+        )
+
+        ok(GestureMath.palmBindJointGroupIsHand(16), "Joint-Group Hand")
+        ok(GestureMath.palmBindJointGroupIsProp(6), "Joint-Group Prop")
+        ok(GestureMath.palmBindJointGroupPrefers(countA: 16, countB: 6) == true, "Joint-Group 16 vor 6")
+        ok(GestureMath.palmBindJointGroupPrefers(countA: 6, countB: 16) == false, "Joint-Group 6 hinter 16")
+        ok(GestureMath.palmBindJointGroupPrefers(countA: 16, countB: 15) == nil, "Joint-Group beide Hand")
+        ok(
+            GestureMath.palmBindHandsFirst(scales: [0.25, 0.27], counts: [6, 16]).first == 1,
+            "Bind Joint-Group vor Conf"
+        )
+        let killLine = GestureMath.cameraMutexLine(owner: "helios", pid: 9, now: 1_000, gen: 4)
+        ok(GestureMath.cameraMutexStamp(killLine) == 1_000, "Mutex Stamp")
+        ok(
+            GestureMath.cameraMutexHeartbeatKillPid(pid: 9, live: false, now: 1_001, stamped: 1_000) == 9,
+            "Heartbeat tot-PID"
+        )
+        ok(
+            GestureMath.cameraMutexHeartbeatKillPid(pid: 9, live: true, now: 1_020, stamped: 1_000) == 9,
+            "Heartbeat hung-live 20 s"
+        )
+        ok(
+            GestureMath.cameraMutexHeartbeatKillPid(pid: 9, live: true, now: 1_005, stamped: 1_000) == nil,
+            "Heartbeat live frisch"
+        )
+        ok(
+            GestureMath.cameraMutexHeartbeatKillPid(pid: 9, live: nil, now: 1_007, stamped: 1_000) == 9,
+            "Heartbeat 6 s hung"
+        )
+        ok(GestureMath.cameraMutexHeartbeatKillAllowed(target: 9, selfPid: 3) == 9, "Kill fremd")
+        ok(GestureMath.cameraMutexHeartbeatKillAllowed(target: 3, selfPid: 3) == nil, "Kill self tot")
+
+        let priorSoft = GestureMath.palmScaleHistPrior(
+            scale: 0.23, hist: [0.14, 0.13, 0.15, 0.14]
+        )
+        ok(priorSoft > 0.2 && priorSoft < 0.9, "Prior Jump 0,09 soft")
+        ok(GestureMath.palmScalePropBand(0.29), "Prop-Band Gitarre")
+        ok(!GestureMath.palmScalePropBand(0.14), "Prop-Band Desk-Hand tot")
+        ok(!GestureMath.palmScalePropBand(0.42), "Prop-Band Nah-Hand tot")
+        ok(GestureMath.palmScaleSizePrior(scale: 0.14) == 1, "Size-Prior Desk")
+        ok(GestureMath.palmScaleSizePrior(scale: 0.42) == 1, "Size-Prior Nah")
+        let gPrior = GestureMath.palmScaleSizePrior(scale: 0.29)
+        ok(gPrior > 0.85 && gPrior < 0.95, "Size-Prior Gitarre 0,29")
+        ok(abs(GestureMath.palmSlotConfEma(prev: 0.40, live: 0.95) - 0.6475) < 1e-4, "Conf-EMA 1 Frame")
+        ok(GestureMath.palmSlotNearLast(palm: CGPoint(x: 0.50, y: 0.50), last: CGPoint(x: 0.52, y: 0.51)), "Near lastS1")
+        ok(!GestureMath.palmSlotNearLast(palm: CGPoint(x: 0.80, y: 0.20), last: CGPoint(x: 0.20, y: 0.80)), "Far tot")
+        ok(
+            abs(GestureMath.palmSlotBindConf(live: 0.95, prev: 0.40, nearLast: true) - 0.6475) < 1e-4,
+            "BindConf lastS1 EMA"
+        )
+        ok(GestureMath.palmSlotBindConf(live: 0.95, prev: 0.40, nearLast: false) == 0.95, "BindConf Gitarre roh")
+        ok(!GestureMath.palmScaleIsHand(0.29), "isHand Gitarre tot")
+        ok(GestureMath.palmScaleIsHand(0.14), "isHand Desk")
+        ok(GestureMath.palmScaleIsHand(0.42), "isHand Nah")
+        ok(GestureMath.palmScaleIsHand(0.50, keep: true), "isHand Keep Nah")
+        ok(
+            GestureMath.palmBindHandsFirst(
+                scales: [0.29, 0.14],
+                confs: [0.95, 0.40]
+            ).first == 1,
+            "Bind isHand tot im Gitarrenband — Gitarre nicht S1"
+        )
+        ok(
+            GestureMath.palmBindHandsFirst(
+                scales: [0.29, 0.14],
+                confs: [0.95, 0.40],
+                hist: [0.14, 0.13, 0.15, 0.14]
+            ).first == 1,
+            "Bind Hist-Prior vor Conf"
+        )
+        ok(GestureMath.palmBindCompactPrefers(scaleA: 0.14, scaleB: 0.29) == true, "Compact vor Gitarre")
+        ok(GestureMath.palmBindCompactPrefers(scaleA: 0.29, scaleB: 0.14) == false, "Gitarre hinter Compact")
+        ok(GestureMath.palmBindCompactPrefers(scaleA: 0.14, scaleB: 0.16) == nil, "beide Compact")
+        ok(GestureMath.palmScaleMedianRecords(scale: 0.14), "Ring Hand")
+        ok(!GestureMath.palmScaleMedianRecords(scale: 0.29), "Ring Gitarre tot")
+        ok(
+            GestureMath.palmScaleHistPrior(scale: 0.14, hist: [0.29, 0.30, 0.28, 0.29]) == 1,
+            "Prior Compact erholt Guitar-Hist"
+        )
+        ok(
+            GestureMath.palmScaleHistPrior(scale: 0.29, hist: [0.29, 0.30, 0.28, 0.29]) == 0,
+            "Prior Gitarre-Hist tot"
+        )
+        ok(
+            GestureMath.palmBindHandsFirst(
+                scales: [0.29, 0.14],
+                confs: [0.95, 0.40],
+                hist: [0.29, 0.30, 0.28, 0.29]
+            ).first == 1,
+            "Bind Compact erholt Guitar-Hist"
+        )
+        ok(GestureMath.palmSlotConfEma(prev: 0.40, live: 0.10) > 0.22, "Slot Conf EMA hält")
+        ok(GestureMath.palmSlotConfHolds(ema: 0.40, live: 0.12, floor: 0.22), "Slot Conf Dip hält")
+        ok(!GestureMath.palmSlotConfHolds(ema: 0.18, live: 0.12, floor: 0.22), "Slot Conf tot")
+        ok(!GestureMath.palmSlotConfHolds(ema: 0.40, live: 0.05, floor: 0.22), "Slot Conf Live-Floor tot")
+        ok(
+            GestureMath.palmBindHandsFirst(
+                scales: [0.42, 0.14],
+                confs: [0.50, 0.40]
+            ).first == 1,
+            "Bind Compact Desk vor Nah-Hand"
+        )
+        ok(
+            GestureMath.palmBindScaleOf(live: 0.29, last: 0.14, ticks: 8, nearLast: false) == 0.29,
+            "Bind-EMA fremd Live"
+        )
+        ok(GestureMath.palmBindScaleClass(live: 0.29) == 0.29, "ScaleClass Gitarre Live")
+        ok(
+            GestureMath.palmBindScaleClass(live: 0.29, hist: [0.14, 0.13, 0.15, 0.14]) == 1,
+            "ScaleClass Hist-Veto"
+        )
+        ok(GestureMath.palmBindScaleClass(live: 0.14) == 0.14, "ScaleClass Desk")
+        ok(
+            GestureMath.palmSlotConfPrev(nearS1: true, nearS2: false, s1: 0.40, s2: 0.22) == 0.40,
+            "ConfPrev S1"
+        )
+        ok(
+            GestureMath.palmSlotConfPrev(nearS1: false, nearS2: true, s1: 0.40, s2: 0.22) == 0.22,
+            "ConfPrev S2"
+        )
+        ok(
+            GestureMath.palmSlotConfPrev(nearS1: false, nearS2: false, s1: 0.40, s2: 0.22) == nil,
+            "ConfPrev tot"
+        )
+        ok(
+            GestureMath.palmSlotKeepNear(nearS1: true, nearS2: false, keepBind: true),
+            "Keep S1"
+        )
+        ok(
+            GestureMath.palmSlotKeepNear(nearS1: false, nearS2: true, keepBind: false, keepS2: true),
+            "Keep S2 allein"
+        )
+        ok(
+            !GestureMath.palmSlotKeepNear(nearS1: false, nearS2: true, keepBind: true, keepS2: false),
+            "Keep S2 tot ohne lastS2"
+        )
+        ok(
+            GestureMath.palmBindHandsFirst(
+                scales: [0.29, 0.14],
+                confs: [0.95, 0.40]
+            ).first == 1,
+            "Bind Live 0,29 nicht isHand — EMA 0,21 tot"
+        )
+        ok(
+            GestureMath.palmSlotConfHolds(ema: 0.40, live: 0.12, floor: 0.22),
+            "S2 Conf Dip hält"
+        )
+        ok(!GestureMath.palmScaleIsHand(0.29, keep: true), "Keep Gitarre tot — neben Palma")
+        ok(
+            GestureMath.palmScaleApproaching(prev: 0.22, live: 0.31),
+            "Approaching durch Band"
+        )
+        ok(
+            !GestureMath.palmScaleApproaching(prev: 0.14, live: 0.29),
+            "Gitarre-Sprung 0,15 kein Approach"
+        )
+        ok(
+            GestureMath.palmScaleIsHand(0.31, keep: true, approaching: true),
+            "Approaching Hand im Band"
+        )
+        ok(
+            GestureMath.palmScaleRanksHand(0.31, count: 16),
+            "Dense 16 Joints im Band = Hand"
+        )
+        ok(
+            !GestureMath.palmScaleRanksHand(0.31, count: 6),
+            "Sparse 6 Joints im Band = Prop"
+        )
+        ok(
+            GestureMath.palmBindScaleHistOf(
+                nearS1: false, nearS2: true, s1: [0.14, 0.13, 0.15, 0.14], s2: [0.16]
+            ) == [0.16],
+            "Hist S2 eigen"
+        )
+        ok(
+            GestureMath.palmBindScaleHistOf(
+                nearS1: false, nearS2: false, s1: [0.14], s2: [0.16]
+            ).isEmpty,
+            "Hist unbound leer — S1-Veto tot"
+        )
+        ok(
+            GestureMath.palmBindScaleClass(live: 0.29, hist: [0.14, 0.13, 0.15, 0.14]) == 1,
+            "ScaleClass S1-Hist Veto"
+        )
+        ok(
+            GestureMath.palmBindScaleClass(live: 0.29, hist: []) == 0.29,
+            "ScaleClass ohne Hist Live — S2 nicht veto"
+        )
+        ok(GestureMath.palmCoastKeepsS2(miss: 1, need: 2), "S2 Coast 1 Tick")
+        ok(!GestureMath.palmCoastKeepsS2(miss: 0, need: 2), "S2 Coast tot bei Hit")
+        ok(
+            GestureMath.palmPinchMuteOverlap(
+                palm: CGPoint(x: 0.50, y: 0.50),
+                others: [CGPoint(x: 0.52, y: 0.51)]
+            ),
+            "Pinch-Mute Overlap"
+        )
+        ok(
+            !GestureMath.palmPinchMuteOverlap(
+                palm: CGPoint(x: 0.20, y: 0.20),
+                others: [CGPoint(x: 0.80, y: 0.80)]
+            ),
+            "Pinch-Mute weit tot"
+        )
+        ok(GestureMath.palmScaleClassChip(slot: "S1", live: 0.14) == "S1 0.14", "Chip Desk")
+        ok(GestureMath.palmScaleClassChip(slot: "S1", live: 0.29) == "S1 Gitarre", "Chip Gitarre")
+        ok(
+            GestureMath.palmBindHandsFirst(
+                scales: [0.31, 0.14],
+                counts: [16, 16]
+            ).first == 1,
+            "Bind Compact vor Dense-Band — S1 Desk"
+        )
+        ok(
+            GestureMath.palmBindHandsFirst(
+                scales: [0.31],
+                counts: [16]
+            ).first == 0,
+            "Bind Dense-Band allein = S1"
+        )
+        ok(
+            GestureMath.obsLooksLikeHand(
+                spanW: 0.12, spanH: 0.12, palmScale: 0.31, jointCount: 16
+            ),
+            "LooksLike Dense im Band"
+        )
+        ok(
+            !GestureMath.obsLooksLikeHand(
+                spanW: 0.20, spanH: 0.20, palmScale: 0.31, jointCount: 6
+            ),
+            "LooksLike Sparse im Band tot"
+        )
+        ok(GestureMath.overlayChipTone("S1 Gitarre") == 1, "Gitarre Chip Danger")
+        ok(GestureMath.overlayChipTone("S1 0.14") == 2, "Scale Chip Cyan")
+        ok(GestureMath.palmCoastRestStaysLive(id: "S2", coasting: "S1"), "S1-Coast S2 live")
+        ok(!GestureMath.palmCoastRestStaysLive(id: "S1", coasting: "S1"), "Coast Slot tot")
+        ok(GestureMath.palmCoastEmitsGhost(live: false, miss: 1, need: 2), "S2 Ghost 1 Tick")
+        ok(!GestureMath.palmCoastEmitsGhost(live: true, miss: 0, need: 2), "Live kein Ghost")
+        ok(GestureMath.overlayGhostAny(slots: [("S1", false), ("S2", true)]), "Ghost Any S2")
+        ok(!GestureMath.overlayGhostAny(slots: [("S1", false), ("S2", false)]), "Ghost Any tot")
+        ok(GestureMath.palmChiralityBothLocked(s1: 1, s2: 2), "L/R gelockt")
+        ok(!GestureMath.palmChiralityBothLocked(s1: 1, s2: 1), "gleiche Seite tot")
+        ok(GestureMath.palmChiralityFreezeHolds(bothSeenAt: 1.0, now: 1.4), "Freeze 400 ms")
+        ok(!GestureMath.palmChiralityFreezeHolds(bothSeenAt: 1.0, now: 1.9), "Freeze 800 ms tot")
+        ok(GestureMath.palmChiralityFreezeLive(locked: 1, live: 2, freeze: true) == 1, "Freeze hält L")
+        ok(GestureMath.palmChiralityFreezeLive(locked: 1, live: 2, freeze: false) == 2, "ohne Freeze Live")
+        ok(GestureMath.palmChiralityFreezeAdvance(bothLocked: true, prev: nil, now: 2) == 2, "Freeze setzt")
+        ok(GestureMath.palmChiralityFreezeChip(freeze: true) == "L/R freeze", "Freeze Chip")
+        ok(GestureMath.palmSpanBandVeto(scale: 0.31, span: 0.04), "Span-Veto Gitarre")
+        ok(!GestureMath.palmSpanBandVeto(scale: 0.31, span: 0.12), "Span 0,12 Hand")
+        ok(!GestureMath.palmSpanBandIsHand(scale: 0.31, span: 0.04, count: 16), "Dense Mini-Span Prop")
+        ok(GestureMath.palmSpanBandIsHand(scale: 0.31, span: 0.12, count: 16), "Dense Span Hand")
+        ok(
+            !GestureMath.obsLooksLikeHand(
+                spanW: 0.04, spanH: 0.04, palmScale: 0.31, jointCount: 16
+            ),
+            "LooksLike Mini-Span tot"
+        )
+        ok(GestureMath.fistFormingPreArm(prevOpen: 4, liveOpen: 2), "Pre-Arm 4→2")
+        ok(!GestureMath.fistFormingPreArm(prevOpen: 4, liveOpen: 3), "Pre-Arm 1 Finger tot")
+        ok(!GestureMath.fistFormingPreArm(prevOpen: 2, liveOpen: 0), "Pre-Arm Faust tot")
+        ok(GestureMath.palmScaleClassChip(slot: "S2", live: 0.16, ghost: true) == "S2 0.16 · ghost", "S2 Ghost Chip")
+        ok(abs(GestureMath.palmChiralityFreezeNeed(fps: 8) - 0.75) < 0.001, "Freeze 8 fps 6 Ticks")
+        ok(abs(GestureMath.palmChiralityFreezeNeed(fps: 60) - 0.12) < 0.001, "Freeze 60 fps Floor")
+        ok(GestureMath.palmChiralityFreezeFps(dt: 0.125) == 8, "Freeze fps 8")
+        ok(GestureMath.fistFormingCurlDrop(prev: 0.90, live: 0.40), "Curl Drop")
+        ok(!GestureMath.fistFormingCurlDrop(prev: 0.90, live: 0.80), "Curl klein tot")
+        ok(
+            GestureMath.fistFormingCurlPreArm(
+                prev: [0.90, 0.88, 0.86, 0.84],
+                live: [0.40, 0.38, 0.36, 0.50]
+            ),
+            "Curl Pre-Arm 3 Finger"
+        )
+        ok(
+            GestureMath.fistFormingPreArmAny(
+                prevOpen: 3, liveOpen: 3,
+                prevCurl: [0.90, 0.88, 0.86, 0.84],
+                liveCurl: [0.40, 0.38, 0.36, 0.50]
+            ),
+            "Pre-Arm Any Curl"
+        )
+        ok(GestureMath.pinchCloseRatioS2(scale: 0.22) < GestureMath.pinchCloseRatio(scale: 0.22), "S2 Floor enger")
+        ok(GestureMath.pinchRatioMeetsClose(ratio: 0.25, scale: 0.22, slot: 2), "S2 Close 0,25")
+        ok(!GestureMath.pinchRatioMeetsClose(ratio: 0.40, scale: 0.22, slot: 2), "S2 0,40 tot")
+        ok(GestureMath.cameraMutexHeartbeatKillSignal(termSentAt: nil, now: 10) == 15, "Kill SIGTERM zuerst")
+        ok(GestureMath.cameraMutexHeartbeatKillSignal(termSentAt: 10, now: 11) == 15, "Kill SIGTERM < 2 s")
+        ok(GestureMath.cameraMutexHeartbeatKillSignal(termSentAt: 10, now: 12.1) == 9, "Kill SIGKILL nach 2 s")
+        ok(GestureMath.cameraMutexHeartbeatKillChip(signal: 15) == "SIGTERM", "Chip TERM")
+        ok(GestureMath.cameraMutexHeartbeatKillChip(signal: 9) == "SIGKILL", "Chip KILL")
+        ok(GestureMath.cameraMutexTermBlocksWrite(signal: 15, pidLive: true), "TERM live blockt Write")
+        ok(!GestureMath.cameraMutexTermBlocksWrite(signal: 15, pidLive: false), "TERM tot Write")
+        ok(!GestureMath.cameraMutexTermBlocksWrite(signal: 9, pidLive: true), "KILL Write")
+        ok(!GestureMath.cameraMutexTermBlocksWrite(signal: 15, pidLive: nil), "TERM nil Tests")
+        ok(abs((GestureMath.cameraMutexTermRemain(termSentAt: 10, now: 10.6) ?? -1) - 1.4) < 0.001, "TERM Remain 1,4")
+        ok(GestureMath.cameraMutexTermChip(signal: 15, remain: 1.4) == "TERM 1,4", "Chip TERM 1,4")
+        ok(GestureMath.cameraMutexTermChip(signal: 9, remain: 0) == "SIGKILL", "Chip SIGKILL")
+        ok(GestureMath.cameraMutexClaimChip(holder: "helios", yielded: false, term: "TERM 1,4") == "helios · TERM 1,4", "Claim TERM")
+        ok(!GestureMath.obsFillSkipsGap(lastHand: 1.0, now: 1.12, medianDt: 0.125), "Fill 8 fps intra")
+        ok(GestureMath.obsFillSkipsGap(lastHand: 1.0, now: 1.45, medianDt: 0.125), "Fill Continuity-Lücke")
+        ok(GestureMath.obsFillSkipsGap(lastHand: 0, now: 1.0, medianDt: 0.016), "Fill ohne Hand tot")
+        ok(GestureMath.obsFillGapChip(skip: true) == "FILL gap", "FILL gap Chip")
+        ok(abs(GestureMath.obsFillGapMulPref(1.0) - 1.8) < 0.001, "Fill-Gap Mul Floor")
+        ok(abs(GestureMath.obsFillGapMulPref(4.0) - 3.2) < 0.001, "Fill-Gap Mul Cap")
+        ok(abs(GestureMath.obsFillGapMulPref(2.4) - 2.4) < 0.001, "Fill-Gap Mul Default")
+        ok(!GestureMath.obsFillSkipsGap(lastHand: 1.0, now: 1.30, medianDt: 0.125, mul: 3.2), "Fill 3,2 intra")
+        ok(GestureMath.obsFillGapRebase(latched: true), "Gap Rebase")
+        ok(!GestureMath.obsFillGapRebase(latched: false), "Gap kein Rebase")
+        ok(GestureMath.pointerKalmanResets(gap: true), "Kalman Reset Gap")
+        ok(!GestureMath.pointerKalmanResets(gap: false), "Kalman kein Reset")
+        let kVel = GestureMath.pointerKalmanVel(
+            prev: .zero, live: CGPoint(x: 40, y: 0), dt: 0.40
+        )
+        ok(abs(kVel.x - 100) < 0.01, "Kalman Vel 400 ms")
+        let kSleep = GestureMath.pointerKalmanVel(
+            prev: .zero, live: CGPoint(x: 40, y: 0), dt: 2.5
+        )
+        ok(abs(kSleep.x) < 0.001, "Kalman Vel Sleep tot")
+        let kPred = GestureMath.pointerKalmanPredict(
+            from: CGPoint(x: 100, y: 100), vx: 200, vy: 0, dt: 0.016, cap: 12
+        )
+        ok(abs(kPred.x - 103.2) < 0.05, "Kalman Predict CapX")
+        ok(
+            GestureMath.obsFillGapRebasePoint(
+                latched: true, camera: CGPoint(x: 10, y: 0), fill: CGPoint(x: 99, y: 0)
+            )?.x == 10,
+            "Rebase Kamera"
+        )
+        ok(
+            GestureMath.obsFillGapRebasePoint(
+                latched: true, camera: nil, fill: CGPoint(x: 99, y: 0)
+            )?.x == 99,
+            "Rebase Fill Fallback"
+        )
+        ok(
+            GestureMath.obsFillGapRebasePoint(
+                latched: false, camera: CGPoint(x: 10, y: 0), fill: nil
+            ) == nil,
+            "Rebase tot"
+        )
+        ok(abs(GestureMath.pointerKalmanCapMul(mad: 0) - 1) < 0.001, "CapMul still")
+        ok(GestureMath.pointerKalmanCapMul(mad: 0.018) < 0.50, "CapMul shaky")
+        let termMap = GestureMath.cameraMutexHeartbeatTermStamp(prev: [:], pid: 9, signal: 15, now: 5)
+        ok(termMap[9] == 5, "TERM Stamp")
+        ok(GestureMath.cameraMutexHeartbeatTermStamp(prev: termMap, pid: 9, signal: 9, now: 8)[9] == nil, "KILL wischt Stamp")
+        ok(GestureMath.obsFillSeesHand(ghost: true), "Fill sieht Ghost")
+        ok(GestureMath.obsFillSeesHand(ghost: false), "Fill sieht Live")
+        ok(!GestureMath.liveHandRefreshesDeadMan(ghost: true), "Dead-Man Ghost tot")
+        ok(!GestureMath.pointerReanchorAppliesFill(), "Fill kein Reanchor")
+        ok(!GestureMath.obsFillSkipsGap(lastHand: 1.0, now: 1.28, medianDt: 0.125), "Fill Ghost-Coast 280 ms")
+        ok(abs(GestureMath.fingerCurl(tip: CGPoint(x: 0.50, y: 0.10), mcp: CGPoint(x: 0.50, y: 0.20), scale: 0.12) - (1 - (0.10 / 0.12))) < 0.02, "Curl Reach")
+
+        ok(abs(GestureMath.pointerReanchorRms(dt: 0.125) - 8) < 0.05, "Reanchor RMS 8 fps")
+        ok(abs(GestureMath.pointerReanchorRms(dt: 0.016) - 3) < 0.05, "Reanchor RMS 60 fps")
+        ok(GestureMath.pointerReanchorRms(dt: 0.07) > 3 && GestureMath.pointerReanchorRms(dt: 0.07) < 8, "Reanchor RMS mid")
+        ok(GestureMath.pointerReanchorChip(snapped: true, rms: 8) == "REAN 8", "REAN Chip")
+        ok(GestureMath.pointerReanchorChip(snapped: false, rms: 8) == nil, "REAN Chip tot")
+        let tight = GestureMath.pointerReanchorRms(dt: 0.016)
+        ok(
+            GestureMath.pointerReanchor(
+                warped: CGPoint(x: 100, y: 100),
+                truth: CGPoint(x: 105, y: 100),
+                rms: tight
+            ) == CGPoint(x: 105, y: 100),
+            "60 fps 5 px Reanchor"
+        )
+        ok(
+            GestureMath.pointerReanchor(
+                warped: CGPoint(x: 100, y: 100),
+                truth: CGPoint(x: 105, y: 100),
+                rms: 8
+            ) == nil,
+            "8 fps 5 px tot"
+        )
+        ok(abs(GestureMath.overlayLerpDtOf(0.125) - 0.125) < 1e-9, "LerpDt 8 fps kein Floor")
+        ok(abs(GestureMath.overlayLerpDtOf(0.04) - 0.04) < 1e-9, "LerpDt 0,04 kein Floor 0,05")
+        ok(GestureMath.overlayLerpHitchKeeps(live: 0.010, held: 0.125, streak: 0), "Hitch 10 ms hält")
+        ok(GestureMath.overlayLerpHitchKeeps(live: 0.010, held: 0.125, streak: 1), "Hitch Streak 1")
+        ok(!GestureMath.overlayLerpHitchKeeps(live: 0.010, held: 0.125, streak: 2), "Hitch Cap 2 tot")
+        ok(!GestureMath.overlayLerpHitchKeeps(live: 0, held: 0.125, streak: 0), "Hitch live 0 tot")
+        ok(!GestureMath.overlayLerpHitchKeeps(live: 0.40, held: 0.125, streak: 0), "Hitch Lücke tot")
+        ok(!GestureMath.overlayLerpHitchKeeps(live: 0.04, held: 0.04, streak: 0), "Hitch 24 fps tot")
+        ok(abs(GestureMath.overlayLerpDtHold(prev: 0.125, live: 0.010) - 0.125) < 1e-9, "DtHold Hitch")
+        ok(abs(GestureMath.overlayLerpDtHold(prev: 0.125, live: 0.12) - 0.12) < 1e-9, "DtHold Live")
+        ok(abs(GestureMath.overlayLerpDtHold(prev: 0.125, live: 0.40) - 0.40) < 1e-9, "DtHold Gap")
+        ok(GestureMath.overlayLerpHitchChip(keep: true) == "LERP hitch", "LERP hitch Chip")
+        ok(GestureMath.overlayLerpHitchChip(keep: false) == nil, "LERP hitch tot")
+        ok(GestureMath.overlayChipTone("LERP hitch") == 2, "LERP Tone cyan")
+        ok(GestureMath.overlayChipTone("REAN 8") == 2, "REAN Tone cyan")
+        ok(GestureMath.overlayDrawsGhost(), "Ghost-Knochen im Overlay")
+        ok(!GestureMath.pointerKalmanResetsPOnGap(), "Fill-Gap hält Kalman-P")
+        ok(abs(GestureMath.overlayGhostBlend(ghost: false, remaining: 0) - 1) < 1e-9, "Blend live 1")
+        ok(abs(GestureMath.overlayGhostBlend(ghost: true, remaining: 0) - 0.50) < 1e-9, "Blend Coast 0,50")
+        ok(abs(GestureMath.overlayGhostBlend(ghost: true, remaining: 0.20) - 0.35) < 1e-9, "Blend Latch 0,35")
+        let gb = GestureMath.overlayLerpGhostBlend(
+            fromGhost: false, toGhost: true, fromRemain: 0, toRemain: 0, t: 0.5
+        )
+        ok(abs(gb - 0.75) < 1e-9, "Lerp Blend 1→0,50 bei t=0,5")
+        ok(GestureMath.overlayGhostSlotChip(slots: [("S1", false), ("S2", true)]) == "S2 · ghost", "S2 Ghost-Chip")
+        ok(GestureMath.overlayGhostSlotChip(slots: [("S1", true), ("S2", true)]) == "S1+S2 · ghost", "S1+S2 Ghost-Chip")
+        ok(GestureMath.overlayGhostSlotChip(slots: [("S1", false), ("S2", false)]) == nil, "Ghost-Chip tot")
+        ok(GestureMath.overlayChipTone("S2 · ghost") == 2, "S2 ghost Tone cyan")
 
         if fails > 0 {
             fputs("\(fails) GestureTests fehlgeschlagen\n", stderr)

@@ -202,7 +202,8 @@ struct PinchGate {
         now: TimeInterval,
         tipZ: Float? = nil,
         dt: TimeInterval = 0.016,
-        continuity: Bool = false
+        continuity: Bool = false,
+        slot: Int = 1
     ) -> (closed: Bool, ratio: CGFloat, distance: CGFloat) {
         let scale = max(GestureClassifier.palmScale(raw), 0.05)
         var dTips: CGFloat?
@@ -239,7 +240,7 @@ struct PinchGate {
         lastRatio = ratio
         lastT = now
 
-        let closeR = GestureMath.pinchCloseRatio(scale: scale)
+        let closeR = GestureMath.pinchCloseRatioOf(scale: scale, slot: slot)
         let awayFromPalm = reach > 0.78
         let closeVel = GestureMath.pinchCloseVel(dt: dt, palmScale: scale)
         let tipClosed = GestureMath.pinchUsesTipZ(revision2: true, tipZ: tipZ)

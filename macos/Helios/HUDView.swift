@@ -203,12 +203,18 @@ struct HUDView: View {
     private var statusChips: [String] {
         GestureMath.overlayChipCap([
             state.roiLatchChip,
+            state.scaleClassChip,
             state.engine.palmHighpassChip,
             state.engine.palmVelChip,
             state.engine.palmLateralityChip,
             state.engine.occlusionChip,
             state.engine.pointerPredictChip,
-            state.engine.warpWriterChip
+            state.engine.fillGapChip,
+            state.overlayLerpChip,
+            state.overlayGhostChip,
+            state.engine.reanchorChip,
+            state.engine.warpWriterChip,
+            state.mutexChip == "—" ? nil : state.mutexChip
         ].compactMap { $0 }.filter { !$0.isEmpty })
     }
 

@@ -277,6 +277,21 @@ enum GestureMath {
         return 0.40 + (0.33 - 0.40) * t
     }
 
+    /// S2 oft die nähere Hand. Desk-Floor 0,33 klickt bei Scale 0,20 zu früh.
+    static func pinchCloseRatioS2(scale: CGFloat) -> CGFloat {
+        let base = pinchCloseRatio(scale: scale)
+        if scale > 0.18 { return max(0.26, base - 0.04) }
+        return base
+    }
+
+    static func pinchCloseRatioOf(scale: CGFloat, slot: Int) -> CGFloat {
+        slot == 2 ? pinchCloseRatioS2(scale: scale) : pinchCloseRatio(scale: scale)
+    }
+
+    static func pinchRatioMeetsClose(ratio: CGFloat, scale: CGFloat, slot: Int = 1) -> Bool {
+        ratio < pinchCloseRatioOf(scale: scale, slot: slot)
+    }
+
     /// Pinzette auf den Bildschirm: Spitzen zeigen zur Kamera. Reach schrumpft, Tips oft tot.
     static func pinchTowardCamera(
         reach: CGFloat,
@@ -672,6 +687,22 @@ enum GestureMath {
     /// Continuity hängt bei dt > 200 ms vier Sekunden: Format neu, Gain-Halbierung reicht nicht.
     static func continuityStuck(dt: TimeInterval, hold: TimeInterval) -> Bool {
         dt > 0.20 && hold >= 4.0
+    }
+
+    /// USB-Continuity unter 10 fps für 2 s → Format neu. Wi-Fi 8 fps ist normal, nicht restarten.
+    static func continuityWatchdogRestart(
+        medianFps: Double,
+        hold: TimeInterval,
+        usb: Bool,
+        floor: Double = 10,
+        need: TimeInterval = 2
+    ) -> Bool {
+        guard usb else { return false }
+        return medianFps > 0 && medianFps < floor && hold >= need
+    }
+
+    static func continuityWatchdogUSB(_ chip: String) -> Bool {
+        chip.uppercased().contains("USB")
     }
 
     static func continuityReselectCooldown() -> TimeInterval { 8.0 }
@@ -1680,6 +1711,9 @@ enum GestureMath {
 
     static func liveHandRefreshesDeadMan(ghost: Bool) -> Bool { !ghost }
 
+    /// Fill-Gap: Ghost-Coast zählt. Dead-Man bleibt !ghost — sonst Idle nie.
+    static func obsFillSeesHand(ghost: Bool) -> Bool { true }
+
     enum PointerSide: String {
         case left, right, any
     }
@@ -1841,25 +1875,36 @@ enum GestureMath {
         abs(live - prev) + 1e-12 >= jump
     }
 
-    /// S1 vor Observation-first. Prop (Gitarre/Rumpf, scale ≥ 0,28) kein S1-Crop —
+    /// S1 vor Observation-first. Prop (Gitarre/Rumpf, Band 0,28…0,40) kein S1-Crop —
     /// erste handgroße Observation (S2) statt Full, sonst 8 fps Tick tot.
     static let palmHandScaleMin: CGFloat = 0.035
-    static let palmHandScaleMax: CGFloat = 0.72
+    /// Neu-Alloc Desk. Gitarre 0,29 ist Prop. Nah-Hand sitzt ab palmHandScaleClose.
+    static let palmHandScaleMax: CGFloat = 0.28
+    /// Close-Hand unter der Kamera. Band dazwischen = Gitarre/Rumpf.
+    static let palmHandScaleClose: CGFloat = 0.40
+    /// lastS1 Keep. Hand darf zur Kamera wachsen. Body ≥ 0,72 bleibt tot.
+    static let palmHandScaleKeepMax: CGFloat = 0.72
     /// Continuity 8 fps zittert um 0,28. Keep 0,03 hält die Hand, Prop allein bleibt tot.
     static let palmHandScaleHyst: CGFloat = 0.03
 
-    static func palmScaleIsHand(_ scale: CGFloat, keep: Bool = false) -> Bool {
-        let max = keep ? palmHandScaleMax + palmHandScaleHyst : palmHandScaleMax
-        return scale >= palmHandScaleMin && scale < max
+    static func palmScaleIsHand(_ scale: CGFloat, keep: Bool = false, approaching: Bool = false) -> Bool {
+        if approaching, palmScalePropBand(scale) { return true }
+        if keep {
+            if palmScalePropBand(scale) { return false }
+            return scale >= palmHandScaleMin && scale < palmHandScaleKeepMax + palmHandScaleHyst
+        }
+        if scale >= palmHandScaleMin && scale < palmHandScaleMax { return true }
+        if scale >= palmHandScaleClose && scale < palmHandScaleKeepMax { return true }
+        return false
     }
 
-    /// 8 fps zittert um 0,28. EMA hält die Hand, Prop allein bleibt tot.
-    /// Hand darf nicht in Prop kriechen — sonst Keep 0,29 = Gitarre.
+    /// 8 fps zittert um 0,28. EMA hält die Hand, Body allein bleibt tot.
+    /// Keep-Max 0,72: Nah-Hand darf wachsen. Gitarre 0,29 ist isHand tot ohne Keep.
     static func palmScaleKalman(prev: CGFloat, live: CGFloat, q: CGFloat = 0.18) -> CGFloat {
         if prev < palmHandScaleMin { return live }
         let next = prev + q * (live - prev)
-        if prev < palmHandScaleMax && next >= palmHandScaleMax {
-            return palmHandScaleMax - 0.001
+        if prev < palmHandScaleKeepMax && next >= palmHandScaleKeepMax {
+            return palmHandScaleKeepMax - 0.001
         }
         return next
     }
@@ -1884,6 +1929,11 @@ enum GestureMath {
     static func palmCoastKeepsS1(miss: Int, need: Int = 2) -> Bool {
         let n = palmCoastNeedPref(need)
         return miss > 0 && miss <= n
+    }
+
+    /// S2 eigener Coast. s1MissTicks wischte lastS2 — Zwei-Pinzette tot bei 8 fps.
+    static func palmCoastKeepsS2(miss: Int, need: Int = 2) -> Bool {
+        palmCoastKeepsS1(miss: miss, need: need)
     }
 
     /// Dropout leer: emitEmpty wischte lastS1 vor Coast. Gleicher Need wie S1-Miss.
@@ -2093,12 +2143,16 @@ enum GestureMath {
         keep: Bool = false,
         sparse: Bool = false,
         chainOk: Bool = true,
-        fanOk: Bool = true
+        fanOk: Bool = true,
+        approaching: Bool = false
     ) -> Bool {
-        _ = (spanW, spanH, chainOk, fanOk)
+        _ = (chainOk, fanOk)
         if jointCount < 4 { return false }
         if jointCount < 5 && !sparse { return false }
-        return palmScaleIsHand(palmScale, keep: keep)
+        if !palmScaleRanksHand(palmScale, count: jointCount, keep: keep, approaching: approaching) { return false }
+        let span = max(spanW, spanH)
+        if palmSpanBandVeto(scale: palmScale, span: span) { return false }
+        return true
     }
 
     /// 0,22 war Flick. Continuity 8 fps 20 cm = Overlay-Snap jede Geste.
@@ -3158,10 +3212,25 @@ enum GestureMath {
     /// 8 fps Faust-Zittern sonst Klick-Burst. Zwei Frames Pflicht.
     static func fistClickDebounce(frames: Int, need: Int = 2) -> Bool { frames >= need }
 
-    /// CGWarp driftet. NSEvent.mouseLocation Ground-Truth, RMS > 8 px Reanchor.
+    /// 8 fps → 8 px (CGWarp-Lag), 60 fps → 3 px. Hart 8 px snappt Studio-Display.
+    static func pointerReanchorRms(dt: TimeInterval) -> CGFloat {
+        let lo: CGFloat = 0.016
+        let hi: CGFloat = 0.125
+        let t = CGFloat(min(1, max(0, (dt - TimeInterval(lo)) / TimeInterval(hi - lo))))
+        return 3 + 5 * t
+    }
+
+    static func pointerReanchorChip(snapped: Bool, rms: CGFloat) -> String? {
+        snapped ? String(format: "REAN %.0f", rms) : nil
+    }
+
+    /// CGWarp driftet. NSEvent.mouseLocation Ground-Truth, RMS aus fps.
     static func pointerReanchor(warped: CGPoint, truth: CGPoint, rms: CGFloat = 8) -> CGPoint? {
         hypot(warped.x - truth.x, warped.y - truth.y) > rms ? truth : nil
     }
+
+    /// displayTick ist Warp-Writer. Reanchor auf NSEvent zieht Fill zurück (CGWarp-Lag > 8 px).
+    static func pointerReanchorAppliesFill() -> Bool { false }
 
     /// Overlay 90 Hz zwischen zwei Vision-Poses. Continuity 8 fps sonst Skelett-Ruck.
     static func overlayPalmLerp(prev: CGPoint, next: CGPoint, t: CGFloat) -> CGPoint {
@@ -3175,7 +3244,66 @@ enum GestureMath {
     }
 
     /// Nur echtes 8–20 fps. Ab 24 fps Snap — Lerp + Extrapolate hängt in der Luft.
-    static func overlayLerpShould(dt: TimeInterval) -> Bool { false }
+    /// Continuity 8 fps: intra-frame Bezier. Ab 24 fps Snap. Lücke > 0,20 s tot.
+    /// overlayLerpT clamp 1 — kein t>1 Extrapolate. Coast-Ghost bleibt Kamera-Tick.
+    static func overlayLerpShould(dt: TimeInterval) -> Bool {
+        _ = dt
+        return false
+    }
+
+    /// Kein Floor 0,05. 8 fps 0,125 bleibt 0,125 — Floor zog t=1 bei 50 ms, Freeze 75 ms.
+    static func overlayLerpDtOf(_ dt: TimeInterval) -> TimeInterval {
+        max(0.001, dt)
+    }
+
+    /// Hub-Doppelframe 8–20 ms. Live außer Band, Held in Band, Live < halbe Held.
+    static func overlayLerpHitchKeeps(live: TimeInterval, held: TimeInterval, streak: Int, cap: Int = 2) -> Bool {
+        guard overlayLerpShould(dt: held) else { return false }
+        guard live > 0, live < 0.045, live + 1e-9 < held * 0.5 else { return false }
+        return streak < cap
+    }
+
+    static func overlayLerpDtHold(prev: TimeInterval, live: TimeInterval) -> TimeInterval {
+        if overlayLerpShould(dt: live) { return live }
+        if overlayLerpHitchKeeps(live: live, held: prev, streak: 0) { return prev }
+        return live
+    }
+
+    static func overlayLerpHitchChip(keep: Bool) -> String? { keep ? "LERP hitch" : nil }
+
+    /// S2-Coast-Knochen. Canvas `where !isGhost` fraß 1.5.174 overlayGhostAny.
+    static func overlayDrawsGhost() -> Bool { true }
+
+    /// Fill-Gap ist Display-Uhr, P sitzt auf Kamera-Uhr. Reset → nächster Fill fliegt.
+    static func pointerKalmanResetsPOnGap() -> Bool { false }
+
+    /// Live 1, Coast 0,50, Latch 0,35. Overlay sonst 1→0,50 diskret.
+    static func overlayGhostBlend(ghost: Bool, remaining: TimeInterval) -> CGFloat {
+        if !ghost { return 1 }
+        return overlayGhostAlpha(coast: overlayGhostIsCoast(remaining: remaining))
+    }
+
+    /// intra-frame Opacity. From live / To Coast: 1 → 0,50 über dt.
+    static func overlayLerpGhostBlend(
+        fromGhost: Bool,
+        toGhost: Bool,
+        fromRemain: TimeInterval,
+        toRemain: TimeInterval,
+        t: CGFloat
+    ) -> CGFloat {
+        let a = overlayGhostBlend(ghost: fromGhost, remaining: fromRemain)
+        let b = overlayGhostBlend(ghost: toGhost, remaining: toRemain)
+        let u = min(1, max(0, t))
+        return a + (b - a) * u
+    }
+
+    /// HUD. Actor-Slot (S1) allein ließ S2-Coast unsichtbar.
+    static func overlayGhostSlotChip(slots: [(id: String, ghost: Bool)]) -> String? {
+        let ghosts = slots.filter(\.ghost).map(\.id)
+        if ghosts.isEmpty { return nil }
+        if ghosts.count == 1 { return "\(ghosts[0]) · ghost" }
+        return ghosts.joined(separator: "+") + " · ghost"
+    }
 
     /// Smoothstep — linear Lerp ruckt 8 fps. Bezier zwischen zwei Vision-Poses.
     static func overlayBezierEase(_ t: CGFloat) -> CGFloat {
@@ -3272,9 +3400,38 @@ enum GestureMath {
     }
 
     /// Bind-Scale 3 Ticks EMA auf lastS1. Gitarre-Flicker 0,29 sonst jeden Tick neu.
-    static func palmBindScaleOf(live: CGFloat, last: CGFloat?, ticks: Int, alpha: CGFloat = 0.45, need: Int = 3) -> CGFloat {
-        guard let last, ticks >= need else { return live }
+    /// nearLast false: Live bleibt. Sonst 0,45×0,29+0,55×0,14 = 0,21 = isHand.
+    static func palmBindScaleOf(live: CGFloat, last: CGFloat?, ticks: Int, alpha: CGFloat = 0.45, need: Int = 3, nearLast: Bool = true) -> CGFloat {
+        guard nearLast, let last, ticks >= need else { return live }
         return alpha * live + (1 - alpha) * last
+    }
+
+    /// Gitarre 0,29 vs Hand-Cluster 0,14. Enge Hist + Sprung ≥ 0,12 nach oben = Prop.
+    /// Annäherung 0,14→0,22 streut, kein Veto.
+    /// Live-Scale, nicht Bind-EMA: 0,45×0,29+0,55×0,14 = 0,21, Veto tot.
+    /// Soft: Jump 0,08–0,12 linear. Veto bleibt 0. 1 = Hand.
+    /// Guitar-Hist (S1 war 0,29): Compact erholt S1, Gitarre Prior 0.
+    static func palmScaleHistPrior(scale: CGFloat, hist: [CGFloat], guitar: CGFloat = 0.28) -> CGFloat {
+        if palmScaleHistVeto(scale: scale, hist: hist, guitar: guitar) { return 0 }
+        let s = Array(hist.suffix(palmScaleMedianCap))
+        guard s.count >= 4, let med = palmScaleMedian(s) else { return 1 }
+        if med + 1e-6 >= guitar {
+            return scale + 1e-6 < guitar ? 1 : 0
+        }
+        let jump = scale - med
+        if jump < 0.08 { return 1 }
+        let t = min(1, max(0, (jump - 0.08) / 0.04))
+        return 1 - t
+    }
+
+    static func palmScaleHistVeto(scale: CGFloat, hist: [CGFloat], guitar: CGFloat = 0.28) -> Bool {
+        let s = Array(hist.suffix(palmScaleMedianCap))
+        guard s.count >= 4, let med = palmScaleMedian(s) else { return false }
+        let mean = s.reduce(0, +) / CGFloat(s.count)
+        let variance = s.reduce(CGFloat(0)) { $0 + ($1 - mean) * ($1 - mean) } / CGFloat(s.count)
+        let std = sqrt(variance)
+        guard std < 0.04, med < 0.22, scale >= guitar else { return false }
+        return scale - med >= 0.12
     }
 
     static let palmScaleMedianCap = 8
@@ -3288,26 +3445,258 @@ enum GestureMath {
     /// Nur S1 live. S2/Prop nach Coast stiehlt sonst den Median-Ring.
     static func palmScaleMedianKeeps(s1Live: Bool) -> Bool { s1Live }
 
+    /// 16 Joints Hand vs 6 Gitarre. Conf-Tie und Scale-Tie sonst Observation-order.
+    static func palmBindJointGroupIsHand(_ count: Int, need: Int = 12) -> Bool { count >= need }
+    static func palmBindJointGroupIsProp(_ count: Int, cap: Int = 8) -> Bool { count <= cap }
+    static func palmBindJointGroupPrefers(countA: Int, countB: Int, hand: Int = 12, prop: Int = 8) -> Bool? {
+        let ha = palmBindJointGroupIsHand(countA, need: hand)
+        let hb = palmBindJointGroupIsHand(countB, need: hand)
+        if ha != hb { return ha && !hb }
+        let pa = palmBindJointGroupIsProp(countA, cap: prop)
+        let pb = palmBindJointGroupIsProp(countB, cap: prop)
+        if pa != pb { return !pa && pb }
+        return nil
+    }
+
+    /// Compact-Hand < 0,28 vor Gitarre-Range. Conf 0,95 sonst S1 ohne Hist.
+    static func palmBindCompactPrefers(scaleA: CGFloat, scaleB: CGFloat, guitar: CGFloat = 0.28) -> Bool? {
+        let ga = scaleA + 1e-6 >= guitar
+        let gb = scaleB + 1e-6 >= guitar
+        if ga == gb { return nil }
+        return !ga && gb
+    }
+
+    /// Gitarre nicht in den Median-Ring. S1 0,29 sonst Hist-Prior tot.
+    static func palmScaleMedianRecords(scale: CGFloat, guitar: CGFloat = 0.28) -> Bool {
+        scale + 1e-6 < guitar
+    }
+
+    /// palmHandScaleMax 0,28: Gitarre 0,29 ist Prop. Desk < 0,28 und Nah ≥ 0,40 = Hand.
+    /// Band 0,28…0,40 linear 1→0. Keep 0,72 nur lastS1.
+    static let palmScaleGuitarLo: CGFloat = palmHandScaleMax
+    static let palmScaleGuitarHi: CGFloat = palmHandScaleClose
+
+    static func palmScalePropBand(_ scale: CGFloat, lo: CGFloat = palmScaleGuitarLo, hi: CGFloat = palmScaleGuitarHi) -> Bool {
+        scale >= lo && scale < hi
+    }
+
+    static func palmScaleSizePrior(scale: CGFloat, lo: CGFloat = palmScaleGuitarLo, hi: CGFloat = palmScaleGuitarHi) -> CGFloat {
+        if scale < lo || scale >= hi { return 1 }
+        let t = (scale - lo) / max(1e-6, hi - lo)
+        return max(0, 1 - t)
+    }
+
+    /// 1-Frame Conf-Dip. Live unter Floor, EMA hält S1. α 0,45 wie Compact-Pass.
+    static func palmSlotConfEma(prev: Float, live: Float, alpha: Float = 0.45) -> Float {
+        prev * (1 - alpha) + live * alpha
+    }
+
+    static func palmSlotConfHolds(ema: Float, live: Float, floor: Float = 0.22, liveFloor: Float = 0.10) -> Bool {
+        live + 1e-6 >= liveFloor && ema + 1e-6 >= floor
+    }
+
+    /// Keep nur lastS1, nicht alle Blobs. Global-Keep machte Gitarre 0,29 zur Hand.
+    static func palmSlotNearLast(palm: CGPoint, last: CGPoint?, radius: CGFloat = 0.18) -> Bool {
+        guard let last else { return false }
+        return hypot(palm.x - last.x, palm.y - last.y) < radius
+    }
+
+    static func palmSlotBindConf(live: Float, prev: Float?, nearLast: Bool, alpha: Float = 0.45) -> Float {
+        if nearLast, let prev {
+            return palmSlotConfEma(prev: prev, live: live, alpha: alpha)
+        }
+        return live
+    }
+
+    /// S1 und S2 getrennt. lastS1Conf auf S2-Dip ließ die zweite Hand fallen.
+    static func palmSlotConfPrev(nearS1: Bool, nearS2: Bool, s1: Float, s2: Float) -> Float? {
+        if nearS1 { return s1 }
+        if nearS2 { return s2 }
+        return nil
+    }
+
+    static func palmSlotKeepNear(nearS1: Bool, nearS2: Bool, keepBind: Bool, keepS2: Bool = false) -> Bool {
+        (keepBind && nearS1) || (keepS2 && nearS2)
+    }
+
+    /// Bind-Klassifikation immer Live. EMA lastS1 auf Gitarre 0,29 → 0,21 Compact-Tie.
+    static func palmBindScaleClass(live: CGFloat, hist: [CGFloat] = []) -> CGFloat {
+        palmScaleHistVeto(scale: live, hist: hist) ? 1 : live
+    }
+
+    /// S1-Hist auf S2 = Gitarre-Veto. Unbound leer, nicht lastS1.
+    static func palmBindScaleHistOf(nearS1: Bool, nearS2: Bool, s1: [CGFloat], s2: [CGFloat]) -> [CGFloat] {
+        if nearS1 { return s1 }
+        if nearS2 { return s2 }
+        return []
+    }
+
+    /// lastS1 steigt durch 0,28…0,40 = Hand zur Kamera. Sprung ≥ 0,12 = Gitarre neben Palma.
+    static func palmScaleApproaching(prev: CGFloat?, live: CGFloat, step: CGFloat = 0.12) -> Bool {
+        guard let prev, palmScaleIsHand(prev) else { return false }
+        guard palmScalePropBand(live) else { return false }
+        let d = live - prev
+        return d > 1e-6 && d < step
+    }
+
+    /// 16 Joints im Gitarrenband = Hand, 6 = Prop. Keep-Radius allein machte 0,29 zur Hand.
+    static func palmScaleRanksHand(
+        _ scale: CGFloat,
+        count: Int = 0,
+        keep: Bool = false,
+        approaching: Bool = false
+    ) -> Bool {
+        if palmScaleIsHand(scale, keep: keep, approaching: approaching) { return true }
+        return palmBindJointGroupIsHand(count) && palmScalePropBand(scale)
+    }
+
+    /// S1∩S2 Palma. Hand-über-Hand Pinch = Phantom-Klick. Scale bleibt davor.
+    static func palmPinchMuteOverlap(palm: CGPoint, others: [CGPoint], radius: CGFloat = 0.14) -> Bool {
+        others.contains { hypot(palm.x - $0.x, palm.y - $0.y) < radius }
+    }
+
+    static func palmScaleClassChip(slot: String, live: CGFloat, ghost: Bool = false) -> String? {
+        if live < palmHandScaleMin { return nil }
+        let base: String
+        if palmScalePropBand(live) { base = "\(slot) Gitarre" }
+        else { base = String(format: "%@ %.2f", slot, Double(live)) }
+        return ghost ? "\(base) · ghost" : base
+    }
+
+    /// Dense 16 Joints, Span < 0,08 im Gitarrenband = Prop. obsLooksLikeHand warf spanW weg.
+    static func palmSpanBandVeto(scale: CGFloat, span: CGFloat, floor: CGFloat = 0.08) -> Bool {
+        palmScalePropBand(scale) && span > 0 && span < floor
+    }
+
+    static func palmSpanBandIsHand(scale: CGFloat, span: CGFloat, count: Int) -> Bool {
+        if !palmScaleRanksHand(scale, count: count) { return false }
+        return !palmSpanBandVeto(scale: scale, span: span)
+    }
+
+    /// S1-Coast darf S2 nicht zum Ghost machen. Zwei-Pinzette sonst tot.
+    static func palmCoastRestStaysLive(id: String, coasting: String) -> Bool {
+        id != coasting
+    }
+
+    static func palmCoastEmitsGhost(live: Bool, miss: Int, need: Int) -> Bool {
+        !live && palmCoastKeepsS1(miss: miss, need: need)
+    }
+
+    /// S1+S2 gelockt. Vision-Flip 8 fps sonst S1↔S2.
+    static func palmChiralityBothLocked(s1: Int, s2: Int) -> Bool {
+        (s1 == 1 && s2 == 2) || (s1 == 2 && s2 == 1)
+    }
+
+    static func palmChiralityFreezeHolds(bothSeenAt: TimeInterval?, now: TimeInterval, hold: TimeInterval = 0.80) -> Bool {
+        guard let t = bothSeenAt else { return false }
+        return now - t >= 0 && now - t < hold
+    }
+
+    static func palmChiralityFreezeLive(locked: Int, live: Int, freeze: Bool) -> Int {
+        if freeze, locked == 1 || locked == 2 { return locked }
+        return live
+    }
+
+    static func palmChiralityFreezeAdvance(
+        bothLocked: Bool,
+        prev: TimeInterval?,
+        now: TimeInterval,
+        hold: TimeInterval = 0.80
+    ) -> TimeInterval? {
+        if bothLocked { return prev ?? now }
+        guard let prev, now - prev < hold else { return nil }
+        return prev
+    }
+
+    static func palmChiralityFreezeChip(freeze: Bool) -> String? {
+        freeze ? "L/R freeze" : nil
+    }
+
+    /// Streck 4 → 2 in einem Tick. Faust-Gate 2 Frames zu spät bei 8 fps.
+    static func fistFormingPreArm(prevOpen: Int, liveOpen: Int, needDrop: Int = 2) -> Bool {
+        prevOpen >= 4 && liveOpen <= prevOpen - needDrop && liveOpen >= 1 && liveOpen <= 2
+    }
+
+    /// Per-Finger Curl. openScore 4→2 verpasst 3 Finger die sich falten während Score 3 bleibt.
+    static func fingerCurl(tip: CGPoint?, mcp: CGPoint?, scale: CGFloat) -> CGFloat {
+        guard let tip, let mcp, scale > 0.01 else { return 0.5 }
+        let reach = hypot(tip.x - mcp.x, tip.y - mcp.y) / scale
+        return min(1, max(0, 1 - reach))
+    }
+
+    static func fistFormingCurlDrop(prev: CGFloat, live: CGFloat, need: CGFloat = 0.18) -> Bool {
+        prev - live >= need && live < 0.55 && prev > 0.70
+    }
+
+    static func fistFormingCurlPreArm(prev: [CGFloat], live: [CGFloat], needFingers: Int = 3, drop: CGFloat = 0.18) -> Bool {
+        guard prev.count == live.count, prev.count >= 4 else { return false }
+        let n = zip(prev, live).filter { fistFormingCurlDrop(prev: $0.0, live: $0.1, need: drop) }.count
+        return n >= needFingers
+    }
+
+    static func fistFormingPreArmAny(prevOpen: Int, liveOpen: Int, prevCurl: [CGFloat] = [], liveCurl: [CGFloat] = []) -> Bool {
+        if fistFormingPreArm(prevOpen: prevOpen, liveOpen: liveOpen) { return true }
+        return fistFormingCurlPreArm(prev: prevCurl, live: liveCurl)
+    }
+
+    /// Freeze in Ticks, nicht Wandzeit. 8 fps 800 ms = 6 Ticks, 60 fps sonst 48 Frames tot.
+    static func palmChiralityFreezeFps(dt: TimeInterval) -> Double {
+        dt > 0.001 ? min(60, max(4, 1.0 / dt)) : 8
+    }
+
+    static func palmChiralityFreezeNeed(fps: Double, ticks: Int = 6, floor: TimeInterval = 0.12, cap: TimeInterval = 0.80) -> TimeInterval {
+        let hz = max(1, fps)
+        return min(cap, max(floor, TimeInterval(ticks) / hz))
+    }
+
     /// Observation-first: Gitarre vor Hand. Hands (klein) zuerst binden.
     /// lastS1: unter 0,28 gewinnt Näher, nicht kleiner — Gitarre 0,25 sonst vor Hand 0,27.
     /// counts: dichte Hand vor sparsamer Gitarre, wenn last fehlt.
+    /// Joint-Group neben Conf-Tie: 16 vs 6 bevor Vision-Conf.
+    /// isHand tot im Gitarrenband: 0,29 ohne Keep nicht S1. Compact + Size-Prior unter Hands.
+    /// Dense im Band rankt als Hand — sonst 16 Joints 0,31 = Prop hinter Desk-Gitarre.
     static func palmBindHandsFirst(
         scales: [CGFloat],
         palms: [CGPoint] = [],
         last: CGPoint? = nil,
-        counts: [Int] = []
+        counts: [Int] = [],
+        confs: [Float] = [],
+        hist: [CGFloat] = []
     ) -> [Int] {
         scales.indices.sorted { a, b in
-            let ha = palmScaleIsHand(scales[a])
-            let hb = palmScaleIsHand(scales[b])
+            let ca = a < counts.count ? counts[a] : 0
+            let cb = b < counts.count ? counts[b] : 0
+            let ha = palmScaleRanksHand(scales[a], count: ca)
+            let hb = palmScaleRanksHand(scales[b], count: cb)
             if ha != hb { return ha && !hb }
             if ha, let last, a < palms.count, b < palms.count {
                 let da = hypot(palms[a].x - last.x, palms[a].y - last.y)
                 let db = hypot(palms[b].x - last.x, palms[b].y - last.y)
                 if abs(da - db) > 1e-6 { return da < db }
             }
-            if ha, a < counts.count, b < counts.count, counts[a] != counts[b] {
-                return counts[a] > counts[b]
+            if ha, let compact = palmBindCompactPrefers(scaleA: scales[a], scaleB: scales[b]) {
+                return compact
+            }
+            if ha, a < counts.count, b < counts.count {
+                if let group = palmBindJointGroupPrefers(countA: counts[a], countB: counts[b]) {
+                    return group
+                }
+                if counts[a] != counts[b] {
+                    return counts[a] > counts[b]
+                }
+            }
+            if ha {
+                let sa = palmScaleSizePrior(scale: scales[a])
+                let sb = palmScaleSizePrior(scale: scales[b])
+                if abs(sa - sb) > 1e-4 { return sa > sb }
+            }
+            if ha, !hist.isEmpty {
+                let pa = palmScaleHistPrior(scale: scales[a], hist: hist)
+                let pb = palmScaleHistPrior(scale: scales[b], hist: hist)
+                if abs(pa - pb) > 1e-4 { return pa > pb }
+            }
+            if ha, a < confs.count, b < confs.count, abs(confs[a] - confs[b]) > 1e-4 {
+                return confs[a] > confs[b]
             }
             return scales[a] < scales[b]
         }
@@ -3478,6 +3867,72 @@ enum GestureMath {
     static func cameraMutexWriteKind() -> String { "caches" }
     static func cameraMutexReadOrder() -> [String] { ["caches", "tmp"] }
     static func cameraMutexFlockExclusive() -> Bool { true }
+    /// Vision-Tick claimCameraMutex: LOCK_EX ohne NB stallt 8 fps.
+    static func cameraMutexFlockNonblock() -> Bool { true }
+    static func cameraMutexFlockReadShared() -> Bool { true }
+    /// 8 fps × % 8 = 1 s tot. Aegis-Heartbeat 2 s sah Lücken. Cadence 1, ClaimDue 80 ms drosselt 60 fps.
+    static func cameraMutexClaimCadence() -> Int { 1 }
+    static func cameraMutexClaimEveryFrame() -> Bool { true }
+    static func cameraMutexClaimMinDt() -> TimeInterval { 0.08 }
+    /// LOCK_NB 3× tot → 400 ms, sonst Claim hämmert hinter Aegis-Write.
+    static func cameraMutexClaimBackoffFails() -> Int { 3 }
+    static func cameraMutexClaimBackoffDt() -> TimeInterval { 0.40 }
+    static func cameraMutexClaimDue(
+        last: TimeInterval,
+        now: TimeInterval,
+        minDt: TimeInterval = cameraMutexClaimMinDt(),
+        fails: Int = 0
+    ) -> Bool {
+        let wait = fails >= cameraMutexClaimBackoffFails() ? max(minDt, cameraMutexClaimBackoffDt()) : minDt
+        return now - last >= wait
+    }
+    static func cameraMutexClaimNow(tick: Int, cadence: Int = cameraMutexClaimCadence()) -> Bool {
+        let used = max(1, cadence)
+        return tick % used == 0
+    }
+    /// Crash mitten im Write = leere Caches-Datei. fsync vor LOCK_UN.
+    static func cameraMutexFsyncBeforeUnlock() -> Bool { true }
+    /// 1.5.161: Caches-only Write. tmp bleibt Read-Legacy für Aegis < 2.1.163.
+    static func cameraMutexWriteTmp() -> Bool { false }
+    /// LOCK_SH|NB fehlgeschlagen: nicht als holder=nil claimen.
+    static func cameraMutexSkipClaim(readBusy: Bool) -> Bool { readBusy }
+    /// Unter LOCK_EX neu lesen. Aegis schreibt nicht über Helios, der nach dem unlocked Read kam.
+    /// pidLive false: Holder-PID tot (Crash/Sleep) — Lock frei, nicht 12 s stale.
+    static func cameraMutexWriteAllowed(
+        existing: String?,
+        owner: String,
+        now: TimeInterval,
+        pidLive: Bool? = nil
+    ) -> Bool {
+        let holder = existing.flatMap { cameraMutexParse($0, now: now, pidLive: pidLive) }
+        return cameraMutexClaimWrites(holder: holder, owner: owner)
+    }
+    static func cameraMutexBumpGen(_ existing: String?) -> UInt32 {
+        (existing.flatMap { cameraMutexGen($0) } ?? 0) &+ 1
+    }
+    /// SH-Read Gen. Fehlt das Feld (alte 3-Zeile) → 0.
+    static func cameraMutexExpectedGen(_ existing: String?) -> UInt32 {
+        existing.flatMap { cameraMutexGen($0) } ?? 0
+    }
+    /// Gen-Mismatch: jemand schrieb zwischen Parse und LOCK_EX.
+    /// Helios hat Continuity-Vorrang und schreibt trotzdem. Aegis bricht ab.
+    static func cameraMutexCasAllows(existing: String?, owner: String, expectedGen: UInt32?) -> Bool {
+        guard let expected = expectedGen else { return true }
+        if cameraMutexExpectedGen(existing) == expected { return true }
+        return owner == cameraMutexOwnerHelios()
+    }
+    static func cameraMutexLockedLine(
+        existing: String?,
+        owner: String,
+        pid: Int32,
+        now: TimeInterval,
+        expectedGen: UInt32? = nil,
+        pidLive: Bool? = nil
+    ) -> String? {
+        guard cameraMutexWriteAllowed(existing: existing, owner: owner, now: now, pidLive: pidLive) else { return nil }
+        guard cameraMutexCasAllows(existing: existing, owner: owner, expectedGen: expectedGen) else { return nil }
+        return cameraMutexLine(owner: owner, pid: pid, now: now, gen: cameraMutexBumpGen(existing))
+    }
     /// 3 s war kürzer als Continuity-Frame + 32-Tick Geometry. Heartbeat 2 s, Stale 12.
     static func cameraMutexStale() -> TimeInterval { 12 }
 
@@ -3505,8 +3960,10 @@ enum GestureMath {
     }
 
     /// Caches zuerst, /tmp nur Legacy (1.5.157). Leerer Caches-String zählt nicht.
-    static func cameraMutexPickText(caches: String?, tmp: String?) -> String? {
+    /// cachesEmpty: ftruncate-Rennen. Leerer Caches-String ist Write-in-flight, nicht Legacy-tmp.
+    static func cameraMutexPickText(caches: String?, tmp: String?, cachesEmpty: Bool = false) -> String? {
         if let caches, !caches.isEmpty { return caches }
+        if cachesEmpty { return nil }
         if let tmp, !tmp.isEmpty { return tmp }
         return nil
     }
@@ -3560,9 +4017,135 @@ enum GestureMath {
         yielded && isContinuity
     }
 
+    static func cameraMutexYieldGrace() -> TimeInterval { 4 }
+
+    /// Panel 2–8 s. Default 4. Unter 2 s = Built-in-Flackern, über 8 s = Continuity tot.
+    static func cameraMutexYieldGracePref(_ seconds: Double) -> TimeInterval {
+        min(8, max(2, seconds))
+    }
+
+    static func cameraMutexYieldAutoReturnPref(_ on: Bool) -> Bool { on }
+
+    static func cameraMutexYieldAutoReturn(
+        yielded: Bool,
+        holder: String?,
+        owner: String,
+        since: TimeInterval,
+        now: TimeInterval,
+        grace: TimeInterval = cameraMutexYieldGrace()
+    ) -> Bool {
+        guard yielded else { return false }
+        if cameraMutexYieldsContinuity(holder: holder, owner: owner) { return false }
+        if now - since < grace { return false }
+        return holder == nil || holder == owner
+    }
+
+    static func cameraMutexChip(holder: String?, yielded: Bool) -> String {
+        if yielded { return "YIELD" }
+        return holder ?? "—"
+    }
+
+    /// HUD: Holder plus LOCK_NB-Druck. backoff nach 3 Fails.
+    static func cameraMutexClaimChip(
+        holder: String?,
+        yielded: Bool,
+        fails: Int = 0,
+        lastDt: TimeInterval = 0,
+        term: String? = nil
+    ) -> String {
+        if yielded { return "YIELD" }
+        let base = holder ?? "—"
+        if let term, !term.isEmpty { return "\(base) · \(term)" }
+        if fails >= cameraMutexClaimBackoffFails() { return "\(base) · backoff" }
+        if fails > 0 { return "\(base) · \(fails)nb" }
+        if lastDt > 0, lastDt < 10 {
+            return String(format: "%@ · %.0fms", base, lastDt * 1000)
+        }
+        return base
+    }
+
     static func cameraMutexPidDead(_ pid: Int32?) -> Bool {
         guard let pid else { return true }
         return pid <= 0
+    }
+
+    static func cameraMutexStamp(_ text: String) -> TimeInterval? {
+        let parts = text.split(whereSeparator: { $0 == " " || $0 == "\n" }).map(String.init)
+        guard parts.count >= 3 else { return nil }
+        return TimeInterval(parts[2])
+    }
+
+    /// Nach Sleep: tot-PID SIGKILL. Hung-live (Prozess da, Stamp tot) nach Stale 12 s.
+    /// Continuity 8 fps schreibt 2 s Heartbeat — 5 s live bleibt. Self nie.
+    static func cameraMutexHeartbeatKillPid(
+        pid: Int32?,
+        live: Bool?,
+        now: TimeInterval,
+        stamped: TimeInterval?,
+        heartbeat: TimeInterval = cameraMutexHeartbeatSec()
+    ) -> Int32? {
+        guard let pid, pid > 0 else { return nil }
+        if live == false { return pid }
+        if live == true {
+            guard let stamped else { return nil }
+            if now - stamped >= cameraMutexStale() { return pid }
+            return nil
+        }
+        guard let stamped else { return nil }
+        if now - stamped >= heartbeat * 3 { return pid }
+        return nil
+    }
+
+    static func cameraMutexHeartbeatKillAllowed(target: Int32?, selfPid: Int32) -> Int32? {
+        guard let target, target > 0, target != selfPid else { return nil }
+        return target
+    }
+
+    /// SIGTERM zuerst. SIGKILL nach wait wenn der Holder noch hängt. Kein Sleep im Claim.
+    static func cameraMutexSigTerm() -> Int32 { 15 }
+    static func cameraMutexSigKill() -> Int32 { 9 }
+    static func cameraMutexTermWait() -> TimeInterval { 2 }
+
+    static func cameraMutexHeartbeatKillSignal(termSentAt: TimeInterval?, now: TimeInterval, wait: TimeInterval = 2) -> Int32 {
+        guard let t = termSentAt, now - t >= wait else { return cameraMutexSigTerm() }
+        return cameraMutexSigKill()
+    }
+
+    static func cameraMutexHeartbeatKillChip(signal: Int32) -> String {
+        signal == cameraMutexSigKill() ? "SIGKILL" : "SIGTERM"
+    }
+
+    static func cameraMutexHeartbeatTermStamp(prev: [Int32: TimeInterval], pid: Int32, signal: Int32, now: TimeInterval) -> [Int32: TimeInterval] {
+        var next = prev
+        if signal == cameraMutexSigTerm() {
+            next[pid] = prev[pid] ?? now
+        } else {
+            next.removeValue(forKey: pid)
+        }
+        return next
+    }
+
+    /// SIGTERM + Holder noch live: Lock nicht stehlen. Nächster Beat SIGKILL.
+    /// Sonst Helios+Aegis zwei Sessions bis der Holder den TERM verarbeitet.
+    static func cameraMutexTermBlocksWrite(signal: Int32, pidLive: Bool?) -> Bool {
+        signal == cameraMutexSigTerm() && pidLive == true
+    }
+
+    static func cameraMutexTermRemain(
+        termSentAt: TimeInterval?,
+        now: TimeInterval,
+        wait: TimeInterval = 2
+    ) -> TimeInterval? {
+        guard let t = termSentAt else { return nil }
+        return max(0, wait - (now - t))
+    }
+
+    static func cameraMutexTermChip(signal: Int32, remain: TimeInterval?) -> String? {
+        if signal == cameraMutexSigKill() { return "SIGKILL" }
+        if signal == cameraMutexSigTerm(), let r = remain {
+            return String(format: "TERM %.1f", r).replacingOccurrences(of: ".", with: ",")
+        }
+        return nil
     }
 
     /// bugfix 1.5.8: Dead-Man Faust-Timeout 2–8 s. Default bleibt 1,6.
@@ -4324,6 +4907,11 @@ enum GestureMath {
         return (false, 0)
     }
 
+    /// S2-Ghost zählte nicht — Overlay nur actorHandID (S1). Zwei-Pinzette 8 fps tot.
+    static func overlayGhostAny(slots: [(id: String, ghost: Bool)]) -> Bool {
+        slots.contains { $0.ghost }
+    }
+
     /// Lid-Open: AX-Cache nach Sleep tot. TypeID-Check reicht nicht, Probe neu.
     static func axProbeWakeInvalidates(wasClosed: Bool, nowClosed: Bool) -> Bool {
         clamshellWakeReselects(wasClosed: wasClosed, nowClosed: nowClosed)
@@ -4922,8 +5510,85 @@ enum GestureMath {
     static func overlayChipTone(_ chip: String) -> Int {
         let u = chip.uppercased()
         if u.hasPrefix("VEL") || u.hasPrefix("JUMP") || u.hasPrefix("MUTE") || u.hasPrefix("OCC") { return 1 }
+        if u.contains("BACKOFF") || u.contains("NB") { return 1 }
+        if u.contains("GITARRE") || u.contains("S1∩S2") || u.contains("∩") { return 1 }
+        if u.contains("GHOST") || u.contains("FREEZE") { return 2 }
         if u.hasPrefix("PREDICT") || u.hasPrefix("ROI") || u.hasPrefix("LATCH") || u.hasPrefix("FILL") { return 2 }
+        if u.hasPrefix("LERP") || u.hasPrefix("REAN") { return 2 }
+        if u.contains("TERM") || u.hasPrefix("SIG") { return 2 }
+        if u.hasPrefix("YIELD") || u.hasPrefix("HELIOS") || u.hasPrefix("AEGIS") { return 2 }
+        if u.hasPrefix("S1") || u.hasPrefix("S2") { return 2 }
         return 0
+    }
+
+    /// Fill nur intra-frame. Continuity-Lücke > mul× medianDt: Kalman tot, Ghost-Fabrik tot.
+    static func obsFillGapMulPref(_ pref: Double) -> Double {
+        min(3.2, max(1.8, pref))
+    }
+
+    static func obsFillSkipsGap(
+        lastHand: TimeInterval,
+        now: TimeInterval,
+        medianDt: TimeInterval,
+        mul: Double = 2.4
+    ) -> Bool {
+        guard lastHand > 0 else { return true }
+        let age = now - lastHand
+        let cap = max(0.22, min(0.55, medianDt * obsFillGapMulPref(mul)))
+        return age > cap
+    }
+
+    static func obsFillGapChip(skip: Bool) -> String? { skip ? "FILL gap" : nil }
+
+    /// Nach Lücke lastMapped2/Vel tot. Sonst 400 ms Delta = Flug.
+    static func obsFillGapRebase(latched: Bool) -> Bool { latched }
+
+    /// Kamera-Truth, nicht Fill. cursorSmooth nach Lücke = alter Fill-Offset.
+    static func obsFillGapRebasePoint(latched: Bool, camera: CGPoint?, fill: CGPoint?) -> CGPoint? {
+        guard latched else { return nil }
+        return camera ?? fill
+    }
+
+    static func pointerKalmanResets(gap: Bool) -> Bool { gap }
+
+    /// Constant-velocity. dt Sleep/Lücke > 2 s tot.
+    static func pointerKalmanVel(prev: CGPoint, live: CGPoint, dt: TimeInterval) -> CGPoint {
+        guard dt > 1e-4, dt < 2 else { return .zero }
+        let t = CGFloat(dt)
+        return CGPoint(x: (live.x - prev.x) / t, y: (live.y - prev.y) / t)
+    }
+
+    /// MAD hoch: Fill-Cap runter. Continuity-Jitter sonst Overshoot.
+    static func pointerKalmanCapMul(mad: CGFloat, rest: CGFloat = 0.002, shaky: CGFloat = 0.018) -> CGFloat {
+        let u = min(1, max(0, (mad - rest) / max(0.001, shaky - rest)))
+        return 1 - 0.55 * u
+    }
+
+    static func pointerKalmanPredict(
+        from: CGPoint,
+        vx: CGFloat,
+        vy: CGFloat,
+        dt: TimeInterval,
+        cap: CGFloat
+    ) -> CGPoint {
+        pointerKalmanPredict(from: from, vx: vx, vy: vy, dt: dt, capX: cap, capY: cap)
+    }
+
+    static func pointerKalmanPredict(
+        from: CGPoint,
+        vx: CGFloat,
+        vy: CGFloat,
+        dt: TimeInterval,
+        capX: CGFloat,
+        capY: CGFloat
+    ) -> CGPoint {
+        displayLinkCursorOf(
+            from: from,
+            velocity: CGPoint(x: vx, y: vy),
+            elapsed: dt,
+            capX: capX,
+            capY: capY
+        )
     }
 }
 

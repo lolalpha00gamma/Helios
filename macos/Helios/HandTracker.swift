@@ -25,6 +25,8 @@ struct TrackedHand: Identifiable {
     /// Leere Vision: letzte Pose, keine One-Shots.
     var isGhost: Bool = false
     var ghostRemaining: TimeInterval = 0
+    /// Overlay-Opacity. 1 live → 0,50 Coast / 0,35 Latch. Lerp sonst 1→0,50 Sprung.
+    var ghostBlend: CGFloat = 1
     /// Vision-3D: Spitzen minus Wrist, +Z zur Kamera. nil = 2D-PinchGate.
     var tipZ: Float? = nil
     /// DIP als Fake-Tip: Kalman freeze, nicht meanConfidence.
@@ -47,6 +49,12 @@ struct TrackedHand: Identifiable {
         displayJoints.isEmpty ? joints : displayJoints
     }
 
+    mutating func applyGhost(remaining: TimeInterval) {
+        isGhost = true
+        ghostRemaining = remaining
+        ghostBlend = GestureMath.overlayGhostBlend(ghost: true, remaining: remaining)
+    }
+
     var meanConfidence: Float {
         let src = joints.isEmpty ? overlayJoints : joints
         guard !src.isEmpty else { return 0 }
@@ -65,6 +73,12 @@ struct TrackedHand: Identifiable {
 
     var palmScale: CGFloat {
         GestureClassifier.palmScale(joints.mapValues(\.point))
+    }
+
+    var fingerCurl: [CGFloat] {
+        FingerKind.allCases.map { f in
+            GestureMath.fingerCurl(tip: point(f.tip), mcp: point(f.mcp), scale: palmScale)
+        }
     }
 
     func isExtended(_ finger: FingerKind) -> Bool {
@@ -122,8 +136,16 @@ final class HandTracker: @unchecked Sendable {
     private var lastS1Palm: CGPoint?
     private var lastS1Scale: CGFloat = 0.12
     private var lastS1ScaleRing: [CGFloat] = []
+    private var lastS1Conf: Float = 0.40
+    private var lastS2Palm: CGPoint?
+    private var lastS2Conf: Float = 0.40
+    private var lastS2Scale: CGFloat = 0.12
+    private var lastS2ScaleRing: [CGFloat] = []
     private var lastS1Vel: CGPoint = .zero
+    private var lastS2Vel: CGPoint = .zero
     private var s1MissTicks: Int = 0
+    private var s2MissTicks: Int = 0
+    private var bothLockedAt: TimeInterval?
     private var lastFrozenROI: CGRect?
     private var lastFrozenAt: TimeInterval = 0
     private var roiMissFullNext = false
@@ -151,8 +173,16 @@ final class HandTracker: @unchecked Sendable {
         lastS1Palm = nil
         lastS1Scale = 0.12
         lastS1ScaleRing = []
+        lastS1Conf = 0.40
+        lastS2Palm = nil
+        lastS2Conf = 0.40
+        lastS2Scale = 0.12
+        lastS2ScaleRing = []
         lastS1Vel = .zero
+        lastS2Vel = .zero
         s1MissTicks = 0
+        s2MissTicks = 0
+        bothLockedAt = nil
         lastFrozenROI = nil
         lastFrozenAt = 0
         roiMissFullNext = false
@@ -343,6 +373,7 @@ final class HandTracker: @unchecked Sendable {
         var bindScales = Array(repeating: CGFloat(1), count: observations.count)
         var bindPalms = Array(repeating: CGPoint.zero, count: observations.count)
         var bindCounts = Array(repeating: 0, count: observations.count)
+        var bindConfs = Array(repeating: Float(0), count: observations.count)
         let keepBind = lastS1Palm != nil && GestureMath.palmScaleIsHand(lastS1Scale, keep: true)
         for (i, obs) in observations.enumerated() {
             guard let pts = try? obs.recognizedPoints(.all) else { continue }
@@ -366,7 +397,17 @@ final class HandTracker: @unchecked Sendable {
                 }
             }
             let scLive = GestureClassifier.palmScale(raw)
-            let sc = GestureMath.palmBindScaleOf(live: scLive, last: lastS1Scale, ticks: lastS1ScaleRing.count)
+            let palmGuess = GestureClassifier.palmCenter(raw)
+            let nearS1 = GestureMath.palmSlotNearLast(palm: palmGuess, last: lastS1Palm)
+            let nearS2 = !nearS1 && GestureMath.palmSlotNearLast(palm: palmGuess, last: lastS2Palm)
+            let hist = GestureMath.palmBindScaleHistOf(
+                nearS1: nearS1, nearS2: nearS2, s1: lastS1ScaleRing, s2: lastS2ScaleRing
+            )
+            let sc = GestureMath.palmBindScaleClass(live: scLive, hist: hist)
+            let approaching = GestureMath.palmScaleApproaching(
+                prev: nearS1 ? lastS1Scale : (nearS2 ? lastS2Scale : nil),
+                live: scLive
+            )
             let span = GestureMath.obsJointSpan(Array(raw.values))
             let mcpPts = [raw[.indexMCP], raw[.middleMCP], raw[.ringMCP], raw[.littleMCP]].compactMap { $0 }
             let mcpN = mcpPts.count
@@ -383,21 +424,31 @@ final class HandTracker: @unchecked Sendable {
             let fan = GestureMath.palmMCPFanDeg(wrist: raw[.wrist], mcps: mcpPts)
             let fanOk = sparse || !GestureMath.palmMCPCollinearVeto(fan: fan)
             let confOk = GestureMath.obsJointConfOk(wrist: wristC, mcps: mcpCs, tips: tipCs, sparse: sparse)
+            let keepThis = GestureMath.palmSlotKeepNear(
+                nearS1: nearS1, nearS2: nearS2, keepBind: keepBind, keepS2: lastS2Palm != nil
+            )
+            let prevConf = GestureMath.palmSlotConfPrev(
+                nearS1: nearS1, nearS2: nearS2, s1: lastS1Conf, s2: lastS2Conf
+            )
+            bindConfs[i] = GestureMath.palmSlotBindConf(
+                live: obs.confidence, prev: prevConf, nearLast: nearS1 || nearS2
+            )
             if GestureMath.obsLooksLikeHand(
                 spanW: span.w,
                 spanH: span.h,
                 palmScale: sc,
                 jointCount: raw.count,
-                keep: keepBind,
+                keep: keepThis,
                 sparse: sparse,
                 chainOk: chainOk,
-                fanOk: fanOk
+                fanOk: fanOk,
+                approaching: approaching
             ), confOk {
                 bindScales[i] = sc
             } else {
                 bindScales[i] = 1
             }
-            bindPalms[i] = GestureClassifier.palmCenter(raw)
+            bindPalms[i] = palmGuess
             bindCounts[i] = raw.count
         }
         let handHit = bindScales.contains { GestureMath.palmScaleIsHand($0) }
@@ -412,11 +463,22 @@ final class HandTracker: @unchecked Sendable {
         }
         var s1Locked = slots[1]?.laterality ?? 0
         for idx in GestureMath.palmBindHandsFirst(
-            scales: bindScales, palms: bindPalms, last: lastS1Palm, counts: bindCounts
+            scales: bindScales, palms: bindPalms, last: lastS1Palm, counts: bindCounts, confs: bindConfs,
+            hist: lastS1ScaleRing
         ) {
             let obs = observations[idx]
             guard let pts = try? obs.recognizedPoints(.all) else { continue }
-            if obs.confidence < minConf { continue }
+            if obs.confidence < minConf {
+                let palm = idx < bindPalms.count ? bindPalms[idx] : .zero
+                let nearS1 = GestureMath.palmSlotNearLast(palm: palm, last: lastS1Palm, radius: 0.12)
+                let nearS2 = !nearS1 && GestureMath.palmSlotNearLast(palm: palm, last: lastS2Palm, radius: 0.12)
+                let ema = GestureMath.palmSlotConfPrev(
+                    nearS1: nearS1, nearS2: nearS2, s1: lastS1Conf, s2: lastS2Conf
+                ) ?? 0
+                if !(nearS1 || nearS2) || !GestureMath.palmSlotConfHolds(ema: ema, live: obs.confidence, floor: minConf) {
+                    continue
+                }
+            }
             var raw: [VNHumanHandPoseObservation.JointName: CGPoint] = [:]
             var conf: [VNHumanHandPoseObservation.JointName: Float] = [:]
             var wristC: Float?
@@ -439,11 +501,15 @@ final class HandTracker: @unchecked Sendable {
                 }
             }
             let spanLive = GestureMath.obsJointSpan(Array(raw.values))
-            let scaleLive = GestureMath.palmBindScaleOf(
-                live: GestureClassifier.palmScale(raw),
-                last: lastS1Scale,
-                ticks: lastS1ScaleRing.count
+            let scaleRaw = GestureClassifier.palmScale(raw)
+            let palmGuess = GestureClassifier.palmCenter(raw)
+            let nearS1Live = GestureMath.palmSlotNearLast(palm: palmGuess, last: lastS1Palm)
+            let nearS2Live = !nearS1Live && GestureMath.palmSlotNearLast(palm: palmGuess, last: lastS2Palm)
+            let histLive = GestureMath.palmBindScaleHistOf(
+                nearS1: nearS1Live, nearS2: nearS2Live, s1: lastS1ScaleRing, s2: lastS2ScaleRing
             )
+            let scaleClass = GestureMath.palmBindScaleClass(live: scaleRaw, hist: histLive)
+            if scaleClass >= 1 { continue }
             let mcpPts = [raw[.indexMCP], raw[.middleMCP], raw[.ringMCP], raw[.littleMCP]].compactMap { $0 }
             let mcpN = mcpPts.count
             let sparse = GestureMath.fingerSparseKeepsPalm(
@@ -458,15 +524,23 @@ final class HandTracker: @unchecked Sendable {
             )
             let fanLive = GestureMath.palmMCPFanDeg(wrist: raw[.wrist], mcps: mcpPts)
             let fanOk = sparse || !GestureMath.palmMCPCollinearVeto(fan: fanLive)
+            let keepThis = GestureMath.palmSlotKeepNear(
+                nearS1: nearS1Live, nearS2: nearS2Live, keepBind: keepBind, keepS2: lastS2Palm != nil
+            )
+            let approachingLive = GestureMath.palmScaleApproaching(
+                prev: nearS1Live ? lastS1Scale : (nearS2Live ? lastS2Scale : nil),
+                live: scaleRaw
+            )
             if !GestureMath.obsLooksLikeHand(
                 spanW: spanLive.w,
                 spanH: spanLive.h,
-                palmScale: scaleLive,
+                palmScale: scaleClass,
                 jointCount: raw.count,
-                keep: keepBind,
+                keep: keepThis,
                 sparse: sparse,
                 chainOk: chainLive,
-                fanOk: fanOk
+                fanOk: fanOk,
+                approaching: approachingLive
             ) {
                 continue
             }
@@ -489,7 +563,6 @@ final class HandTracker: @unchecked Sendable {
                 chirality = claimed.contains(other) ? .unknown : other
             }
 
-            let palmGuess = GestureClassifier.palmCenter(raw)
             let scale = GestureClassifier.palmScale(raw)
             let tipZ = pose3DZ[chirality] ?? pose3DZ[.unknown]
             if raw.count < 8 {
@@ -517,6 +590,11 @@ final class HandTracker: @unchecked Sendable {
                 liveCode = 0
                 chirality = .unknown
             }
+            let freezeNeed = GestureMath.palmChiralityFreezeNeed(
+                fps: GestureMath.palmChiralityFreezeFps(dt: lastObsDt)
+            )
+            let freeze = GestureMath.palmChiralityFreezeHolds(bothSeenAt: bothLockedAt, now: now, hold: freezeNeed)
+            liveCode = GestureMath.palmChiralityFreezeLive(locked: slot.laterality, live: liveCode, freeze: freeze)
             let prevWanted: VNChirality = slot.laterality == 1 ? .left : slot.laterality == 2 ? .right : .unknown
             let otherClaimed = prevWanted != .unknown && claimed.contains(prevWanted)
             if otherClaimed { slot.lateralityClaimedTicks += 1 } else { slot.lateralityClaimedTicks = 0 }
@@ -615,7 +693,7 @@ final class HandTracker: @unchecked Sendable {
             }
             let smoothed = raw
             let gateJoints = GestureMath.pinchGateUsesSmoothed(closed: slot.pinch.closed) ? smoothed : raw
-            let pinchState = slot.pinch.update(raw: gateJoints, conf: conf, now: now, tipZ: tipZ, dt: lastObsDt)
+            let pinchState = slot.pinch.update(raw: gateJoints, conf: conf, now: now, tipZ: tipZ, dt: lastObsDt, slot: slotID)
             slot.palm = palmGuess
             slot.lastSeen = now
             slot.scale = GestureMath.palmScaleKalman(prev: slot.scale, live: scale)
@@ -632,7 +710,7 @@ final class HandTracker: @unchecked Sendable {
 
             let pinch = pinchState.distance
             let palm = GestureClassifier.palmCenter(raw)
-            var pose = GestureClassifier.classify(joints: raw, pinch: pinch)
+            var pose = GestureClassifier.classify(joints: smoothed, pinch: pinch)
             if pinchState.closed, pose == .unknown || pose == .point || pose == .fist {
                 pose = .pinch
             }
@@ -640,11 +718,11 @@ final class HandTracker: @unchecked Sendable {
             if pinchState.closed, pose == .unknown || pose == .point || pose == .fist {
                 pose = .pinch
             }
-            let openScore = GestureClassifier.openScore(joints: raw)
+            let openScore = GestureClassifier.openScore(joints: smoothed)
             let ratio = pinchState.ratio
             var ext: Set<String> = []
             for f in FingerKind.allCases {
-                if GestureClassifier.isExtended(raw, tip: f.tip, pip: f.pip, mcp: f.mcp) {
+                if GestureClassifier.isExtended(smoothed, tip: f.tip, pip: f.pip, mcp: f.mcp) {
                     ext.insert(f.rawValue)
                 }
             }
@@ -673,31 +751,76 @@ final class HandTracker: @unchecked Sendable {
         }
         emptySince = nil
         let s1Live = hands.contains { $0.id == "S1" && !$0.isGhost }
+        let s2Live = hands.contains { $0.id == "S2" && !$0.isGhost }
         let wasCoast = lastHands.contains { $0.id == "S1" && $0.isGhost }
+        let wasS2Coast = lastHands.contains { $0.id == "S2" && $0.isGhost }
         let coastNeedLive = GestureMath.palmCoastNeedAuto(dt: lastObsDt, pref: palmCoastNeed)
         s1MissTicks = GestureMath.palmCoastAdvance(prev: s1MissTicks, hit: s1Live)
-        if !s1Live, GestureMath.palmCoastKeepsS1(miss: s1MissTicks, need: coastNeedLive),
+        s2MissTicks = GestureMath.palmCoastAdvance(prev: s2MissTicks, hit: s2Live)
+        if GestureMath.palmCoastEmitsGhost(live: s1Live, miss: s1MissTicks, need: coastNeedLive),
            let prev = lastHands.first(where: { $0.id == "S1" })
         {
             let rest = hands.filter { $0.id != "S1" }
-            hands = applyCoastGhost(prev: prev, onto: rest)
+            hands = applyCoastGhost(prev: prev, onto: rest, vel: &lastS1Vel, miss: s1MissTicks)
         }
+        if GestureMath.palmCoastEmitsGhost(live: s2Live, miss: s2MissTicks, need: coastNeedLive),
+           let prev = lastHands.first(where: { $0.id == "S2" })
+        {
+            let rest = hands.filter { $0.id != "S2" }
+            hands = applyCoastGhost(prev: prev, onto: rest, vel: &lastS2Vel, miss: s2MissTicks)
+        }
+        let s1Lat = slots[1]?.laterality ?? 0
+        let s2Lat = slots[2]?.laterality ?? 0
+        bothLockedAt = GestureMath.palmChiralityFreezeAdvance(
+            bothLocked: GestureMath.palmChiralityBothLocked(s1: s1Lat, s2: s2Lat),
+            prev: bothLockedAt,
+            now: now,
+            hold: GestureMath.palmChiralityFreezeNeed(
+                fps: GestureMath.palmChiralityFreezeFps(dt: lastObsDt)
+            )
+        )
         lastHands = hands
         let keepLast = GestureMath.palmScaleIsHand(lastS1Scale, keep: true)
         if GestureMath.palmScaleMedianKeeps(s1Live: s1Live),
            let s1 = hands.first(where: { $0.id == "S1" && !$0.isGhost }),
-           GestureMath.palmScaleIsHand(s1.palmScale, keep: keepLast) {
+           GestureMath.palmScaleIsHand(
+            s1.palmScale,
+            keep: keepLast,
+            approaching: GestureMath.palmScaleApproaching(prev: lastS1Scale, live: s1.palmScale)
+           ) {
             if let prev = lastS1Palm {
                 lastS1Vel = GestureMath.palmCoastReturnVel(
                     live: s1.palm, stored: prev, wasCoast: wasCoast, lastVel: lastS1Vel
                 )
             }
             lastS1Palm = s1.palm
-            lastS1ScaleRing = Array(lastS1ScaleRing.suffix(GestureMath.palmScaleMedianCap - 1)) + [s1.palmScale]
+            if GestureMath.palmScaleMedianRecords(scale: s1.palmScale) {
+                lastS1ScaleRing = Array(lastS1ScaleRing.suffix(GestureMath.palmScaleMedianCap - 1)) + [s1.palmScale]
+            }
             lastS1Scale = GestureMath.palmScaleKalman(
                 prev: lastS1Scale,
                 live: GestureMath.palmScaleMedian(lastS1ScaleRing) ?? s1.palmScale
             )
+            lastS1Conf = s1.meanConfidence
+        }
+        if let s2 = hands.first(where: { $0.id == "S2" && !$0.isGhost }) {
+            if let prev = lastS2Palm {
+                lastS2Vel = GestureMath.palmCoastReturnVel(
+                    live: s2.palm, stored: prev, wasCoast: wasS2Coast, lastVel: lastS2Vel
+                )
+            }
+            lastS2Palm = s2.palm
+            lastS2Conf = GestureMath.palmSlotConfEma(prev: lastS2Conf, live: s2.meanConfidence)
+            if GestureMath.palmScaleMedianRecords(scale: s2.palmScale) {
+                lastS2ScaleRing = Array(lastS2ScaleRing.suffix(GestureMath.palmScaleMedianCap - 1)) + [s2.palmScale]
+            }
+            lastS2Scale = GestureMath.palmScaleKalman(prev: lastS2Scale, live: s2.palmScale)
+        } else if !GestureMath.palmCoastKeepsS2(miss: s2MissTicks, need: coastNeedLive) {
+            lastS2Palm = nil
+            lastS2Conf = 0.40
+            lastS2Scale = 0.12
+            lastS2ScaleRing = []
+            lastS2Vel = .zero
         }
         return hands
     }
@@ -707,11 +830,21 @@ final class HandTracker: @unchecked Sendable {
     private func emitEmpty(now: TimeInterval) -> [TrackedHand] {
         let coastNeed = GestureMath.palmCoastNeedAuto(dt: lastObsDt, pref: palmCoastNeed)
         s1MissTicks = GestureMath.palmCoastAdvance(prev: s1MissTicks, hit: false)
+        s2MissTicks = GestureMath.palmCoastAdvance(prev: s2MissTicks, hit: false)
+        var coasted: [TrackedHand] = []
         if GestureMath.palmCoastEmptyKeeps(miss: s1MissTicks, need: coastNeed),
            let prev = lastHands.first(where: { $0.id == "S1" })
         {
+            coasted = applyCoastGhost(prev: prev, onto: lastHands.filter { $0.id != "S1" }, vel: &lastS1Vel, miss: s1MissTicks)
+        }
+        if GestureMath.palmCoastKeepsS2(miss: s2MissTicks, need: coastNeed),
+           let prev = lastHands.first(where: { $0.id == "S2" })
+        {
+            coasted = applyCoastGhost(prev: prev, onto: coasted.isEmpty ? lastHands.filter { $0.id != "S2" } : coasted.filter { $0.id != "S2" }, vel: &lastS2Vel, miss: s2MissTicks)
+        }
+        if !coasted.isEmpty {
             emptySince = nil
-            lastHands = applyCoastGhost(prev: prev, onto: lastHands.filter { $0.id != "S1" })
+            lastHands = coasted
             return lastHands
         }
         if emptySince == nil { emptySince = now }
@@ -721,8 +854,7 @@ final class HandTracker: @unchecked Sendable {
                 let remaining = max(0, GestureMath.slotLatch - emptyFor)
                 return lastHands.map { h in
                     var copy = h
-                    copy.isGhost = true
-                    copy.ghostRemaining = remaining
+                    copy.applyGhost(remaining: remaining)
                     return copy
                 }
             }
@@ -730,8 +862,16 @@ final class HandTracker: @unchecked Sendable {
             lastS1Palm = nil
             lastS1Scale = 0.12
             lastS1ScaleRing = []
+            lastS1Conf = 0.40
+            lastS2Palm = nil
+            lastS2Conf = 0.40
+            lastS2Scale = 0.12
+            lastS2ScaleRing = []
             lastS1Vel = .zero
+            lastS2Vel = .zero
             s1MissTicks = 0
+            s2MissTicks = 0
+            bothLockedAt = nil
             lastFrozenROI = nil
             lastFrozenAt = 0
             roiMissFullNext = false
@@ -746,8 +886,16 @@ final class HandTracker: @unchecked Sendable {
         lastS1Palm = nil
         lastS1Scale = 0.12
         lastS1ScaleRing = []
+        lastS1Conf = 0.40
+        lastS2Palm = nil
+        lastS2Conf = 0.40
+        lastS2Scale = 0.12
+        lastS2ScaleRing = []
         lastS1Vel = .zero
+        lastS2Vel = .zero
         s1MissTicks = 0
+        s2MissTicks = 0
+        bothLockedAt = nil
         lastFrozenROI = nil
         lastFrozenAt = 0
         roiMissFullNext = false
@@ -756,12 +904,11 @@ final class HandTracker: @unchecked Sendable {
         return []
     }
 
-    private func applyCoastGhost(prev: TrackedHand, onto rest: [TrackedHand]) -> [TrackedHand] {
+    private func applyCoastGhost(prev: TrackedHand, onto rest: [TrackedHand], vel: inout CGPoint, miss: Int) -> [TrackedHand] {
         var ghost = prev
-        ghost.isGhost = true
-        ghost.ghostRemaining = 0
-        lastS1Vel = GestureMath.palmCoastVelDecay(vel: lastS1Vel, miss: s1MissTicks)
-        let predicted = GestureMath.palmCoastPredict(palm: prev.palm, vel: lastS1Vel)
+        ghost.applyGhost(remaining: 0)
+        vel = GestureMath.palmCoastVelDecay(vel: vel, miss: miss)
+        let predicted = GestureMath.palmCoastPredict(palm: prev.palm, vel: vel)
         let delta = GestureMath.palmCoastDelta(from: prev.palm, to: predicted)
         ghost.palm = predicted
         ghost.joints = ghost.joints.mapValues { j in
@@ -774,18 +921,23 @@ final class HandTracker: @unchecked Sendable {
             copy.point = GestureMath.palmCoastShift(j.point, delta: delta)
             return copy
         }
-        lastS1Palm = predicted
-        if GestureMath.palmROICoastFollows(true) {
-            lastFrozenROI = GestureMath.palmROIFollow(palm: predicted, scale: lastS1Scale, dt: lastObsDt)
-            if lastFrozenAt <= 0 { lastFrozenAt = lastObsAt }
+        if prev.id == "S1" {
+            lastS1Palm = predicted
+            if GestureMath.palmROICoastFollows(true) {
+                lastFrozenROI = GestureMath.palmROIFollow(palm: predicted, scale: lastS1Scale, dt: lastObsDt)
+                if lastFrozenAt <= 0 { lastFrozenAt = lastObsAt }
+            }
+        } else if prev.id == "S2" {
+            lastS2Palm = predicted
         }
-        let ghosts = rest.map { h -> TrackedHand in
+        let kept = rest.map { h -> TrackedHand in
             var copy = h
-            copy.isGhost = true
-            copy.ghostRemaining = 0
+            if !GestureMath.palmCoastRestStaysLive(id: h.id, coasting: prev.id) {
+                copy.applyGhost(remaining: 0)
+            }
             return copy
         }
-        return [ghost] + ghosts
+        return [ghost] + kept
     }
 
     /// Observation-Index und Chirality springen. Dieselbe Hand über Palm-Nähe halten.

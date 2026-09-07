@@ -106,7 +106,7 @@ struct TrackingOverlay: View {
             let size = geo.size
             ZStack {
                 Canvas { ctx, canvasSize in
-                    for hand in hands where !hand.isGhost {
+                    for hand in hands where GestureMath.overlayDrawsGhost() || !hand.isGhost {
                         drawHand(hand, in: &ctx, size: canvasSize)
                     }
                 }
@@ -132,11 +132,7 @@ struct TrackingOverlay: View {
         let slotCol: Color = hue == "amber" ? HeliosTheme.amber : HeliosTheme.cyan
         let side = isActor ? HeliosTheme.amber : slotCol
         let oldOp = ctx.opacity
-        if hand.isGhost {
-            ctx.opacity = oldOp * GestureMath.overlayGhostAlpha(
-                coast: GestureMath.overlayGhostIsCoast(remaining: hand.ghostRemaining)
-            )
-        }
+        ctx.opacity = oldOp * hand.ghostBlend
         defer { ctx.opacity = oldOp }
         let pts = joints.compactMap { $0.value.confidence > 0.10 ? vis($0.value.point, size) : nil }
         if pts.count >= 3 {
@@ -214,7 +210,19 @@ struct TrackingOverlay: View {
 
     private func labels(in size: CGSize) -> [JointLabel] {
         var out: [JointLabel] = []
-        for hand in hands where !hand.isGhost {
+        for hand in hands {
+            if hand.isGhost {
+                if GestureMath.overlayDrawsGhost(), let w = hand.overlayPoint(.wrist) {
+                    let slot = GestureMath.slotChip(id: hand.id).map { " \($0)" } ?? ""
+                    out.append(JointLabel(
+                        id: "\(hand.id)-ghost",
+                        text: compact ? "\(hand.id) Ghost" : "Ghost\(slot)",
+                        point: w,
+                        color: HeliosTheme.amber.opacity(0.7)
+                    ))
+                }
+                continue
+            }
             let hue = GestureMath.slotHue(hand.id)
             let sideColor: Color = hue == "amber" ? HeliosTheme.amber : HeliosTheme.cyan
             let side = hand.chirality == .left ? "L" : "R"

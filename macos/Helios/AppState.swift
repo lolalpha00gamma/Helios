@@ -102,7 +102,9 @@ final class AppState: ObservableObject {
     @Published var visionMs: Double = 0
     @Published var holdRing = false
     @Published var formatChip = ""
+    @Published var mutexChip = "—"
     @Published var roiLatchChip = ""
+    @Published var scaleClassChip = ""
 
     let calibSession = CalibrationSession()
     private var lastPanel: TimeInterval = 0
@@ -111,6 +113,7 @@ final class AppState: ObservableObject {
     private var lastScreenHash = ""
     private var overlayDarkSince: TimeInterval?
     private var slowSince: TimeInterval?
+    private var usbWatchSince: TimeInterval?
     private var sawAccessOK = false
     private var lastCameraID = ""
     private var formatStuckSince: TimeInterval?
@@ -130,8 +133,11 @@ final class AppState: ObservableObject {
     @Published var deadManFist: Double = 1.6
     @Published var flingWindow: Double = 0.12
     @Published var swipeOpenOnly = false
+    @Published var yieldAutoReturn = true
+    @Published var yieldGrace: Double = 4
     @Published var fillCapLaptop: Double = 12
     @Published var fillCapStudio: Double = 28
+    @Published var fillGapMul: Double = 2.4
     private var destEdgePadMap: [String: CGFloat] = [:]
     private var fillCapMap: [String: CGFloat] = [:]
     private var displayPulseHz: Float = 120
@@ -140,6 +146,9 @@ final class AppState: ObservableObject {
     private var overlayHandsTo: [TrackedHand] = []
     private var overlayLerpAt: TimeInterval = 0
     private var overlayLerpDt: TimeInterval = 0.12
+    private var overlayLerpHitchStreak = 0
+    @Published var overlayLerpChip = ""
+    @Published var overlayGhostChip = ""
 
     private var cancellables: Set<AnyCancellable> = []
     private var focusTick = 0
@@ -182,6 +191,7 @@ final class AppState: ObservableObject {
                 self.cameraFallback = self.camera.usingFallback
                 self.dualCamAvailable = self.camera.dualCamAvailable
                 self.formatChip = self.camera.formatChip
+                self.mutexChip = self.camera.mutexChip
                 let camID = self.camera.uniqueID
                 if camID != self.lastCameraID {
                     self.lastCameraID = camID
@@ -358,6 +368,13 @@ final class AppState: ObservableObject {
         let fromDisp = from.displayJoints.isEmpty ? from.joints : from.displayJoints
         let toDisp = to.displayJoints.isEmpty ? to.joints : to.displayJoints
         h.displayJoints = overlayLerpJoints(fromDisp, toDisp, t: t)
+        h.ghostBlend = GestureMath.overlayLerpGhostBlend(
+            fromGhost: from.isGhost,
+            toGhost: to.isGhost,
+            fromRemain: from.ghostRemaining,
+            toRemain: to.ghostRemaining,
+            t: t
+        )
         return h
     }
 
@@ -665,6 +682,12 @@ final class AppState: ObservableObject {
         putFillCapForScreen(fillCapStudio)
     }
 
+    func setFillGapMul(_ v: Double) {
+        fillGapMul = GestureMath.obsFillGapMulPref(v)
+        engine.fillGapMul = GestureMath.obsFillGapMulPref(fillGapMul)
+        Prefs.fillGapMul = fillGapMul
+    }
+
     private func putFillCapForScreen(_ cap: Double) {
         guard let id = engine.lastScreenID, !id.isEmpty else { return }
         let screens = ScreenGeometry.quartzScreens
@@ -700,6 +723,16 @@ final class AppState: ObservableObject {
         Prefs.swipeOpenOnly = v
     }
 
+    func setYieldAutoReturn(_ v: Bool) {
+        yieldAutoReturn = GestureMath.cameraMutexYieldAutoReturnPref(v)
+        Prefs.yieldAutoReturn = yieldAutoReturn
+    }
+
+    func setYieldGrace(_ s: Double) {
+        yieldGrace = GestureMath.cameraMutexYieldGracePref(s)
+        Prefs.yieldGrace = yieldGrace
+    }
+
     func setCameraChoice(_ choice: CameraChoice) {
         cameraChoice = choice
         camera.choice = choice
@@ -725,8 +758,11 @@ final class AppState: ObservableObject {
         deadManFist = Prefs.deadManFist
         flingWindow = Prefs.flingWindow
         swipeOpenOnly = Prefs.swipeOpenOnly
+        yieldAutoReturn = Prefs.yieldAutoReturn
+        yieldGrace = Prefs.yieldGrace
         fillCapLaptop = Prefs.fillCapLaptop
         fillCapStudio = Prefs.fillCapStudio
+        fillGapMul = Prefs.fillGapMul
         fillCapMap = Prefs.fillCapMap
         protocolMode = Prefs.protocolMode
         testMode = Prefs.testMode
@@ -750,6 +786,7 @@ final class AppState: ObservableObject {
         engine.flingWindowPref = GestureMath.flingWindowPref(flingWindow)
         engine.fillCapLaptop = GestureMath.fillCapLaptopPref(CGFloat(fillCapLaptop))
         engine.fillCapStudio = GestureMath.fillCapStudioPref(CGFloat(fillCapStudio))
+        engine.fillGapMul = GestureMath.obsFillGapMulPref(fillGapMul)
         engine.fillCapMap = fillCapMap
         engine.swipeOpenOnly = swipeOpenOnly
         engine.protocolMode = protocolMode
@@ -868,7 +905,7 @@ final class AppState: ObservableObject {
         }
         visionMs = visMs
         holdRing = GestureMath.darkRingHolds(darkStreak: lumaDarkStreak)
-        let liveGhost = hands.contains { $0.id == engine.actorHandID && $0.isGhost }
+        let liveGhost = GestureMath.overlayGhostAny(slots: hands.map { (id: $0.id, ghost: $0.isGhost) })
         let ghostHold = GestureMath.overlayGhostPeakHold(current: liveGhost, remaining: overlayGhostHold)
         overlayGhostHold = ghostHold.remaining
         let ghost = ghostHold.ghost
@@ -889,13 +926,24 @@ final class AppState: ObservableObject {
             fling: GestureMath.flingGhostLabel(engine.flingGhostKind),
             kind: engine.hoverKind
         )
-        if GestureMath.overlayLerpShould(dt: engine.rawFrameDt) {
+        let hitch = GestureMath.overlayLerpHitchKeeps(
+            live: engine.rawFrameDt, held: overlayLerpDt, streak: overlayLerpHitchStreak
+        ) && !overlayHandsTo.isEmpty
+        overlayLerpChip = GestureMath.overlayLerpHitchChip(keep: hitch) ?? ""
+        overlayGhostChip = GestureMath.overlayGhostSlotChip(
+            slots: hands.map { (id: $0.id, ghost: $0.isGhost) }
+        ) ?? ""
+        if hitch {
+            overlayLerpHitchStreak += 1
+        } else if GestureMath.overlayLerpShould(dt: engine.rawFrameDt) {
+            overlayLerpHitchStreak = 0
             overlayHandsFrom = overlayHandsTo.isEmpty ? hands : overlayHandsTo
             overlayHandsTo = hands
             overlayLerpAt = now
-            overlayLerpDt = max(0.05, engine.rawFrameDt)
+            overlayLerpDt = GestureMath.overlayLerpDtOf(engine.rawFrameDt)
             self.hands = overlayLerpHands(from: overlayHandsFrom, to: overlayHandsTo, t: 0)
         } else {
+            overlayLerpHitchStreak = 0
             overlayHandsFrom = []
             overlayHandsTo = []
             self.hands = hands
@@ -904,6 +952,9 @@ final class AppState: ObservableObject {
             secondHand: hands.filter { !$0.isGhost }.count >= 2,
             dt: engine.rawFrameDt
         ) ?? ""
+        scaleClassChip = GestureMath.overlayChipCap(
+            hands.compactMap { GestureMath.palmScaleClassChip(slot: $0.id, live: $0.palmScale, ghost: $0.isGhost) }
+        ).joined(separator: " · ")
         engineCursor = engine.cursor
         cursorHand = engine.cursorHand
         grabPhase = engine.grabPhase
@@ -956,6 +1007,21 @@ final class AppState: ObservableObject {
                 if med >= GestureMath.watchdogFps + 2 {
                     cameraSlow = false
                 }
+            }
+            let usb = GestureMath.continuityWatchdogUSB(camera.formatChip)
+            if usb, med > 0, med < 10 {
+                if usbWatchSince == nil { usbWatchSince = now }
+            } else {
+                usbWatchSince = nil
+            }
+            if GestureMath.continuityWatchdogRestart(
+                medianFps: med,
+                hold: usbWatchSince.map { now - $0 } ?? 0,
+                usb: usb
+            ), now - lastFormatReselect >= 2 {
+                lastFormatReselect = now
+                camera.reselectFormat()
+                log.record("USB-Continuity-Watchdog — Format neu \(String(format: "%.0f", med)) fps", kind: .info)
             }
         }
         if hands.isEmpty {
@@ -1078,6 +1144,17 @@ enum Prefs {
         }
         set { UserDefaults.standard.set(newValue, forKey: "helios.fillCapStudio") }
     }
+    static var fillGapMul: Double {
+        get {
+            if UserDefaults.standard.object(forKey: "helios.fillGapMul") == nil {
+                return 2.4
+            }
+            return GestureMath.obsFillGapMulPref(
+                UserDefaults.standard.double(forKey: "helios.fillGapMul")
+            )
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.fillGapMul") }
+    }
     static var fillCapMap: [String: CGFloat] {
         get {
             (UserDefaults.standard.dictionary(forKey: "helios.fillCapMap") as? [String: Double])?
@@ -1111,6 +1188,28 @@ enum Prefs {
     static var swipeOpenOnly: Bool {
         get { UserDefaults.standard.bool(forKey: "helios.swipeOpenOnly") }
         set { UserDefaults.standard.set(newValue, forKey: "helios.swipeOpenOnly") }
+    }
+    static var yieldAutoReturn: Bool {
+        get {
+            if UserDefaults.standard.object(forKey: "helios.yieldAutoReturn") == nil {
+                return true
+            }
+            return GestureMath.cameraMutexYieldAutoReturnPref(
+                UserDefaults.standard.bool(forKey: "helios.yieldAutoReturn")
+            )
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.yieldAutoReturn") }
+    }
+    static var yieldGrace: Double {
+        get {
+            if UserDefaults.standard.object(forKey: "helios.yieldGrace") == nil {
+                return GestureMath.cameraMutexYieldGrace()
+            }
+            return GestureMath.cameraMutexYieldGracePref(
+                UserDefaults.standard.double(forKey: "helios.yieldGrace")
+            )
+        }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.yieldGrace") }
     }
     static var protocolMode: Bool {
         get { UserDefaults.standard.object(forKey: "helios.protocolMode") as? Bool ?? true }

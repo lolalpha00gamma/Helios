@@ -47,8 +47,11 @@ final class GestureEngine {
     var fillCapLaptop: CGFloat = 12
     var fillCapStudio: CGFloat = 28
     var fillCapMap: [String: CGFloat] = [:]
+    var fillGapMul: Double = 2.4
     var swipeOpenOnly = false
     private var fistClickFrames = 0
+    private var lastActorOpenScore = 4
+    private var lastActorCurl: [CGFloat] = [0, 0, 0, 0, 0]
     var spaceMap: SpaceMap?
     var calibration: CalibrationSession?
     var trashHot = false
@@ -141,6 +144,8 @@ final class GestureEngine {
     var palmVelChip: String? { lastVelChip }
     var palmLateralityChip: String? { lastLateralityChip }
     var pointerPredictChip: String? { lastPredictChip }
+    var fillGapChip: String? { lastFillGapChip }
+    var reanchorChip: String? { lastReanchorChip }
     var occlusionChip: String? { lastOcclusionChip }
     var warpWriterChip: String? {
         GestureMath.warpWriterChip(linkArmed: GestureMath.displayLinkPulseAlive(
@@ -305,6 +310,10 @@ final class GestureEngine {
     private var lastOcclusionChip: String?
     private var palmVelAt: TimeInterval?
     private var lastPredictChip: String?
+    private var lastFillGapChip: String?
+    private var lastReanchorChip: String?
+    private var lastFillSeen: TimeInterval = 0
+    private var fillGapLatched = false
     private var palmKalmanPX: CGFloat = 0
     private var palmKalmanPY: CGFloat = 0
     private var cursorSteps: [CGFloat] = []
@@ -425,6 +434,7 @@ final class GestureEngine {
         clutchOtherOpen = false
         lastAction = "Reset"
         cooldownUntil = 0
+        lastActorOpenScore = 4
         killLatched = false
         armLockUntil = 0
         peaceSince = nil
@@ -454,6 +464,8 @@ final class GestureEngine {
         palmVelAt = nil
         palmSlowByActor.removeAll()
         lastPredictChip = nil
+        lastFillGapChip = nil
+        fillGapLatched = false
         palmKalmanPX = 0
         palmKalmanPY = 0
         cursorSteps.removeAll()
@@ -577,6 +589,8 @@ final class GestureEngine {
                 palmVelAt = nil
                 palmSlowByActor.removeAll()
                 lastPredictChip = nil
+                lastFillGapChip = nil
+                fillGapLatched = false
                 palmKalmanPX = 0
                 palmKalmanPY = 0
                 cursorSteps.removeAll()
@@ -614,6 +628,7 @@ final class GestureEngine {
                 mode = .idle
                 mustRearm = false
                 lastHandSeen = 0
+                lastFillSeen = 0
                 lastFistAt = 0
                 pointerSideLock = .any
                 lastAction = "Dead-Man Faust"
@@ -622,6 +637,7 @@ final class GestureEngine {
                 mode = .idle
                 mustRearm = false
                 lastHandSeen = 0
+                lastFillSeen = 0
                 lastFistAt = 0
                 pointerSideLock = .any
                 lastAction = "Dead-Man Idle"
@@ -642,6 +658,9 @@ final class GestureEngine {
                 lastAction = "Not-Aus"
             }
             return
+        }
+        if hands.contains(where: { GestureMath.obsFillSeesHand(ghost: $0.isGhost) }) {
+            lastFillSeen = now
         }
         if hands.contains(where: { GestureMath.liveHandRefreshesDeadMan(ghost: $0.isGhost) }) {
             lastHandSeen = now
@@ -970,7 +989,7 @@ final class GestureEngine {
             lastAction = GestureMath.scaleStealHUD()
         }
         if !scaling, !pointerStealLatched {
-            driveGrab(actor, now: now, blockPress: blockPress)
+            driveGrab(actor, hands: liveHands, now: now, blockPress: blockPress)
             if !gated {
                 driveSwipe(hands: liveHands, actor: actor, now: now)
                 drivePeace(actor, hands: liveHands, now: now)
@@ -1099,6 +1118,8 @@ final class GestureEngine {
         palmVelAt = nil
         palmSlowByActor.removeAll()
         lastPredictChip = nil
+        lastFillGapChip = nil
+        fillGapLatched = false
         palmKalmanPX = 0
         palmKalmanPY = 0
         cursorSteps.removeAll()
@@ -1157,6 +1178,7 @@ final class GestureEngine {
             mode = .idle
             mustRearm = false
             lastHandSeen = 0
+            lastFillSeen = 0
             lastFistAt = 0
             pointerSideLock = .any
             abortGrab(reason: "Dead-Man Faust", now: now)
@@ -1165,6 +1187,7 @@ final class GestureEngine {
             mode = .idle
             mustRearm = false
             lastHandSeen = 0
+            lastFillSeen = 0
             lastFistAt = 0
             pointerSideLock = .any
             abortGrab(reason: "Dead-Man Idle", now: now)
@@ -1625,9 +1648,7 @@ final class GestureEngine {
         if now < pointerFrozenUntil {
             return cursorSmooth ?? snapPalm(palm)
         }
-        if pointerNeedsRebase {
-            pointerNeedsRebase = false
-        }
+        pointerNeedsRebase = false
         pointerHandID = hand.id
         rememberPalm(palm)
         palmVel = .zero
@@ -1649,7 +1670,6 @@ final class GestureEngine {
         return q
     }
 
-    /// Palme → Bildschirm. Kein Highpass, kein Coast, keine Blend.
     private func snapPalm(_ palm: CGPoint) -> CGPoint {
         let raw: CGPoint
         if let map = spaceMap, map.isUsable, !mapMissingHere {
@@ -1980,8 +2000,20 @@ final class GestureEngine {
         }
     }
 
-    private func driveGrab(_ hand: TrackedHand, now: TimeInterval, blockPress: Bool = false) {
+    private func driveGrab(_ hand: TrackedHand, hands: [TrackedHand], now: TimeInterval, blockPress: Bool = false) {
         travelProgress = nil
+        let overlapMute = GestureMath.palmPinchMuteOverlap(
+            palm: hand.palm,
+            others: hands.filter { $0.id != hand.id && !$0.isGhost }.map(\.palm)
+        )
+        let preArm = GestureMath.fistFormingPreArmAny(
+            prevOpen: lastActorOpenScore,
+            liveOpen: hand.openScore,
+            prevCurl: lastActorCurl,
+            liveCurl: hand.fingerCurl
+        )
+        lastActorOpenScore = hand.openScore
+        lastActorCurl = hand.fingerCurl
         if GestureMath.focusStealLatches(
             prevPID: lastPinchPID.map { Int32($0) },
             nextPID: focused.map { Int32($0.pid) },
@@ -2006,7 +2038,7 @@ final class GestureEngine {
         }
         let ratio = hand.pinchRatio
         let closed = hand.pinchClosed || hand.pose == .pinch
-        let fisting = hand.pose == .fist && mode == .armed
+        let fisting = (hand.pose == .fist || preArm) && mode == .armed
         if fisting { fistClickFrames += 1 } else { fistClickFrames = 0 }
         let fistOk = !fisting || GestureMath.fistClickDebounce(frames: fistClickFrames)
         let rebind = now < actorRebindUntil
@@ -2288,6 +2320,9 @@ final class GestureEngine {
             } else if GestureMath.pinchClickAbortsOcc(hand.tipHeld) {
                 system.cancelPress()
                 lastAction = "kein Klick — OCC"
+            } else if overlapMute {
+                system.cancelPress()
+                lastAction = "kein Klick — S1∩S2"
             } else if held >= clickNeed, held < GestureMath.pinchClickMax {
                 if GestureMath.pinchDownBlocked(speed: releaseSpeed) {
                     system.cancelPress()

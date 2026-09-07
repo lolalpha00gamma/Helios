@@ -269,6 +269,26 @@ struct ControlPanel: View {
                     }
                     VStack(alignment: .leading, spacing: 4) {
                         HStack {
+                            Text("Fill-Lücke")
+                            Spacer()
+                            Text(String(format: "%.1f× dt", state.fillGapMul).replacingOccurrences(of: ".", with: ","))
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(HeliosTheme.cyan)
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { state.fillGapMul },
+                                set: { state.setFillGapMul($0) }
+                            ),
+                            in: 1.8...3.2,
+                            step: 0.2
+                        )
+                        Text("displayTick tot über Continuity-Lücken. 2,4 Default. Nach Lücke Kalman-Vel 0, sonst 400 ms Flug. HUD FILL gap.")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
                             Text("Naht-Hold")
                             Spacer()
                             Text(String(format: "%.0f ms", state.destEdgeSkip * 1000))
@@ -354,6 +374,33 @@ struct ControlPanel: View {
                     Text("Faust und Pinzette wischen sonst Apps. Peace bleibt Screenshot.")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
+                    Toggle("Aegis Auto-Return", isOn: Binding(
+                        get: { state.yieldAutoReturn },
+                        set: { state.setYieldAutoReturn($0) }
+                    ))
+                    Text("Nach Yield: Continuity zurück wenn Helios die Kamera frei gibt. Aus = Aegis bleibt auf Built-in.")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 4) {
+                        HStack {
+                            Text("Yield-Grace")
+                            Spacer()
+                            Text(String(format: "%.0f s", state.yieldGrace))
+                                .font(.system(size: 11, design: .monospaced))
+                                .foregroundStyle(HeliosTheme.cyan)
+                        }
+                        Slider(
+                            value: Binding(
+                                get: { state.yieldGrace },
+                                set: { state.setYieldGrace($0) }
+                            ),
+                            in: 2...8,
+                            step: 1
+                        )
+                        Text("Sekunden nach Helios-Weg, bevor Aegis Continuity zurückholt. 4 s Default.")
+                            .font(.system(size: 10))
+                            .foregroundStyle(.secondary)
+                    }
                     }
                 }
             }

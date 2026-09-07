@@ -1,10 +1,9 @@
 import CoreGraphics
 import Vision
 
-/// Roh durchreichen. One-Euro lag hinter der Hand und zog den Cursor zurück.
+/// Roh durchreichen. One-Euro lag und zog nach.
 struct LandmarkSmoothing {
     mutating func reset() {}
-
     mutating func apply(
         _ joints: [VNHumanHandPoseObservation.JointName: CGPoint],
         now: TimeInterval

@@ -33,8 +33,12 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     @Published var uniqueID = ""
     /// HUD `420f 15–30` / `BGRA 8`.
     @Published var formatChip = ""
+    @Published var mutexChip = "—"
     /// Nutzerwahl. Auto = Built-in zuerst.
     var choice: CameraChoice = .auto
+    /// Hung-live: SIGTERM-Zeit je PID. Nächster Claim → SIGKILL nach 2 s.
+    private static var mutexTermSentAt: [Int32: TimeInterval] = [:]
+    private var mutexTermChip: String?
 
     /// Vision-Buffer, optionales Preview, Helligkeit 0…1, Ankunftszeit
     var onFrame: ((CVPixelBuffer, NSImage?, CGFloat, TimeInterval) -> Void)? {
@@ -162,6 +166,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         let started = HeliosCatch({ self.session.startRunning() }, &startErr)
         applyCaptureGeometry(device)
         applyCenterStage(force: true)
+        mutexClaimFails = 0
         claimCameraMutex()
         activeDevice = device
         let running = started && startErr == nil && session.isRunning
@@ -241,6 +246,9 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         }
     }
 
+    private var lastMutexClaimAt: TimeInterval = 0
+    private var mutexClaimFails = 0
+
     private func cameraMutexCachesURL() -> URL {
         let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
             ?? FileManager.default.temporaryDirectory
@@ -255,17 +263,107 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
 
     private func cameraMutexURL() -> URL { cameraMutexCachesURL() }
 
-    private func readCameraMutexText() -> String? {
-        let caches = try? String(contentsOf: cameraMutexCachesURL(), encoding: .utf8)
-        let tmp = try? String(contentsOf: cameraMutexLegacyURL(), encoding: .utf8)
-        return GestureMath.cameraMutexPickText(caches: caches, tmp: tmp)
+    private func readCameraMutexLocked(url: URL, busy: inout Bool) -> String? {
+        #if canImport(Darwin)
+        let fd = open(url.path, O_RDONLY)
+        if fd >= 0 {
+            let flags: Int32 = GestureMath.cameraMutexFlockNonblock() ? (LOCK_SH | LOCK_NB) : LOCK_SH
+            if GestureMath.cameraMutexFlockReadShared(), flock(fd, flags) != 0 {
+                busy = true
+                close(fd)
+                return nil
+            }
+            let size = lseek(fd, 0, SEEK_END)
+            _ = lseek(fd, 0, SEEK_SET)
+            var buf = [UInt8](repeating: 0, count: max(0, Int(size)))
+            if !buf.isEmpty {
+                _ = buf.withUnsafeMutableBytes { Darwin.read(fd, $0.baseAddress, $0.count) }
+            }
+            if GestureMath.cameraMutexFlockReadShared() {
+                _ = flock(fd, LOCK_UN)
+            }
+            close(fd)
+            return buf.isEmpty ? "" : String(bytes: buf, encoding: .utf8)
+        }
+        #endif
+        return try? String(contentsOf: url, encoding: .utf8)
     }
 
-    private func writeCameraMutexLine(_ line: String, url: URL) {
+    private func readCameraMutexText() -> (text: String?, busy: Bool) {
+        let cachesURL = cameraMutexCachesURL()
+        let cachesPresent = FileManager.default.fileExists(atPath: cachesURL.path)
+        var busy = false
+        let caches = readCameraMutexLocked(url: cachesURL, busy: &busy)
+        if busy { return (nil, true) }
+        var tmpBusy = false
+        let tmp = GestureMath.cameraMutexReadOrder().contains("tmp")
+            ? readCameraMutexLocked(url: cameraMutexLegacyURL(), busy: &tmpBusy)
+            : nil
+        if tmpBusy { return (nil, true) }
+        let empty = cachesPresent && (caches == nil || caches?.isEmpty == true)
+        return (GestureMath.cameraMutexPickText(caches: caches, tmp: tmp, cachesEmpty: empty), false)
+    }
+
+    @discardableResult
+    private func writeCameraMutexClaim(owner: String, url: URL, expectedGen: UInt32? = nil) -> Bool {
+        let pid = ProcessInfo.processInfo.processIdentifier
+        let now = Date().timeIntervalSince1970
         #if canImport(Darwin)
-        let fd = open(url.path, O_WRONLY | O_CREAT, 0o644)
+        let fd = open(url.path, O_RDWR | O_CREAT, 0o644)
         if fd >= 0 {
-            _ = flock(fd, LOCK_EX)
+            let flags: Int32 = GestureMath.cameraMutexFlockNonblock() ? (LOCK_EX | LOCK_NB) : LOCK_EX
+            if flock(fd, flags) != 0 {
+                close(fd)
+                return false
+            }
+            let size = lseek(fd, 0, SEEK_END)
+            _ = lseek(fd, 0, SEEK_SET)
+            var buf = [UInt8](repeating: 0, count: max(0, Int(size)))
+            if !buf.isEmpty {
+                _ = buf.withUnsafeMutableBytes { Darwin.read(fd, $0.baseAddress, $0.count) }
+            }
+            let existing = buf.isEmpty ? nil : String(bytes: buf, encoding: .utf8)
+            let holderPid = existing.flatMap { GestureMath.cameraMutexPid($0) }
+            let pidLive: Bool? = holderPid.map { p in p > 0 && (kill(p, 0) == 0 || errno == EPERM) }
+            if let victim = GestureMath.cameraMutexHeartbeatKillPid(
+                pid: holderPid,
+                live: pidLive,
+                now: now,
+                stamped: existing.flatMap { GestureMath.cameraMutexStamp($0) }
+            ), let killPid = GestureMath.cameraMutexHeartbeatKillAllowed(target: victim, selfPid: pid) {
+                let sig = GestureMath.cameraMutexHeartbeatKillSignal(
+                    termSentAt: Self.mutexTermSentAt[killPid],
+                    now: now
+                )
+                _ = kill(killPid, sig)
+                Self.mutexTermSentAt = GestureMath.cameraMutexHeartbeatTermStamp(
+                    prev: Self.mutexTermSentAt, pid: killPid, signal: sig, now: now
+                )
+                if GestureMath.cameraMutexTermBlocksWrite(signal: sig, pidLive: pidLive) {
+                    let remain = GestureMath.cameraMutexTermRemain(
+                        termSentAt: Self.mutexTermSentAt[killPid], now: now
+                    )
+                    let term = GestureMath.cameraMutexTermChip(signal: sig, remain: remain)
+                    mutexTermChip = term
+                    let chip = GestureMath.cameraMutexClaimChip(
+                        holder: existing.flatMap { GestureMath.cameraMutexParse($0, now: now, pidLive: pidLive) },
+                        yielded: false,
+                        fails: 0,
+                        term: term
+                    )
+                    DispatchQueue.main.async { self.mutexChip = chip }
+                    _ = flock(fd, LOCK_UN)
+                    close(fd)
+                    return false
+                }
+            }
+            guard let line = GestureMath.cameraMutexLockedLine(
+                existing: existing, owner: owner, pid: pid, now: now, expectedGen: expectedGen, pidLive: pidLive
+            ) else {
+                _ = flock(fd, LOCK_UN)
+                close(fd)
+                return false
+            }
             _ = ftruncate(fd, 0)
             _ = lseek(fd, 0, SEEK_SET)
             if let data = line.data(using: .utf8) {
@@ -275,36 +373,71 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
                     }
                 }
             }
+            if GestureMath.cameraMutexFsyncBeforeUnlock() {
+                _ = fsync(fd)
+            }
             _ = flock(fd, LOCK_UN)
             close(fd)
-            return
+            return true
         }
         #endif
+        let existing = try? String(contentsOf: url, encoding: .utf8)
+        let holderPid = existing.flatMap { GestureMath.cameraMutexPid($0) }
+        let pidLive: Bool? = holderPid.map { p in p > 0 && (kill(p, 0) == 0 || errno == EPERM) }
+        guard let line = GestureMath.cameraMutexLockedLine(
+            existing: existing, owner: owner, pid: pid, now: now, expectedGen: expectedGen, pidLive: pidLive
+        ) else { return false }
         try? line.write(to: url, atomically: true, encoding: .utf8)
+        return true
     }
 
     private func claimCameraMutex() {
+        let owner = GestureMath.cameraMutexOwnerHelios()
+        let read = readCameraMutexText()
+        if GestureMath.cameraMutexSkipClaim(readBusy: read.busy) {
+            mutexClaimFails += 1
+            let chip = GestureMath.cameraMutexClaimChip(holder: nil, yielded: false, fails: mutexClaimFails)
+            DispatchQueue.main.async { self.mutexChip = chip }
+            return
+        }
         let holder: String?
-        if let text = readCameraMutexText() {
+        let expectedGen: UInt32?
+        if let text = read.text {
             let pid = GestureMath.cameraMutexPid(text)
             let live = pid.map { p in p > 0 && (kill(p, 0) == 0 || errno == EPERM) }
             holder = GestureMath.cameraMutexParse(
                 text, now: Date().timeIntervalSince1970, pidLive: live
             )
+            expectedGen = GestureMath.cameraMutexGen(text)
         } else {
             holder = nil
+            expectedGen = nil
         }
         guard GestureMath.cameraMutexClaimWrites(
             holder: holder,
-            owner: GestureMath.cameraMutexOwnerHelios()
-        ) else { return }
-        let line = GestureMath.cameraMutexLine(
-            owner: GestureMath.cameraMutexOwnerHelios(),
-            pid: ProcessInfo.processInfo.processIdentifier,
-            now: Date().timeIntervalSince1970
+            owner: owner
+        ) else {
+            let chip = GestureMath.cameraMutexClaimChip(holder: holder, yielded: false, fails: mutexClaimFails)
+            DispatchQueue.main.async { self.mutexChip = chip }
+            return
+        }
+        let wrote = writeCameraMutexClaim(owner: owner, url: cameraMutexCachesURL(), expectedGen: expectedGen)
+        if GestureMath.cameraMutexWriteTmp() {
+            _ = writeCameraMutexClaim(owner: owner, url: cameraMutexLegacyURL(), expectedGen: expectedGen)
+        }
+        if wrote {
+            mutexClaimFails = 0
+            mutexTermChip = nil
+        } else {
+            mutexClaimFails += 1
+        }
+        let chip = GestureMath.cameraMutexClaimChip(
+            holder: wrote ? owner : holder,
+            yielded: false,
+            fails: mutexClaimFails,
+            term: mutexTermChip
         )
-        writeCameraMutexLine(line, url: cameraMutexCachesURL())
-        writeCameraMutexLine(line, url: cameraMutexLegacyURL())
+        DispatchQueue.main.async { self.mutexChip = chip }
     }
 
     private func releaseCameraMutex() {
@@ -562,7 +695,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
 
     private func process(_ pb: CVPixelBuffer, arrived: TimeInterval) {
         geometryTick += 1
-        if geometryTick % 8 == 0 {
+        if GestureMath.cameraMutexClaimDue(last: lastMutexClaimAt, now: arrived, fails: mutexClaimFails) {
+            lastMutexClaimAt = arrived
             claimCameraMutex()
         }
         if geometryTick % 32 == 0, let device = activeDevice {

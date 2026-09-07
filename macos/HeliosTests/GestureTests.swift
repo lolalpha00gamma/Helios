@@ -167,6 +167,17 @@ enum GestureTests {
         ok(eightPose == .openPalm, "HMM 8 fps hält Pose über 1 Continuity-Frame")
         eightPose = eight.step(emission: emFlip, pinchClosedness: 0.1, now: 9 * 0.125, dt: 0.125).pose
         ok(eightPose == .fist, "HMM 8 fps wechselt nach 2 Frames")
+        let weakEm: [HandPose: Double] = {
+            var e: [HandPose: Double] = [:]
+            for k in HandPose.allCases { e[k] = 0.04 }
+            e[.fist] = 0.72
+            return e
+        }()
+        let scaled = PoseHMM.qualityScale(weakEm, quality: 0.20)
+        ok((scaled[.fist] ?? 1) < 0.45, "HMM Qualität 0,20 drückt Faust")
+        ok((scaled[.unknown] ?? 0) > 0.10, "HMM Qualität mischt Uniform")
+        let sharp = PoseHMM.qualityScale(weakEm, quality: 0.80)
+        ok((sharp[.fist] ?? 0) > 0.70, "HMM Qualität 0,80 unverändert")
         ok(abs(PoseHMM.switchHold(dt: 0.016) - 0.05) < 0.001, "HMM-Hold 24 fps 50 ms")
         ok(PoseHMM.switchHold(dt: 0.125) >= 0.11, "HMM-Hold 8 fps ≥ 1 Frame")
         ok(TemporalNet.historyNeed(count: 3, dt: 0.125), "Temporal 8 fps braucht 3 Frames")

@@ -1,6 +1,17 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.33**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen. Gelesen, nicht gemergt: IOHID Event-Tap, JSONL, AX-ein-Call.
+Stand: **1.6.34**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen. Gelesen, nicht gemergt: IOHID Event-Tap, JSONL, AX-ein-Call.
+
+## In 1.6.34 erledigt
+
+1.6.33 Klick/Zwei-Pinzetten/Tastatur × dt. Ampel 0,55 s / 18 px. Faust-in-Kamera 2D-Pinzette. HMM 0,70 Faust bei q tot. Freeze-HUD leer.
+
+1. **chromeDwellNeed(dt) / chromeDwellStillNeed.** 8 fps und 5K.
+2. **pinch3DSep + pinch3DVeto** in pinchLooksLikePinch.
+3. **PoseHMM.qualityScale** q < 0,55.
+4. **freezeLive** dim + Geisterhand.
+5. **fpsSparkBars** HUD. **twoPinchAxisChip** H/V.
+6. Tests + MARKETING_VERSION 1.6.34 (Build 67).
 
 ## In 1.6.33 erledigt
 
@@ -269,9 +280,9 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 
 ## Nächste Fixes (klein, hoher Nutzen)
 
-- **chromeDwellHold × dt** analog keyboardDwellNeed — 0,55 s ist ok, Ampel-StillPx 18 auf 5K zu klein.
-- **3D-Pinch** (Daumen–Zeigefinger aus Lift3D-z). 2D-Reach lügt, wenn die Faust in die Kamera zeigt.
-- **HMM-Emission × Landmark-Qualität.** Schlechte Spitzen nicht 0,70 Faust.
+- **chromeDwellHold × dt** — 1.6.34 `chromeDwellNeed` / `chromeDwellStillNeed`. Rest: Ampel-Ring sichtbar skalieren.
+- **3D-Pinch** — 1.6.34 Landmark-z Veto. Rest: LiDAR/`DepthCapture`.
+- **HMM-Emission × Landmark-Qualität** — 1.6.34 `qualityScale`. Rest: Temperature-Closedness.
 - **Session-Replay** der Landmark-CSV direkt im HUD, Frame für Frame — ohne Xcode.
 - **Kalibrier-Quad sichtbar** als dünnes Viereck der vier Anschläge, nicht nur Ecken-Marken.
 - **Peace-Fortschritt auch in der Konsole**, nicht nur HUD-Ring.
@@ -289,28 +300,30 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Not-Aus-Ring** im HUD analog Peace (1,35 s sichtbar).
 - **Faust-Scharf-Grace 1 Frame** wenn HMM auf unknown kippt (Continuity 8 fps).
 - **Kill-Alternative beide Fäuste 0,4 s** — Tisch-Pose, wenn offene Palmen unmöglich sind.
-- **Skeleton dim während freeze** — Overlay zeigt, dass T1 nicht teleportiert.
+- **Skeleton dim / Geisterhand / Achse H/V / fps-Spark** — 1.6.34.
 - **Per-App Scroll-Invert** (Safari natural, Xcode classic) ohne Rebuild.
 - **Auto-Nachkalibrierung** nach 20 min Drift (Palm vs. Homographie-Residual > 80 px).
 - **Fling-Bestätigungs-Tick** optional, aus by default.
-- **Continuity-Geisterhand** am letzten Palm, solange freeze — sonst HUD leer.
-- **Zwei-Pinzetten-Achse im HUD** `H`/`V`, analog Lock-Chip.
-- **fps-Sparkline 8 s** im HUD, nicht nur amber-Bool.
-- **Clutch-Radius in mm**, nicht 48 px auf 5K.
 - **CGWarp-ACK** nach Warp sofort NSEvent lesen, RMS > reanchor nicht 4 Hz warten.
-- **Cover-PTS und Lead-PTS gleiche Epoche**, sonst Fusion-dt lügt.
+- **Temperature-Closedness.** q < 0,55 hebt pinchClosedness-Tor.
+- **Kalman auf freeze-Palme.** Geisterhand steht, Predict fehlt.
 
 ## Größere Erweiterungen
 
-- **VNSequenceRequestHandler auf Capture-Queue** — Landmark-Hop statt CGImage-Hop (Aegis 2.1.187 Pattern).
+- **CameraBroker IOSurface.** Ein Capture, zwei Subscriber (Helios + Aegis). Continuity 8 fps sonst zweimal Vision. P0.
+- **HeliosAegisKit.** Shared Package: dt-Uhren, CoordMath, CameraBroker. Zwei Apps, eine TCC.
 - **DisplayLink 90 Hz Overlay** unabhängig von Continuity 8 fps. Lerp schon da, Clock ist Kamera.
 - **Shared XPC `helios.aegis.camera`** mit Aegis — eine TCC, ein Buffer. Größter einzelner Effizienzgewinn. (`bugfix` hatte den Ansatz, 1.5.7-Tree nicht mergen.)
 - **MediaPipe Hands Sidecar** für Continuity 8 fps — VNDetectHumanHandPose verliert Spitzen, Reach fällt, Faust wird Pinzette.
 - **Developer ID + Notarisierung.** Ohne das muss TCC nach jedem Update neu an.
+- **pinch3D Rest-Tiefe.** Landmark-z ist 1.6.34. LiDAR/`DepthCapture` sobald ein Mac es hat — Datei existiert, Session hängt am Format.
+- **VNTrackObjectRequest** Hand-Box über Dropout, nicht nur Landmark-Miss → freeze.
+- **Session-Replay JSONL** (Tick, Pose, Aktion, dt) ohne Xcode. Analog Aegis Match-Log.
+- **Clutch-Radius in mm**, nicht 48 px auf 5K. palmWidth × FOV.
+- **Cover-PTS und Lead-PTS gleiche Epoche**, sonst Fusion-dt lügt.
 - **VoiceOver-Ansage** der letzten Aktion, ausgeschaltet by default.
 - **Fenstertiling über Stage Manager** statt nur AX-Snap.
 - **Swift Testing** in Xcode, Gesten-Zeitreihen als Fixtures.
-- **LiDAR/TrueDepth** (`DepthCapture`) verdrahten, sobald ein Mac es hat — Datei existiert, Session hängt am Format.
 - **Echtes Temporal-CoreML** (`HeliosTemporal.mlmodel`) statt Heuristik. Ohne Modell bleibt Zeit ein 2D-Echo.
 - **Zoom/Trackpad-Magnify** als Geste (Pinzette + offene zweite Hand).
 - **Mission Control / Schreibtisch.** Drei Finger hoch / runter, hinter Extra-Schalter.
@@ -323,13 +336,19 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Gesten-Lexikon.** Nutzer hält 1,5 s eine Pose, speichert sie als benannte Aktion (ohne CoreML-Training).
 - **Watch-IMU Fusion.** Handgelenk-Beschleunigung als Clutch/Kill, wenn die Webcam die Hände verliert.
 - **Overlay auf Stage-Manager-Spaces** — AX sieht oft nur das aktuelle Space.
-- **Zwei-Personen-Szenen.** Wenn Körperpose zwei Torsi sieht, zweite Hand nie als Steuerhand.
 - **Cursor-Gain pro Display-PPI**, nicht eine Zahl für Laptop+5K.
 - **Kill-Geste ein Finger-Y** (beide Zeigefinger kreuzen) als Alternative zu zwei offenen Palmen.
 - **Osmo IMU** wenn USB das liefert — Cover-Winkel ohne zweite Homographie grob schätzen.
 - **App-Profil JSON** neben Defaults, damit der Nutzer Xcode doch Scroll erlauben kann ohne Rebuild.
 - **Fling-Richtung an Stage-Manager** (links = recent, nicht nur AX-Snap).
-
+- **Kalman auf Palme während freezeLive** — Geisterhand 1.6.34 steht, Predict fehlt.
+- **Zwei-Pinzetten-Scale in mm**, nicht Pixel. 5K sonst Zoom aus Jitter.
+- **AX-Hit-Cache 1 Frame.** Continuity 8 fps sonst hitTest jeden Tick.
+- **Gesture-Fixture Replay** aus JSONL in CI, nicht nur Unit-Schwellen.
+- **Per-Finger Kontakt** (Daumen–Index / palmWidth) statt nur Closedness-Skalar.
+- **Temperature-Closedness.** q < 0,55 hebt pinchClosedness-Tor, analog HMM qualityScale.
+- **VNDetectHumanBodyPose** als Prop-Veto (Gitarre, zweite Person).
+- **Cursor-Magnetismus** 8 px an AX-Hit, optional, aus by default.
 - **Match-Log JSONL** analog Aegis (Tick, Pose, Aktion, dt) für Sitzungs-Replay ohne Xcode.
 - **Per-Display pointerGain** aus `CGDisplayPixelsWide` / mm, nicht ein Slider für Laptop+5K (steht oben, hier der Haken: SpaceMap ist schon per Display).
 - **Zwei-Finger-Doppeltipp** (Index+Mittelfinger kurz) = Doppelklick, ohne zweite Pinzette.
@@ -346,11 +365,7 @@ Fusion 2D/3D/Tiefe/Zeit verdrahtet. AX in Cocoa. Flick-Wischen. Faust-Scharf ohn
 - **Palm-mm aus palmWidth × FOV**, Clutch/Kill in physikalischen Einheiten.
 - **AX-Drag Timeout < sampleDt** — 8 fps sonst ein Sprung pro Tick, Coalesce greift nie.
 - **Space-Wechsel invalidiert focused Window** — Stage Manager lässt den Zug am Phantom.
-- **Per-Finger Kontakt** (Daumen–Index / palmWidth) statt nur Closedness-Skalar.
-- **Shared XPC `helios.aegis.camera`** mit Aegis — eine TCC, ein Buffer. Größter Effizienzgewinn.
 - **Watch-IMU Pinch-Confirm** wenn Continuity die Spitzen verliert.
-- **VNDetectHumanBodyPose** als Prop-Veto (Gitarre, zweite Person).
-- **Cursor-Magnetismus** 8 px an AX-Hit, optional, aus by default.
 
 ## Nicht tun
 

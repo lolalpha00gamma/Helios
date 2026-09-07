@@ -1,4 +1,4 @@
-# Helios **1.6.33**
+# Helios **1.6.34**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,19 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.34
+
+1.6.33 hat Klick/Zwei-Pinzetten/Tastatur auf Continuity-Zeit. Ampel blieb 0,55 s / 18 px — ein 8-fps-Tick plus Gain setzt das Still-Tor jedes Frame zurück. Faust in die Kamera sieht in 2D wie Pinzette aus. HMM gibt 0,70 Faust bei toten Spitzen. Freeze-HUD leer, fps-Sparkline ungenutzt, Zwei-Pinzetten-Achse unsichtbar.
+
+- **chromeDwellNeed(dt).** 24 fps bleibt 0,55 s. 8 fps ≥ 0,65 s — Zielen schließt die Ampel nicht.
+- **chromeDwellStillNeed(dt, screenMin).** 18 px bei 24 fps. Continuity 8 fps und 5K sonst tot.
+- **pinch3DSep / pinch3DVeto.** |z_Daumen − z_Zeigefinger| in Palmenbreiten. Faust-in-Kamera kein Klick.
+- **PoseHMM.qualityScale.** q < 0,55 mischt Emission gegen Uniform — unknown führt, nicht 0,70 Faust.
+- **freezeLive.** Overlay dimmt, letzte Palme bleibt (Geisterhand), Skeleton 0,38.
+- **fpsSparkBars + HUD-Spark.** 8 s, nicht nur amber-Bool.
+- **twoPinchAxisChip** `H`/`V` am Lock.
+- Tests + MARKETING_VERSION 1.6.34 (Build 67).
 
 ## Neu in 1.6.33
 

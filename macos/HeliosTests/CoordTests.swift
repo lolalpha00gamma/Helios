@@ -1088,6 +1088,79 @@ enum CoordTests {
             fputs("FAIL Tastatur 8 fps ≥ 200 ms\n", stderr)
             fails += 1
         }
+        if GestureMath.chromeDwellNeed(dt: 0.016) > 0.56 {
+            fputs("FAIL Ampel-Dwell 24 fps bleibt 0,55 s\n", stderr)
+            fails += 1
+        }
+        if GestureMath.chromeDwellNeed(dt: 0.125) < 0.65 {
+            fputs("FAIL Ampel-Dwell 8 fps ≥ 0,65 s\n", stderr)
+            fails += 1
+        }
+        if GestureMath.chromeDwellStillNeed(dt: 0.016, screenMin: 1080) > 20 {
+            fputs("FAIL Ampel-Still 24 fps 1080 bleibt ~18\n", stderr)
+            fails += 1
+        }
+        if GestureMath.chromeDwellStillNeed(dt: 0.125, screenMin: 1080) < 40 {
+            fputs("FAIL Ampel-Still 8 fps ≥ 40 px\n", stderr)
+            fails += 1
+        }
+        if GestureMath.chromeDwellStillNeed(dt: 0.016, screenMin: 2880) < 30 {
+            fputs("FAIL Ampel-Still 5K ≥ 30 px\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoPinchAxisChip(.horizontal) != "H" {
+            fputs("FAIL Achse H\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoPinchAxisChip(.vertical) != "V" {
+            fputs("FAIL Achse V\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoPinchAxisChip(.none) != nil {
+            fputs("FAIL Achse none tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinch3DSep(thumbZ: 0.12, indexZ: 0.12, palmWidth: 0.10) > 0.05 {
+            fputs("FAIL 3D-Sep gleich tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinch3DSep(thumbZ: 0.02, indexZ: 0.14, palmWidth: 0.10) < 1.0 {
+            fputs("FAIL 3D-Sep Faust-in-Kamera groß\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinch3DVeto(sep: 1.2, closedness2D: 0.70) {
+            fputs("FAIL 3D-Veto bei 2D-Pinzette\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchLooksLikePinch(reach: 1.1, index: 0.9, zSep: 1.2) {
+            fputs("FAIL 3D-Veto Reach tot\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinchLooksLikePinch(reach: 1.1, index: 0.9, zSep: 0.10) {
+            fputs("FAIL 3D klein Reach hält\n", stderr)
+            fails += 1
+        }
+        if GestureMath.skeletonFreezeDim(true) > 0.5 {
+            fputs("FAIL Freeze dimmt Skeleton\n", stderr)
+            fails += 1
+        }
+        if GestureMath.skeletonFreezeDim(false) < 0.99 {
+            fputs("FAIL Live Skeleton voll\n", stderr)
+            fails += 1
+        }
+        let sparkBars = GestureMath.fpsSparkBars(
+            [(0.0, 8), (4.0, 24), (7.5, 9)],
+            now: 8.0,
+            buckets: 8
+        )
+        if sparkBars.count != 8 {
+            fputs("FAIL Spark Bars 8\n", stderr)
+            fails += 1
+        }
+        if sparkBars.allSatisfy({ $0 == 0 }) {
+            fputs("FAIL Spark Bars nicht leer\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

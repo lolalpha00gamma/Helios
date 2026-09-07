@@ -128,7 +128,8 @@ final class OverlayController {
         phase: GrabPhase,
         target: String,
         window: CGRect?,
-        showReticle: Bool = true
+        showReticle: Bool = true,
+        freeze: Bool = false
     ) {
         for (id, pair) in markers {
             guard let panel = panels[id] else { continue }
@@ -149,7 +150,8 @@ final class OverlayController {
                 target: left?.actor == true ? target : "",
                 window: left?.actor == true ? window : nil,
                 isLeft: true,
-                showBeam: left?.actor == true
+                showBeam: left?.actor == true,
+                dim: GestureMath.skeletonFreezeDim(freeze)
             )
             pair.right.apply(
                 cursor: right?.point,
@@ -158,7 +160,8 @@ final class OverlayController {
                 target: right?.actor == true ? target : "",
                 window: right?.actor == true ? window : nil,
                 isLeft: false,
-                showBeam: right?.actor == true
+                showBeam: right?.actor == true,
+                dim: GestureMath.skeletonFreezeDim(freeze)
             )
         }
     }
@@ -224,7 +227,8 @@ final class HandMarkerView: NSView {
         target: String,
         window: CGRect?,
         isLeft: Bool = false,
-        showBeam: Bool = true
+        showBeam: Bool = true,
+        dim: CGFloat = 1
     ) {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
@@ -262,5 +266,10 @@ final class HandMarkerView: NSView {
             beam.isHidden = true
         }
         ring.lineWidth = grab || hold ? 4 : 2.5
+        let a = Float(max(0.2, min(1, dim)))
+        ring.opacity = a
+        core.opacity = a
+        label.opacity = a
+        beam.opacity = a
     }
 }

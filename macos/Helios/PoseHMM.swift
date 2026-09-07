@@ -36,8 +36,10 @@ struct PoseHMM {
         emission: [HandPose: Double],
         pinchClosedness: Double,
         now: TimeInterval,
-        dt: TimeInterval
+        dt: TimeInterval,
+        quality: Double = 1
     ) -> (pose: HandPose, prob: Double, pinch: Double) {
+        let emission = Self.qualityScale(emission, quality: quality)
         let tauStay: Double = 0.07
         let pStay = exp(-dt / tauStay)
         let pLeave = 1 - pStay
@@ -93,6 +95,25 @@ struct PoseHMM {
             lastRealProb = pCur
         }
         return (current, pCur, pinch)
+    }
+
+    /// Schlechte Spitzen nicht 0,70 Faust. q < 0,55 mischt gegen Uniform — unknown führt.
+    static func qualityScale(_ emission: [HandPose: Double], quality: Double) -> [HandPose: Double] {
+        let q = max(0, min(1, quality))
+        if q >= 0.55 { return emission }
+        let n = Double(max(1, HandPose.allCases.count))
+        let uni = 1 / n
+        let w = q / 0.55
+        var out: [HandPose: Double] = [:]
+        var sum = 0.0
+        for p in HandPose.allCases {
+            let v = (emission[p] ?? uni) * w + uni * (1 - w)
+            out[p] = v
+            sum += v
+        }
+        guard sum > 1e-12 else { return emission }
+        for k in out.keys { out[k] = (out[k] ?? 0) / sum }
+        return out
     }
 
     private func affinity(_ a: HandPose, _ b: HandPose) -> Double {

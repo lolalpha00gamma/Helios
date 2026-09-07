@@ -25,6 +25,7 @@ struct TrackingOverlay: View {
     var hands: [TrackedHand]
     var showLabels: Bool
     var compact: Bool
+    var dim: CGFloat = 1
 
     var body: some View {
         GeometryReader { geo in
@@ -46,6 +47,7 @@ struct TrackingOverlay: View {
                     }
                 }
             }
+            .opacity(max(0.2, min(1, dim)))
         }
         .allowsHitTesting(false)
     }
@@ -137,6 +139,7 @@ struct CameraPreview: View {
     var showLabels: Bool
     var compact: Bool = false
     var placeholder: String = "Kamera starten"
+    var dim: CGFloat = 1
 
     var body: some View {
         GeometryReader { geo in
@@ -149,7 +152,7 @@ struct CameraPreview: View {
                         .interpolation(.medium)
                         .frame(width: rect.width, height: rect.height)
                         .position(x: rect.midX, y: rect.midY)
-                    TrackingOverlay(hands: hands, showLabels: showLabels, compact: compact)
+                    TrackingOverlay(hands: hands, showLabels: showLabels, compact: compact, dim: dim)
                         .frame(width: rect.width, height: rect.height)
                         .position(x: rect.midX, y: rect.midY)
                 } else if !compact {

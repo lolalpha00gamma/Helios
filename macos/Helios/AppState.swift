@@ -28,6 +28,7 @@ final class AppState: ObservableObject {
     @Published var lastAction = "—"
     @Published var fps: Double = 0
     @Published var fpsAmber = false
+    @Published var fpsSparkBars: [CGFloat] = []
     @Published var latencyMs: Double = 0
     @Published var latencyHistory: [Double] = []
     @Published var dwellEnabled = false
@@ -648,7 +649,8 @@ final class AppState: ObservableObject {
             phase: engine.grabPhase,
             target: engine.grabTargetName,
             window: focused?.quartzBounds,
-            showReticle: showReticle
+            showReticle: showReticle,
+            freeze: engine.freezeLive
         )
         frames += 1
         let wall = CACurrentMediaTime()
@@ -659,6 +661,7 @@ final class AppState: ObservableObject {
             fpsSpark.append((wall, fps))
             fpsSpark.removeAll { wall - $0.t > GestureMath.fpsSparkSec }
             fpsAmber = GestureMath.fpsAmber(fps) || GestureMath.fpsSparkAmber(fpsSpark, now: wall)
+            fpsSparkBars = GestureMath.fpsSparkBars(fpsSpark, now: wall)
         }
         if protocolMode {
             recorder.push(
@@ -721,7 +724,11 @@ final class AppState: ObservableObject {
         grabTargetName = engine.grabTargetName
         peaceProgress = engine.peaceProgress
         lockFreeze = engine.lockFreeze
-        self.hands = hands
+        if engine.freezeLive, hands.isEmpty, !self.hands.isEmpty {
+            // Continuity-Geisterhand: letzte Palme bleibt, Skeleton dimmt.
+        } else {
+            self.hands = hands
+        }
         fusion = hands.first?.fusion ?? tracker.lastFusion
         hasDepth = camera.hasDepth
         cameraDevices = camera.devices

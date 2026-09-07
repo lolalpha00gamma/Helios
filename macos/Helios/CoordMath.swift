@@ -275,6 +275,59 @@ enum GestureMath {
         max(keyboardDwell, min(0.40, max(0.008, dt) * 2.4))
     }
 
+    /// 24 fps bleibt 0,55 s. 8 fps sonst Ampel nach 4 Frames — Zielen ist kein Schließen.
+    static func chromeDwellNeed(dt: TimeInterval) -> TimeInterval {
+        max(chromeDwellHold, min(0.90, max(0.008, dt) * 5.5))
+    }
+
+    /// 18 px bei 24 fps. Continuity 8 fps × Gain 1,6: ein Landmark-Tick ist 40–80 px.
+    /// 5K 5120: 18 px ist Zielen tot. Floor in px, Skala aus dt und Schirmkante.
+    static func chromeDwellStillNeed(dt: TimeInterval, screenMin: CGFloat = 1080) -> CGFloat {
+        let noise = CGFloat(max(0.008, dt) * 420)
+        let wide = max(0, screenMin) * 0.012
+        return max(chromeDwellStillPx, min(96, max(noise, wide)))
+    }
+
+    static func twoPinchAxisChip(_ axis: TwoPinchAxis) -> String? {
+        switch axis {
+        case .horizontal: return "H"
+        case .vertical: return "V"
+        case .none: return nil
+        }
+    }
+
+    /// Faust in die Kamera: 2D-Reach lügt (Spitzen überlappen). z-Abstand hält Pinzette tot.
+    static func pinch3DSep(thumbZ: CGFloat, indexZ: CGFloat, palmWidth: CGFloat) -> CGFloat {
+        abs(thumbZ - indexZ) / max(0.03, palmWidth)
+    }
+
+    static func pinch3DVeto(sep: CGFloat, closedness2D: Double, need: CGFloat = 0.55) -> Bool {
+        closedness2D >= 0.50 && sep >= need
+    }
+
+    static func skeletonFreezeDim(_ freeze: Bool) -> CGFloat {
+        freeze ? 0.38 : 1
+    }
+
+    static func fpsSparkBars(
+        _ samples: [(t: TimeInterval, fps: Double)],
+        now: TimeInterval,
+        buckets: Int = 16,
+        cap: Double = 30
+    ) -> [CGFloat] {
+        let n = max(4, buckets)
+        var bars = [CGFloat](repeating: 0, count: n)
+        let slice = samples.filter { now - $0.t <= fpsSparkSec && $0.fps > 0 }
+        guard !slice.isEmpty else { return bars }
+        let start = now - fpsSparkSec
+        for s in slice {
+            let u = (s.t - start) / fpsSparkSec
+            let i = min(n - 1, max(0, Int(u * Double(n))))
+            bars[i] = max(bars[i], CGFloat(min(1, s.fps / max(1, cap))))
+        }
+        return bars
+    }
+
     static func pinchReleaseBlocks(now: TimeInterval, releasedAt: TimeInterval?, dt: TimeInterval) -> Bool {
         guard let t = releasedAt else { return false }
         return now - t < pinchReleaseNeed(dt: dt)
@@ -723,8 +776,8 @@ enum GestureMath {
 
     /// Pinzette starten: Gate oder klare Closedness, und es muss wie Pinzette aussehen
     /// (Reach / Zeigefinger). Faust hat geschlossene Spitzen — das ist kein Klick.
-    static func pinchStartsGrab(gate: Bool, closedness: Double, reach: CGFloat = 1.2, index: Double = 1) -> Bool {
-        guard pinchLooksLikePinch(reach: reach, index: index) else { return false }
+    static func pinchStartsGrab(gate: Bool, closedness: Double, reach: CGFloat = 1.2, index: Double = 1, zSep: CGFloat = 0) -> Bool {
+        guard pinchLooksLikePinch(reach: reach, index: index, zSep: zSep) else { return false }
         return gate || closedness > 0.58
     }
 
@@ -734,14 +787,16 @@ enum GestureMath {
         closedness: Double,
         reach: CGFloat = 1.2,
         index: Double = 1,
-        allowFist: Bool = false
+        allowFist: Bool = false,
+        zSep: CGFloat = 0
     ) -> Bool {
-        if !allowFist, !pinchLooksLikePinch(reach: reach, index: index) { return false }
+        if !allowFist, !pinchLooksLikePinch(reach: reach, index: index, zSep: zSep) { return false }
         return gate || closedness > 0.42
     }
 
-    static func pinchLooksLikePinch(reach: CGFloat, index: Double = 1) -> Bool {
-        reach >= pinchReachNeed || index >= pinchIndexNeed
+    static func pinchLooksLikePinch(reach: CGFloat, index: Double = 1, zSep: CGFloat = 0) -> Bool {
+        if pinch3DVeto(sep: zSep, closedness2D: 0.70) { return false }
+        return reach >= pinchReachNeed || index >= pinchIndexNeed
     }
 
     /// Wrist → Mitte Daumen/Zeigefinger in Palmenbreiten. Faust < 0,8, Pinzette ≥ 0,9.

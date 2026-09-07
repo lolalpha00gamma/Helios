@@ -1,5 +1,23 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
+Stand: 2026-09-07. Helios **1.6.34** (Build 67). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+
+## 0. 1.6.34 — Ampel, 3D-Pinch, Freeze sichtbar
+
+1.6.33: Klick/Zwei-Pinzetten/Tastatur × dt. Danach schloss die Ampel beim Zielen, Faust in die Kamera klickte, HMM log 0,70 Faust, Freeze-HUD leer.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | chromeDwellHold 0,55 s / Still 18 px | `chromeDwellNeed(dt)`, `chromeDwellStillNeed(dt, screenMin)` |
+| 2 | 2D-Reach bei Faust-in-Kamera | `pinch3DSep` / `pinch3DVeto` in pinchLooksLikePinch |
+| 3 | HMM Emission 0,70 bei q tot | `PoseHMM.qualityScale` q < 0,55 → Uniform |
+| 4 | Freeze-HUD tot, Skeleton voll | `freezeLive` dim 0,38 + Geisterhand |
+| 5 | fps-Spark ungenutzt, Achse unsichtbar | `fpsSparkBars`, `twoPinchAxisChip` H/V |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch (Landmark-z ist da).
+
+# Analyse, Fehlerbehebung, öffentlicher Abgleich
+
 Stand: 2026-09-07. Helios **1.6.33** (Build 66). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
 
 ## 0. 1.6.33 — Rest-Uhren unter einem Continuity-Frame

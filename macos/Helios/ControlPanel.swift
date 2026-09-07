@@ -474,7 +474,8 @@ struct ControlPanel: View {
                 hands: hands,
                 showLabels: state.showJointLabels,
                 compact: false,
-                placeholder: placeholder
+                placeholder: placeholder,
+                dim: GestureMath.skeletonFreezeDim(state.lockFreeze.lowercased().contains("freeze"))
             )
             if image == nil {
                 VStack(spacing: 8) {

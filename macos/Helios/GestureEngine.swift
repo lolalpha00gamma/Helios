@@ -69,6 +69,7 @@ final class GestureEngine {
     var clapWake = false
     var peaceProgress: CGFloat = 0
     var lockFreeze = ""
+    var freezeLive = false
 
     private var fistSince: TimeInterval?
     private var fistLostAt: TimeInterval?
@@ -154,6 +155,10 @@ final class GestureEngine {
     var focused: FocusedTarget?
 
     private var space: AspectSpace { GestureClassifier.space }
+
+    private var chromeScreenMin: CGFloat {
+        NSScreen.screens.map { min($0.frame.width, $0.frame.height) }.max() ?? 1080
+    }
 
     func reset() {
         mode = .idle
@@ -248,6 +253,7 @@ final class GestureEngine {
         lastAction = "Reset"
         peaceProgress = 0
         lockFreeze = ""
+        freezeLive = false
         sampleDt = 0.04
         lastTickNow = 0
         lastFusionEntropy = 0
@@ -259,9 +265,11 @@ final class GestureEngine {
         sampleDt = GestureMath.sampleDt(now: now, last: lastTickNow)
         lastTickNow = now
         lockFreeze = ""
+        freezeLive = false
         let hands = incoming.filter { $0.joints.count >= 8 && $0.meanConfidence >= 0.18 }
         if hands.isEmpty {
             if lastHandSeen > 0, now - lastHandSeen < GestureMath.emptyHandsHold(dt: sampleDt) {
+                freezeLive = true
                 if let id = pointerHandID, let label = GestureMath.lockFreezeLabel(locked: id, missHeld: true) {
                     lockFreeze = label
                 } else {
@@ -377,7 +385,8 @@ final class GestureEngine {
             let actor = preferred(hands)
             let confirm = actor.pinchClosed && GestureMath.pinchLooksLikePinch(
                 reach: actor.pinchReach,
-                index: actor.indexScore
+                index: actor.indexScore,
+                zSep: actor.pinchZSep
             )
             if let done = cal.feed(palm: actor.palm, now: now, confirm: confirm) {
                 spaceMap = done
@@ -965,7 +974,7 @@ final class GestureEngine {
     private func handleTwoPinchScale(hands: [TrackedHand], now: TimeInterval) -> Bool {
         let pinches = hands.filter {
             ($0.pinchClosed || $0.pinchClosedness > GestureMath.twoPinchClosed)
-                && GestureMath.pinchLooksLikePinch(reach: $0.pinchReach, index: $0.indexScore)
+                && GestureMath.pinchLooksLikePinch(reach: $0.pinchReach, index: $0.indexScore, zSep: $0.pinchZSep)
         }.sorted { $0.id < $1.id }
         guard pinches.count >= 2 else {
             if twoPinchSince != nil {
@@ -1005,6 +1014,9 @@ final class GestureEngine {
             if holds {
                 if twoPinchLockedAxis == .none {
                     twoPinchLockedAxis = axis
+                }
+                if let chip = GestureMath.twoPinchAxisChip(twoPinchLockedAxis) {
+                    lockFreeze = lockFreeze.isEmpty ? chip : "\(lockFreeze) \(chip)"
                 }
             } else {
                 twoPinchLockedAxis = .none
@@ -1127,15 +1139,20 @@ final class GestureEngine {
             chromeDwellKind = hot.kind
             chromeDwellSince = now
             chromeDwellAt = c
-        } else if let origin = chromeDwellAt, GestureMath.chromeDwellMoved(from: origin, to: c) {
+        } else if let origin = chromeDwellAt, GestureMath.chromeDwellMoved(
+            from: origin,
+            to: c,
+            need: GestureMath.chromeDwellStillNeed(dt: sampleDt, screenMin: chromeScreenMin)
+        ) {
             chromeDwellSince = now
             chromeDwellAt = c
             chromeDwell = 0
             return
         }
         let held = now - (chromeDwellSince ?? now)
-        chromeDwell = CGFloat(min(1, held / GestureMath.chromeDwellHold))
-        if held >= GestureMath.chromeDwellHold {
+        let dwellNeed = GestureMath.chromeDwellNeed(dt: sampleDt)
+        chromeDwell = CGFloat(min(1, held / dwellNeed))
+        if held >= dwellNeed {
             fireChrome(hot)
             chromeDwellSince = nil
             chromeDwellKind = nil
@@ -1215,13 +1232,15 @@ final class GestureEngine {
                 closedness: hand.pinchClosedness,
                 reach: hand.pinchReach,
                 index: hand.indexScore,
-                allowFist: pinchBecameDrag
+                allowFist: pinchBecameDrag,
+                zSep: hand.pinchZSep
             )
             : (fire && GestureMath.pinchStartsGrab(
                 gate: hand.pinchClosed,
                 closedness: hand.pinchClosedness,
                 reach: hand.pinchReach,
-                index: hand.indexScore
+                index: hand.indexScore,
+                zSep: hand.pinchZSep
             ))
         if isGrab && !pinchHeld {
             if GestureMath.pinchReleaseBlocks(now: now, releasedAt: pinchReleasedAt, dt: sampleDt) {

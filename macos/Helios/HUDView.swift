@@ -246,6 +246,7 @@ struct HUDView: View {
             Text(String(format: "%.0f ms   %.0f fps", state.latencyMs, state.fps))
                 .font(HeliosTheme.mono)
                 .foregroundStyle(state.fpsAmber ? HeliosTheme.amber : HeliosTheme.cyan.opacity(0.8))
+            fpsSpark
         }
         .padding(.horizontal, 22)
         .padding(.vertical, 10)
@@ -260,6 +261,18 @@ struct HUDView: View {
                 )
         )
         .padding(.horizontal, 40)
+    }
+
+    private var fpsSpark: some View {
+        HStack(alignment: .bottom, spacing: 1) {
+            ForEach(Array(state.fpsSparkBars.enumerated()), id: \.offset) { _, h in
+                Rectangle()
+                    .fill(state.fpsAmber ? HeliosTheme.amber : HeliosTheme.cyan.opacity(0.75))
+                    .frame(width: 2, height: max(2, 12 * h))
+            }
+        }
+        .frame(height: 12, alignment: .bottom)
+        .help("fps letzte 8 s")
     }
 
     private var statusPill: some View {
@@ -391,7 +404,8 @@ struct HUDView: View {
             image: image,
             hands: hands,
             showLabels: state.showJointLabels,
-            compact: true
+            compact: true,
+            dim: GestureMath.skeletonFreezeDim(state.lockFreeze.lowercased().contains("freeze") || state.lockFreeze.contains("R1") || state.lockFreeze.contains("R2"))
         )
         .frame(width: width, height: height)
         .clipped()

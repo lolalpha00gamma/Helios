@@ -74,6 +74,13 @@ struct TrackedHand: Identifiable {
         return GestureMath.pinchReach(wrist: w, thumb: t, index: i, scale: palmWidth)
     }
 
+    /// |z_Daumen − z_Zeigefinger| in Palmenbreiten. Faust-in-Kamera hat 2D-Reach, 3D-Sep groß.
+    var pinchZSep: CGFloat {
+        guard let t = joints[.thumbTip], let i = joints[.indexTip],
+              t.confidence > 0.22, i.confidence > 0.22 else { return 0 }
+        return GestureMath.pinch3DSep(thumbZ: t.z, indexZ: i.z, palmWidth: palmWidth)
+    }
+
     func confidence(_ name: VNHumanHandPoseObservation.JointName) -> Float {
         (displayJoints[name] ?? joints[name])?.confidence ?? 0
     }
@@ -285,7 +292,8 @@ final class HandTracker: @unchecked Sendable {
                 emission: fused.probabilities,
                 pinchClosedness: fused.pinchClosedness,
                 now: now,
-                dt: dt
+                dt: dt,
+                quality: fused.quality
             )
             lastFusion = dbg
 

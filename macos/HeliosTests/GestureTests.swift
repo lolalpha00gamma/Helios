@@ -2016,7 +2016,7 @@ enum GestureTests {
         ok(abs(GestureMath.destEdgePadOf(width: 2560) - 64) < 0.001, "5K Pad 64")
         ok(!GestureMath.scaleMoved(old: 0.40, span: 0.45, dt: 0.125), "8 fps Scale-Jitter tot")
         ok(GestureMath.scaleMoved(old: 0.40, span: 0.55, dt: 0.125), "8 fps Scale echt")
-        ok(GestureMath.pinchHoldAborts(mad: 0.080, rest: 0.012), "Wrist-MAD > Rest abort")
+        ok(!GestureMath.pinchHoldAborts(mad: 0.080, rest: 0.012), "Wrist-MAD kein abort")
         ok(!GestureMath.pinchHoldAborts(mad: 0.010, rest: 0.012), "still kein abort")
         ok(!GestureMath.pinchHoldAborts(mad: 0.040, rest: 0.012), "Zitter kein abort")
         ok(abs(GestureMath.cursorWarpCapX(width: 2560) - 64) < 0.001, "Warp-X 5K 64")
@@ -2170,9 +2170,9 @@ enum GestureTests {
         )
         ok(abs(occFollow.x - 0.45) < 0.001, "OCC Tip folgt Palm-X")
         ok(abs(occFollow.y - 0.60) < 0.001, "OCC Tip Y hält")
-        ok(GestureMath.pinchClickAbortsOcc(true), "OCC kein Klick")
+        ok(!GestureMath.pinchClickAbortsOcc(true), "OCC klickt")
         ok(!GestureMath.pinchClickAbortsOcc(false), "ohne OCC Klick ok")
-        ok(!GestureMath.pinchClickFires(held: 0.20, need: 0.09, speed: 0.005, occ: true), "OCC sperrt Down")
+        ok(GestureMath.pinchClickFires(held: 0.20, need: 0.09, speed: 0.005, occ: true), "OCC sperrt Down nicht")
         ok(abs(GestureMath.destEdgePadWidthOf([1440, 2560]) - 2560) < 0.001, "Pad-Breite 5K")
         ok(abs(GestureMath.destEdgePadWidthOf([]) - 2560) < 0.001, "Pad-Breite Fallback")
         let padNow = GestureMath.destEdgePadNow(screen: CGRect(x: 0, y: 0, width: 2560, height: 1440), pref: 24)
@@ -3186,9 +3186,11 @@ enum GestureTests {
         )
         ok(GestureMath.obsJointConfOk(wrist: 0.72, mcps: [0.68, 0.70, 0.66]), "Hand Conf")
         ok(GestureMath.obsJointConfOk(wrist: 0.28, mcps: [0.22, 0.24, 0.20]), "Faust Conf hält")
-        ok(!GestureMath.obsJointConfOk(wrist: 0.10, mcps: [0.08, 0.09, 0.07]), "Blur Conf tot")
+        ok(GestureMath.obsJointConfOk(wrist: 0.10, mcps: [0.08, 0.09, 0.07]), "Kante Conf hält")
+        ok(!GestureMath.obsJointConfOk(wrist: 0.03, mcps: [0.02, 0.04, 0.03]), "Rauschen tot")
         ok(GestureMath.obsJointConfOk(wrist: 0.28, mcps: [0.22], sparse: true), "Sparse Conf 0,22")
-        ok(!GestureMath.obsJointConfOk(wrist: 0.10, mcps: [0.12], sparse: true), "Sparse Conf tot")
+        ok(GestureMath.obsJointConfOk(wrist: 0.10, mcps: [0.12], sparse: true), "Sparse Kante hält")
+        ok(!GestureMath.obsJointConfOk(wrist: 0.02, mcps: [0.03], sparse: true), "Sparse Rauschen tot")
         ok(
             GestureMath.obsJointConfOk(
                 wrist: 0.80, mcps: [0.70, 0.68, 0.66], tips: [0.10, 0.12, 0.08]
@@ -3911,6 +3913,29 @@ enum GestureTests {
         ok(GestureMath.overlayGhostSlotChip(slots: [("S1", true), ("S2", true)]) == "S1+S2 · ghost", "S1+S2 Ghost-Chip")
         ok(GestureMath.overlayGhostSlotChip(slots: [("S1", false), ("S2", false)]) == nil, "Ghost-Chip tot")
         ok(GestureMath.overlayChipTone("S2 · ghost") == 2, "S2 ghost Tone cyan")
+
+        ok(GestureMath.pinchGrabClearsArmLock(pinchClosed: true, poseIsOpen: false, openScore: 0), "Pinzette nach Scharf")
+        ok(GestureMath.pinchGrabClearsArmLock(pinchClosed: false, poseIsOpen: true, openScore: 0), "offen nach Scharf")
+        ok(!GestureMath.pinchGrabClearsArmLock(pinchClosed: false, poseIsOpen: false, openScore: 0), "Faust bleibt Lock")
+        ok(GestureMath.pinchClickWindowOk(held: 0.80, need: 0.09), "langes Halten klickt")
+        ok(!GestureMath.pinchClickWindowOk(held: 0.04, need: 0.09), "zu kurz")
+        ok(abs(GestureMath.rightClickExtra - 1.20) < 0.001, "Rechtsklick 1,2 s")
+        ok(!GestureMath.rightClickHold(held: 0.60, need: 0.09), "0,6 s kein Rechtsklick")
+        ok(GestureMath.rightClickHold(held: 1.25, need: 0.09), "1,25 s Rechtsklick")
+        ok(abs(GestureMath.obsJointIngestFloor() - 0.06) < 0.001, "Joint-Floor 0,06")
+        let emaStill = GestureMath.palmFollowEMA(prev: CGPoint(x: 0.50, y: 0.50), live: CGPoint(x: 0.504, y: 0.50))
+        ok(abs(emaStill.x - 0.50064) < 0.0002, "EMA still 0,16")
+        let emaFlick = GestureMath.palmFollowEMA(prev: CGPoint(x: 0.50, y: 0.50), live: CGPoint(x: 0.54, y: 0.50))
+        ok(abs(emaFlick.x - 0.5312) < 0.0002, "EMA flick 0,78")
+        ok(
+            GestureMath.pointerFrozenWhile(
+                abortHold: false, mouseDown: false, clickLocked: false, becameDrag: false, pinchHeld: true
+            ),
+            "Pinch friert Cursor"
+        )
+        ok(GestureMath.pinchClickVsDrag(moved: 12, clickMax: 18, dragMin: 28) == "click", "12 px Klick")
+        ok(GestureMath.pinchClickVsDrag(moved: 30, clickMax: 18, dragMin: 28) == "drag", "30 px Drag")
+        ok(GestureMath.obsLooksLikeHand(spanW: 0.12, spanH: 0.10, palmScale: 0.08, jointCount: 3), "3 Gelenke rechte Hand")
 
         if fails > 0 {
             fputs("\(fails) GestureTests fehlgeschlagen\n", stderr)

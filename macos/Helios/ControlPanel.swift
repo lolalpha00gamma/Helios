@@ -152,7 +152,7 @@ struct ControlPanel: View {
                     Toggle("Gestenhilfe", isOn: $state.showCheats)
                     Toggle("App-Umriss", isOn: $state.showOutline)
                     Toggle("Papierkorb-Zone", isOn: $state.showTrashZone)
-                    Text("Handfläche = Cursor. Pinzette zu = Klick, ziehen = Fenster. Rechte Hand: in der rechten Bildhälfte halten.")
+                    Text("Handfläche = Cursor. Pinzette zu und auf = Klick. Halten und bewegen = Fenster. Rechte Hand in der rechten Kamerahälfte.")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }

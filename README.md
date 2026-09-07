@@ -4,7 +4,7 @@ Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HU
 
 Privates Repo. Copyright © 2026 Tony Rogers. Alle Rechte vorbehalten — siehe `LICENSE`. Keine Open-Source-Lizenz.
 
-Ziel: **macOS 14+**, **Apple Silicon**, **arm64**. Aktuell **1.5.146**.
+Ziel: **macOS 14+**, **Apple Silicon**, **arm64**. Aktuell **1.5.186**.
 
 ## Start
 
@@ -23,8 +23,8 @@ GitHub erzeugt automatisch *Source code (zip)* / *tar.gz*. Nicht laden.
 |---|---|
 | Faust halten | Scharf schalten (bevorzugte Hand) |
 | Offene Hand bewegen | Cursor (Trackpad: heben = neu ansetzen) |
-| Pinzette kurz | Klick (nur wenn der Cursor still blieb) |
-| Pinzette 0,55 s halten | Rechtsklick (kein Button-Lock) |
+| Pinzette zu und auf | Klick |
+| Pinzette 1,2 s halten | Rechtsklick |
 | Zwei Pinzetten in 0,32 s | Doppelklick |
 | Pinzette oder Faust + ziehen | Fenster verschieben |
 | In die Papierkorb-Ecke ziehen und loslassen | Fenster zu / Finder-Auswahl in den Papierkorb |
@@ -57,6 +57,72 @@ swift macos/HeliosTests/CoordTests.swift
 GitHub Actions legt bei jedem Push auf `main` eine `Helios.dmg` als Release ab.
 
 Ad-hoc-Signatur. Developer ID + Notarisierung braucht ein Apple-Zertifikat — ohne das muss der Nutzer nach jedem Update die TCC-Schalter neu setzen.
+
+**1.5.182:** Ghost-Opacity lerpt 1→0,50 (Canvas sprang). HUD `S2 · ghost`. Aegis 2.1.183 Peak IoU-Adopt wenn Remint-Map leer. MARKETING_VERSION 1.5.182 (Build 201).
+
+**1.5.181:** Overlay zeichnet Ghost-Knochen (Canvas fraß S2-Coast). Kalman-P hält über Fill-Gap. Aegis 2.1.182 Peak-Assign in leftoverMirrorPending. MARKETING_VERSION 1.5.181 (Build 200).
+
+**1.5.180:** Lerp-Hitch hält From/To bei Hub-Doppelframe 8–20 ms. overlayLerpDt ohne Floor 0,05. pointerReanchorRms 8 fps → 8 px, 60 fps → 3 px. Aegis 2.1.181 Overlay-Peak 3 Frames nach Remint. MARKETING_VERSION 1.5.180 (Build 199).
+
+**1.5.179:** Overlay-Lerp 8 fps wieder an (0,045–0,20 s). Fill-Uhr `lastFillSeen` inkl. Ghost-Coast. displayTick/Fill ohne pointerReanchor. Aegis 2.1.180 Overlay-Sticky nach Remint/TTL. MARKETING_VERSION 1.5.179 (Build 198).
+
+**1.5.178:** Fill-Gap Rebase auf lastMapped (Kamera), nicht cursorSmooth. lastDisplayTick 0 nach Lücke. pointerKalmanCapMul MAD 0,018 → Cap × 0,45. Aegis 2.1.179 leftoverHasHold poseAt, StoreChip `store Ada`, StoreName aus ¾-Bins. MARKETING_VERSION 1.5.178 (Build 197).
+
+**1.5.177:** Fill-Gap Rebase — 400 ms Continuity-Drop fliegt den Zeiger nicht mehr (lastMapped2/Vel 0). HUD `FILL gap`. Kalman-CV Fill statt Euler. Fill-Lücke Pref 1,8–3,2×. Aegis 2.1.179 Store poseAt (Jump-Lock nicht TTL), Overlay StoreName vor Hist. MARKETING_VERSION 1.5.177 (Build 196).
+
+**1.5.176:** Hung-live SIGTERM stiehlt den Lock nicht mehr — zwei Kameras tot bis SIGKILL. Mutex-HUD `TERM 1,4`. displayTick Fill tot über Continuity-Lücken (obsFillSkipsGap). Aegis 2.1.178 WAL-Restore beim Load, WAL weg nach Save. MARKETING_VERSION 1.5.176 (Build 195).
+
+**1.5.175:** Freeze-Need aus fps (8 fps 750 ms, 60 fps Floor 120 ms). Curl Pre-Arm. S2 Pinch-Floor. Hung-live SIGTERM→SIGKILL. Aegis 2.1.177 Twin-tieKey verdrahtet, Print-Prune Bank, Pair-WAL. MARKETING_VERSION 1.5.175 (Build 194).
+
+**1.5.174:** S2 Coast-Ghost + Vel. S1-Coast lässt S2 live. Overlay-Ghost Any. Chirality-Freeze 800 ms. Span-Band Veto. Faust Pre-Arm. Hung-live Mutex 12 s. Aegis 2.1.176 Enroll ¾L/¾R, Twin-Tie, FaceTrack-Lookup, Print-Prune. MARKETING_VERSION 1.5.174 (Build 193).
+
+**1.5.173:** S2 Hist-Ring + Coast. Keep-Gitarre tot. Approaching-Gate. Dense-Band = Hand. Pinch-Mute S1∩S2. ScaleClass-Chip. Aegis 2.1.175 Print-Skip HUD + ROI ohne still. MARKETING_VERSION 1.5.173 (Build 192).
+
+**1.5.172:** Bind-Scale Live (EMA lastS1 auf Gitarre 0,29 → 0,21 tot). S2 Conf-Dip + Keep. Aegis 2.1.174 Print je Gesicht. MARKETING_VERSION 1.5.172 (Build 191).
+
+**1.5.171:** palmHandScaleMax zurück auf 0,28. Close 0,40, Keep 0,72 nur lastS1 (palmSlotNearLast). Gitarre 0,29 ist Prop. Compact aus 1.5.170 bleibt. Aegis 2.1.173 FaceTrack-Pack + Coast gallery + Lookaway-Tried. MARKETING_VERSION 1.5.171 (Build 190).
+
+**1.5.170:** Compact vor Conf (Gitarre 0,29 nicht S1 ohne Hist). Guitar-Hist erholt Compact. Ring ohne 0,29. Slot-Conf-Dip 1 Frame. Aegis 2.1.172. MARKETING_VERSION 1.5.170 (Build 189).
+
+**1.5.169:** palmScaleHistPrior soft, palmBindHandsFirst(hist:) vor Conf. Aegis 2.1.171 Unsure-Streak/Coast-TTL/Name-Hist-Trim. MARKETING_VERSION 1.5.169 (Build 188).
+
+**1.5.168:** leftover matching Unsure ohne Print-Vec, Detect-Skip nur IoU, palmBind Joint-Group, Mutex Heartbeat SIGKILL tot-PID. Aegis 2.1.170. MARKETING_VERSION 1.5.168 (Build 187).
+
+**1.5.167:** Mutex WRITE pidLive — toter Helios-PID gibt den Lock frei, Aegis wartet nicht 12 s. Aegis 2.1.169 leftoverHoldRemintLookup nach RemintDrop. MARKETING_VERSION 1.5.167 (Build 186).
+
+**1.5.166:** palmScaleHistVeto auf Live-Scale (nicht Bind-EMA 0,21). Gitarre 0,29 vs Hand-Cluster 0,14. Aegis 2.1.168 Coast-Vec + Print-Yaw-Δ. MARKETING_VERSION 1.5.166 (Build 185).
+
+**1.5.165:** palmBindHandsFirst nimmt Vision-Conf vor Observation-Order. Aegis 2.1.167 remintet Name-Hist/Print-Trail/Blink/1-Euro — Overlay nicht mehr Gast nach UUID-Remint. MARKETING_VERSION 1.5.165 (Build 184).
+
+**1.5.164:** Mutex expected-gen CAS (Aegis mismatch tot, Helios Vorrang). ClaimChip `helios · 1nb` / `backoff` im HUD. Aegis 2.1.166 verdrahtet FaceTrack-Remint und printBudget IoU+Yaw. MARKETING_VERSION 1.5.164 (Build 183).
+
+**1.5.163:** leftoverCoast-Compile in Aegis war der Anlass: Helios ClaimBackoff nach 3 LOCK_NB-Fails (400 ms statt 80 ms hämmern). MARKETING_VERSION 1.5.163 (Build 182).
+
+**1.5.162:** Mutex-Claim alle 80 ms statt jedes 8. Frames (8 fps × 8 = 1 s tot gegen Aegis-Heartbeat). fsync vor LOCK_UN. Yield Auto-Return + Grace 2–8 s im Panel. MARKETING_VERSION 1.5.162 (Build 181).
+
+**1.5.161:** Mutex flock LOCK_NB (Vision-Tick stallt nicht hinter Aegis-Write). CAS unter LOCK_EX (gen++, SkipClaim busy). tmp-Write tot, Caches-only. Reader LOCK_SH|LOCK_NB. Mutex-Chip im HUD. pointerReanchor auch am Kamera-Tick (nicht nur DisplayLink). MARKETING_VERSION 1.5.161 (Build 180).
+
+**1.5.160:** USB-Continuity-Watchdog (fps < 10 für 2 s → Format neu; Wi-Fi 8 fps bleibt). Mutex-Pick empty-Caches nicht Legacy-tmp. Yield-Grace/Auto-Return-Helfer für Aegis. MARKETING_VERSION 1.5.160 (Build 179).
+
+**1.5.159:** Reichweiten-Kalib, Z-Pinch, Leiste aus. MARKETING_VERSION 1.5.159 (Build 178).
+
+**1.5.158:** Caches-Lock + flock, Dual-Read `/tmp`, Yield löst. Aegis 2.1.161 weicht auf Built-in. MARKETING_VERSION 1.5.158 (Build 177).
+
+**1.5.157:** Cursor warpt, 4 Joints reichen, Faust bewegt den Zeiger. MARKETING_VERSION 1.5.157 (Build 176).
+
+**1.5.156–153:** Clutch/Conf-Freeze, Vollbild-Skelett, Faust-Kante, Ghost 100 ms. Builds 175–172.
+
+**1.5.152:** Mutex-Stamp ms, PID-Liveness, Claim-Vorrang (Helios). Aegis weicht live. MARKETING_VERSION 1.5.152 (Build 171).
+
+**1.5.151:** Built-in 60 fps. Overlay-Lerp nur unter 22 fps, t>1 snap. One-Euro Cutoff 14 bei 8 fps. Display-Coast 100 ms. MARKETING_VERSION 1.5.151 (Build 170).
+
+**1.5.150:** Dest-Warp (Overlay-Lerp hält). Layout-Rearm Clamshell/5K. FrameSink `videoRotationAngle`. MARKETING_VERSION 1.5.150 (Build 169).
+
+**1.5.149:** DisplayPulse je NSScreen + Debounce. MCP-Fächer 18° Gitarre tot. Bind-EMA. Kamera-Mutex mit Aegis. Geometry 32 Frames. HUD ← L / R →. MARKETING_VERSION 1.5.149 (Build 168).
+
+**1.5.148:** DisplayPulse `NSScreen.displayLink` statt `CADisplayLink(target:)`. usesCPUOnly weg. MARKETING_VERSION 1.5.148 (Build 167).
+
+**1.5.147:** Smooth dt (8 fps 0,35 / 24 fps ~0,12). Span max-Paar. DisplayLink max NSScreen. MARKETING_VERSION 1.5.147 (Build 166).
 
 **1.5.146:** Finger-Paare. Tip-Conf. Frozen-Write tot. MARKETING_VERSION 1.5.146 (Build 165).
 

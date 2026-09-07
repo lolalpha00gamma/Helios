@@ -1,3 +1,15 @@
+# Helios 1.5.186 — Klick feuert, rechte Hand, Stabilität
+
+Helios **1.5.186** (Build 205). Nur `main`. Repo privat.
+
+1.5.185 folgte der Palme, aber Klick/Ziehen tot: OCC (Spitzen weg = Pinzette) brach den Klick, Faust-Scharf verlangte Spreizen vor der Pinzette, Wrist-MAD und 0,55 s Deckel. Rechte Hand starb unter Joint-Floor 0,10 / Conf 0,18.
+
+1. OCC ist die Pinzette. Loslassen klickt, ohne Weg- und OCC-Veto.
+2. Nach Scharf darf die Pinzette sofort. Wrist-MAD bricht den Hold nicht.
+3. Klick ohne 0,55 s Deckel. Rechtsklick erst nach 1,2 s.
+4. Rechte/Kanten-Hand: Joint 0,06, Conf 0,08, 3 Gelenke, Gitarre-Veto nur neben S1.
+5. Still-EMA enger (0,16 / 0,18). Flick bleibt 0,78. Kein Hochpass, kein Schwung.
+
 # Helios 1.5.185 — Klick, Ziehen, rechte Hand
 
 Helios **1.5.185** (Build 204). Nur `main`. Repo privat.

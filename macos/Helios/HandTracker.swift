@@ -35,7 +35,7 @@ struct TrackedHand: Identifiable {
     var lateralityLive: Int = 0
 
     func point(_ name: VNHumanHandPoseObservation.JointName) -> CGPoint? {
-        guard let j = joints[name], j.confidence > 0.22 else { return nil }
+        guard let j = joints[name], j.confidence > 0.10 else { return nil }
         return j.point
     }
 
@@ -381,7 +381,7 @@ final class HandTracker: @unchecked Sendable {
             var wristC: Float?
             var mcpCs: [Float] = []
             var tipCs: [Float] = []
-            for (name, p) in pts where p.confidence > 0.10 {
+            for (name, p) in pts where p.confidence > GestureMath.obsJointIngestFloor() {
                 raw[name] = CGPoint(x: p.location.x, y: p.location.y)
                 if name == .wrist { wristC = p.confidence }
                 if name == .indexMCP || name == .middleMCP || name == .ringMCP || name == .littleMCP {
@@ -484,7 +484,7 @@ final class HandTracker: @unchecked Sendable {
             var wristC: Float?
             var mcpCs: [Float] = []
             var tipCs: [Float] = []
-            for (name, p) in pts where p.confidence > 0.10 {
+            for (name, p) in pts where p.confidence > GestureMath.obsJointIngestFloor() {
                 raw[name] = CGPoint(x: p.location.x, y: p.location.y)
                 conf[name] = p.confidence
                 if name == .wrist { wristC = p.confidence }
@@ -509,7 +509,7 @@ final class HandTracker: @unchecked Sendable {
                 nearS1: nearS1Live, nearS2: nearS2Live, s1: lastS1ScaleRing, s2: lastS2ScaleRing
             )
             let scaleClass = GestureMath.palmBindScaleClass(live: scaleRaw, hist: histLive)
-            if scaleClass >= 1 { continue }
+            if scaleClass >= 1, nearS1Live { continue }
             let mcpPts = [raw[.indexMCP], raw[.middleMCP], raw[.ringMCP], raw[.littleMCP]].compactMap { $0 }
             let mcpN = mcpPts.count
             let sparse = GestureMath.fingerSparseKeepsPalm(
@@ -580,7 +580,7 @@ final class HandTracker: @unchecked Sendable {
                         conf[name] = min(joint.confidence, 0.35)
                     }
                 }
-                if raw.count < 4 { continue }
+                if raw.count < 3 { continue }
             }
             let liveCodeEarly = GestureMath.palmLateralityCode(chirality == .left, right: chirality == .right)
             let slotID = bindSlot(palm: palmGuess, scale: scale, claimed: &claimedSlots, now: now, liveCode: liveCodeEarly)

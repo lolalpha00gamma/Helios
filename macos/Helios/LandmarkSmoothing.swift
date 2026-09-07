@@ -21,7 +21,7 @@ struct LandmarkSmoothing {
                     out[name] = p
                     prev[name] = p
                 } else {
-                    let a: CGFloat = d > 0.028 ? 0.78 : (d > 0.010 ? 0.52 : 0.34)
+                    let a: CGFloat = d > 0.028 ? 0.78 : (d > 0.010 ? 0.36 : 0.18)
                     let s = CGPoint(x: q.x + a * (p.x - q.x), y: q.y + a * (p.y - q.y))
                     out[name] = s
                     prev[name] = s

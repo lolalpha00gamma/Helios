@@ -1472,8 +1472,8 @@ enum GestureMath {
         )
     }
 
-    /// Extra-Hold 0,55 s ohne Bewegung → Rechtsklick.
-    static let rightClickExtra: TimeInterval = 0.55
+    /// Extra-Hold 1,2 s ohne Bewegung → Rechtsklick. 0,55 s war jeder normale Klick.
+    static let rightClickExtra: TimeInterval = 1.20
 
     static func rightClickHold(
         held: TimeInterval,
@@ -2157,7 +2157,7 @@ enum GestureMath {
         guard let prev else { return live }
         let d = hypot(live.x - prev.x, live.y - prev.y)
         if d > 0.20 { return live }
-        let a: CGFloat = d > 0.025 ? 0.78 : (d > 0.008 ? 0.50 : 0.32)
+        let a: CGFloat = d > 0.025 ? 0.78 : (d > 0.008 ? 0.36 : 0.16)
         return CGPoint(x: prev.x + a * (live.x - prev.x), y: prev.y + a * (live.y - prev.y))
     }
 
@@ -2193,10 +2193,10 @@ enum GestureMath {
         wrist: Float?,
         mcps: [Float],
         tips: [Float] = [],
-        floor: Float = 0.18,
+        floor: Float = 0.08,
         sparse: Bool = false
     ) -> Bool {
-        let used: Float = sparse ? min(floor, 0.12) : floor
+        let used: Float = sparse ? min(floor, 0.06) : floor
         var vals = mcps
         if let wrist { vals.insert(wrist, at: 0) }
         guard !vals.isEmpty else { return sparse }
@@ -2622,7 +2622,24 @@ enum GestureMath {
     }
 
     /// OCC-Release kein Klick. Follow hält Ratio, Jitter bleibt.
-    static func pinchClickAbortsOcc(_ occ: Bool) -> Bool { occ }
+    /// OCC *ist* die Pinzette (Spitzen tot bei Kontakt). Release darf klicken.
+    static func pinchClickAbortsOcc(_ occ: Bool) -> Bool {
+        _ = occ
+        return false
+    }
+
+    /// Nach Faust-Scharf: Pinzette zählt als „offen genug“, sonst tot bis Spreizen.
+    static func pinchGrabClearsArmLock(pinchClosed: Bool, poseIsOpen: Bool, openScore: Int) -> Bool {
+        pinchClosed || poseIsOpen || openScore >= 2
+    }
+
+    /// Loslassen klickt, solange Need da ist. Obere Decke 0,55 s machte Rechtsklick/nichts.
+    static func pinchClickWindowOk(held: TimeInterval, need: TimeInterval) -> Bool {
+        held >= need
+    }
+
+    /// Vision-Joint unter 0,10: Kante/rechte Hand oft 0,06–0,09.
+    static func obsJointIngestFloor() -> Float { 0.06 }
 
 
     /// pinchActor last-3 analog pointerPoolReconnect.
@@ -2856,9 +2873,10 @@ enum GestureMath {
         return abs(span - old) > max(scaleRel * max(old, span), dead)
     }
 
-    /// Pinch-Hold: Wrist-MAD > Rest × 2,8. Zitter-Hand sonst zieht Fenster.
+    /// Wrist-MAD killte jeden Klick der zittrigen Hand. Gate-Auf ist der Abort.
     static func pinchHoldAborts(mad: CGFloat, rest: CGFloat = palmStill) -> Bool {
-        mad > max(rest * 6, 0.048)
+        _ = (mad, rest)
+        return false
     }
 
     static func fling(

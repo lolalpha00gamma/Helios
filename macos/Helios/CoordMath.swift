@@ -136,7 +136,7 @@ enum GestureMath {
     static let pinchDragNeed: CGFloat = 0.45
     static let pinchClickMinHold: TimeInterval = 0.05
     static let pinchClickMaxHold: TimeInterval = 0.90
-    static let pinchClickStillPx: CGFloat = 14
+    static let pinchClickStillPx: CGFloat = 22
     static let pinchLockMiss: TimeInterval = 0.22
     /// Nach Gate-Auf: kein Folge-Klick aus dem Öffnen. Continuity 8 fps ≈ 1 Frame.
     static let pinchReleaseDead: TimeInterval = 0.12
@@ -263,6 +263,11 @@ enum GestureMath {
     /// 24 fps 50 ms. 8 fps ≥ 1,4 Frames — Jitter-Pinzette ist kein Klick.
     static func pinchClickMinNeed(dt: TimeInterval) -> TimeInterval {
         max(pinchClickMinHold, min(0.22, max(0.008, dt) * 1.4))
+    }
+
+    /// 24 fps 22 px. 8 fps ein Landmark-Tick sonst „gehalten — kein Zug“.
+    static func pinchClickStillNeed(dt: TimeInterval) -> CGFloat {
+        max(pinchClickStillPx, min(56, CGFloat(max(0.008, dt) * 380)))
     }
 
     /// 24 fps 120 ms. 8 fps zwei Frames, sonst ein Tick startet Zoom.
@@ -1662,7 +1667,7 @@ enum GestureMath {
         if energy < 0.35 { return false }
         let minHold = pinchClickMinNeed(dt: dt) * (energy >= 0.62 ? 0.55 : 1)
         guard held >= minHold, held <= pinchClickMaxHold else { return false }
-        return palmMovedHW < pinchDragNeedOf(dt: dt) && cursorMovedPx < pinchClickStillPx
+        return palmMovedHW < pinchDragNeedOf(dt: dt) && cursorMovedPx < pinchClickStillNeed(dt: dt)
     }
 
     static func isDrag(

@@ -73,6 +73,7 @@ final class AppState: ObservableObject {
     @Published var keyboardVisible = false
     @Published var keyboardHits: [AirKeyHit] = []
     @Published var keyboardHover = ""
+    @Published var keyboardHots: Set<String> = []
     @Published var keyboardDwell: CGFloat = 0
     @Published var hideConsoleWhenArmed = false
     @Published var cameraDevices: [CameraChoice] = []
@@ -740,12 +741,14 @@ final class AppState: ObservableObject {
         }
         if engine.keyboardVisible != keyboardVisible
             || engine.keyboardHover != keyboardHover
+            || engine.keyboardHots != keyboardHots
             || engine.keyboardDwell != keyboardDwell
             || engine.keyboardHits != keyboardHits
         {
             keyboardVisible = engine.keyboardVisible
             keyboardHits = engine.keyboardHits
             keyboardHover = engine.keyboardHover
+            keyboardHots = engine.keyboardHots
             keyboardDwell = engine.keyboardDwell
         }
         if hideConsoleWhenArmed, engine.mode == .armed, !testMode {

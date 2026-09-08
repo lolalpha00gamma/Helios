@@ -97,7 +97,10 @@ final class GestureEngine {
     private var pinchHandID: String?
     private var pinchLastHand: TrackedHand?
     private var pinchOriginCursor: CGPoint?
+    private var pinchPeakClosed: Double = 0
     private var pinchPalmMoved: CGFloat = 0
+    private var tipDwell: [String: (at: TimeInterval, key: String, pos: CGPoint)] = [:]
+    var keyboardHots: Set<String> = []
     private var pinchMissSince: TimeInterval?
     private var pinchReleasedAt: TimeInterval?
     private var grabLogged = false
@@ -222,7 +225,10 @@ final class GestureEngine {
         pinchHandID = nil
         pinchLastHand = nil
         pinchOriginCursor = nil
+        pinchPeakClosed = 0
         pinchPalmMoved = 0
+        tipDwell.removeAll()
+        keyboardHots = []
         pinchMissSince = nil
         pinchReleasedAt = nil
         grabLogged = false
@@ -1430,11 +1436,16 @@ final class GestureEngine {
             chromeDwellAt = nil
             return
         }
-        chromeHot = hot.labelDE
-        if pinchHeld, !pinchBecameDrag {
-            cursor = hot.center
-            if !testMode { system.moveCursor(to: hot.center) }
+        // Nur Anzeige. Aktion nur bei Pinzette-Loslassen direkt auf der Ampel.
+        guard pinchHeld, !pinchBecameDrag else {
+            chromeHot = ""
+            chromeDwell = 0
+            chromeDwellSince = nil
+            chromeDwellKind = nil
+            chromeDwellAt = nil
+            return
         }
+        chromeHot = hot.labelDE
         if chromeDwellKind != hot.kind {
             chromeDwellKind = hot.kind
             chromeDwellSince = now
@@ -1452,14 +1463,6 @@ final class GestureEngine {
         let held = now - (chromeDwellSince ?? now)
         let dwellNeed = GestureMath.chromeDwellNeed(dt: sampleDt)
         chromeDwell = CGFloat(min(1, held / dwellNeed))
-        if held >= dwellNeed {
-            fireChrome(hot)
-            chromeDwellSince = nil
-            chromeDwellKind = nil
-            chromeDwellAt = nil
-            chromeDwell = 0
-            cooldownUntil = now + 0.75
-        }
     }
 
     private func fireChrome(_ knob: ChromeKnob) {
@@ -1572,6 +1575,7 @@ final class GestureEngine {
             pinchHandID = hand.id
             pinchLastHand = hand
             pinchOriginCursor = cursor
+            pinchPeakClosed = hand.pinchClosedness
             pinchPalmMoved = 0
             pinchMissSince = nil
             pinchTrail = [(now, hand.palm.x, hand.palm.y)]
@@ -1580,6 +1584,7 @@ final class GestureEngine {
             grabLogged = false
             lastAction = testMode ? "Test: Halten" : "Halten"
         } else if isGrab && pinchHeld {
+            pinchPeakClosed = max(pinchPeakClosed, hand.pinchClosedness)
             pinchTrail.append((now, hand.palm.x, hand.palm.y))
             pinchTrail.removeAll { now - $0.t > 0.5 }
             if let first = pinchTrail.first {
@@ -1651,22 +1656,20 @@ final class GestureEngine {
                 return hypot(a.x - b.x, a.y - b.y)
             }()
             let wasDrag = pinchBecameDrag
-            let flung = fire ? resolveFling(
-                now: now,
-                confidence: Float(hand.poseProb),
-                palmWidth: hand.palmWidth,
-                afterDrag: wasDrag
-            ) : false
             let held = now - pinchBeganAt
             let palmMoved = pinchPalmMoved
+            let peakClosed = max(pinchPeakClosed, hand.pinchClosedness)
+            let origin = pinchOriginCursor
             dropPinchHold()
             pinchBecameDrag = false
             pinchHandID = nil
             pinchLastHand = nil
             pinchOriginCursor = nil
+            pinchPeakClosed = 0
             pinchPalmMoved = 0
             pinchMissSince = nil
             pinchReleasedAt = now
+            let trail = pinchTrail
             pinchTrail.removeAll()
             pinchSpan0 = nil
             pinchSpanW = nil
@@ -1680,30 +1683,50 @@ final class GestureEngine {
                 lastAction = "Loslassen"
                 return
             }
-            if flung {
-                cooldownUntil = now + 0.4
-                chromeKnobs = []
-                chromeHot = ""
-                return
-            }
-            if wasDrag {
+            let wantsClick = !wasDrag && GestureMath.isClick(
+                held: held, palmMovedHW: palmMoved, cursorMovedPx: cursorPx,
+                dt: sampleDt, closedness: peakClosed
+            )
+            let knobHit: ChromeKnob? = {
+                guard !wasDrag, !wantsClick, let name = Optional(hotName), !name.isEmpty else { return nil }
+                guard let knob = knobsNow.first(where: { $0.labelDE == name }) else { return nil }
+                let at = origin ?? cursor ?? knob.center
+                guard hypot(at.x - knob.center.x, at.y - knob.center.y) < 26 else { return nil }
+                return knob
+            }()
+            if wantsClick {
+                if GestureMath.clickHitchFromFreeze(freezeEnded: freezeEndedAt, now: now, dt: sampleDt) {
+                    lastAction = "Hitch"
+                } else {
+                    let at = cursor
+                    perform("Klick", need: .input, confidence: 1) {
+                        if let point = at { system.moveCursor(to: point) }
+                        return system.click()
+                    }
+                }
+            } else if wasDrag {
+                pinchTrail = trail
+                let flung = resolveFling(
+                    now: now,
+                    confidence: Float(hand.poseProb),
+                    palmWidth: hand.palmWidth,
+                    afterDrag: true
+                )
+                pinchTrail.removeAll()
+                if flung {
+                    cooldownUntil = now + 0.4
+                    chromeKnobs = []
+                    chromeHot = ""
+                    return
+                }
                 lastAction = testMode ? "Test: Loslassen" : "Loslassen"
                 onLog?("Loslassen", testMode ? .blocked : .executed, Int(hand.poseProb * 100))
-            } else if let knob = knobsNow.first(where: { $0.labelDE == hotName }) {
+            } else if let knob = knobHit {
                 fireChrome(knob)
             } else if palmDeadman {
                 lastAction = "Deadman"
             } else if twoHandClutchOn {
                 lastAction = "Zwei-Hand"
-            } else if GestureMath.isClick(
-                held: held, palmMovedHW: palmMoved, cursorMovedPx: cursorPx,
-                dt: sampleDt, closedness: hand.pinchClosedness
-            ) {
-                if GestureMath.clickHitchFromFreeze(freezeEnded: freezeEndedAt, now: now, dt: sampleDt) {
-                    lastAction = "Hitch"
-                } else {
-                    perform("Klick", need: .input, confidence: Float(max(hand.poseProb, hand.pinchClosedness))) { system.click() }
-                }
             } else if held < GestureMath.pinchClickMinNeed(dt: sampleDt) {
                 lastAction = "zu kurz"
             } else {
@@ -1962,7 +1985,7 @@ final class GestureEngine {
     private func showKeyboard() {
         keyboardVisible = true
         lastAction = "Tastatur in der Luft"
-        onLog?("Luft-Tastatur an — Taste anvisieren, 0,12 s Verweilen tippt. Faust schließt.", .info, nil)
+        onLog?("Luft-Tastatur: zehn Fingerkuppen, kurz halten tippt. Faust schließt.", .info, nil)
     }
 
     private func hideKeyboard() {
@@ -1976,9 +1999,19 @@ final class GestureEngine {
         onLog?("Luft-Tastatur aus", .info, nil)
     }
 
-    private func driveKeyboard(hands _: [TrackedHand], actor: TrackedHand, now: TimeInterval) {
+    private static let airTips: [VNHumanHandPoseObservation.JointName] = [
+        .thumbTip, .indexTip, .middleTip, .ringTip, .littleTip
+    ]
+
+    private func mapTip(_ uv: CGPoint) -> CGPoint {
+        if let map = spaceMap, map.isReady { return map.apply(uv) }
+        return SpaceMap.linear(uv)
+    }
+
+    private func driveKeyboard(hands: [TrackedHand], actor: TrackedHand, now: TimeInterval) {
         let pointing = actor.pose == .point && actor.poseProb >= 0.45
         if !keyboardVisible {
+            keyboardHots = []
             let v = cursor.map { ScreenGeometry.unitInUnion(quartz: $0).y }
             if pointing, GestureMath.airKeyboardSummon(v: v ?? -1) {
                 if pointSince == nil { pointSince = now }
@@ -2007,36 +2040,49 @@ final class GestureEngine {
         } else {
             fistHideSince = nil
         }
-        guard let key = AirLayout.hit(at: loc, keys: keyboardHits) else {
-            keyboardHover = ""
-            keyboardDwell = 0
-            kbDwellID = nil
-            return
+        var hots: Set<String> = []
+        var bestHold: CGFloat = 0
+        var liveIDs: Set<String> = []
+        let dwellNeed = min(0.14, GestureMath.keyboardDwellNeed(dt: sampleDt) * 0.65)
+        for hand in hands {
+            for tip in Self.airTips {
+                guard let uv = hand.point(tip) else { continue }
+                let id = "\(hand.id).\(tip.rawValue)"
+                liveIDs.insert(id)
+                let at = mapTip(uv)
+                guard let key = AirLayout.hit(at: at, keys: keyboardHits) else {
+                    tipDwell[id] = nil
+                    continue
+                }
+                hots.insert(key.id)
+                var slot = tipDwell[id]
+                if slot?.key != key.id {
+                    slot = (now, key.id, at)
+                    tipDwell[id] = slot
+                }
+                let moved = hypot(at.x - (slot?.pos.x ?? at.x), at.y - (slot?.pos.y ?? at.y))
+                if moved > 28 {
+                    tipDwell[id] = (now, key.id, at)
+                    continue
+                }
+                let held = now - (slot?.at ?? now)
+                bestHold = max(bestHold, CGFloat(min(1, held / dwellNeed)))
+                if now < cooldownUntil { continue }
+                if held >= dwellNeed {
+                    typeAir(key)
+                    tipDwell[id] = (now + 0.12, key.id, at)
+                    cooldownUntil = now + 0.08
+                }
+            }
         }
-        keyboardHover = key.id
-        if kbDwellID != key.id {
-            kbDwellID = key.id
-            kbDwellAt = now
-            kbCursorAt = loc
+        for k in tipDwell.keys where !liveIDs.contains(k) {
+            tipDwell[k] = nil
         }
-        let moved = {
-            guard let o = kbCursorAt else { return 0 as CGFloat }
-            return hypot(loc.x - o.x, loc.y - o.y)
-        }()
-        if !GestureMath.keyboardStill(movedPx: moved) {
-            kbDwellAt = now
-            kbCursorAt = loc
-            keyboardDwell = 0
-            return
-        }
-        let held = now - (kbDwellAt ?? now)
-        let dwellNeed = GestureMath.keyboardDwellNeed(dt: sampleDt)
-        keyboardDwell = CGFloat(min(1, held / dwellNeed))
-        if now < cooldownUntil { return }
-        if held >= dwellNeed {
-            typeAir(key)
-            kbDwellAt = now
-            cooldownUntil = now + GestureMath.keyboardRepeat
+        keyboardHots = hots
+        keyboardHover = hots.sorted().first ?? ""
+        keyboardDwell = bestHold
+        if hots.isEmpty {
+            lastAction = "Tastatur — Finger auf Tasten"
         }
     }
 

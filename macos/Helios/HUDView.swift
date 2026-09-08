@@ -41,9 +41,9 @@ struct HUDView: View {
                 }
 
                 if isPrimary {
-                    VStack {
+                    VStack(spacing: 0) {
                         topBar
-                            .padding(.top, 18)
+                            .padding(.top, 3)
                         Spacer()
                         HStack(alignment: .bottom) {
                             if state.showCheats {
@@ -175,106 +175,43 @@ struct HUDView: View {
     }
 
     private var topBar: some View {
-        HStack(spacing: 14) {
-            Text("HELIOS")
-                .font(.system(size: 13, weight: .bold, design: .monospaced))
-                .foregroundStyle(HeliosTheme.cyan)
-                .shadow(color: HeliosTheme.cyan.opacity(0.8), radius: 8)
-            statusPill
-            grabPill
-            clutchLED
-            peaceRing
-            if !state.lockFreeze.isEmpty {
-                Text(state.lockFreeze.uppercased())
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .foregroundStyle(HeliosTheme.void)
-                    .background(HeliosTheme.amber)
-                    .overlay(Rectangle().stroke(HeliosTheme.amber, lineWidth: 1))
-                    .help("Lock-ID hält einen Fehlframe — R1/R2 = Recover, P drop = Pinch tot nach Dropout")
-            }
-            if !state.qualityChip.isEmpty {
-                Text(state.qualityChip.uppercased())
-                    .font(.system(size: 10, weight: .bold, design: .monospaced))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .foregroundStyle(HeliosTheme.void)
-                    .background(HeliosTheme.amber)
-                    .overlay(Rectangle().stroke(HeliosTheme.amber, lineWidth: 1))
-                    .help("Landmark-Qualität < 0,55 je Hand — tot-Pinzette unsichtbar, Tor hoch")
-            }
-            if !state.permissionBanner.isEmpty {
-                Text(state.permissionBanner.uppercased())
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(HeliosTheme.amber)
-            } else if state.testMode {
-                Text("TEST")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
-                    .foregroundStyle(HeliosTheme.void)
-                    .background(HeliosTheme.cyan)
-            } else if state.fromDiskImage {
-                Text("CURSOR FREI — NACH PROGRAMME ZIEHEN")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(HeliosTheme.amber)
-            } else if state.mousePaused {
-                Text("MAUS HAT VORRANG")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(HeliosTheme.amber)
-            } else if state.mode == .armed && !state.mapReady && !state.testMode {
-                Text("RELATIV — KALIBRIEREN · AUSSEN ABSOLUT")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(HeliosTheme.amber)
-            } else if state.mode == .armed && state.engineCursor == nil {
-                Text("MAUS FREI — HAND IN DIE KAMERA")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+        HStack(spacing: 8) {
+            HStack(spacing: 6) {
+                Text("HELIOS")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
                     .foregroundStyle(HeliosTheme.cyan)
-            } else if state.mode == .armed && !state.testMode {
-                Text("☀ MENÜ → KONSOLE · BEENDEN")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
+                statusPill
+                clutchLED
+                peaceRing
+                Text(state.lastAction.uppercased())
+                    .font(.system(size: 9, weight: .medium, design: .monospaced))
                     .foregroundStyle(HeliosTheme.amber)
-            } else if state.mode == .idle {
-                Text(state.lastAction.localizedCaseInsensitiveContains("Not-Aus")
-                     ? "NOT-AUS · FAUST ODER 2× KLATSCHEN"
-                     : "FAUST ODER 2× KLATSCHEN → SCHARF")
-                    .font(.system(size: 11, weight: .bold, design: .monospaced))
-                    .foregroundStyle(HeliosTheme.amber)
-            }
-            if let app = state.focused {
-                let p = AppInjectProfile.of(bundleId: app.bundleId)
-                Text(p == .full ? app.appName.uppercased() : "\(app.appName.uppercased()) · \(p.titleDE.uppercased())")
-                    .font(HeliosTheme.mono)
-                    .foregroundStyle(p == .off ? HeliosTheme.amber : HeliosTheme.cyan)
                     .lineLimit(1)
             }
-            Text(state.lastAction.uppercased())
-                .font(HeliosTheme.mono)
-                .foregroundStyle(HeliosTheme.amber)
-                .lineLimit(1)
-            Spacer()
-            Text("\(state.screenCount) MON")
-                .font(HeliosTheme.mono)
-                .foregroundStyle(HeliosTheme.cyan.opacity(0.7))
-            Text(String(format: "%.0f ms   %.0f fps", state.latencyMs, state.fps))
-                .font(HeliosTheme.mono)
-                .foregroundStyle(state.fpsAmber ? HeliosTheme.amber : HeliosTheme.cyan.opacity(0.8))
-            fpsSpark
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(HeliosTheme.panel)
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(HeliosTheme.cyan.opacity(0.3), lineWidth: 1))
+            )
+            Spacer(minLength: 180)
+            HStack(spacing: 6) {
+                Text(String(format: "%.0fms  %.0ffps", state.latencyMs, state.fps))
+                    .font(.system(size: 9, weight: .medium, design: .monospaced))
+                    .foregroundStyle(state.fpsAmber ? HeliosTheme.amber : HeliosTheme.cyan.opacity(0.85))
+                fpsSpark
+            }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(HeliosTheme.panel)
+                    .overlay(RoundedRectangle(cornerRadius: 4).stroke(HeliosTheme.cyan.opacity(0.3), lineWidth: 1))
+            )
         }
-        .padding(.horizontal, 22)
-        .padding(.vertical, 10)
-        .frame(height: 48)
-        .clipped()
-        .background(
-            RoundedRectangle(cornerRadius: 4)
-                .fill(HeliosTheme.panel)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 4)
-                        .stroke(HeliosTheme.cyan.opacity(0.35), lineWidth: 1)
-                )
-        )
-        .padding(.horizontal, 40)
+        .padding(.horizontal, 148)
+        .frame(height: 22)
     }
 
     private var fpsSpark: some View {
@@ -291,9 +228,9 @@ struct HUDView: View {
 
     private var statusPill: some View {
         Text(state.mode.labelDE)
-            .font(.system(size: 11, weight: .bold, design: .monospaced))
-            .padding(.horizontal, 10)
-            .padding(.vertical, 4)
+            .font(.system(size: 8, weight: .bold, design: .monospaced))
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1)
             .foregroundStyle(state.mode == .armed && !state.testMode ? HeliosTheme.void : HeliosTheme.cyan)
             .background(state.mode == .armed && !state.testMode ? HeliosTheme.amber : HeliosTheme.cyan.opacity(0.15))
             .overlay(
@@ -336,7 +273,7 @@ struct HUDView: View {
     private var clutchLED: some View {
         Circle()
             .fill(state.mousePaused ? HeliosTheme.amber : HeliosTheme.ok)
-            .frame(width: 8, height: 8)
+            .frame(width: 6, height: 6)
             .shadow(color: (state.mousePaused ? HeliosTheme.amber : HeliosTheme.ok).opacity(0.8), radius: 4)
             .help(state.mousePaused ? "Maus hat Vorrang" : "Helios steuert")
     }
@@ -345,7 +282,7 @@ struct HUDView: View {
         Circle()
             .trim(from: 0, to: max(0.02, state.peaceProgress))
             .stroke(HeliosTheme.amber, style: StrokeStyle(lineWidth: 3, lineCap: .round))
-            .frame(width: 16, height: 16)
+            .frame(width: 12, height: 12)
             .rotationEffect(.degrees(-90))
             .opacity(state.peaceProgress > 0 ? 1 : 0)
     }
@@ -546,7 +483,7 @@ struct HUDView: View {
             ZStack {
                 ForEach(state.keyboardHits) { key in
                     let r = ScreenGeometry.localRect(quartz: key.frame, on: screenFrame)
-                    let hot = state.keyboardHover == key.id
+                    let hot = state.keyboardHots.contains(key.id) || state.keyboardHover == key.id
                     ZStack {
                         RoundedRectangle(cornerRadius: 8)
                             .fill(hot ? HeliosTheme.amber.opacity(0.92) : HeliosTheme.void.opacity(0.78))
@@ -574,7 +511,7 @@ struct HUDView: View {
                     .position(x: r.midX, y: r.midY)
                 }
                 VStack(spacing: 4) {
-                    Text("LUFT-TASTATUR  ·  0,12 s VERWEILEN TIPPT  ·  FAUST SCHLIESST")
+                    Text("LUFT-TASTATUR  ·  ZEHN FINGER  ·  KURZ HALTEN TIPPT  ·  FAUST SCHLIESST")
                         .font(.system(size: 11, weight: .bold, design: .monospaced))
                         .foregroundStyle(HeliosTheme.cyan)
                     Text("Taste halten — kein Pinzetten")

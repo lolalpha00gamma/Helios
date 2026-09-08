@@ -2118,6 +2118,14 @@ enum CoordTests {
             fputs("FAIL Click-Energy fest kurz\n", stderr)
             fails += 1
         }
+        if GestureMath.pinchClickStillNeed(dt: 0.125) < 40 {
+            fputs("FAIL Click-Still 8 fps\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.isClick(held: 0.20, palmMovedHW: 0.08, cursorMovedPx: 30, dt: 0.125, closedness: 0.90) {
+            fputs("FAIL Click 8 fps 30 px noch Klick\n", stderr)
+            fails += 1
+        }
         let quiet = GestureMath.jitterRms([0.004, 0.005, 0.003, 0.004])
         let noisy = GestureMath.jitterRms([0.002, 0.040, 0.003, 0.038])
         if quiet >= noisy {

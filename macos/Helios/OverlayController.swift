@@ -19,6 +19,7 @@ private struct HUDRoot: View {
 final class HUDPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
+    override var isOpaque: Bool { false }
 }
 
 private struct HUDPoseSample {
@@ -93,13 +94,11 @@ final class OverlayController {
                 markers[id]?.right.frame = box
                 markers[id]?.left.screenFrame = screen.frame
                 markers[id]?.right.screenFrame = screen.frame
+                polish(hosting, wrap: existing.contentView, panel: existing)
                 existing.orderFrontRegardless()
                 continue
             }
             let hosting = NSHostingView(rootView: root)
-            hosting.wantsLayer = true
-            hosting.layer?.isOpaque = false
-            hosting.layer?.backgroundColor = NSColor.clear.cgColor
             hosting.frame = CGRect(origin: .zero, size: screen.frame.size)
             let box = CGRect(origin: .zero, size: screen.frame.size)
             let leftM = HandMarkerView(frame: box)
@@ -107,9 +106,6 @@ final class OverlayController {
             let rightM = HandMarkerView(frame: box)
             rightM.screenFrame = screen.frame
             let wrap = NSView(frame: box)
-            wrap.wantsLayer = true
-            wrap.layer?.isOpaque = false
-            wrap.layer?.backgroundColor = NSColor.clear.cgColor
             wrap.addSubview(hosting)
             wrap.addSubview(leftM)
             wrap.addSubview(rightM)
@@ -132,6 +128,7 @@ final class OverlayController {
             panel.hidesOnDeactivate = false
             panel.becomesKeyOnlyIfNeeded = true
             panel.contentView = wrap
+            polish(hosting, wrap: wrap, panel: panel)
             panel.setFrame(screen.frame, display: true)
             panel.orderFrontRegardless()
             panels[id] = panel
@@ -227,22 +224,18 @@ final class OverlayController {
         }
         let now = CACurrentMediaTime()
         var cursors = next.cursors
+        let t = GestureMath.hudLerpT(prevAt: prev.at, nextAt: next.at, now: now, freeze: next.freeze)
+        let snap = next.freeze || !GestureMath.hudCoastAllowed(
+            reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        )
         for i in cursors.indices {
             let id = cursors[i].id
             if let old = prev.cursors.first(where: { $0.id == id }) {
-                let vel = GestureMath.hudCoastVel(prev: old.point, next: cursors[i].point, dt: next.at - prev.at)
-                if next.freeze || !GestureMath.hudCoastAllowed(
-                    reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
-                ) {
-                    cursors[i].point = GestureMath.hudLerpPoint(prev: old.point, next: cursors[i].point, t: 1)
-                } else {
-                    cursors[i].point = GestureMath.hudCoastPoint(
-                        sample: cursors[i].point, vel: vel, elapsed: max(0, now - next.at),
-                        cap: GestureMath.hudCoastCapScaled(
-                            scale: ScreenGeometry.backingScale(quartz: cursors[i].point)
-                        )
-                    )
-                }
+                cursors[i].point = GestureMath.hudLerpPoint(
+                    prev: old.point,
+                    next: cursors[i].point,
+                    t: snap ? 1 : t
+                )
             }
         }
         paint(
@@ -306,13 +299,29 @@ final class OverlayController {
     }
 
     func setVisible(_ visible: Bool) {
-        for panel in panels.values {
+        for (id, panel) in panels {
             if visible {
+                if let hosting = hostings[id] {
+                    polish(hosting, wrap: panel.contentView, panel: panel)
+                }
                 panel.orderFrontRegardless()
             } else {
                 panel.orderOut(nil)
             }
         }
+    }
+
+    /// NSHostingView.drawsBackground default true — Dark Mode = Vollbild schwarz nach orderFront.
+    private func polish(_ hosting: NSHostingView<HUDRoot>, wrap: NSView?, panel: HUDPanel) {
+        hosting.drawsBackground = false
+        hosting.wantsLayer = true
+        hosting.layer?.isOpaque = false
+        hosting.layer?.backgroundColor = NSColor.clear.cgColor
+        wrap?.wantsLayer = true
+        wrap?.layer?.isOpaque = false
+        wrap?.layer?.backgroundColor = NSColor.clear.cgColor
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
     }
 }
 

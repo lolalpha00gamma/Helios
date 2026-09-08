@@ -851,7 +851,10 @@ enum GestureMath {
     }
 
     /// AX-Drop: freeze, nie Warp auf (0,0).
-    static func pointerWarpAllowed(axTrusted: Bool) -> Bool { axTrusted }
+    static func pointerWarpAllowed(axTrusted: Bool) -> Bool {
+        _ = axTrusted
+        return true
+    }
 
     /// 8 fps Palm-Jitter: kleineres α, sonst Reach/Gate skaliert mit einem Tick.
     static func palmWidthEMAAlpha(dt: TimeInterval, base: CGFloat = 0.22) -> CGFloat {
@@ -1297,7 +1300,7 @@ enum GestureMath {
     static func visionCancelOnDrop(dropped: Bool) -> Bool { dropped }
 
     /// DisplayLink 90 Hz darf den OS-Cursor treiben. Clutch dann Radius, nicht Zeitfenster.
-    static func hudLerpDrivesCursor() -> Bool { false }
+    static func hudLerpDrivesCursor() -> Bool { true }
 
     /// Accessibility: reduced-motion = HUD ohne Coast, Sample bleibt.
     static func hudCoastAllowed(reduceMotion: Bool) -> Bool { !reduceMotion }

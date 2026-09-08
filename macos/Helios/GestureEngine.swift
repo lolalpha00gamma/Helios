@@ -1143,7 +1143,7 @@ final class GestureEngine {
                 palmStillFor = 0
             }
             palmDeadman = GestureMath.palmDeadmanClutch(stillFor: palmStillFor)
-            if palmDeadman || (twoHandClutchOn && isActor) {
+            if palmDeadman {
                 dx = 0
                 dy = 0
             }

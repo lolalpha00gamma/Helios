@@ -60,7 +60,9 @@ struct HUDView: View {
                 }
             }
             .frame(width: geo.size.width, height: geo.size.height)
+            .background(Color.clear)
         }
+        .background(Color.clear)
         .allowsHitTesting(false)
     }
 

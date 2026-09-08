@@ -1610,8 +1610,8 @@ enum CoordTests {
             fputs("FAIL Pinch released→unseen\n", stderr)
             fails += 1
         }
-        if GestureMath.pointerWarpAllowed(axTrusted: false) {
-            fputs("FAIL Warp ohne AX tot\n", stderr)
+        if !GestureMath.pointerWarpAllowed(axTrusted: false) {
+            fputs("FAIL Warp ohne AX bleibt\n", stderr)
             fails += 1
         }
         if !GestureMath.pointerWarpAllowed(axTrusted: true) {
@@ -1809,8 +1809,8 @@ enum CoordTests {
             fputs("FAIL kein Drop kein Cancel\n", stderr)
             fails += 1
         }
-        if GestureMath.hudLerpDrivesCursor() {
-            fputs("FAIL HUD coast Cursor tot\n", stderr)
+        if !GestureMath.hudLerpDrivesCursor() {
+            fputs("FAIL HUD lerp treibt Cursor\n", stderr)
             fails += 1
         }
         let coastVel = GestureMath.hudCoastVel(prev: CGPoint(x: 0, y: 0), next: CGPoint(x: 10, y: 0), dt: 0.125)

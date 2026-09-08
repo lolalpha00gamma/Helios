@@ -1,3 +1,29 @@
+# Helios Vorschläge — 2026-09-08 (Pass 20, 1.6.57)
+
+Stand 1.6.57. Predict, Zwei-Hand-Clutch, Stage-Clamp, Hand-Box.
+
+## Gelandet in 1.6.57
+
+- pointerPredict / pointerPredictPoint Cap 48
+- twoHandClutch livePalms ≥ 2, nicht Zwei-Pinch
+- stageManagerClamp / Offspace visibleFrame
+- handBoxFromPalm / handBoxTrackKeeps / Step
+
+## Erweiterung (neu)
+
+206. **USB-C 30 fps Promote** gemessen ≥ 22, nicht cold 30.
+207. **VNTrackObjectRequest** echte Hand-Observation.
+208. **Fling-Cap × Screen-Höhe.**
+209. **Click-Tick Sound.**
+210. **Miss-Click Heatmap.**
+211. **iPhone Ultraweit FOV.**
+212. **Per-Display pointerGain Pref.**
+213. **Aegis-Gaze Pinch-Confirm.**
+214. **Watch Double-Tap.**
+215. **Palm-Vel JSONL** Predict-Tuning.
+
+P0: CameraBroker. Kein neues *Need(dt).
+
 # Helios Vorschläge — 2026-09-08 (Pass 19, 1.6.56)
 
 Stand 1.6.56. One-Euro, 24-fps Kaltstart, Bezel-Hop, Deadman.

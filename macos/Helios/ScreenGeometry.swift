@@ -136,7 +136,15 @@ enum ScreenGeometry {
         p.x += dPalm.x * hostFrame.width * g * accel
         p.y -= dPalm.y * hostFrame.height * g * accel
         let onHost = host.map { contains(quartz: p, screen: $0.frame, pad: 0) } ?? false
-        if onHost { return p }
+        if onHost {
+            if let host {
+                let vis = quartzRect(fromCocoa: host.visibleFrame)
+                if GestureMath.stageManagerOffspace(proposed: p, visible: vis) {
+                    return GestureMath.stageManagerClamp(proposed: p, visible: vis)
+                }
+            }
+            return p
+        }
         let other = NSScreen.screens.first { contains(quartz: p, screen: $0.frame, pad: 0) }
         if let other {
             let of = quartzRect(fromCocoa: other.frame)

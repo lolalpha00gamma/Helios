@@ -150,6 +150,7 @@ final class GestureEngine {
     private var euroInited = false
     private var palmStillFor: TimeInterval = 0
     private var palmDeadman = false
+    private var twoHandClutchOn = false
     private var scrollAnchor: (t: TimeInterval, y: CGFloat)?
     private var ringPinchSince: TimeInterval?
     private var dwellSince: TimeInterval?
@@ -267,6 +268,7 @@ final class GestureEngine {
         euroInited = false
         palmStillFor = 0
         palmDeadman = false
+        twoHandClutchOn = false
         swipeGraceUntil = 0
         armedQuietUntil = 0
         cursorDidMove = false
@@ -685,6 +687,7 @@ final class GestureEngine {
         euroInited = false
         palmStillFor = 0
         palmDeadman = false
+        twoHandClutchOn = false
         pointerHandID = nil
         pointerSourceID = ""
         pointerLastHand = nil
@@ -703,6 +706,7 @@ final class GestureEngine {
         euroInited = false
         palmStillFor = 0
         palmDeadman = false
+        twoHandClutchOn = false
         pointerHandID = nil
         pointerSourceID = ""
         pointerLastHand = nil
@@ -1138,7 +1142,7 @@ final class GestureEngine {
                 palmStillFor = 0
             }
             palmDeadman = GestureMath.palmDeadmanClutch(stillFor: palmStillFor)
-            if palmDeadman {
+            if palmDeadman || (twoHandClutchOn && isActor) {
                 dx = 0
                 dy = 0
             }
@@ -1174,7 +1178,12 @@ final class GestureEngine {
             euroDx = fx.deriv
             euroY = fy.value
             euroDy = fy.deriv
-            stepped = CGPoint(x: fx.value, y: fy.value)
+            stepped = GestureMath.pointerPredictPoint(
+                sample: CGPoint(x: fx.value, y: fy.value),
+                vel: CGPoint(x: fx.deriv, y: fy.deriv),
+                dt: sampleDt,
+                cap: GestureMath.pointerPredictCap()
+            )
         }
         let a: CGFloat = freezeGain < 0.99 ? 1 : 0.86
         let s = CGPoint(x: a * stepped.x + (1 - a) * seed.x, y: a * stepped.y + (1 - a) * seed.y)
@@ -1187,6 +1196,9 @@ final class GestureEngine {
     }
 
     private func placeCursors(_ hands: [TrackedHand], actor: TrackedHand) {
+        twoHandClutchOn = GestureMath.twoHandClutch(
+            livePalms: hands.count, twoPinch: twoPinchSince != nil
+        )
         let live = Set(hands.map(\.id))
         cursorTracks = cursorTracks.filter { live.contains($0.key) }
         var out: [HandCursor] = []
@@ -1671,6 +1683,8 @@ final class GestureEngine {
                 fireChrome(knob)
             } else if palmDeadman {
                 lastAction = "Deadman"
+            } else if twoHandClutchOn {
+                lastAction = "Zwei-Hand"
             } else if GestureMath.isClick(
                 held: held, palmMovedHW: palmMoved, cursorMovedPx: cursorPx,
                 dt: sampleDt, closedness: hand.pinchClosedness

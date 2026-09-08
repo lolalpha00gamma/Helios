@@ -136,6 +136,7 @@ private struct TrackSlot {
     var lastVel: CGPoint = .zero
     var freezePPos: CGFloat = 0.0004
     var freezePVel: CGFloat = 0.008
+    var lastBox: CGRect = .null
 }
 
 final class HandTracker: @unchecked Sendable {
@@ -413,6 +414,8 @@ final class HandTracker: @unchecked Sendable {
             slot.lastPalm = fused.palm
             slot.freezePPos = 0.0004
             slot.freezePVel = 0.008
+            let detectBox = GestureMath.handBoxFromPalm(palm: fused.palm, width: max(0.06, fused.palmWidth))
+            slot.lastBox = GestureMath.handBoxTrackStep(prev: slot.lastBox, detect: detectBox)
             let dtPalm = dt
             slot.lastSeen = now
             slot.lastNow = now
@@ -467,6 +470,8 @@ final class HandTracker: @unchecked Sendable {
             for (ti, tr) in live {
                 var d = space.dist(o.palm, tr.lastPalm)
                 if o.chirality == tr.chirality { d -= 0.04 }
+                let detect = GestureMath.handBoxFromPalm(palm: o.palm, width: max(0.06, tr.palmWidthEma))
+                if GestureMath.handBoxTrackKeeps(track: tr.lastBox, detect: detect) { d -= 0.08 }
                 pairs.append((oi, ti, d))
             }
         }

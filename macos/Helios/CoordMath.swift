@@ -506,6 +506,81 @@ enum GestureMath {
         return 0
     }
 
+    /// 8 Hz: Sample ist 1 Frame hinter der Palme. Predict aus geglätteter Vel, Cap gegen Teleport.
+    static func pointerPredictDt(_ dt: TimeInterval) -> CGFloat {
+        CGFloat(max(0.04, min(0.20, dt)))
+    }
+
+    static func pointerPredictCap() -> CGFloat { 48 }
+
+    static func pointerPredict(sample: CGFloat, vel: CGFloat, dt: TimeInterval, cap: CGFloat = 48) -> CGFloat {
+        let t = pointerPredictDt(dt)
+        let d = vel * t
+        let c = max(1, cap)
+        let clamped = max(-c, min(c, d))
+        return sample + clamped
+    }
+
+    static func pointerPredictPoint(sample: CGPoint, vel: CGPoint, dt: TimeInterval, cap: CGFloat = 48) -> CGPoint {
+        CGPoint(
+            x: pointerPredict(sample: sample.x, vel: vel.x, dt: dt, cap: cap),
+            y: pointerPredict(sample: sample.y, vel: vel.y, dt: dt, cap: cap)
+        )
+    }
+
+    /// Zweite Palme, kein Zwei-Pinch → Actor clutcht. Sonst stiehlt die zweite Hand den Klick.
+    static func twoHandClutch(livePalms: Int, twoPinch: Bool) -> Bool {
+        livePalms >= 2 && !twoPinch
+    }
+
+    /// Stage Manager / Dock / Menüleiste: Cursor bleibt im visibleFrame.
+    static func stageManagerOffspace(proposed: CGPoint, visible: CGRect, pad: CGFloat = 8) -> Bool {
+        proposed.x < visible.minX - pad
+            || proposed.x > visible.maxX + pad
+            || proposed.y < visible.minY - pad
+            || proposed.y > visible.maxY + pad
+    }
+
+    static func stageManagerClamp(proposed: CGPoint, visible: CGRect) -> CGPoint {
+        guard visible.width > 8, visible.height > 8 else { return proposed }
+        return CGPoint(
+            x: min(max(proposed.x, visible.minX + 2), visible.maxX - 2),
+            y: min(max(proposed.y, visible.minY + 2), visible.maxY - 2)
+        )
+    }
+
+    /// Hand-Box aus Palme. VNTrack fehlt — IoU hält die Slot-ID zwischen 8-Hz-Detect.
+    static func handBoxFromPalm(palm: CGPoint, width: CGFloat) -> CGRect {
+        let w = max(0.04, width)
+        return CGRect(x: palm.x - w * 0.55, y: palm.y - w * 0.70, width: w * 1.10, height: w * 1.40)
+    }
+
+    static func handBoxIoU(_ a: CGRect, _ b: CGRect) -> Double {
+        let inter = a.intersection(b)
+        if inter.isNull || inter.isEmpty { return 0 }
+        let u = a.width * a.height + b.width * b.height - inter.width * inter.height
+        guard u > 1e-9 else { return 0 }
+        return Double(inter.width * inter.height / u)
+    }
+
+    static func handBoxTrackKeeps(track: CGRect, detect: CGRect, floor: Double = 0.28) -> Bool {
+        guard track.width > 0.01, track.height > 0.01 else { return false }
+        return handBoxIoU(track, detect) >= floor
+    }
+
+    static func handBoxTrackStep(prev: CGRect, detect: CGRect) -> CGRect {
+        if prev.width < 0.01 || prev.height < 0.01 { return detect }
+        let iou = handBoxIoU(prev, detect)
+        if iou < 0.10 { return detect }
+        let a: CGFloat = iou >= 0.28 ? 0.42 : 0.78
+        return CGRect(
+            x: prev.minX + a * (detect.minX - prev.minX),
+            y: prev.minY + a * (detect.minY - prev.minY),
+            width: prev.width + a * (detect.width - prev.width),
+            height: prev.height + a * (detect.height - prev.height)
+        )
+    }
+
     /// 90°-Raster für Homographie-Cache. Nudge ohne Store-Wipe.
     static func spaceMapRotationKey(_ r: Double) -> Int {
         var a = r.truncatingRemainder(dividingBy: 360)

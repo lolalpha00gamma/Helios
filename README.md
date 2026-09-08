@@ -1,4 +1,36 @@
-# Helios **1.6.56**
+# Helios **1.6.57**
+
+
+Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
+
+Privates Repo. Keine Open-Source-Lizenzdatei.
+
+Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Start
+
+**Nur die DMG-Datei laden, nicht Source code (zip):**
+
+[Helios.dmg](https://github.com/lolalpha00gamma/Helios/releases/latest/download/Helios.dmg)
+
+1. `Helios.dmg` doppelklicken (kein Entpacken)
+2. Helios nach **Programme** ziehen — nicht aus dem Image starten
+3. Erster Start (nicht notarisierte Ad-hoc-Signatur): **Systemeinstellungen → Datenschutz & Sicherheit → Trotzdem öffnen**
+4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
+
+Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.57
+
+1.6.56 One-Euro, 24-fps Kaltstart, Bezel-Hop, Deadman. Cursor laggte 1 Continuity-Frame. Zweite Hand klickte. Stage-Strip verschluckte den Zeiger. Hand-Slot sprang bei 8 Hz.
+
+- **Pointer 1-Frame Predict.** One-Euro-Vel × dt, Cap 48 pt.
+- **Two-Hand Clutch.** Zweite Palme ohne Zwei-Pinch friert Actor und Klick.
+- **Stage-Manager Space-Clamp.** `visibleFrame`, nicht der volle Screen-Frame.
+- **Hand-Box IoU persist.** Slot-ID zwischen Detect, IoU 0,28.
+- Tests + MARKETING_VERSION 1.6.57 (Build 90).
+
+## Neu in 1.6.56
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.

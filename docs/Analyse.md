@@ -1,5 +1,22 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
+Stand: 2026-09-08. Helios **1.6.57** (Build 90). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+
+## 0. 1.6.57 — Predict, Zwei-Hand-Clutch, Stage-Clamp, Hand-Box
+
+1.6.56: One-Euro, 24-fps Kaltstart, Bezel-Hop, Deadman. Danach laggte der Zeiger 1 Continuity-Frame (One-Euro glättet, predicted nicht). Zweite Palme stahl Klick. Stage Manager / Dock waren `frame` nicht `visibleFrame`. Hand-Slot sprang bei 8 Hz ohne Box-IoU.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | 8 Hz Sample 125 ms hinter Palme | `pointerPredict` Vel × dt, Cap 48 |
+| 2 | Zweite Hand = Klick | `twoHandClutch` außer Zwei-Pinch |
+| 3 | Cursor im Stage-Strip | `stageManagerClamp` visibleFrame |
+| 4 | Slot-ID-Sprung 8 Hz | `handBoxTrackKeeps` IoU 0,28 |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe.
+
+# Analyse, Fehlerbehebung, öffentlicher Abgleich
+
 Stand: 2026-09-08. Helios **1.6.56** (Build 89). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
 
 ## 0. 1.6.56 — One-Euro, 24-fps Kaltstart, Bezel-Hop, Deadman

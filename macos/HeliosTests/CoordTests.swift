@@ -2226,6 +2226,74 @@ enum CoordTests {
             fputs("FAIL Cold-Start 720@24 schlägt claimed 1080@30\n", stderr)
             fails += 1
         }
+        let pred = GestureMath.pointerPredict(sample: 100, vel: 80, dt: 0.125, cap: 48)
+        if pred <= 100 {
+            fputs("FAIL Predict vorwärts\n", stderr)
+            fails += 1
+        }
+        if pred > 100 + 48 + 0.01 {
+            fputs("FAIL Predict Cap 48\n", stderr)
+            fails += 1
+        }
+        let predStill = GestureMath.pointerPredict(sample: 10, vel: 0, dt: 0.125)
+        if abs(predStill - 10) > 0.001 {
+            fputs("FAIL Predict still\n", stderr)
+            fails += 1
+        }
+        let predPt = GestureMath.pointerPredictPoint(
+            sample: CGPoint(x: 0, y: 0), vel: CGPoint(x: 400, y: 0), dt: 0.125, cap: 48
+        )
+        if predPt.x < 40 {
+            fputs("FAIL Predict Point Cap füllt\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoHandClutch(livePalms: 1, twoPinch: false) {
+            fputs("FAIL Zwei-Hand 1 Palme tot\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.twoHandClutch(livePalms: 2, twoPinch: false) {
+            fputs("FAIL Zwei-Hand 2 Palmen clutch\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoHandClutch(livePalms: 2, twoPinch: true) {
+            fputs("FAIL Zwei-Hand während Zwei-Pinch tot\n", stderr)
+            fails += 1
+        }
+        let vis = CGRect(x: 0, y: 25, width: 1512, height: 940)
+        if !GestureMath.stageManagerOffspace(proposed: CGPoint(x: -40, y: 400), visible: vis) {
+            fputs("FAIL Stage offspace links\n", stderr)
+            fails += 1
+        }
+        if GestureMath.stageManagerOffspace(proposed: CGPoint(x: 400, y: 400), visible: vis) {
+            fputs("FAIL Stage Mitte hält\n", stderr)
+            fails += 1
+        }
+        let clamped = GestureMath.stageManagerClamp(proposed: CGPoint(x: -20, y: 400), visible: vis)
+        if clamped.x < vis.minX {
+            fputs("FAIL Stage clamp in visible\n", stderr)
+            fails += 1
+        }
+        let boxA = GestureMath.handBoxFromPalm(palm: CGPoint(x: 0.50, y: 0.50), width: 0.12)
+        let boxB = GestureMath.handBoxFromPalm(palm: CGPoint(x: 0.52, y: 0.51), width: 0.12)
+        let boxFar = GestureMath.handBoxFromPalm(palm: CGPoint(x: 0.90, y: 0.90), width: 0.12)
+        if !GestureMath.handBoxTrackKeeps(track: boxA, detect: boxB) {
+            fputs("FAIL Hand-Box nah hält\n", stderr)
+            fails += 1
+        }
+        if GestureMath.handBoxTrackKeeps(track: boxA, detect: boxFar) {
+            fputs("FAIL Hand-Box fern tot\n", stderr)
+            fails += 1
+        }
+        let steppedBox = GestureMath.handBoxTrackStep(prev: boxA, detect: boxFar)
+        if abs(steppedBox.minX - boxFar.minX) > 0.001 {
+            fputs("FAIL Hand-Box steal far\n", stderr)
+            fails += 1
+        }
+        let lerpBox = GestureMath.handBoxTrackStep(prev: boxA, detect: boxB)
+        if lerpBox.minX <= boxA.minX {
+            fputs("FAIL Hand-Box lerp folgt\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

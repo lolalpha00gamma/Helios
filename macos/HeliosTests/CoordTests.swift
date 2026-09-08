@@ -2117,6 +2117,55 @@ enum CoordTests {
             fputs("FAIL Click-Energy fest kurz\n", stderr)
             fails += 1
         }
+        let quiet = GestureMath.jitterRms([0.004, 0.005, 0.003, 0.004])
+        let noisy = GestureMath.jitterRms([0.002, 0.040, 0.003, 0.038])
+        if quiet >= noisy {
+            fputs("FAIL Jitter-RMS ruhig < laut\n", stderr)
+            fails += 1
+        }
+        let gQuiet = GestureMath.pointerGainAdaptive(gain: 1.6, jitterRms: 0.003)
+        let gNoisy = GestureMath.pointerGainAdaptive(gain: 1.6, jitterRms: 0.030)
+        if gQuiet <= gNoisy {
+            fputs("FAIL Adaptive Gain ruhig > laut\n", stderr)
+            fails += 1
+        }
+        if abs(gQuiet - 1.6) > 0.02 {
+            fputs("FAIL Adaptive Gain ruhig voll\n", stderr)
+            fails += 1
+        }
+        if gNoisy > 0.55 {
+            fputs("FAIL Adaptive Gain laut dämpft\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.hudSharingExcluded() {
+            fputs("FAIL HUD sharing excluded\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.edgeResistance(localX: 400, localY: 300, width: 800, height: 600) - 1) > 0.01 {
+            fputs("FAIL Edge Mitte 1×\n", stderr)
+            fails += 1
+        }
+        let edge = GestureMath.edgeResistance(localX: 4, localY: 300, width: 800, height: 600)
+        if edge > 0.50 {
+            fputs("FAIL Edge Rand dämpft\n", stderr)
+            fails += 1
+        }
+        if edge < 0.34 {
+            fputs("FAIL Edge Floor 0,35\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.displayGapWarp(fromOnScreen: true, proposedOnScreen: false) {
+            fputs("FAIL Gap Warp Lücke\n", stderr)
+            fails += 1
+        }
+        if GestureMath.displayGapWarp(fromOnScreen: true, proposedOnScreen: true) {
+            fputs("FAIL Gap Warp gleicher Schirm tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.displayGapWarp(fromOnScreen: false, proposedOnScreen: false) {
+            fputs("FAIL Gap Warp ohne Start tot\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

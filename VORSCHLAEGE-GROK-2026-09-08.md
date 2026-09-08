@@ -1,3 +1,29 @@
+# Helios Vorschläge — 2026-09-08 (Pass 18, 1.6.55)
+
+Stand 1.6.55. Adaptive Gain, HUD-Sharing, Edge-Resistance, Display-Gap.
+
+## Gelandet in 1.6.55
+
+- pointerGainAdaptive / jitterRms
+- hudSharingExcluded → NSWindow.sharingType .none
+- edgeResistance 0,35 am Rand
+- displayGapWarp + stepCursor auf aktuellem Schirm
+
+## Erweiterung (neu)
+
+186. **One-Euro Filter** Cursor min-cutoff × Jitter.
+187. **Continuity 24-fps Leiter** bevor 8 Hz.
+188. **Bezel-Hop Hysterese** 80 pt.
+189. **Stage-Manager Space-Clamp.**
+190. **Palm-Deadman 2 s** → Clutch.
+191. **iPhone Ultraweit FOV.**
+192. **Click-Tick Sound.**
+193. **Aegis-Gaze Pinch-Confirm.**
+194. **Per-Display pointerGain Pref.**
+195. **VNTrack Hand-Box persist.**
+
+P0: CameraBroker. Kein neues *Need(dt).
+
 # Helios Vorschläge — 2026-09-08 (Pass 17, 1.6.54)
 
 Stand 1.6.54. Per-Display Scale, Deadzone×Scale, Scroll-Momentum, Homographie-Rotation, Click-Energy.

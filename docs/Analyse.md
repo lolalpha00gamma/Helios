@@ -1,5 +1,22 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
+Stand: 2026-09-08. Helios **1.6.55** (Build 88). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+
+## 0. 1.6.55 — Adaptive Gain, HUD-Sharing, Edge-Resistance, Display-Gap
+
+1.6.54: Per-Display Scale, Deadzone×Scale, Momentum, Homographie-Rotation, Click-Energy. Danach zitterte der Zeiger bei Continuity 8 Hz (Gain unterschied Rauschen nicht von Intent). HUD landete in Screenshots. `stepCursor` nutzte die Union inkl. Bezel — Cursor starb zwischen 5K und Sidecar. Rand = hartes Clamp.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | 8 Hz Jitter = Teleport | `pointerGainAdaptive` × `jitterRms` |
+| 2 | HUD in Screenshot | `sharingType = .none` |
+| 3 | Rand clamp tot | `edgeResistance` 0,35 |
+| 4 | Bezel-Lücke | `stepCursor` aktueller Schirm + `displayGapWarp` |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe.
+
+# Analyse, Fehlerbehebung, öffentlicher Abgleich
+
 Stand: 2026-09-08. Helios **1.6.54** (Build 87). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
 
 ## 0. 1.6.54 — Per-Display Scale, Deadzone×Scale, Scroll-Momentum, Homographie-Rotation, Click-Energy

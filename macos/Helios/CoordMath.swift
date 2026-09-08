@@ -394,6 +394,55 @@ enum GestureMath {
         return max(0, min(1, close * still * max(0.45, hold)))
     }
 
+    /// Palmen-Jitter RMS. Continuity 8 Hz: Rauschen ≠ Intent.
+    static func jitterRms(_ samples: [CGFloat]) -> CGFloat {
+        let n = samples.count
+        guard n >= 2 else { return 0 }
+        let mean = samples.reduce(0, +) / CGFloat(n)
+        var acc: CGFloat = 0
+        for s in samples {
+            let d = s - mean
+            acc += d * d
+        }
+        return sqrt(max(0, acc / CGFloat(n)))
+    }
+
+    /// Gain fällt bei Jitter. Intent (niedrig RMS) bleibt voll.
+    static func pointerGainAdaptive(
+        gain: CGFloat,
+        jitterRms: CGFloat,
+        lo: CGFloat = 0.004,
+        hi: CGFloat = 0.028
+    ) -> CGFloat {
+        let span = max(0.001, hi - lo)
+        let t = min(1, max(0, (jitterRms - lo) / span))
+        return gain * (1 - 0.72 * t)
+    }
+
+    /// HUD nicht in Screenshot / Bildschirmaufnahme.
+    static func hudSharingExcluded() -> Bool { true }
+
+    /// Gain am Rand 0,35. Hartes Clamp lässt den Cursor am Bezel sterben.
+    static func edgeResistance(
+        localX: CGFloat,
+        localY: CGFloat,
+        width: CGFloat,
+        height: CGFloat,
+        band: CGFloat = 56
+    ) -> CGFloat {
+        let b = max(8, band)
+        let dx = min(localX, width - localX)
+        let dy = min(localY, height - localY)
+        let d = min(dx, dy)
+        if d >= b { return 1 }
+        return 0.35 + 0.65 * max(0, d / b)
+    }
+
+    /// Start auf einem Schirm, Vorschlag in der Lücke → nicht durch den Bezel warpen.
+    static func displayGapWarp(fromOnScreen: Bool, proposedOnScreen: Bool) -> Bool {
+        fromOnScreen && !proposedOnScreen
+    }
+
     /// 90°-Raster für Homographie-Cache. Nudge ohne Store-Wipe.
     static func spaceMapRotationKey(_ r: Double) -> Int {
         var a = r.truncatingRemainder(dividingBy: 360)

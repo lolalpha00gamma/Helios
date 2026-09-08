@@ -119,6 +119,9 @@ final class OverlayController {
             panel.hasShadow = false
             panel.ignoresMouseEvents = true
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
+            if GestureMath.hudSharingExcluded() {
+                panel.sharingType = .none
+            }
             panel.isReleasedWhenClosed = false
             panel.hidesOnDeactivate = false
             panel.becomesKeyOnlyIfNeeded = true

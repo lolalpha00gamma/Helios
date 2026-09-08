@@ -116,15 +116,35 @@ enum ScreenGeometry {
     }
 
     /// Relativ: Handbewegung → Cursor. Hand heben = neu ansetzen (Trackpad).
-    /// Nichtlinear: Feinzielen in der Mitte, Schwung am Rand.
+    /// Aktueller Schirm, nicht Union — Union enthält die Bezel-Lücke (5K↔Sidecar tot).
+    /// Nichtlinear: Feinzielen in der Mitte, Schwung am Rand. Rand dämpft.
     static func stepCursor(from quartz: CGPoint, dPalm: CGPoint, gain: CGFloat) -> CGPoint {
-        let u = cocoaUnion
-        let g = max(0.4, gain)
+        let host = screenContaining(quartz: quartz)
+        let hostFrame = host.map { quartzRect(fromCocoa: $0.frame) }
+            ?? quartzRect(fromCocoa: cocoaUnion)
+        let local = CGPoint(x: quartz.x - hostFrame.minX, y: quartz.y - hostFrame.minY)
+        let resist = GestureMath.edgeResistance(
+            localX: local.x,
+            localY: local.y,
+            width: hostFrame.width,
+            height: hostFrame.height
+        )
+        let g = max(0.4, gain) * resist
         let mag = hypot(dPalm.x, dPalm.y)
         let accel = CoordMath.pointerAccelScale(magnitude: mag)
         var p = quartz
-        p.x += dPalm.x * u.width * g * accel
-        p.y -= dPalm.y * u.height * g * accel
+        p.x += dPalm.x * hostFrame.width * g * accel
+        p.y -= dPalm.y * hostFrame.height * g * accel
+        let onHost = host.map { contains(quartz: p, screen: $0.frame, pad: 0) } ?? false
+        if onHost { return p }
+        let onOther = NSScreen.screens.contains { contains(quartz: p, screen: $0.frame, pad: 0) }
+        if onOther { return clampQuartz(p) }
+        if GestureMath.displayGapWarp(fromOnScreen: true, proposedOnScreen: false) {
+            return CGPoint(
+                x: min(max(p.x, hostFrame.minX + 2), hostFrame.maxX - 2),
+                y: min(max(p.y, hostFrame.minY + 2), hostFrame.maxY - 2)
+            )
+        }
         return clampQuartz(p)
     }
 

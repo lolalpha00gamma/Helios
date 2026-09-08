@@ -1,5 +1,54 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.55**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.55 erledigt
+
+1.6.54 Scale/Deadzone/Momentum/Homographie/Click-Energy. Continuity-Jitter teleportierte. HUD in Screenshots. Bezel verschluckte den Cursor.
+
+1. **Adaptive Gain aus Jitter-RMS.**
+2. **HUD sharingType .none.**
+3. **Window-Edge Resistance.**
+4. **Multi-Display Warp** über die Lücke.
+5. Tests + MARKETING_VERSION 1.6.55 (Build 88).
+
+## Erweiterung (neu, 1.6.55)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+2. **HeliosAegisKit** gemeinsamer Broker + Mutex-PTS.
+3. **Pair-Stereo-Tiefe** Mac+iPhone statt DepthCapture-Stub.
+4. **Watch Double-Tap** Click-Confirm + Haptic.
+5. **App-Grammar** Safari-Scroll vs Finder-Drag vs Xcode-Caret.
+6. **JSONL Session-Replay** ohne Vision.
+7. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+8. **Slot-ID persist** über uniqueID-Flicker.
+9. **IOHID Force-Click vs Pinch.**
+10. **mmap leftover-Boxen** Helios↔Aegis Palm-Occlusion.
+11. **DepthCapture an Continuity-LiDAR.**
+12. **Overlay CAMetalLayer.**
+13. **Per-App Scroll-Gain.**
+14. **Pinch-Hold analog × Kalman-Q.**
+15. **VNTrack Hand-Box persist** bei Continuity 8 Hz.
+16. **Fling-Cap × Screen-Höhe.**
+17. **Session-Watchdog** Idle = fps>0 UND keine Aegis-Face UND 8 s leer.
+18. **Air-Keyboard Dwell × Scale.**
+19. **Per-Display pointerGain** UserDefaults, nicht nur Scale.
+20. **Aegis-Gaze Pinch-Confirm** wenn Face frontal und Blick auf HUD.
+21. **Continuity HDR Tone-Map** bevor Vision 8-Bit sieht.
+22. **Air-Keyboard Shortcut-Overlay** ⌘C/V/Z ohne Maus.
+23. **Freeze-Kalman über uniqueID** — Palm-Vel überlebt Reconnect.
+24. **One-Euro Filter** auf Cursor (min-cutoff × Jitter, nicht nur Highpass).
+25. **Continuity 24-fps Format-Leiter** bevor 8 Hz akzeptiert wird.
+26. **Bezel-Hop Hysterese** 80 pt extra, nicht nur Gap-Clamp.
+27. **Stage-Manager Space-Clamp** — Cursor nicht in unsichtbare Spaces.
+28. **Click-Tick Sound** (optional, Accessibility).
+29. **Palm-Deadman 2 s** ohne Intent → Clutch, nicht Kill.
+30. **iPhone Ultraweit** als FOV-Fallback wenn Hands am Bildrand sterben.
+
+P0 CameraBroker. Kein neues *Need(dt).
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.54**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
 
 ## In 1.6.54 erledigt

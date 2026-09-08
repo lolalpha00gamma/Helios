@@ -142,6 +142,7 @@ final class GestureEngine {
     private var armedQuietUntil: TimeInterval = 0
     private var cursorDidMove = false
     private var lastPalmWidth: CGFloat = 0.12
+    private var palmJitter: [CGFloat] = []
     private var scrollAnchor: (t: TimeInterval, y: CGFloat)?
     private var ringPinchSince: TimeInterval?
     private var dwellSince: TimeInterval?
@@ -255,6 +256,7 @@ final class GestureEngine {
         pointerLastHand = nil
         pointerMissSince = nil
         palmSlow = nil
+        palmJitter = []
         swipeGraceUntil = 0
         armedQuietUntil = 0
         cursorDidMove = false
@@ -669,6 +671,7 @@ final class GestureEngine {
         lastPalmVel = .zero
         lastHandsFreeze = []
         palmSlow = nil
+        palmJitter = []
         pointerHandID = nil
         pointerSourceID = ""
         pointerLastHand = nil
@@ -683,6 +686,7 @@ final class GestureEngine {
         lastPalmVel = .zero
         lastHandsFreeze = []
         palmSlow = nil
+        palmJitter = []
         pointerHandID = nil
         pointerSourceID = ""
         pointerLastHand = nil
@@ -1106,11 +1110,19 @@ final class GestureEngine {
         let step = GestureMath.deadzone2D(dx: dx, dy: dy, dead: dead)
         dx = step.x
         dy = step.y
+        if isActor {
+            palmJitter.append(hypot(dx, dy))
+            if palmJitter.count > 8 { palmJitter.removeFirst() }
+        }
+        let adapt = GestureMath.pointerGainAdaptive(
+            gain: pointerGain * freezeGain * GestureMath.pointerGainDt(dt: sampleDt),
+            jitterRms: GestureMath.jitterRms(palmJitter)
+        )
         let stepped = ScreenGeometry.stepCursor(
             from: seed,
             dPalm: CGPoint(x: dx, y: dy),
             gain: GestureMath.pointerGainScaled(
-                gain: pointerGain * freezeGain * GestureMath.pointerGainDt(dt: sampleDt),
+                gain: adapt,
                 scale: scale
             )
         )

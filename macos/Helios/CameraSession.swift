@@ -100,7 +100,12 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     private var keepAlive: NSObjectProtocol?
     private var wakeObs: NSObjectProtocol?
     private var lastMutexClaimAt: TimeInterval = 0
+    private var lastPalmUV: (x: CGFloat, y: CGFloat, w: CGFloat)?
     @Published var mutexChip = "MUTEX —"
+
+    func setLastPalm(_ palm: CGPoint, width: CGFloat) {
+        lastPalmUV = (palm.x, palm.y, max(0.04, width))
+    }
 
     func start() {
         installWakeWatch()
@@ -381,7 +386,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     }
 
     @discardableResult
-    private func claimCameraMutex(pts: TimeInterval) -> Bool {
+    private func claimCameraMutex(pts _: TimeInterval) -> Bool {
         let url = cameraMutexURL()
         let pid = ProcessInfo.processInfo.processIdentifier
         let now = Date().timeIntervalSince1970
@@ -407,7 +412,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
                     pid: pid,
                     now: now,
                     pidLive: pidLive,
-                    pts: pts
+                    pts: GestureMath.cameraMutexPtsWall(now: now),
+                    palm: lastPalmUV
                 ) {
                     _ = ftruncate(fd, 0)
                     _ = lseek(fd, 0, SEEK_SET)
@@ -433,7 +439,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
                 owner: GestureMath.cameraMutexOwnerHelios(),
                 pid: pid,
                 now: now,
-                pts: pts
+                pts: GestureMath.cameraMutexPtsWall(now: now),
+                palm: lastPalmUV
             ) {
                 try? line.write(to: url, atomically: true, encoding: .utf8)
                 wrote = true

@@ -1,3 +1,40 @@
+# Helios Vorschläge — 2026-09-08 (Pass 25, 1.6.63)
+
+Stand 1.6.63. PTS-Wall, Palm-UV, Predict×Schirm, Zoom-Sign, Bezel-20.
+
+## Gelandet in 1.6.63
+
+- cameraMutexPtsWall statt Media-PTS
+- cameraMutexPalm x y w vor v2
+- pointerPredictCap × ScreenGeometry.height(quartz:)
+- twoPinchZoomHolds gleichsinnig
+- bezelHopRecalib 20 → RECAL-Chip
+
+## Erweiterung (neu)
+
+271. **VNTrackObjectRequest** echte Hand-Observation, ROI-Miss ohne Full-Retry. P1.
+272. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+273. **Mutex-PTS pro Frame** nicht nur Heartbeat 2 s — obsFill Skew 220 ms trifft sonst selten.
+274. **Mission-Control Zwei-Palm-Spread.**
+275. **Aegis-Gaze Pinch-Confirm.**
+276. **Watch Double-Tap** destruktive Klicks.
+277. **Click-Tick Sound.**
+278. **JSONL Palm-Vel** Predict-Tuning.
+279. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+280. **iPhone Ultraweit FOV** statt Center-Stage-Crop.
+281. **DepthCapture an Continuity-LiDAR.**
+282. **Per-Display pointerGain Pref.**
+283. **Overlay CAMetalLayer.**
+284. **Bezel-Hop Count decay** wenn 2 s kein Hop — Chip klebt sonst bis Reset.
+285. **Air-Keyboard Shortcut-Overlay.**
+286. **Stereo Mac+iPhone Disparität.**
+287. **Continuity 15-fps Probe** gemessen, nicht claimed.
+288. **Pointer-Gain × Continuity-FOV** (Ultraweit vs Crop).
+289. **Deadman-Ring** Overlay, nicht nur Clutch.
+290. **Homographie Recalib nach RECAL-Chip** ein Tipp-Tap, nicht nur HUD.
+
+P0: CameraBroker. Kein neues *Need(dt). Branch `bugfix` (1.6.15) nicht mergen.
+
 # Helios Vorschläge — 2026-09-08 (Pass 24, 1.6.62)
 
 Stand 1.6.62. Mutex, Pinch×Palme, Size-Key, Watchdog, Predict×Höhe.

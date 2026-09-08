@@ -1,5 +1,45 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.63**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.63 erledigt
+
+1.6.62 Mutex-Claim, Pinch×Palme, Size-Key, Watchdog, Predict×Höhe. PTS war Media. Predict-Cap `NSScreen.main`. Zoom-Streak `ok: true` bei Vorzeichenwechsel. Bezel-Hop ohne Recalib.
+
+1. **Mutex PTS Wall** Unix, nicht CMSampleBuffer.
+2. **Mutex Palm UV** für Aegis skipPrint.
+3. **Predict-Cap × aktueller Schirm.**
+4. **Zwei-Pinch Zoom-Vorzeichen** gleichsinnig.
+5. **Bezel 20 hops → RECAL.**
+6. Tests + MARKETING_VERSION 1.6.63 (Build 96).
+
+## Erweiterung (neu, 1.6.63)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+2. **HeliosAegisKit** gemeinsamer Broker + Mutex-PTS.
+3. **VNTrackObjectRequest** echte Observation, nicht nur IoU-Box.
+4. **Mutex-PTS pro Frame** (Heartbeat 2 s > Fill-Skew 220 ms).
+5. **Pair-Stereo-Tiefe** Mac+iPhone statt DepthCapture-Stub.
+6. **Watch Double-Tap** Click-Confirm + Haptic.
+7. **JSONL Session-Replay** ohne Vision.
+8. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+9. **Click-Tick Sound** (optional, Accessibility).
+10. **iPhone Ultraweit** FOV-Fallback.
+11. **Per-Display pointerGain** UserDefaults.
+12. **Aegis-Gaze Pinch-Confirm.**
+13. **Overlay CAMetalLayer.**
+14. **DepthCapture an Continuity-LiDAR.**
+15. **Bezel-Hop Count decay.**
+16. **Homographie Recalib-Tap** nach RECAL-Chip.
+17. **Mission-Control Zwei-Palm-Spread.**
+18. **Continuity 15-fps Probe** gemessen.
+19. **Deadman-Ring Overlay.**
+20. **Air-Keyboard Shortcut-Overlay.**
+
+P0 CameraBroker. Kein neues *Need(dt).
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.59**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
 
 ## In 1.6.59 erledigt

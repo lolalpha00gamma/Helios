@@ -2544,6 +2544,51 @@ enum CoordTests {
             fputs("FAIL Mutex Chip\n", stderr)
             fails += 1
         }
+        if GestureMath.cameraMutexPtsWall(now: 1_700_000_000, mediaPts: 12.4) != 1_700_000_000 {
+            fputs("FAIL Mutex PTS Wall vor Media\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraMutexPts(line) != 1.5 {
+            fputs("FAIL Mutex PTS Feld\n", stderr)
+            fails += 1
+        }
+        let palmLine = GestureMath.cameraMutexLine(owner: "helios", pid: 42, now: 100, gen: 3, pts: 1.5, palm: (0.40, 0.55, 0.12))
+        if GestureMath.cameraMutexPalm(palmLine)?.x != 0.40 {
+            fputs("FAIL Mutex Palm X\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraMutexParse(palmLine, now: 101) != "helios" {
+            fputs("FAIL Mutex Palm Parse\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraMutexPalm(line) != nil {
+            fputs("FAIL Mutex ohne Palm tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoPinchZoomHolds(delta: -0.04, lastSign: 1) {
+            fputs("FAIL Zoom Reverse tot\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.twoPinchZoomHolds(delta: 0.04, lastSign: 1) {
+            fputs("FAIL Zoom gleichsinnig hält\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.twoPinchZoomHolds(delta: -0.04, lastSign: 0) {
+            fputs("FAIL Zoom Start hält\n", stderr)
+            fails += 1
+        }
+        if GestureMath.bezelHopRecalib(count: 19) {
+            fputs("FAIL Bezel 19 tot\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.bezelHopRecalib(count: 20) {
+            fputs("FAIL Bezel 20 Recal\n", stderr)
+            fails += 1
+        }
+        if GestureMath.bezelHopChip(count: 20) != "RECAL · 20 hops" {
+            fputs("FAIL Bezel Chip\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

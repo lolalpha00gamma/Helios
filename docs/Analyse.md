@@ -1,5 +1,23 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
+Stand: 2026-09-08. Helios **1.6.63** (Build 96). Nur `main`. `bugfix` ist 1.6.15 — nichts mergen.
+
+## 0. 1.6.63 — PTS-Wall, Palm-UV, Predict×Schirm, Zoom-Sign, Bezel-20
+
+1.6.62: Mutex-Claim, Pinch×Palme, Size-Key, Watchdog, Predict×Höhe. Danach blieb der Claim auf Media-PTS, Aegis Fill tot. Predict-Cap `NSScreen.main` teleportierte auf Sidecar. Zoom-Streak `ok: true` bei Vorzeichenwechsel. Homographie driftete an der Naht ohne Chip.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | Mutex Media-PTS vs Unix | `cameraMutexPtsWall` |
+| 2 | Keine Palme in der Lock-Zeile | `cameraMutexPalm` vor v2 |
+| 3 | Predict-Cap 5K auf Sidecar | `height(quartz:)` |
+| 4 | Zoom-Jitter Scale-Flip | `twoPinchZoomHolds` |
+| 5 | Bezel ohne Recalib | `bezelHopRecalib` 20 |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe.
+
+# Analyse, Fehlerbehebung, öffentlicher Abgleich
+
 Stand: 2026-09-08. Helios **1.6.61** (Build 94). Nur `main`. `bugfix` ist 1.6.15 — nichts mergen.
 
 ## 0. 1.6.61 — Center Stage, AE-Lock, Chirality, ROI, Pinch×Palme, Fling-Achse

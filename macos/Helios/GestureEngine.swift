@@ -113,6 +113,7 @@ final class GestureEngine {
     private var twoPinchLockedAxis: TwoPinchAxis = .none
     private var twoPinchLastMapped: [CGPoint]?
     private var twoPinchLastTicks: Int32 = 0
+    private var bezelHopCount = 0
     private var freezeGain: CGFloat = 1
     private var recoverUntil: TimeInterval = 0
     private var recoverSpan: TimeInterval = 0.08
@@ -241,6 +242,7 @@ final class GestureEngine {
         twoPinchLockedAxis = .none
         twoPinchLastMapped = nil
         twoPinchLastTicks = 0
+        bezelHopCount = 0
         freezeGain = 1
         recoverUntil = 0
         recoverSpan = 0.08
@@ -1165,6 +1167,12 @@ final class GestureEngine {
                 scale: scale
             )
         )
+        if isActor, ScreenGeometry.bezelHopOccurred(from: seed, to: stepped) {
+            bezelHopCount += 1
+            if let chip = GestureMath.bezelHopChip(count: bezelHopCount) {
+                lockFreeze = lockFreeze.isEmpty ? chip : "\(lockFreeze) \(chip)"
+            }
+        }
         if isActor {
             let minC = GestureMath.oneEuroMinCutoff(jitterRms: rms)
             if !euroInited {
@@ -1196,7 +1204,7 @@ final class GestureEngine {
                     sample: CGPoint(x: fx.value, y: fy.value),
                     vel: CGPoint(x: fx.deriv, y: fy.deriv),
                     dt: sampleDt,
-                    cap: GestureMath.pointerPredictCap(false, screenH: ScreenGeometry.mainHeight)
+                    cap: GestureMath.pointerPredictCap(false, screenH: ScreenGeometry.height(quartz: seed))
                 )
             }
         }
@@ -1349,7 +1357,7 @@ final class GestureEngine {
             if abs(d) > need {
                 let frames = GestureMath.twoPinchConfirmFrames(dt: sampleDt)
                 twoPinchScaleStreak = GestureMath.twoPinchEdgeHold(
-                    ok: true,
+                    ok: GestureMath.twoPinchZoomHolds(delta: d, lastSign: lastScaleSign),
                     streak: twoPinchScaleStreak,
                     need: frames
                 )

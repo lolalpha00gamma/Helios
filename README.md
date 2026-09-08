@@ -1,3 +1,36 @@
+# Helios **1.6.63**
+
+
+Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
+
+Privates Repo. Keine Open-Source-Lizenzdatei.
+
+Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Start
+
+**Nur die DMG-Datei laden, nicht Source code (zip):**
+
+[Helios.dmg](https://github.com/lolalpha00gamma/Helios/releases/latest/download/Helios.dmg)
+
+1. `Helios.dmg` doppelklicken (kein Entpacken)
+2. Helios nach **Programme** ziehen — nicht aus dem Image starten
+3. Erster Start (nicht notarisierte Ad-hoc-Signatur): **Systemeinstellungen → Datenschutz & Sicherheit → Trotzdem öffnen**
+4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
+
+Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.63
+
+Warum Cursor und Zoom auf Continuity/Sidecar schlecht saßen: Mutex-PTS war Session-Zeit (Aegis füllt Unix), Predict-Cap nahm den 5K-Hauptschirm, Zwei-Pinch zählte Jitter-Vorzeichenwechsel als Zoom, Homographie driftete an der Bezel ohne Chip.
+
+- **Mutex PTS Wall.** `cameraMutexPtsWall` schreibt Unix, nie CMSampleBuffer. Aegis `obsFillUsesMutexPts` kann füllen.
+- **Mutex Palm UV.** Palme vor `v2` in der Lock-Zeile — Aegis skippt Prints unter der Hand.
+- **Predict-Cap × aktueller Schirm.** Sidecar nicht mehr 5K-weit.
+- **Zwei-Pinch Zoom gleichsinnig.** Continuity-Jitter scalierte nicht mehr rein/raus.
+- **Bezel 20 hops → RECAL.** Chip, kein Wipe.
+- Tests + MARKETING_VERSION 1.6.63 (Build 96).
+
 # Helios **1.6.62**
 
 

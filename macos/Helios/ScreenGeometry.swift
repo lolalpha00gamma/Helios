@@ -194,6 +194,15 @@ enum ScreenGeometry {
         return best
     }
 
+    /// Quartz-Höhe des Schirms unter dem Punkt. Predict-Cap sonst 5K auf Sidecar.
+    static func height(quartz: CGPoint) -> CGFloat {
+        screenContaining(quartz: quartz)?.frame.height ?? mainHeight
+    }
+
+    static func bezelHopOccurred(from: CGPoint, to: CGPoint) -> Bool {
+        screenContaining(quartz: from)?.frame != screenContaining(quartz: to)?.frame
+    }
+
     static func screenContaining(quartz: CGPoint) -> NSScreen? {
         NSScreen.screens.first { contains(quartz: quartz, screen: $0.frame, pad: 4) } ?? NSScreen.main
     }

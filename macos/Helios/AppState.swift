@@ -297,6 +297,9 @@ final class AppState: ObservableObject {
                 hands[i].sourceID = leadID
                 hands[i].id = "L." + hands[i].id
             }
+            if let palm = hands.first {
+                cam.setLastPalm(palm.palm, width: palm.palmWidth)
+            }
             let visMs = (CACurrentMediaTime() - t0) * 1000
             let endToEnd = max(0, (t0 - arrived) * 1000)
             slot.push(

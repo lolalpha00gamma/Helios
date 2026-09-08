@@ -490,6 +490,17 @@ enum GestureMath {
             && proposed.y <= otherFrame.maxY - n
     }
 
+    /// Homographie driftet an der Naht. 20 Hops → Recalib-Chip, nicht Wipe.
+    static func bezelHopCountNeed() -> Int { 20 }
+
+    static func bezelHopRecalib(count: Int, need: Int = 20) -> Bool {
+        count >= need
+    }
+
+    static func bezelHopChip(count: Int, need: Int = 20) -> String? {
+        count >= need ? "RECAL · \(need) hops" : nil
+    }
+
     /// 2 s still → Clutch, nicht Kill. Continuity-Drift sonst Klick.
     static func palmDeadmanNeed() -> TimeInterval { 2.0 }
 
@@ -1467,6 +1478,11 @@ enum GestureMath {
         streak >= need
     }
 
+    /// Continuity-Jitter dreht das Vorzeichen — Streak darf nur gleichsinnig zählen.
+    static func twoPinchZoomHolds(delta: CGFloat, lastSign: CGFloat) -> Bool {
+        lastSign == 0 || delta * lastSign >= 0
+    }
+
     /// Palm-Zittern einer Hand darf nicht scrollen.
     static let scrollDeadHW: CGFloat = 0.08
     /// Nach Loslassen noch 200 ms Coast, sonst stirbt der Wisch bei 8 fps.
@@ -2028,10 +2044,35 @@ enum GestureMath {
     static func cameraMutexHeartbeatSec() -> TimeInterval { 2 }
     static func cameraMutexClaimMinDt() -> TimeInterval { 0.08 }
 
-    static func cameraMutexLine(owner: String, pid: Int32, now: TimeInterval, gen: UInt32 = 0, pts: TimeInterval? = nil) -> String {
+    static func cameraMutexLine(owner: String, pid: Int32, now: TimeInterval, gen: UInt32 = 0, pts: TimeInterval? = nil, palm: (x: CGFloat, y: CGFloat, w: CGFloat)? = nil) -> String {
         let p: TimeInterval
         if let pts, pts > 0, pts.isFinite { p = pts } else { p = 0 }
+        if let palm {
+            return String(format: "%@ %d %.3f %u %.3f %.3f %.3f %.3f v2", owner, pid, now, gen, p, Double(palm.x), Double(palm.y), Double(palm.w))
+        }
         return String(format: "%@ %d %.3f %u %.3f v2", owner, pid, now, gen, p)
+    }
+
+    /// Unix-Wall, nie CMSampleBuffer-PTS. Media < 1e6 ist Session-Zeit — Aegis obsFill sonst tot.
+    static func cameraMutexPtsWall(now: TimeInterval, mediaPts: TimeInterval = 0) -> TimeInterval {
+        if now > 1_000_000 { return now }
+        if mediaPts > 1_000_000 { return mediaPts }
+        return now > 0 ? now : mediaPts
+    }
+
+    static func cameraMutexPts(_ text: String) -> TimeInterval? {
+        let parts = text.split(whereSeparator: { $0 == " " || $0 == "\n" }).map(String.init)
+        guard parts.count >= 5, let v = TimeInterval(parts[4]), v.isFinite, v > 0 else { return nil }
+        return v
+    }
+
+    /// Palme UV vor v2. Alte 6-Felder-Zeile bleibt lesbar.
+    static func cameraMutexPalm(_ text: String) -> (x: CGFloat, y: CGFloat, w: CGFloat)? {
+        let parts = text.split(whereSeparator: { $0 == " " || $0 == "\n" }).map(String.init)
+        guard parts.count >= 9, parts.last == "v2" else { return nil }
+        guard let x = Double(parts[5]), let y = Double(parts[6]), let w = Double(parts[7]) else { return nil }
+        guard x.isFinite, y.isFinite, w.isFinite, w > 0 else { return nil }
+        return (CGFloat(x), CGFloat(y), CGFloat(w))
     }
 
     static func cameraMutexParse(_ text: String, now: TimeInterval, stale: TimeInterval = cameraMutexStale(), pidLive: Bool? = nil) -> String? {
@@ -2075,12 +2116,13 @@ enum GestureMath {
         pid: Int32,
         now: TimeInterval,
         pidLive: Bool? = nil,
-        pts: TimeInterval? = nil
+        pts: TimeInterval? = nil,
+        palm: (x: CGFloat, y: CGFloat, w: CGFloat)? = nil
     ) -> String? {
         let holder = existing.flatMap { cameraMutexParse($0, now: now, pidLive: pidLive) }
         guard cameraMutexClaimWrites(holder: holder, owner: owner) else { return nil }
         let gen = ((existing.flatMap { cameraMutexGen($0) }) ?? 0) &+ 1
-        return cameraMutexLine(owner: owner, pid: pid, now: now, gen: gen, pts: pts)
+        return cameraMutexLine(owner: owner, pid: pid, now: now, gen: gen, pts: pts, palm: palm)
     }
 
     static func cameraMutexChip(holder: String?, yielded: Bool) -> String {

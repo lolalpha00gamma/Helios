@@ -113,7 +113,6 @@ final class GestureEngine {
     private var twoPinchLockedAxis: TwoPinchAxis = .none
     private var twoPinchLastMapped: [CGPoint]?
     private var twoPinchLastTicks: Int32 = 0
-    private var bezelHopCount = 0
     private var freezeGain: CGFloat = 1
     private var recoverUntil: TimeInterval = 0
     private var recoverSpan: TimeInterval = 0.08
@@ -242,7 +241,6 @@ final class GestureEngine {
         twoPinchLockedAxis = .none
         twoPinchLastMapped = nil
         twoPinchLastTicks = 0
-        bezelHopCount = 0
         freezeGain = 1
         recoverUntil = 0
         recoverSpan = 0.08
@@ -1076,7 +1074,7 @@ final class GestureEngine {
         }
         pinchLastHand = nil
         if let pinching = hands.filter({
-            ($0.pinchClosed || $0.pinchClosedness > GestureMath.pinchClosednessNeed(quality: $0.quality, start: true, palmWidth: $0.palmWidth))
+            ($0.pinchClosed || $0.pinchClosedness > GestureMath.pinchClosednessNeed(quality: $0.quality, start: true))
                 && GestureMath.pinchLooksLikePinch(
                     reach: $0.pinchReach,
                     index: $0.indexScore,
@@ -1167,12 +1165,6 @@ final class GestureEngine {
                 scale: scale
             )
         )
-        if isActor, ScreenGeometry.bezelHopOccurred(from: seed, to: stepped) {
-            bezelHopCount += 1
-            if let chip = GestureMath.bezelHopChip(count: bezelHopCount) {
-                lockFreeze = lockFreeze.isEmpty ? chip : "\(lockFreeze) \(chip)"
-            }
-        }
         if isActor {
             let minC = GestureMath.oneEuroMinCutoff(jitterRms: rms)
             if !euroInited {
@@ -1204,7 +1196,7 @@ final class GestureEngine {
                     sample: CGPoint(x: fx.value, y: fy.value),
                     vel: CGPoint(x: fx.deriv, y: fy.deriv),
                     dt: sampleDt,
-                    cap: GestureMath.pointerPredictCap(false, screenH: ScreenGeometry.height(quartz: seed))
+                    cap: GestureMath.pointerPredictCap(false)
                 )
             }
         }
@@ -1357,7 +1349,7 @@ final class GestureEngine {
             if abs(d) > need {
                 let frames = GestureMath.twoPinchConfirmFrames(dt: sampleDt)
                 twoPinchScaleStreak = GestureMath.twoPinchEdgeHold(
-                    ok: GestureMath.twoPinchZoomHolds(delta: d, lastSign: lastScaleSign),
+                    ok: true,
                     streak: twoPinchScaleStreak,
                     need: frames
                 )
@@ -1552,8 +1544,7 @@ final class GestureEngine {
                 zSep: hand.pinchZSep,
                 quality: hand.quality,
                 approach: hand.pinchZApproach,
-                residual: hand.liftResidual,
-                palmWidth: hand.palmWidth
+                residual: hand.liftResidual
             ))
             : (fire && GestureMath.pinchStartsGrab(
                 gate: hand.pinchClosed,
@@ -1563,8 +1554,7 @@ final class GestureEngine {
                 zSep: hand.pinchZSep,
                 quality: hand.quality,
                 approach: hand.pinchZApproach,
-                residual: hand.liftResidual,
-                palmWidth: hand.palmWidth
+                residual: hand.liftResidual
             ))
         let advanced = GestureMath.pinchHoldAdvance(
             phase: pinchHoldPhase,

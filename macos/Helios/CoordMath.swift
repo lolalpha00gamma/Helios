@@ -529,9 +529,6 @@ enum GestureMath {
 
     static func pointerPredictCap(_ clutch: Bool = false, screenH: CGFloat = 0) -> CGFloat {
         if clutch { return 0 }
-        if screenH > 1 {
-            return min(72, max(28, screenH * 0.042))
-        }
         return 48
     }
 
@@ -1259,7 +1256,7 @@ enum GestureMath {
         return live
     }
 
-    static func visionRoiEnabled() -> Bool { true }
+    static func visionRoiEnabled() -> Bool { false }
 
     static func visionRoiFromPalm(palm: CGPoint, width: CGFloat, scale: CGFloat = 2) -> CGRect {
         let s = max(0.16, min(1, max(0.04, width) * max(1, scale)))

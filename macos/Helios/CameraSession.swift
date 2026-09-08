@@ -3,9 +3,6 @@ import AppKit
 import CoreImage
 import CoreMedia
 import Foundation
-#if canImport(Darwin)
-import Darwin
-#endif
 import ImageIO
 import QuartzCore
 
@@ -99,13 +96,6 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     var hasDepth: Bool { depthTap.attached }
     private var keepAlive: NSObjectProtocol?
     private var wakeObs: NSObjectProtocol?
-    private var lastMutexClaimAt: TimeInterval = 0
-    private var lastPalmUV: (x: CGFloat, y: CGFloat, w: CGFloat)?
-    @Published var mutexChip = "MUTEX —"
-
-    func setLastPalm(_ palm: CGPoint, width: CGFloat) {
-        lastPalmUV = (palm.x, palm.y, max(0.04, width))
-    }
 
     func start() {
         installWakeWatch()
@@ -161,11 +151,9 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             HeliosCatch({ self.session.stopRunning() }, nil)
             self.coverPipe.stop()
             self.releaseKeepAlive()
-            self.releaseCameraMutex()
             DispatchQueue.main.async {
                 self.isRunning = false
                 self.coverRunning = false
-                self.mutexChip = "MUTEX —"
             }
         }
     }
@@ -376,112 +364,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         return d.position == .front || d.deviceType == .builtInWideAngleCamera
     }
 
-
-    private func cameraMutexURL() -> URL {
-        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
-            ?? FileManager.default.temporaryDirectory
-        let dir = base.appendingPathComponent(GestureMath.cameraMutexCacheFolder(), isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent(GestureMath.cameraMutexName())
-    }
-
-    @discardableResult
-    private func claimCameraMutex(pts _: TimeInterval) -> Bool {
-        let url = cameraMutexURL()
-        let pid = ProcessInfo.processInfo.processIdentifier
-        let now = Date().timeIntervalSince1970
-        lastMutexClaimAt = CACurrentMediaTime()
-        var wrote = false
-        var chip = "MUTEX —"
-        #if canImport(Darwin)
-        let fd = open(url.path, O_RDWR | O_CREAT, 0o644)
-        if fd >= 0 {
-            if flock(fd, LOCK_EX | LOCK_NB) == 0 {
-                let size = lseek(fd, 0, SEEK_END)
-                _ = lseek(fd, 0, SEEK_SET)
-                var buf = [UInt8](repeating: 0, count: max(0, Int(size)))
-                if !buf.isEmpty {
-                    _ = buf.withUnsafeMutableBytes { Darwin.read(fd, $0.baseAddress, $0.count) }
-                }
-                let existing = buf.isEmpty ? nil : String(bytes: buf, encoding: .utf8)
-                let holderPid = existing.flatMap { GestureMath.cameraMutexPid($0) }
-                let pidLive: Bool? = holderPid.map { p in p > 0 && (kill(p, 0) == 0 || errno == EPERM) }
-                if let line = GestureMath.cameraMutexLockedLine(
-                    existing: existing,
-                    owner: GestureMath.cameraMutexOwnerHelios(),
-                    pid: pid,
-                    now: now,
-                    pidLive: pidLive,
-                    pts: GestureMath.cameraMutexPtsWall(now: now),
-                    palm: lastPalmUV
-                ) {
-                    _ = ftruncate(fd, 0)
-                    _ = lseek(fd, 0, SEEK_SET)
-                    if let data = line.data(using: .utf8) {
-                        data.withUnsafeBytes { raw in
-                            if let p = raw.baseAddress { _ = Darwin.write(fd, p, raw.count) }
-                        }
-                    }
-                    _ = fsync(fd)
-                    wrote = true
-                    let holder = GestureMath.cameraMutexParse(line, now: now)
-                    chip = GestureMath.cameraMutexChip(holder: holder, yielded: false)
-                }
-                _ = flock(fd, LOCK_UN)
-            }
-            close(fd)
-        }
-        #endif
-        if !wrote {
-            let existing = try? String(contentsOf: url, encoding: .utf8)
-            if let line = GestureMath.cameraMutexLockedLine(
-                existing: existing,
-                owner: GestureMath.cameraMutexOwnerHelios(),
-                pid: pid,
-                now: now,
-                pts: GestureMath.cameraMutexPtsWall(now: now),
-                palm: lastPalmUV
-            ) {
-                try? line.write(to: url, atomically: true, encoding: .utf8)
-                wrote = true
-                chip = GestureMath.cameraMutexChip(holder: GestureMath.cameraMutexOwnerHelios(), yielded: false)
-            } else {
-                let holder = existing.flatMap { GestureMath.cameraMutexParse($0, now: now) }
-                chip = GestureMath.cameraMutexChip(holder: holder, yielded: holder == GestureMath.cameraMutexOwnerAegis())
-            }
-        }
-        DispatchQueue.main.async { [weak self] in self?.mutexChip = chip }
-        return wrote
-    }
-
-    private func releaseCameraMutex() {
-        let url = cameraMutexURL()
-        let now = Date().timeIntervalSince1970
-        #if canImport(Darwin)
-        let fd = open(url.path, O_RDWR)
-        if fd >= 0 {
-            if flock(fd, LOCK_EX | LOCK_NB) == 0 {
-                let size = lseek(fd, 0, SEEK_END)
-                _ = lseek(fd, 0, SEEK_SET)
-                var buf = [UInt8](repeating: 0, count: max(0, Int(size)))
-                if !buf.isEmpty {
-                    _ = buf.withUnsafeMutableBytes { Darwin.read(fd, $0.baseAddress, $0.count) }
-                }
-                let existing = buf.isEmpty ? nil : String(bytes: buf, encoding: .utf8)
-                if GestureMath.cameraMutexParse(existing ?? "", now: now) == GestureMath.cameraMutexOwnerHelios() {
-                    _ = ftruncate(fd, 0)
-                    _ = fsync(fd)
-                }
-                _ = flock(fd, LOCK_UN)
-            }
-            close(fd)
-        }
-        #endif
-        lastMutexClaimAt = 0
-    }
-
     private func configureAndRun() {
-        Self.applyCenterStage()
         session.beginConfiguration()
         session.inputs.forEach { session.removeInput($0) }
         session.outputs.forEach { session.removeOutput($0) }
@@ -577,7 +460,6 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         }
         retainKeepAlive()
         startCoverIfNeeded()
-        claimCameraMutex(pts: lastPts)
     }
 
     private func startCoverIfNeeded() {
@@ -725,20 +607,6 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         return .up
     }
 
-    /// Continuity Center Stage croppt aufs Gesicht — Palme fällt aus dem Frame.
-    static func applyCenterStage() {
-        guard GestureMath.centerStageOff else { return }
-        if #available(macOS 12.3, *) {
-            let modeRaw = Int(AVCaptureDevice.centerStageControlMode.rawValue)
-            if GestureMath.centerStageNeedsAppControl(currentModeRaw: modeRaw) {
-                AVCaptureDevice.centerStageControlMode = .app
-            }
-            if GestureMath.centerStageNeedsReassert(enabled: AVCaptureDevice.isCenterStageEnabled) {
-                AVCaptureDevice.isCenterStageEnabled = false
-            }
-        }
-    }
-
     /// Format + Framerate nur mit Werten aus dem unterstützten Bereich, plus NSException-Fang.
     private func configureDevice(_ device: AVCaptureDevice, measuredFps: Double = 0) {
         var locked = false
@@ -770,21 +638,12 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             if device.isFocusModeSupported(.continuousAutoFocus) {
                 device.focusMode = .continuousAutoFocus
             }
-            if GestureMath.cameraLocksExposure(role: lastDeviceRole) {
-                if device.isExposureModeSupported(.locked) {
-                    device.exposureMode = .locked
-                }
-            } else if device.isExposureModeSupported(.continuousAutoExposure) {
+            if device.isExposureModeSupported(.continuousAutoExposure) {
                 device.exposureMode = .continuousAutoExposure
             }
-            if GestureMath.cameraLocksWhiteBalance(role: lastDeviceRole) {
-                if device.isWhiteBalanceModeSupported(.locked) {
-                    device.whiteBalanceMode = .locked
-                }
-            } else if device.isWhiteBalanceModeSupported(.continuousAutoWhiteBalance) {
+            if device.isWhiteBalanceModeSupported(.continuousAutoWhiteBalance) {
                 device.whiteBalanceMode = .continuousAutoWhiteBalance
             }
-            Self.applyCenterStage()
         }, &err)
         if locked {
             HeliosCatch({ device.unlockForConfiguration() }, nil)
@@ -842,10 +701,6 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         )
         lastPts = rawPts
         lastPtsWall = arrived
-        let nowClaim = CACurrentMediaTime()
-        if GestureMath.cameraMutexClaimDue(last: lastMutexClaimAt, now: nowClaim, minDt: GestureMath.cameraMutexHeartbeatSec()) {
-            claimCameraMutex(pts: rawPts)
-        }
         let (owned, slot) = ring.copy(pb)
         pump.push(owned, slot: slot, arrived: arrived, drop: { [weak self] s in
             self?.ring.release(s)
@@ -1114,14 +969,6 @@ final class CoverCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
                 let dur = CMTime(seconds: sec, preferredTimescale: 600)
                 device.activeVideoMinFrameDuration = dur
                 device.activeVideoMaxFrameDuration = dur
-            }
-            CameraSession.applyCenterStage()
-            let role = CameraSession.role(device).rawValue
-            if GestureMath.cameraLocksExposure(role: role), device.isExposureModeSupported(.locked) {
-                device.exposureMode = .locked
-            }
-            if GestureMath.cameraLocksWhiteBalance(role: role), device.isWhiteBalanceModeSupported(.locked) {
-                device.whiteBalanceMode = .locked
             }
         }, nil)
         if locked {

@@ -371,12 +371,6 @@ struct ControlPanel: View {
             Text(state.cameraPair.detailDE)
                 .font(.system(size: 10))
                 .foregroundStyle(.secondary)
-            if state.camera.mutexChip != "MUTEX —" {
-                Text(state.camera.mutexChip)
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(HeliosTheme.cyan.opacity(0.85))
-                    .help("AVCapture-Mutex mit Aegis. Helios hat Continuity-Vorrang.")
-            }
             if state.watchdogChip != "—" {
                 Text(state.watchdogChip)
                     .font(.system(size: 10, design: .monospaced))

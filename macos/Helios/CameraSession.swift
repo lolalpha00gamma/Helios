@@ -807,8 +807,13 @@ private final class FramePump: @unchecked Sendable {
             let item = latest
             latest = nil
             if item == nil { scheduled = false }
+            let drop = dropFn
             lock.unlock()
             guard let item else { return }
+            if GestureMath.visionStale(arrived: item.1, now: CACurrentMediaTime()) {
+                drop?(item.2)
+                continue
+            }
             process(item.0, item.1, item.2)
         }
     }

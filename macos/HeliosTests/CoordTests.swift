@@ -1828,6 +1828,60 @@ enum CoordTests {
             fputs("FAIL Distanz ohne Vel bleibt Drag\n", stderr)
             fails += 1
         }
+        if abs(GestureMath.clutchOwnRadiusScaled(scale: 1) - 48) > 0.5 {
+            fputs("FAIL Clutch 1× = 48\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.clutchOwnRadiusScaled(scale: 2) - 96) > 0.5 {
+            fputs("FAIL Clutch 2× = 96\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.clutchOwnRadiusScaled(scale: 0.5) - 48) > 0.5 {
+            fputs("FAIL Clutch Scale min 1\n", stderr)
+            fails += 1
+        }
+        let win = CGRect(x: 100, y: 100, width: 400, height: 300)
+        if !GestureMath.axWindowCacheHolds(cursor: CGPoint(x: 120, y: 120), bounds: win) {
+            fputs("FAIL AX Window Cache innen\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.axWindowCacheHolds(cursor: CGPoint(x: 90, y: 90), bounds: win) {
+            fputs("FAIL AX Window Cache Pad\n", stderr)
+            fails += 1
+        }
+        if GestureMath.axWindowCacheHolds(cursor: CGPoint(x: 10, y: 10), bounds: win) {
+            fputs("FAIL AX Window Cache außen tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.hudCoastAllowed(reduceMotion: true) {
+            fputs("FAIL reduced-motion kein Coast\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.hudCoastAllowed(reduceMotion: false) {
+            fputs("FAIL Coast ohne reduced-motion\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.visionStale(arrived: 1.0, now: 1.50) {
+            fputs("FAIL Vision 500 ms stale\n", stderr)
+            fails += 1
+        }
+        if GestureMath.visionStale(arrived: 1.0, now: 1.20) {
+            fputs("FAIL Vision 200 ms frisch\n", stderr)
+            fails += 1
+        }
+        let analog = GestureMath.pinchAnalog(closedness: 0.80, zSep: 0.20)
+        if analog < 0.70 {
+            fputs("FAIL Analog Pinch hoch\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinchAnalogClosed(analog) {
+            fputs("FAIL Analog Closed\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchAnalogClosed(GestureMath.pinchAnalog(closedness: 0.20, zSep: 1.10)) {
+            fputs("FAIL Analog offen\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

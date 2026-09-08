@@ -1,5 +1,42 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.50**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.50 erledigt
+
+1.6.49 720-Lock, 24 fps, Click-Vel, HUD-Coast. Retina-Clutch 48 pt. Coast AX 90 Hz. Reduce-Motion Coast. Vision stale. Pinch-Bool.
+
+1. **Clutch-Radius × backingScaleFactor.**
+2. **AX-Fenster-ID Cache** während Coast.
+3. **HUD reduced-motion** ohne Coast.
+4. **FramePump Vision-Timeout 400 ms.**
+5. **Pinch analog** Closedness×zSep.
+6. Tests + MARKETING_VERSION 1.6.50 (Build 83).
+
+## Erweiterung (neu, 1.6.50)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+2. **HeliosAegisKit** gemeinsamer Broker + Mutex-PTS.
+3. **Pair-Stereo-Tiefe** Mac+iPhone statt DepthCapture-Stub.
+4. **Watch Double-Tap** Click-Confirm.
+5. **App-Grammar** Safari-Scroll vs Finder-Drag vs Xcode-Caret.
+6. **Two-pinch vs scroll hysteresis.**
+7. **JSONL Session-Replay** ohne Vision.
+8. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+9. **Slot-ID persist** über uniqueID-Flicker.
+10. **IOHID Force-Click vs Pinch.**
+11. **mmap leftover-Boxen** Helios↔Aegis Palm-Occlusion.
+12. **DepthCapture an Continuity-LiDAR.**
+13. **Overlay CAMetalLayer.**
+14. **SpaceMap Re-Calib** nach Display-Drehung.
+15. **Watch-IMU Pinch-Confirm.**
+16. **Session-Watchdog** Idle = fps>0 UND keine Aegis-Face UND 8 s leer.
+17. **CGEvent-Tap coalescing 90 Hz.**
+
+P0 CameraBroker. Kein neues *Need(dt).
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.49**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
 
 ## In 1.6.49 erledigt

@@ -1,5 +1,23 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
+Stand: 2026-09-08. Helios **1.6.50** (Build 83). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+
+## 0. 1.6.50 — Clutch×Scale, AX-Window, reduced-motion, Vision-Stale, Pinch analog
+
+1.6.49: 720-Lock persist, 24 fps, Click-Vel, HUD-Coast, Per-Display, Body-Skip. Danach seizes Retina-Maus den Zeiger (48 pt). Coast hitTestet 90 Hz das falsche Fenster. Reduce-Motion coastet trotzdem. Vision 500 ms füttert tot. Pinch-Bool droppt Hold.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | Retina-Clutch 48 pt | `clutchOwnRadiusScaled` × backingScaleFactor |
+| 2 | Coast AX-Fenster wechselt | `axWindowCacheHolds` Bounds+Pad |
+| 3 | Reduce-Motion Coast | `hudCoastAllowed` |
+| 4 | Stale Vision | `visionStale` 400 ms drop |
+| 5 | Pinch-Bool 8 fps | `pinchAnalog` Closedness×zSep |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe.
+
+# Analyse, Fehlerbehebung, öffentlicher Abgleich
+
 Stand: 2026-09-08. Helios **1.6.49** (Build 82). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
 
 ## 0. 1.6.49 — 720-Lock persist, 24 fps, Click-Vel, HUD-Coast, Per-Display

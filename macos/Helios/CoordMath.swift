@@ -894,6 +894,34 @@ enum GestureMath {
     /// DisplayLink 90 Hz darf den OS-Cursor treiben. Clutch dann Radius, nicht Zeitfenster.
     static func hudLerpDrivesCursor() -> Bool { true }
 
+    /// Accessibility: reduced-motion = HUD ohne Coast, Sample bleibt.
+    static func hudCoastAllowed(reduceMotion: Bool) -> Bool { !reduceMotion }
+
+    /// Retina 2×: 48 pt zu eng nach 90 Hz Coast. Scale 1 bleibt 48, 2× = 96.
+    static func clutchOwnRadiusScaled(scale: CGFloat) -> CGFloat {
+        clutchOwnRadius * max(1, min(3, scale))
+    }
+
+    /// Coast: Fenster-ID halten solange Cursor in Bounds+Pad. Nicht 90 Hz hitTest.
+    static func axWindowCacheHolds(cursor: CGPoint, bounds: CGRect, pad: CGFloat = 28) -> Bool {
+        guard bounds.width > 8, bounds.height > 8 else { return false }
+        return bounds.insetBy(dx: -pad, dy: -pad).contains(cursor)
+    }
+
+    /// VN unkündbar. Frame älter als 400 ms = tot, nächsten nehmen.
+    static func visionStale(arrived: TimeInterval, now: TimeInterval, limit: TimeInterval = 0.40) -> Bool {
+        arrived > 0 && now - arrived >= limit
+    }
+
+    /// Analog-Pinch: Closedness × z-Nähe. Bool-Gate allein zittert bei 8 fps.
+    static func pinchAnalog(closedness: Double, zSep: CGFloat) -> Double {
+        let c = max(0, min(1, closedness))
+        let z = max(0, min(1, 1 - Double(zSep) / 1.20))
+        return 0.55 * c + 0.45 * z
+    }
+
+    static func pinchAnalogClosed(_ analog: Double) -> Bool { analog >= 0.58 }
+
     /// Nach dem Sample coasten, nicht 1 Frame hinterher interpolieren.
     static func hudCoastVel(prev: CGPoint, next: CGPoint, dt: TimeInterval) -> CGPoint {
         let t = CGFloat(max(0.008, dt))

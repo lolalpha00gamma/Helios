@@ -58,6 +58,7 @@ final class SystemControl {
     private var axHitAt: TimeInterval = 0
     private var axHitKey = ""
     private var axHitEl: AXUIElement?
+    private var axHitBounds: CGRect = .null
     /// Freeze-Geisterhand: Jiggler seize tot.
     var freezeLive = false
     /// Continuity 8 fps: axHitCacheFresh(dt: 0,04) tot vor dem nächsten Frame.
@@ -105,7 +106,8 @@ final class SystemControl {
         if GestureMath.clutchIgnores(delta: d) { return }
         if let posted = lastPosted {
             let nowLoc = NSEvent.mouseLocation.screenFlipped
-            if hypot(nowLoc.x - posted.x, nowLoc.y - posted.y) < GestureMath.clutchOwnRadius { return }
+            let scale = NSScreen.main?.backingScaleFactor ?? 1
+            if hypot(nowLoc.x - posted.x, nowLoc.y - posted.y) < GestureMath.clutchOwnRadiusScaled(scale: scale) { return }
         }
         guard d > 3.5 else { return }
         seize(now)
@@ -518,6 +520,12 @@ final class SystemControl {
 
     private func window(at point: CGPoint) -> AXUIElement? {
         let now = CACurrentMediaTime()
+        if let held = axHitEl,
+           GestureMath.axWindowCacheHolds(cursor: point, bounds: axHitBounds)
+        {
+            axHitAt = now
+            return held
+        }
         let key = GestureMath.axHitCacheKey(cursor: point)
         if GestureMath.axHitCacheFresh(cachedAt: axHitAt, now: now, dt: sampleDt), key == axHitKey {
             return axHitEl
@@ -534,6 +542,11 @@ final class SystemControl {
         axHitAt = now
         axHitKey = key
         axHitEl = found
+        if let found, let pos = position(of: found), let sz = size(of: found) {
+            axHitBounds = CGRect(origin: pos, size: sz)
+        } else {
+            axHitBounds = .null
+        }
         return found
     }
 

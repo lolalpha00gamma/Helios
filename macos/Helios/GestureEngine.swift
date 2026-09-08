@@ -1378,8 +1378,11 @@ final class GestureEngine {
             swipeMuteUntil = now + GestureMath.swipeMuteAfterPinch
             return
         }
+        let analogClosed = GestureMath.pinchAnalogClosed(
+            GestureMath.pinchAnalog(closedness: hand.pinchClosedness, zSep: hand.pinchZSep)
+        )
         let closedWanted = (pinchHoldPhase == .held || pinchHoldPhase == .tentative)
-            ? GestureMath.pinchHoldsGrab(
+            ? (analogClosed || GestureMath.pinchHoldsGrab(
                 gate: hand.pinchClosed,
                 closedness: hand.pinchClosedness,
                 reach: hand.pinchReach,
@@ -1389,7 +1392,7 @@ final class GestureEngine {
                 quality: hand.quality,
                 approach: hand.pinchZApproach,
                 residual: hand.liftResidual
-            )
+            ))
             : (fire && GestureMath.pinchStartsGrab(
                 gate: hand.pinchClosed,
                 closedness: hand.pinchClosedness,

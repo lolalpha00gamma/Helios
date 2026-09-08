@@ -1,3 +1,32 @@
+# Helios Vorschläge — 2026-09-08 (Pass 13, 1.6.50)
+
+Stand 1.6.50. Clutch×Scale, AX-Window-Cache, reduced-motion, Vision-Stale, Pinch analog.
+
+## Gelandet in 1.6.50
+
+- clutchOwnRadiusScaled backingScaleFactor
+- axWindowCacheHolds Bounds während Coast
+- hudCoastAllowed reduceMotion
+- visionStale 400 ms FramePump
+- pinchAnalog Closedness×zSep
+
+## Erweiterung (neu)
+
+125. **Stereo Mac+iPhone Disparität** statt Lift-z.
+126. **Watch Double-Tap** Confirm.
+127. **App-Grammar** Safari vs Finder vs Xcode.
+128. **JSONL Session-Replay** ohne Vision auf Linux.
+129. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+130. **Slot-ID persist** über uniqueID-Flicker.
+131. **IOHID Force-Click vs Pinch.**
+132. **mmap leftover-Boxen** Helios↔Aegis Palm-Occlusion.
+133. **DepthCapture an Continuity-LiDAR.**
+134. **CGEvent-Tap coalescing 90 Hz** unabhängig von Coast.
+135. **Two-pinch vs Scroll-Hysterese.**
+136. **SpaceMap Re-Calib** nach Display-Drehung.
+
+P0: CameraBroker. Kein neues *Need(dt).
+
 # Helios Vorschläge — 2026-09-08 (Pass 12, 1.6.49)
 
 Stand 1.6.49. 720-Lock persist, 24 fps, Click-Vel, HUD-Coast, Per-Display, Body-Skip.

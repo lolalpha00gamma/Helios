@@ -222,7 +222,9 @@ final class OverlayController {
             let id = cursors[i].id
             if let old = prev.cursors.first(where: { $0.id == id }) {
                 let vel = GestureMath.hudCoastVel(prev: old.point, next: cursors[i].point, dt: next.at - prev.at)
-                if next.freeze {
+                if next.freeze || !GestureMath.hudCoastAllowed(
+                    reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+                ) {
                     cursors[i].point = GestureMath.hudLerpPoint(prev: old.point, next: cursors[i].point, t: 1)
                 } else {
                     cursors[i].point = GestureMath.hudCoastPoint(
@@ -239,7 +241,9 @@ final class OverlayController {
             showReticle: next.showReticle,
             freeze: next.freeze
         )
-        if GestureMath.hudLerpDrivesCursor(), !next.freeze,
+        if GestureMath.hudLerpDrivesCursor(),
+           GestureMath.hudCoastAllowed(reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion),
+           !next.freeze,
            let actor = cursors.first(where: { $0.actor }) ?? cursors.first
         {
             onCoastCursor?(actor.point)

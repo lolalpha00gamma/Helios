@@ -86,6 +86,8 @@ final class GestureEngine {
     private var thumbsSince: TimeInterval?
     private var peaceSince: TimeInterval?
     private var pinchHeld = false
+    private var pinchHoldPhase: GestureMath.PinchHoldPhase = .unseen
+    private var pinchHoldFor: TimeInterval = 0
     private var pinchBecameDrag = false
     private var pinchBeganAt: TimeInterval = 0
     private var pinchTrail: [(t: TimeInterval, x: CGFloat, y: CGFloat)] = []
@@ -180,8 +182,9 @@ final class GestureEngine {
         thumbsSince = nil
         peaceSince = nil
         pinchHeld = false
+        pinchHoldPhase = .unseen
+        pinchHoldFor = 0
         pinchBecameDrag = false
-        pinchBeganAt = 0
         pinchTrail.removeAll()
         pinchSpan0 = nil
         pinchSpanW = nil
@@ -279,6 +282,12 @@ final class GestureEngine {
         tablePalms = [:]
     }
 
+    private func dropPinchHold() {
+        pinchHeld = false
+        pinchHoldPhase = (pinchHoldPhase == .held || pinchHoldPhase == .tentative) ? .released : .unseen
+        pinchHoldFor = 0
+    }
+
     func tick(hands incoming: [TrackedHand], now: TimeInterval) {
         sampleDt = GestureMath.sampleDt(now: now, last: lastTickNow)
         lastTickNow = now
@@ -343,7 +352,7 @@ final class GestureEngine {
                             lockFreeze = lockFreeze.isEmpty ? chip : "\(lockFreeze) \(chip)"
                         }
                     }
-                    pinchHeld = false
+                    dropPinchHold()
                     pinchBecameDrag = false
                 }
                 return
@@ -367,7 +376,7 @@ final class GestureEngine {
                 swipeMuteUntil = now + GestureMath.swipeMuteAfterPinch
                 pinchReleasedAt = now
             }
-            pinchHeld = false
+            dropPinchHold()
             pinchBecameDrag = false
             pinchHandID = nil
             pinchLastHand = nil
@@ -471,7 +480,7 @@ final class GestureEngine {
                 spaceMap = done
                 lastAction = "Kalibrierung fertig"
                 onLog?("Kalibrierung · 4 Ecken", .executed, 100)
-                pinchHeld = false
+                dropPinchHold()
                 pinchBecameDrag = false
                 cooldownUntil = now + 1.1
             } else {
@@ -820,7 +829,7 @@ final class GestureEngine {
                 mustRearm = true
                 killLatched = true
                 armLockUntil = now + 1.6
-                pinchHeld = false
+                dropPinchHold()
                 pinchBecameDrag = false
                 fistSince = nil
                 pinchReleasedAt = now
@@ -912,7 +921,7 @@ final class GestureEngine {
                 lastAction = "Hände auf dem Tisch — Idle"
                 onLog?("Hände unten still → Idle", .info, nil)
                 if system.isDragging { system.endWindowDrag() }
-                pinchHeld = false
+                dropPinchHold()
                 pinchBecameDrag = false
                 pinchHandID = nil
                 pinchLastHand = nil
@@ -1113,7 +1122,7 @@ final class GestureEngine {
         }
         if twoPinchSince == nil { twoPinchSince = now }
         if pinchHeld {
-            pinchHeld = false
+            dropPinchHold()
             pinchBecameDrag = false
             pinchHandID = nil
             pinchLastHand = nil
@@ -1314,7 +1323,7 @@ final class GestureEngine {
             // Andere Hand ist nicht die Pinzette — kein Klick/Loslassen.
             if pinchMissSince == nil { pinchMissSince = now }
             if !GestureMath.missHeld(now: now, since: pinchMissSince) {
-                pinchHeld = false
+                dropPinchHold()
                 pinchBecameDrag = false
                 pinchHandID = nil
                 pinchLastHand = nil
@@ -1333,7 +1342,7 @@ final class GestureEngine {
         }
         if pinchHeld, let miss = pinchMissSince, !GestureMath.missHeld(now: now, since: miss) {
             // Gesperrte Hand weg — nicht mit der anderen weitermachen.
-            pinchHeld = false
+            dropPinchHold()
             pinchBecameDrag = false
             pinchHandID = nil
             pinchLastHand = nil
@@ -1349,7 +1358,7 @@ final class GestureEngine {
             swipeMuteUntil = now + GestureMath.swipeMuteAfterPinch
             return
         }
-        let isGrab = pinchHeld
+        let closedWanted = (pinchHoldPhase == .held || pinchHoldPhase == .tentative)
             ? GestureMath.pinchHoldsGrab(
                 gate: hand.pinchClosed,
                 closedness: hand.pinchClosedness,
@@ -1371,6 +1380,15 @@ final class GestureEngine {
                 approach: hand.pinchZApproach,
                 residual: hand.liftResidual
             ))
+        let advanced = GestureMath.pinchHoldAdvance(
+            phase: pinchHoldPhase,
+            closed: closedWanted,
+            heldFor: pinchHoldFor,
+            dt: sampleDt
+        )
+        pinchHoldPhase = advanced.phase
+        pinchHoldFor = advanced.heldFor
+        let isGrab = GestureMath.pinchHoldFire(pinchHoldPhase)
         if isGrab && !pinchHeld {
             if GestureMath.pinchReleaseBlocks(now: now, releasedAt: pinchReleasedAt, dt: sampleDt) {
                 return
@@ -1461,7 +1479,7 @@ final class GestureEngine {
             ) : false
             let held = now - pinchBeganAt
             let palmMoved = pinchPalmMoved
-            pinchHeld = false
+            dropPinchHold()
             pinchBecameDrag = false
             pinchHandID = nil
             pinchLastHand = nil

@@ -1,4 +1,4 @@
-# Helios **1.6.43**
+# Helios **1.6.44**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -19,6 +19,14 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.44
+
+1.6.43 Format-Leiter, PinchHoldPhase Math, fail-closed AX. HUD am Detect-Takt 8 Hz. Engine las Bool.
+
+- **DisplayLink 90 Hz HUD.** Overlay interpoliert per Track-ID, Freeze snap, 1 Frame Lag statt 8-Hz-Raster.
+- **PinchHoldPhase verdrahtet.** `driveGrab` liest Unseen/Tentative/Held/Released. Ein Continuity-Miss ist kein Klick.
+- Tests + MARKETING_VERSION 1.6.44 (Build 77).
 
 ## Neu in 1.6.43
 

@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore
 import SwiftUI
 
 private struct HUDRoot: View {
@@ -19,6 +20,23 @@ final class HUDPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
+private struct HUDPoseSample {
+    var at: TimeInterval
+    var cursors: [HandCursor]
+    var phase: GrabPhase
+    var target: String
+    var window: CGRect?
+    var showReticle: Bool
+    var freeze: Bool
+}
+
+private final class HUDLinkDriver: NSObject {
+    var onFire: (() -> Void)?
+    @objc func fire(_ link: CADisplayLink) {
+        onFire?()
+    }
+}
+
 @MainActor
 final class OverlayController {
     private var panels: [CGDirectDisplayID: HUDPanel] = [:]
@@ -27,6 +45,10 @@ final class OverlayController {
     private weak var state: AppState?
     private var screenObs: NSObjectProtocol?
     private var attached = false
+    private var displayLink: CADisplayLink?
+    private let linkDriver = HUDLinkDriver()
+    private var posePrev: HUDPoseSample?
+    private var poseNow: HUDPoseSample?
 
     func attach(state: AppState) {
         self.state = state
@@ -106,9 +128,15 @@ final class OverlayController {
             hostings[id] = hosting
             markers[id] = (leftM, rightM)
         }
+        restartDisplayLink()
     }
 
     func detach() {
+        displayLink?.invalidate()
+        displayLink = nil
+        linkDriver.onFire = nil
+        posePrev = nil
+        poseNow = nil
         if let screenObs {
             NotificationCenter.default.removeObserver(screenObs)
             self.screenObs = nil
@@ -130,6 +158,93 @@ final class OverlayController {
         window: CGRect?,
         showReticle: Bool = true,
         freeze: Bool = false
+    ) {
+        posePrev = poseNow
+        poseNow = HUDPoseSample(
+            at: CACurrentMediaTime(),
+            cursors: cursors,
+            phase: phase,
+            target: target,
+            window: window,
+            showReticle: showReticle,
+            freeze: freeze
+        )
+        ensureDisplayLink()
+        if posePrev == nil || freeze {
+            paint(
+                cursors: cursors,
+                phase: phase,
+                target: target,
+                window: window,
+                showReticle: showReticle,
+                freeze: freeze
+            )
+        }
+    }
+
+    private func restartDisplayLink() {
+        displayLink?.invalidate()
+        displayLink = nil
+        ensureDisplayLink()
+    }
+
+    private func ensureDisplayLink() {
+        guard displayLink == nil else { return }
+        guard let view = panels.values.first?.contentView else { return }
+        linkDriver.onFire = { [weak self] in
+            Task { @MainActor in self?.displayTick() }
+        }
+        let link = view.displayLink(target: linkDriver, selector: #selector(HUDLinkDriver.fire(_:)))
+        if #available(macOS 14.0, *) {
+            link.preferredFrameRateRange = CAFrameRateRange(minimum: 30, maximum: 120, preferred: 90)
+        }
+        link.add(to: .main, forMode: .common)
+        displayLink = link
+    }
+
+    private func displayTick() {
+        guard let next = poseNow else { return }
+        guard let prev = posePrev, prev.at < next.at else {
+            paint(
+                cursors: next.cursors,
+                phase: next.phase,
+                target: next.target,
+                window: next.window,
+                showReticle: next.showReticle,
+                freeze: next.freeze
+            )
+            return
+        }
+        let t = GestureMath.hudLerpT(
+            prevAt: prev.at,
+            nextAt: next.at,
+            now: CACurrentMediaTime(),
+            freeze: next.freeze
+        )
+        var cursors = next.cursors
+        for i in cursors.indices {
+            let id = cursors[i].id
+            if let old = prev.cursors.first(where: { $0.id == id }) {
+                cursors[i].point = GestureMath.hudLerpPoint(prev: old.point, next: cursors[i].point, t: t)
+            }
+        }
+        paint(
+            cursors: cursors,
+            phase: next.phase,
+            target: next.target,
+            window: next.window,
+            showReticle: next.showReticle,
+            freeze: next.freeze
+        )
+    }
+
+    private func paint(
+        cursors: [HandCursor],
+        phase: GrabPhase,
+        target: String,
+        window: CGRect?,
+        showReticle: Bool,
+        freeze: Bool
     ) {
         for (id, pair) in markers {
             guard let panel = panels[id] else { continue }

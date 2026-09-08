@@ -1,8 +1,21 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
-Stand: 2026-09-08. Helios **1.6.42** (Build 75). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+Stand: 2026-09-08. Helios **1.6.44** (Build 77). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
 
-## 0. 1.6.42 — Fusion Source-Tag, Reliability-Decay, Kalman-Q(fps)
+## 0. 1.6.44 — DisplayLink HUD, PinchHoldPhase in der Engine
+
+1.6.43: Format-Leiter, PinchHoldPhase Math, fail-closed AX. HUD und Detect teilten 8 Hz. Engine Bool.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | HUD 8 Hz | CADisplayLink ~90 Hz, hudLerpT / hudLerpPoint |
+| 2 | Pinch Bool | pinchHoldAdvance in driveGrab, dropPinchHold |
+| 3 | Freeze rastet | Freeze t=1, sonst 1 Frame Lag |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe.
+
+## 0. 1.6.43 — Format-Leiter, PinchHoldPhase Math, fail-closed AX
+
 
 1.6.41: AX-TTL sampleDt, Drag×dt, Format-Score gemessen. Fusion-Quelle immer 2D. Fehlende Tiefe Reliability 1. Kalman-Q fest 0,94.
 

@@ -481,6 +481,27 @@ enum GestureMath {
         phase == .held || phase == .tentative
     }
 
+    /// HUD zwischen Detect-Ticks. t=0 am Sample (zeigt prev), t=1 nach einem Intervall.
+    static func hudLerpT(
+        prevAt: TimeInterval,
+        nextAt: TimeInterval,
+        now: TimeInterval,
+        freeze: Bool
+    ) -> CGFloat {
+        if freeze { return 1 }
+        let span = nextAt - prevAt
+        if span <= 1e-6 { return 1 }
+        return CGFloat(max(0, min(1, (now - nextAt) / span)))
+    }
+
+    static func hudLerpPoint(prev: CGPoint, next: CGPoint, t: CGFloat) -> CGPoint {
+        let u = max(0, min(1, t))
+        return CGPoint(
+            x: prev.x + (next.x - prev.x) * u,
+            y: prev.y + (next.y - prev.y) * u
+        )
+    }
+
     /// AX-Drop: freeze, nie Warp auf (0,0).
     static func pointerWarpAllowed(axTrusted: Bool) -> Bool { axTrusted }
 

@@ -1565,6 +1565,40 @@ enum CoordTests {
             fputs("FAIL Warp mit AX\n", stderr)
             fails += 1
         }
+        let lerp0 = GestureMath.hudLerpT(prevAt: 1.0, nextAt: 1.125, now: 1.125, freeze: false)
+        if abs(lerp0 - 0) > 0.02 {
+            fputs("FAIL HUD-Lerp t=0 am Sample\n", stderr)
+            fails += 1
+        }
+        let lerp1 = GestureMath.hudLerpT(prevAt: 1.0, nextAt: 1.125, now: 1.25, freeze: false)
+        if abs(lerp1 - 1) > 0.02 {
+            fputs("FAIL HUD-Lerp t=1 nach Intervall\n", stderr)
+            fails += 1
+        }
+        let freezeT = GestureMath.hudLerpT(prevAt: 1.0, nextAt: 1.125, now: 1.13, freeze: true)
+        if freezeT != 1 {
+            fputs("FAIL HUD-Lerp Freeze snap\n", stderr)
+            fails += 1
+        }
+        let mid = GestureMath.hudLerpPoint(prev: CGPoint(x: 0, y: 0), next: CGPoint(x: 10, y: 20), t: 0.5)
+        if abs(mid.x - 5) > 0.01 || abs(mid.y - 10) > 0.01 {
+            fputs("FAIL HUD-Lerp Punkt Mitte\n", stderr)
+            fails += 1
+        }
+        var engine = GestureMath.pinchHoldAdvance(phase: .unseen, closed: true, heldFor: 0, dt: 0.04)
+        if GestureMath.pinchHoldFire(engine.phase) {
+            fputs("FAIL Engine Pinch Fire nicht in tentative\n", stderr)
+            fails += 1
+        }
+        engine = GestureMath.pinchHoldAdvance(phase: engine.phase, closed: true, heldFor: engine.heldFor, dt: 0.125)
+        if !GestureMath.pinchHoldFire(engine.phase) {
+            fputs("FAIL Engine Pinch Fire nach einem Continuity-Frame\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinchHoldClosed(.tentative) || GestureMath.pinchHoldFire(.tentative) {
+            fputs("FAIL Engine Tentative closed ohne Fire\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

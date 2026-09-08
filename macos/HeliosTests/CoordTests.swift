@@ -2487,6 +2487,63 @@ enum CoordTests {
             fputs("FAIL Pinch kleine Palme höhere Schwelle\n", stderr)
             fails += 1
         }
+        if GestureMath.pinchStartsGrab(gate: false, closedness: 0.62, quality: 0.80, palmWidth: 0.04) {
+            fputs("FAIL PinchStart kleine Palme 0,62 tot\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinchStartsGrab(gate: false, closedness: 0.62, quality: 0.80, palmWidth: 0.12) {
+            fputs("FAIL PinchStart mittlere Palme 0,62 hält\n", stderr)
+            fails += 1
+        }
+        if GestureMath.sessionWatchdogEmpty(fps: 8, lastHand: 1, now: 8.9) {
+            fputs("FAIL Watchdog 7,9 s tot\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.sessionWatchdogEmpty(fps: 8, lastHand: 1, now: 9.1) {
+            fputs("FAIL Watchdog 8 s leer\n", stderr)
+            fails += 1
+        }
+        if GestureMath.sessionWatchdogEmpty(fps: 0, lastHand: 1, now: 20) {
+            fputs("FAIL Watchdog ohne FPS tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.spaceMapSizeKey(width: 1920, height: 1080) == GestureMath.spaceMapSizeKey(width: 1280, height: 720) {
+            fputs("FAIL SizeKey 1080≠720\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.spaceMapSizeChanged(stored: 19201080, live: 12800720) {
+            fputs("FAIL SizeChanged\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pointerPredictCap(false, screenH: 1080) < 28 {
+            fputs("FAIL Predict-Cap × Höhe\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pointerPredictCap(true, screenH: 1080) != 0 {
+            fputs("FAIL Predict-Cap Clutch 0\n", stderr)
+            fails += 1
+        }
+        let line = GestureMath.cameraMutexLine(owner: "helios", pid: 42, now: 100, gen: 3, pts: 1.5)
+        if GestureMath.cameraMutexParse(line, now: 101) != "helios" {
+            fputs("FAIL Mutex Parse Helios\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraMutexParse(line, now: 120) != nil {
+            fputs("FAIL Mutex Stale 12 s\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.cameraMutexClaimWrites(holder: "aegis", owner: "helios") {
+            fputs("FAIL Mutex Helios Vorrang\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraMutexClaimWrites(holder: "helios", owner: "aegis") {
+            fputs("FAIL Mutex Aegis weicht\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraMutexChip(holder: "helios", yielded: false) != "MUTEX helios" {
+            fputs("FAIL Mutex Chip\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

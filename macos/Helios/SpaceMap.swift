@@ -286,6 +286,7 @@ private enum HomographyStore {
         var displayID: UInt32
         var cameraID: String
         var rotation: Int
+        var size: Int
         var H: [CGFloat]?
     }
 
@@ -302,20 +303,25 @@ private enum HomographyStore {
         lock.lock()
         defer { lock.unlock() }
         let rot = GestureMath.spaceMapRotationKey(rotation)
+        let corners = SpaceMap.screenCorners(displayID: displayID)
+        let liveSize = GestureMath.spaceMapSizeKey(
+            width: (corners.map(\.x).max() ?? 0) - (corners.map(\.x).min() ?? 0),
+            height: (corners.map(\.y).max() ?? 0) - (corners.map(\.y).min() ?? 0)
+        )
         if let i = slots.firstIndex(where: {
             $0.cameraID == cameraID && $0.displayID == displayID
-                && $0.rotation == rot && $0.palms == src
+                && $0.rotation == rot && $0.palms == src && $0.size == liveSize
         }) {
             let hit = slots.remove(at: i)
             slots.append(hit)
             return hit.H
         }
         guard src.count == 4 else {
-            upsert(Slot(palms: src, displayID: displayID, cameraID: cameraID, rotation: rot, H: nil))
+            upsert(Slot(palms: src, displayID: displayID, cameraID: cameraID, rotation: rot, size: liveSize, H: nil))
             return nil
         }
-        let H = SpaceMap.homography(from: src.map(\.point), to: SpaceMap.screenCorners(displayID: displayID))
-        upsert(Slot(palms: src, displayID: displayID, cameraID: cameraID, rotation: rot, H: H))
+        let H = SpaceMap.homography(from: src.map(\.point), to: corners)
+        upsert(Slot(palms: src, displayID: displayID, cameraID: cameraID, rotation: rot, size: liveSize, H: H))
         return H
     }
 

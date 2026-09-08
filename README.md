@@ -1,3 +1,36 @@
+# Helios **1.6.62**
+
+
+Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
+
+Privates Repo. Keine Open-Source-Lizenzdatei.
+
+Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Start
+
+**Nur die DMG-Datei laden, nicht Source code (zip):**
+
+[Helios.dmg](https://github.com/lolalpha00gamma/Helios/releases/latest/download/Helios.dmg)
+
+1. `Helios.dmg` doppelklicken (kein Entpacken)
+2. Helios nach **Programme** ziehen — nicht aus dem Image starten
+3. Erster Start (nicht notarisierte Ad-hoc-Signatur): **Systemeinstellungen → Datenschutz & Sicherheit → Trotzdem öffnen**
+4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
+
+Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.62
+
+Warum Helios und Aegis zusammen die Kamera zerlegten und Klicks bei weiter Palme fehlgingen: Helios schrieb den gemeinsamen Lock nie, Pinch-Start ignorierte palmWidth, Homographie blieb auf alter Screen-Größe, Predict-Cap war 48 pt auf 5K.
+
+- **Camera-Mutex Claim.** Gleiches Protokoll wie Aegis (`HeliosAegis/helios.aegis.camera.lock`). Helios hat Continuity-Vorrang, Heartbeat 2 s, Release bei Stop.
+- **Pinch × palmWidth durchgezogen.** `pinchStartsGrab` / `pinchHoldsGrab` nicht mehr Default 0,12.
+- **Homographie keyed by Screen-Größe.** 5K→Sidecar kein alter H-Cache.
+- **Session-Watchdog 8 s.** fps>0, keine Palme → Chip + Log.
+- **Predict-Cap × Screen-Höhe.** Clutch bleibt 0.
+- Tests + MARKETING_VERSION 1.6.62 (Build 95).
+
 # Helios **1.6.61**
 
 

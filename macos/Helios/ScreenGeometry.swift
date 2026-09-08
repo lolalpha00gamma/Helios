@@ -51,6 +51,13 @@ enum ScreenGeometry {
         return cachedUnion
     }
 
+    /// Quartz-Höhe des Hauptbildschirms. Predict-Cap × Höhe, nicht hart 48 pt.
+    static var mainHeight: CGFloat {
+        refresh()
+        if let s = NSScreen.main { return s.frame.height }
+        return max(1, cachedUnion.height)
+    }
+
     /// Cocoa-Y des oberen Rands am Hauptbildschirm (Ursprung 0,0). Nicht die Union.
     static var primaryCocoaMaxY: CGFloat {
         refresh()

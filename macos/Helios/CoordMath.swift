@@ -516,8 +516,12 @@ enum GestureMath {
         CGFloat(max(0.04, min(0.20, dt)))
     }
 
-    static func pointerPredictCap(_ clutch: Bool = false) -> CGFloat {
-        clutch ? 0 : 48
+    static func pointerPredictCap(_ clutch: Bool = false, screenH: CGFloat = 0) -> CGFloat {
+        if clutch { return 0 }
+        if screenH > 1 {
+            return min(72, max(28, screenH * 0.042))
+        }
+        return 48
     }
 
     /// Deadman/Zwei-Hand: Predict aus. Sonst coastet One-Euro-Deriv 48 pt trotz dx=0.
@@ -1891,9 +1895,9 @@ enum GestureMath {
 
     /// Pinzette starten: Gate oder klare Closedness, und es muss wie Pinzette aussehen
     /// (Reach / Zeigefinger). Faust hat geschlossene Spitzen — das ist kein Klick.
-    static func pinchStartsGrab(gate: Bool, closedness: Double, reach: CGFloat = 1.2, index: Double = 1, zSep: CGFloat = 0, quality: Double = 1, approach: CGFloat = 0, residual: CGFloat = 0) -> Bool {
+    static func pinchStartsGrab(gate: Bool, closedness: Double, reach: CGFloat = 1.2, index: Double = 1, zSep: CGFloat = 0, quality: Double = 1, approach: CGFloat = 0, residual: CGFloat = 0, palmWidth: CGFloat = 0.12) -> Bool {
         guard pinchLooksLikePinch(reach: reach, index: index, zSep: zSep, approach: approach, closedness: closedness, residual: residual) else { return false }
-        return gate || closedness > pinchClosednessNeed(quality: quality, start: true)
+        return gate || closedness > pinchClosednessNeed(quality: quality, start: true, palmWidth: palmWidth)
     }
 
     /// Pinzette halten: weicher, aber Faust (kein Reach) gibt frei — außer Zug darf Faust tragen.
@@ -1906,10 +1910,11 @@ enum GestureMath {
         zSep: CGFloat = 0,
         quality: Double = 1,
         approach: CGFloat = 0,
-        residual: CGFloat = 0
+        residual: CGFloat = 0,
+        palmWidth: CGFloat = 0.12
     ) -> Bool {
         if !allowFist, !pinchLooksLikePinch(reach: reach, index: index, zSep: zSep, approach: approach, closedness: closedness, residual: residual) { return false }
-        return gate || closedness > pinchClosednessNeed(quality: quality, start: false)
+        return gate || closedness > pinchClosednessNeed(quality: quality, start: false, palmWidth: palmWidth)
     }
 
     static func pinchLooksLikePinch(reach: CGFloat, index: Double = 1, zSep: CGFloat = 0, approach: CGFloat = 0, closedness: Double = 0.70, residual: CGFloat = 0) -> Bool {
@@ -1993,6 +1998,97 @@ enum GestureMath {
             return (false, "unbekannte Aktion")
         }
     }
+
+    /// Continuity 8 Hz, Kamera läuft, keine Palme: Session tot, nicht nur HUD still.
+    static func sessionWatchdogEmpty(fps: Double, lastHand: TimeInterval, now: TimeInterval, need: TimeInterval = 8) -> Bool {
+        fps > 0.5 && lastHand > 0 && now - lastHand >= need
+    }
+
+    static func sessionWatchdogChip(empty: Bool) -> String? {
+        empty ? "WATCH · 8s leer" : nil
+    }
+
+    /// Homographie-Cache keyed by Screen-Größe. 5K→Sidecar sonst alte H.
+    static func spaceMapSizeKey(width: CGFloat, height: CGFloat) -> Int {
+        let w = max(0, Int(width.rounded()))
+        let h = max(0, Int(height.rounded()))
+        return w &* 10_000 &+ h
+    }
+
+    static func spaceMapSizeChanged(stored: Int, live: Int) -> Bool {
+        stored != 0 && live != 0 && stored != live
+    }
+
+    /// Helios↔Aegis AVCapture Mutex. Gleiches Protokoll wie Aegis MatchMath.
+    static func cameraMutexOwnerHelios() -> String { "helios" }
+    static func cameraMutexOwnerAegis() -> String { "aegis" }
+    static func cameraMutexName() -> String { "helios.aegis.camera.lock" }
+    static func cameraMutexCacheFolder() -> String { "HeliosAegis" }
+    static func cameraMutexStale() -> TimeInterval { 12 }
+    static func cameraMutexHeartbeatSec() -> TimeInterval { 2 }
+    static func cameraMutexClaimMinDt() -> TimeInterval { 0.08 }
+
+    static func cameraMutexLine(owner: String, pid: Int32, now: TimeInterval, gen: UInt32 = 0, pts: TimeInterval? = nil) -> String {
+        let p: TimeInterval
+        if let pts, pts > 0, pts.isFinite { p = pts } else { p = 0 }
+        return String(format: "%@ %d %.3f %u %.3f v2", owner, pid, now, gen, p)
+    }
+
+    static func cameraMutexParse(_ text: String, now: TimeInterval, stale: TimeInterval = cameraMutexStale(), pidLive: Bool? = nil) -> String? {
+        let parts = text.split(whereSeparator: { $0 == " " || $0 == "\n" }).map(String.init)
+        guard parts.count >= 3, let stamp = TimeInterval(parts[2]) else { return nil }
+        if now - stamp > stale { return nil }
+        if let pidLive, !pidLive { return nil }
+        let owner = parts[0]
+        if owner != cameraMutexOwnerHelios() && owner != cameraMutexOwnerAegis() { return nil }
+        return owner
+    }
+
+    static func cameraMutexGen(_ text: String) -> UInt32? {
+        let parts = text.split(whereSeparator: { $0 == " " || $0 == "\n" }).map(String.init)
+        guard parts.count >= 4, let g = UInt32(parts[3]) else { return nil }
+        return g
+    }
+
+    static func cameraMutexPid(_ text: String) -> Int32? {
+        let parts = text.split(whereSeparator: { $0 == " " || $0 == "\n" }).map(String.init)
+        guard parts.count >= 2, let p = Int32(parts[1]) else { return nil }
+        return p
+    }
+
+    static func cameraMutexClaimDue(last: TimeInterval, now: TimeInterval, minDt: TimeInterval = cameraMutexClaimMinDt()) -> Bool {
+        now - last >= minDt
+    }
+
+    /// Helios hat Continuity-Vorrang. Aegis weicht.
+    static func cameraMutexClaimWrites(holder: String?, owner: String) -> Bool {
+        if owner == cameraMutexOwnerHelios() { return true }
+        if owner == cameraMutexOwnerAegis() {
+            return holder == nil || holder == cameraMutexOwnerAegis()
+        }
+        return false
+    }
+
+    static func cameraMutexLockedLine(
+        existing: String?,
+        owner: String,
+        pid: Int32,
+        now: TimeInterval,
+        pidLive: Bool? = nil,
+        pts: TimeInterval? = nil
+    ) -> String? {
+        let holder = existing.flatMap { cameraMutexParse($0, now: now, pidLive: pidLive) }
+        guard cameraMutexClaimWrites(holder: holder, owner: owner) else { return nil }
+        let gen = ((existing.flatMap { cameraMutexGen($0) }) ?? 0) &+ 1
+        return cameraMutexLine(owner: owner, pid: pid, now: now, gen: gen, pts: pts)
+    }
+
+    static func cameraMutexChip(holder: String?, yielded: Bool) -> String {
+        if yielded { return "MUTEX yield \(holder ?? "—")" }
+        if let holder { return "MUTEX \(holder)" }
+        return "MUTEX —"
+    }
+
 }
 
 /// Safari nur Klick/Scroll, Finder Werfen, Xcode aus. Sonst voll.

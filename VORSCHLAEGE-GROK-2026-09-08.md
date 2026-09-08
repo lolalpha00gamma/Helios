@@ -1,3 +1,43 @@
+# Helios Vorschläge — 2026-09-08 (Pass 24, 1.6.62)
+
+Stand 1.6.62. Mutex, Pinch×Palme, Size-Key, Watchdog, Predict×Höhe.
+
+## Gelandet in 1.6.62
+
+- cameraMutexLockedLine / Claim in CameraSession
+- pinchStartsGrab palmWidth
+- spaceMapSizeKey HomographyStore
+- sessionWatchdogEmpty
+- pointerPredictCap screenH
+
+## Erweiterung (neu)
+
+249. **VNTrackObjectRequest** echte Hand-Observation, ROI-Miss ohne Full-Retry.
+250. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+251. **Mission-Control Zwei-Palm-Spread.**
+252. **Aegis-Gaze Pinch-Confirm.**
+253. **Watch Double-Tap.**
+254. **Click-Tick Sound.**
+255. **JSONL Palm-Vel** Predict-Tuning.
+256. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+257. **iPhone Ultraweit FOV** statt Center-Stage-Crop.
+258. **DepthCapture an Continuity-LiDAR.**
+259. **Per-Display pointerGain Pref.**
+260. **Overlay CAMetalLayer.**
+261. **One-Euro + Predict Fusion** (bereits Sample=Euro, Vel=Euro — Cap jetzt × Höhe).
+262. **Air-Keyboard Shortcut-Overlay.**
+263. **Stereo Mac+iPhone Disparität.**
+
+264. **Continuity 15-fps Probe** gemessen, nicht claimed. 8 Hz bleibt der Engpass.
+265. **Zwei-Pinch Zoom-Hysterese** gegen Continuity-Jitter.
+266. **SpaceMap Auto-Recal** nach 20 Bezel-Hops.
+267. **Pointer-Gain × Continuity-FOV** (Ultraweit vs Crop).
+268. **Deadman-Ring** Overlay, nicht nur Clutch.
+269. **Mutex PTS Fill** mit Aegis obsFillUsesMutexPts — Helios schreibt PTS, Aegis füllt.
+270. **Watch Double-Tap Confirm** für destruktive Klicks.
+
+P0: CameraBroker. Kein neues *Need(dt). Branch `bugfix` (1.6.15) nicht mergen.
+
 # Helios Vorschläge — 2026-09-08 (Pass 23, 1.6.61)
 
 Stand 1.6.61. Center Stage, AE-Lock, Chirality, ROI, Pinch×Palme, Fling-Achse.

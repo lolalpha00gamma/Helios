@@ -29,6 +29,7 @@ final class AppState: ObservableObject {
     @Published var fps: Double = 0
     @Published var fpsAmber = false
     @Published var fpsSparkBars: [CGFloat] = []
+    @Published var watchdogChip = "—"
     @Published var latencyMs: Double = 0
     @Published var latencyHistory: [Double] = []
     @Published var dwellEnabled = false
@@ -723,6 +724,17 @@ final class AppState: ObservableObject {
             fpsAmber = GestureMath.fpsAmber(fps) || GestureMath.fpsSparkAmber(fpsSpark, now: wall)
             fpsSparkBars = GestureMath.fpsSparkBars(fpsSpark, now: wall)
             camera.renegotiateIfSlow(measuredFps: fps)
+            let empty = GestureMath.sessionWatchdogEmpty(
+                fps: fps, lastHand: engine.lastHandSeen, now: wall
+            )
+            if let chip = GestureMath.sessionWatchdogChip(empty: empty) {
+                if watchdogChip != chip {
+                    watchdogChip = chip
+                    log.record("Kamera läuft, 8 s keine Palme — Continuity tot oder ROI zu eng", kind: .info)
+                }
+            } else if watchdogChip != "—" {
+                watchdogChip = "—"
+            }
         }
         if protocolMode {
             recorder.push(

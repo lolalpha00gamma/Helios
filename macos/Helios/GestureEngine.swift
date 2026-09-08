@@ -80,7 +80,7 @@ final class GestureEngine {
 
     private var fistSince: TimeInterval?
     private var fistLostAt: TimeInterval?
-    private var lastHandSeen: TimeInterval = 0
+    private(set) var lastHandSeen: TimeInterval = 0
     private var palmSince: TimeInterval?
     private var lastPalmSeen: TimeInterval = 0
     private var killPalms: [CGPoint]?
@@ -1196,7 +1196,7 @@ final class GestureEngine {
                     sample: CGPoint(x: fx.value, y: fy.value),
                     vel: CGPoint(x: fx.deriv, y: fy.deriv),
                     dt: sampleDt,
-                    cap: GestureMath.pointerPredictCap(false)
+                    cap: GestureMath.pointerPredictCap(false, screenH: ScreenGeometry.mainHeight)
                 )
             }
         }
@@ -1544,7 +1544,8 @@ final class GestureEngine {
                 zSep: hand.pinchZSep,
                 quality: hand.quality,
                 approach: hand.pinchZApproach,
-                residual: hand.liftResidual
+                residual: hand.liftResidual,
+                palmWidth: hand.palmWidth
             ))
             : (fire && GestureMath.pinchStartsGrab(
                 gate: hand.pinchClosed,
@@ -1554,7 +1555,8 @@ final class GestureEngine {
                 zSep: hand.pinchZSep,
                 quality: hand.quality,
                 approach: hand.pinchZApproach,
-                residual: hand.liftResidual
+                residual: hand.liftResidual,
+                palmWidth: hand.palmWidth
             ))
         let advanced = GestureMath.pinchHoldAdvance(
             phase: pinchHoldPhase,

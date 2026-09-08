@@ -1,3 +1,43 @@
+# Helios Vorschläge — 2026-09-08 (Pass 26, 1.6.65)
+
+Stand 1.6.65. Mutex-Write, Predict×Schirm, Zoom-Sign, Bezel-Decay, RECAL→SpaceMap.
+
+## Gelandet in 1.6.65
+
+- CameraSession beatCameraMutex Unix-PTS + Palme
+- pointerPredictCap × ScreenGeometry.height(quartz:)
+- twoPinchZoomHolds am Scale-Streak
+- bezelHopDecay 2 s
+- consumeBezelHopRecalib → reloadSpaceMap, einmal pro Welle
+
+## Erweiterung (neu)
+
+291. **Mutex PTS lock-free / LOCK_SH stamp.** EX|NB failt während Aegis-Read. Fill 220 ms verpasst den Continuity-Frame. P1.
+292. **SpaceMap load per Bezel-Hop**, nicht erst 20. Sidecar trägt sonst 5K-H bis RECAL.
+293. **Predict-Cap × backingScaleFactor.** Sidecar 2× Punkte vs Pixel — Cap in pt, Event in px.
+294. **Actor-Palm in Mutex**, nicht `hands.first`. Zweite Hand skippt Aegis-Prints falsch.
+295. **lastScaleSign schon im Streak.** Erster Zoom-Jitter zählt, Sign sitzt erst nach Fire.
+296. **VNTrackObjectRequest** echte Hand-Observation, ROI-Miss ohne Full-Retry. P1.
+297. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+298. **Mission-Control Zwei-Palm-Spread.**
+299. **Aegis-Gaze Pinch-Confirm.**
+300. **Watch Double-Tap** destruktive Klicks.
+301. **Click-Tick Sound.**
+302. **JSONL Palm-Vel** Predict-Tuning.
+303. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+304. **iPhone Ultraweit FOV** statt Center-Stage-Crop.
+305. **DepthCapture an Continuity-LiDAR.**
+306. **Per-Display pointerGain Pref.**
+307. **Overlay CAMetalLayer.**
+308. **Air-Keyboard Shortcut-Overlay.**
+309. **Stereo Mac+iPhone Disparität.**
+310. **Continuity 15-fps Probe** gemessen, nicht claimed.
+311. **Pointer-Gain × Continuity-FOV** (Ultraweit vs Crop).
+312. **Deadman-Ring** Overlay, nicht nur Clutch.
+313. **Homographie Recalib Tipp-Tap** nach RECAL, nicht nur Reload derselben Palmen.
+
+P0: CameraBroker. Kein neues *Need(dt). Branch `bugfix` (1.6.15) nicht mergen.
+
 # Helios Vorschläge — 2026-09-08 (Pass 25, 1.6.63)
 
 Stand 1.6.63. PTS-Wall, Palm-UV, Predict×Schirm, Zoom-Sign, Bezel-20.

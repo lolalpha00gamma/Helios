@@ -1,4 +1,38 @@
+# Helios **1.6.65**
+
+
+Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
+
+Privates Repo. Keine Open-Source-Lizenzdatei.
+
+Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Start
+
+**Nur die DMG-Datei laden, nicht Source code (zip):**
+
+[Helios.dmg](https://github.com/lolalpha00gamma/Helios/releases/latest/download/Helios.dmg)
+
+1. `Helios.dmg` doppelklicken (kein Entpacken)
+2. Helios nach **Programme** ziehen — nicht aus dem Image starten
+3. Erster Start (nicht notarisierte Ad-hoc-Signatur): **Systemeinstellungen → Datenschutz & Sicherheit → Trotzdem öffnen**
+4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
+
+Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.65
+
+Warum Continuity/Sidecar weiter schlecht saßen: Pass 25 hatte Mutex-PTS, Predict×Höhe, Zoom-Sign, Bezel-RECAL nur als Math. Die Lock-Datei blieb leer, Predict-Cap war 48 auf jedem Schirm, Zoom-Streak zählte Jitter, 20 Hops zeigten nur ein Chip.
+
+- **Mutex-Write.** Helios schreibt `HeliosAegis/helios.aegis.camera.lock` (Unix-PTS + Palme). Aegis kann füllen und Prints unter der Hand skippen.
+- **Predict-Cap × Schirm.** Sidecar nicht mehr 5K-weit.
+- **Zwei-Pinch Zoom gleichsinnig.** Continuity-Jitter scaliert nicht rein/raus.
+- **Bezel-Decay 2 s.** RECAL-Chip klebt nicht bis Reset.
+- **20 Hops laden Homographie** für den Cursor-Schirm, einmal pro Welle, kein Wipe.
+- Tests + MARKETING_VERSION 1.6.65 (Build 98).
+
 # Helios **1.6.63**
+
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.

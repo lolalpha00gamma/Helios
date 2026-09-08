@@ -1196,7 +1196,10 @@ final class GestureEngine {
                     sample: CGPoint(x: fx.value, y: fy.value),
                     vel: CGPoint(x: fx.deriv, y: fy.deriv),
                     dt: sampleDt,
-                    cap: GestureMath.pointerPredictCap(false)
+                    cap: GestureMath.pointerPredictCap(
+                        false,
+                        screenH: ScreenGeometry.height(quartz: CGPoint(x: fx.value, y: fy.value))
+                    )
                 )
             }
         }
@@ -1349,7 +1352,7 @@ final class GestureEngine {
             if abs(d) > need {
                 let frames = GestureMath.twoPinchConfirmFrames(dt: sampleDt)
                 twoPinchScaleStreak = GestureMath.twoPinchEdgeHold(
-                    ok: true,
+                    ok: GestureMath.twoPinchZoomHolds(delta: d, lastSign: lastScaleSign),
                     streak: twoPinchScaleStreak,
                     need: frames
                 )

@@ -501,6 +501,15 @@ enum GestureMath {
         count >= need ? "RECAL · \(need) hops" : nil
     }
 
+    /// 2 s ohne Hop → Count 0. Chip klebte sonst bis Reset.
+    static func bezelHopDecayNeed() -> TimeInterval { 2 }
+
+    static func bezelHopDecay(count: Int, lastAt: TimeInterval, now: TimeInterval, need: TimeInterval = 2) -> Int {
+        if count <= 0 { return 0 }
+        if now - lastAt >= need { return 0 }
+        return count
+    }
+
     /// 2 s still → Clutch, nicht Kill. Continuity-Drift sonst Klick.
     static func palmDeadmanNeed() -> TimeInterval { 2.0 }
 
@@ -529,7 +538,8 @@ enum GestureMath {
 
     static func pointerPredictCap(_ clutch: Bool = false, screenH: CGFloat = 0) -> CGFloat {
         if clutch { return 0 }
-        return 48
+        if screenH <= 0 { return 48 }
+        return min(96, max(28, screenH * 0.044))
     }
 
     /// Deadman/Zwei-Hand: Predict aus. Sonst coastet One-Euro-Deriv 48 pt trotz dx=0.
@@ -2040,6 +2050,10 @@ enum GestureMath {
     static func cameraMutexStale() -> TimeInterval { 12 }
     static func cameraMutexHeartbeatSec() -> TimeInterval { 2 }
     static func cameraMutexClaimMinDt() -> TimeInterval { 0.08 }
+
+    static func cameraMutexRelPath() -> String {
+        cameraMutexCacheFolder() + "/" + cameraMutexName()
+    }
 
     static func cameraMutexLine(owner: String, pid: Int32, now: TimeInterval, gen: UInt32 = 0, pts: TimeInterval? = nil, palm: (x: CGFloat, y: CGFloat, w: CGFloat)? = nil) -> String {
         let p: TimeInterval

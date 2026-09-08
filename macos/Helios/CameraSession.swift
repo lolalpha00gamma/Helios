@@ -2,6 +2,7 @@ import AVFoundation
 import AppKit
 import CoreImage
 import CoreMedia
+import Darwin
 import Foundation
 import ImageIO
 import QuartzCore
@@ -91,6 +92,16 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     private var lastDeviceRole: String = ""
     private var lastPts: TimeInterval = 0
     private var lastPtsWall: TimeInterval = 0
+    private var lastMutexClaimAt: TimeInterval = 0
+    private let mutexLock = NSLock()
+    private var mutexPalmUV: (x: CGFloat, y: CGFloat, w: CGFloat)?
+    private(set) var mutexChip: String = "—"
+
+    func setMutexPalm(_ palm: (x: CGFloat, y: CGFloat, w: CGFloat)?) {
+        mutexLock.lock()
+        mutexPalmUV = palm
+        mutexLock.unlock()
+    }
     private var preferredName: String = UserDefaults.standard.string(forKey: "helios.cameraName") ?? ""
     var latestDepth: DepthSample? { depthTap.latest }
     var hasDepth: Bool { depthTap.attached }
@@ -148,6 +159,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         cameraQueue.async { [weak self] in
             guard let self else { return }
             self.pump.cancel()
+            self.releaseCameraMutex()
             HeliosCatch({ self.session.stopRunning() }, nil)
             self.coverPipe.stop()
             self.releaseKeepAlive()
@@ -701,6 +713,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         )
         lastPts = rawPts
         lastPtsWall = arrived
+        beatCameraMutex()
         let (owned, slot) = ring.copy(pb)
         pump.push(owned, slot: slot, arrived: arrived, drop: { [weak self] s in
             self?.ring.release(s)
@@ -753,6 +766,79 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         }
         return NSImage(cgImage: cg, size: NSSize(width: tw, height: th))
     }
+
+    private func cameraMutexURL() -> URL {
+        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        let dir = base.appendingPathComponent(GestureMath.cameraMutexCacheFolder(), isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent(GestureMath.cameraMutexName())
+    }
+
+    private func beatCameraMutex() {
+        let now = Date().timeIntervalSince1970
+        guard GestureMath.cameraMutexClaimDue(last: lastMutexClaimAt, now: now) else { return }
+        lastMutexClaimAt = now
+        mutexLock.lock()
+        let palm = mutexPalmUV
+        mutexLock.unlock()
+        let pts = GestureMath.cameraMutexPtsWall(now: now, mediaPts: 0)
+        let url = cameraMutexURL()
+        let pid = ProcessInfo.processInfo.processIdentifier
+        let owner = GestureMath.cameraMutexOwnerHelios()
+        let fd = open(url.path, O_RDWR | O_CREAT, 0o644)
+        var wrote: String?
+        if fd >= 0 {
+            if flock(fd, LOCK_EX | LOCK_NB) == 0 {
+                let size = lseek(fd, 0, SEEK_END)
+                _ = lseek(fd, 0, SEEK_SET)
+                var buf = [UInt8](repeating: 0, count: max(0, Int(size)))
+                if !buf.isEmpty {
+                    _ = buf.withUnsafeMutableBytes { Darwin.read(fd, $0.baseAddress, $0.count) }
+                }
+                let existing = buf.isEmpty ? nil : String(bytes: buf, encoding: .utf8)
+                let holderPid = existing.flatMap { GestureMath.cameraMutexPid($0) }
+                let pidLive: Bool? = holderPid.map { p in p > 0 && (kill(p, 0) == 0 || errno == EPERM) }
+                if let line = GestureMath.cameraMutexLockedLine(
+                    existing: existing, owner: owner, pid: pid, now: now, pidLive: pidLive, pts: pts, palm: palm
+                ) {
+                    _ = ftruncate(fd, 0)
+                    _ = lseek(fd, 0, SEEK_SET)
+                    if let data = line.data(using: .utf8) {
+                        data.withUnsafeBytes { raw in
+                            if let p = raw.baseAddress { _ = Darwin.write(fd, p, raw.count) }
+                        }
+                    }
+                    _ = fsync(fd)
+                    wrote = line
+                }
+                _ = flock(fd, LOCK_UN)
+            }
+            close(fd)
+        } else {
+            let existing = try? String(contentsOf: url, encoding: .utf8)
+            if let line = GestureMath.cameraMutexLockedLine(
+                existing: existing, owner: owner, pid: pid, now: now, pts: pts, palm: palm
+            ) {
+                try? line.write(to: url, atomically: true, encoding: .utf8)
+                wrote = line
+            }
+        }
+        let holder = wrote.flatMap { GestureMath.cameraMutexParse($0, now: now) }
+        mutexChip = GestureMath.cameraMutexChip(holder: holder, yielded: false)
+    }
+
+    private func releaseCameraMutex() {
+        let url = cameraMutexURL()
+        let existing = try? String(contentsOf: url, encoding: .utf8)
+        let holder = existing.flatMap { GestureMath.cameraMutexParse($0, now: Date().timeIntervalSince1970) }
+        if holder == GestureMath.cameraMutexOwnerHelios() {
+            try? FileManager.default.removeItem(at: url)
+        }
+        mutexChip = "MUTEX —"
+        lastMutexClaimAt = 0
+    }
+
 }
 
 /// Behält nur den neuesten Frame — Vision läuft nie hinter der Kamera hinterher.
@@ -838,6 +924,7 @@ private final class FramePump: @unchecked Sendable {
         }
     }
 }
+
 
 private final class FrameSink: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
     let emit: (CMSampleBuffer) -> Void

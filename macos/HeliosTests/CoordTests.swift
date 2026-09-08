@@ -2589,6 +2589,30 @@ enum CoordTests {
             fputs("FAIL Bezel Chip\n", stderr)
             fails += 1
         }
+        if GestureMath.pointerPredictCap(false, screenH: 2880) <= GestureMath.pointerPredictCap(false, screenH: 1080) {
+            fputs("FAIL Predict-Cap 5K > Sidecar\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pointerPredictCap(false, screenH: 1080) == 48 {
+            fputs("FAIL Predict-Cap Sidecar nicht Main-Default\n", stderr)
+            fails += 1
+        }
+        if GestureMath.bezelHopDecay(count: 20, lastAt: 1, now: 3.1) != 0 {
+            fputs("FAIL Bezel Decay 2 s\n", stderr)
+            fails += 1
+        }
+        if GestureMath.bezelHopDecay(count: 20, lastAt: 1, now: 2.5) != 20 {
+            fputs("FAIL Bezel Decay hält\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraMutexRelPath() != "HeliosAegis/helios.aegis.camera.lock" {
+            fputs("FAIL Mutex RelPath\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.bezelHopRecalib(count: 20) || GestureMath.bezelHopRecalib(count: 19) {
+            fputs("FAIL Bezel Recalib Armed\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

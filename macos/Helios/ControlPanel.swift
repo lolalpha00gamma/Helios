@@ -377,6 +377,18 @@ struct ControlPanel: View {
                     .foregroundStyle(HeliosTheme.amber)
                     .help("Kamera liefert Frames, Vision sieht 8 s keine Palme.")
             }
+            if state.mutexChip != "—" && !state.mutexChip.isEmpty {
+                Text(state.mutexChip)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.mint)
+                    .help("Kamera-Mutex mit Aegis. Helios schreibt Unix-PTS + Palme, Aegis weicht.")
+            }
+            if state.recalChip != "—" {
+                Text(state.recalChip)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(HeliosTheme.amber)
+                    .help("20 Bezel-Hops: Homographie driftet. Recalib, kein Wipe. Count fällt nach 2 s ohne Hop.")
+            }
             if state.cameraPair == .single {
                 if state.cameraDevices.isEmpty {
                     Text(state.deviceName)

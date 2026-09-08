@@ -147,16 +147,21 @@ enum ScreenGeometry {
             if let host {
                 let vis = quartzRect(fromCocoa: host.visibleFrame)
                 if GestureMath.stageManagerOffspace(proposed: p, visible: vis) {
-                    return GestureMath.stageManagerClamp(proposed: p, visible: vis)
+                    let q = GestureMath.stageManagerClamp(proposed: p, visible: vis)
+                    noteCursorHop(q)
+                    return q
                 }
             }
+            noteCursorHop(p)
             return p
         }
         let other = NSScreen.screens.first { contains(quartz: p, screen: $0.frame, pad: 0) }
         if let other {
             let of = quartzRect(fromCocoa: other.frame)
             if GestureMath.bezelHopAllows(proposed: p, otherFrame: of) {
-                return clampQuartz(p)
+                let q = clampQuartz(p)
+                noteCursorHop(q)
+                return q
             }
             return CGPoint(
                 x: min(max(p.x, hostFrame.minX + 2), hostFrame.maxX - 2),
@@ -197,6 +202,39 @@ enum ScreenGeometry {
     /// Quartz-Höhe des Schirms unter dem Punkt. Predict-Cap sonst 5K auf Sidecar.
     static func height(quartz: CGPoint) -> CGFloat {
         screenContaining(quartz: quartz)?.frame.height ?? mainHeight
+    }
+
+    nonisolated(unsafe) private static var hopCount = 0
+    nonisolated(unsafe) private static var lastHopAt: TimeInterval = 0
+    nonisolated(unsafe) private static var lastHopPoint: CGPoint?
+    nonisolated(unsafe) private static var hopRecalibDone = false
+
+    static func noteCursorHop(_ p: CGPoint, now: TimeInterval = Date().timeIntervalSince1970) {
+        if let last = lastHopPoint, bezelHopOccurred(from: last, to: p) {
+            hopCount += 1
+            lastHopAt = now
+        } else {
+            hopCount = GestureMath.bezelHopDecay(count: hopCount, lastAt: lastHopAt, now: now)
+        }
+        if hopCount == 0 { hopRecalibDone = false }
+        lastHopPoint = p
+    }
+
+    static func bezelHopRecalibChip() -> String? {
+        GestureMath.bezelHopChip(count: hopCount)
+    }
+
+    /// Einmal pro 20-Hop-Welle. Chip bleibt bis Decay, Homographie nicht jedes Frame neu.
+    static func consumeBezelHopRecalib() -> Bool {
+        guard GestureMath.bezelHopRecalib(count: hopCount), !hopRecalibDone else { return false }
+        hopRecalibDone = true
+        return true
+    }
+
+    static func resetBezelHops() {
+        hopCount = 0
+        lastHopAt = 0
+        hopRecalibDone = false
     }
 
     static func bezelHopOccurred(from: CGPoint, to: CGPoint) -> Bool {

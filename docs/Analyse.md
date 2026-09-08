@@ -1,5 +1,23 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
+Stand: 2026-09-08. Helios **1.6.65** (Build 98). Nur `main`. `bugfix` ist 1.6.15 — nichts mergen.
+
+## 0. 1.6.65 — Mutex-Write, Predict×Schirm, Zoom-Sign, Bezel-Decay, RECAL-Load
+
+1.6.64: Tracking/Overlay zurück auf 1.6.60. Pass 25 hatte Math ohne Call-Sites: Lock-Datei leer, Predict-Cap 48 auf jedem Schirm, Zoom-Streak ignorierte Vorzeichen, RECAL nur HUD. Continuity + Aegis + Sidecar blieben tot.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | Mutex nie geschrieben | `beatCameraMutex` Unix-PTS + Palme |
+| 2 | Predict-Cap Default 48 | `pointerPredictCap` × `height(quartz:)` |
+| 3 | Zoom-Streak `ok: true` | `twoPinchZoomHolds` |
+| 4 | RECAL-Chip klebt | `bezelHopDecay` 2 s |
+| 5 | 20 Hops nur Chip | `consumeBezelHopRecalib` → `reloadSpaceMap` |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe.
+
+# Analyse, Fehlerbehebung, öffentlicher Abgleich
+
 Stand: 2026-09-08. Helios **1.6.63** (Build 96). Nur `main`. `bugfix` ist 1.6.15 — nichts mergen.
 
 ## 0. 1.6.63 — PTS-Wall, Palm-UV, Predict×Schirm, Zoom-Sign, Bezel-20

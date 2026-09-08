@@ -352,9 +352,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         session.beginConfiguration()
         session.inputs.forEach { session.removeInput($0) }
         session.outputs.forEach { session.removeOutput($0) }
-        if GestureMath.capturePrefersInputPriority(), session.canSetSessionPreset(.inputPriority) {
-            session.sessionPreset = .inputPriority
-        } else if session.canSetSessionPreset(.hd1280x720) {
+        if session.canSetSessionPreset(.hd1280x720) {
             session.sessionPreset = .hd1280x720
         } else if session.canSetSessionPreset(.high) {
             session.sessionPreset = .high
@@ -595,7 +593,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     private func configureDevice(_ device: AVCaptureDevice, measuredFps: Double = 0) {
         var locked = false
         var err: NSError?
-        _ = HeliosCatch({
+        _ = HeliosCatch({ [self] in
             do {
                 try device.lockForConfiguration()
             } catch {
@@ -862,9 +860,7 @@ final class CoverCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         session.beginConfiguration()
         session.inputs.forEach { session.removeInput($0) }
         session.outputs.forEach { session.removeOutput($0) }
-        if GestureMath.capturePrefersInputPriority(), session.canSetSessionPreset(.inputPriority) {
-            session.sessionPreset = .inputPriority
-        } else if session.canSetSessionPreset(.hd1280x720) {
+        if session.canSetSessionPreset(.hd1280x720) {
             session.sessionPreset = .hd1280x720
         } else if session.canSetSessionPreset(.high) {
             session.sessionPreset = .high

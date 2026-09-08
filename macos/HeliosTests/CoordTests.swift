@@ -1132,8 +1132,16 @@ enum CoordTests {
             fputs("FAIL 3D-Veto bei 2D-Pinzette\n", stderr)
             fails += 1
         }
-        if GestureMath.pinchLooksLikePinch(reach: 1.1, index: 0.9, zSep: 1.2) {
-            fputs("FAIL 3D-Veto Reach tot\n", stderr)
+        if !GestureMath.pinchLooksLikePinch(reach: 1.1, index: 0.9, zSep: 1.2) {
+            fputs("FAIL echte Pinzette mit z-Rauschen tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchLooksLikePinch(reach: 0.90, index: 0.9, zSep: 1.2) {
+            fputs("FAIL Faust-Projektion 3D-Veto tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchLooksLikePinch(reach: 1.1, index: 0.9, zSep: 0.10, approach: 1.4) {
+            fputs("FAIL Approach-Veto Faust-in-Kamera tot\n", stderr)
             fails += 1
         }
         if GestureMath.pinchLooksLikePinch(reach: 1.1, index: 0.9, zSep: 0.10) {
@@ -1171,6 +1179,50 @@ enum CoordTests {
         }
         if GestureMath.chromeDwellRingWidth(dt: 0.125) < 8 {
             fputs("FAIL Ampel-Ring 8 fps dicker\n", stderr)
+            fails += 1
+        }
+        if GestureMath.emptyHandsRecoverPalmJump(
+            prev: CGPoint(x: 0.2, y: 0.2),
+            next: CGPoint(x: 0.8, y: 0.8),
+            palmWidth: 0.12
+        ) > 0.50 {
+            fputs("FAIL Palm-Sprung dämpft Recover\n", stderr)
+            fails += 1
+        }
+        if GestureMath.emptyHandsRecoverPalmJump(
+            prev: CGPoint(x: 0.4, y: 0.4),
+            next: CGPoint(x: 0.41, y: 0.40),
+            palmWidth: 0.12
+        ) < 0.99 {
+            fputs("FAIL Palm-Sprung klein voller Gain\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pullTowardPalmGrow(startW: 0.10, nowW: 0.13) {
+            fputs("FAIL Palme wächst = Heranziehen\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pullTowardPalmGrow(startW: 0.10, nowW: 0.11) {
+            fputs("FAIL Palme +10 % kein Zug\n", stderr)
+            fails += 1
+        }
+        if GestureMath.fistScharfGrace(dt: 0.016) > 0.23 {
+            fputs("FAIL Faust-Grace 24 fps 0,22\n", stderr)
+            fails += 1
+        }
+        if GestureMath.fistScharfGrace(dt: 0.125) < 0.27 {
+            fputs("FAIL Faust-Grace 8 fps ≥ 0,27\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinch3DApproach(thumbZ: 0.12, indexZ: 0.12, palmWidth: 0.10) < 1.1 {
+            fputs("FAIL Approach Faust-in-Kamera groß\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinch3DApproach(thumbZ: 0.01, indexZ: 0.01, palmWidth: 0.10) > 0.20 {
+            fputs("FAIL Approach flach tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinch3DVeto(sep: 1.2, closedness2D: 0.70, approach: 0, reach: 1.1) {
+            fputs("FAIL Reach hält z-Rauschen\n", stderr)
             fails += 1
         }
         if GestureMath.skeletonFreezeDim(true) > 0.5 {

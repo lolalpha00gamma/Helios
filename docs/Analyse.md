@@ -1,5 +1,24 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
+Stand: 2026-09-08. Helios **1.6.36** (Build 69). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+
+## 0. 1.6.36 — Approach-Veto, Recover-Sprung, Faust-Grace
+
+1.6.35: Closedness×q, Freeze-Predict, Ampel-Ring. pinchActor ignorierte z. pinch3DVeto tötete echte Pinzetten. Recover nur Breite. Heranziehen nur Y. Faust-Scharf 0,22 s.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | Faust-in-Kamera: Sep tot, 2D-Reach lügt | `pinch3DApproach` + Veto vor Reach-Skip |
+| 2 | pinchActor ohne zSep/Approach | Actor + pinchLooksLikePinch reicht z durch |
+| 3 | Veto auf \|Δz\| tötete echte Pinzette | Reach ≥ Need+0,15 skippt nur Sep |
+| 4 | Recover-Teleport Palmenposition | `emptyHandsRecoverPalmJump` |
+| 5 | Heranziehen nur Palm-Y | `pullTowardPalmGrow` |
+| 6 | Faust-Scharf 0,22 s = 1 Continuity-Tick | `fistScharfGrace(dt)` |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe-Sidecar.
+
+# Analyse, Fehlerbehebung, öffentlicher Abgleich
+
 Stand: 2026-09-08. Helios **1.6.35** (Build 68). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
 
 ## 0. 1.6.35 — Qualität-Closedness, Freeze-Predict, Ampel-Ring

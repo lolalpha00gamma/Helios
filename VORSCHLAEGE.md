@@ -1,6 +1,16 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.35**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen. Gelesen, nicht gemergt: IOHID Event-Tap, JSONL, AX-ein-Call.
+Stand: **1.6.36**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen. Gelesen, nicht gemergt: IOHID Event-Tap, JSONL, AX-ein-Call.
+
+## In 1.6.36 erledigt
+
+1.6.35 Closedness×q / Predict / Ring. Actor ohne z. Veto tötete echte Pinzette. Recover nur Breite. Heranziehen nur Y. Faust-Scharf 0,22 s.
+
+1. **pinch3DApproach** + Veto nach Reach.
+2. **pinchActor** zSep/Approach/Need.
+3. **emptyHandsRecoverPalmJump.**
+4. **pullTowardPalmGrow.** **fistScharfGrace(dt).**
+5. Tests + MARKETING_VERSION 1.6.36 (Build 69).
 
 ## In 1.6.35 erledigt
 
@@ -14,16 +24,24 @@ Stand: **1.6.35**. Die Punkte unten sind Erweiterungen, kein Backlog der schon g
 
 ## Erweiterung (neu)
 
-1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC, eine Session.
+1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC, eine Session. P0.
 2. **DisplayLink 90 Hz HUD**, Kamera 8–24 fps. Overlay-Lerp unabhängig.
 3. **HeliosAegisKit** gemeinsamer Broker + Mutex-PTS.
-4. **LiDAR-Pinch** (Depth) statt nur Landmark-z.
+4. **LiDAR-Pinch** (Depth) statt nur Landmark-z. Approach 1.6.36 ist Lift3D.
 5. **IOHID Event-Tap / AX SetPosition / Per-App Gain** (`bugfix`, opt-in).
 6. **JSONL Session-Replay** Gesten-Regression.
 7. **Zwei-Hand Freeze-Predict** (beide Palmen, nicht nur Actor).
 8. **AirKeyboard Dwell-Ring × fps** analog chromeDwellRingWidth.
-9. **Kalman-Palme während Freeze** statt nur Vel-Decay.
+9. **Kalman-Palme während Freeze** statt nur Vel-Decay (Predict 1.6.35).
 10. **Clutch vs Freeze** — Jiggler darf Geisterhand nicht wecken.
+11. **HUD-q-Chip** wenn Landmark-Qualität < 0,55 — tot-Pinzette sonst unsichtbar.
+12. **One-Euro auf pinchRatio** (minCutoff 1 Hz) — Gate-Jitter bei 8 fps.
+13. **Continuity 720p@24 Format-Lock anfragen** bevor 8 fps als Schicksal gilt.
+14. **Per-Finger Kontakt** (Daumen–Index / palmWidth) statt nur Closedness-Skalar.
+15. **Lift3D-Sign-Hysterese härter.** previous[] kippt bei Occlusion — Approach rettet, Residual-Gate fehlt.
+16. **HUD Freeze-Vel-Vektor** — Predict ist unsichtbar, ein Strich an der Geisterhand.
+17. **AX-Hit-Cache 1 Frame.** Continuity 8 fps sonst hitTest jeden Tick.
+18. **MediaPipe Hands Sidecar** — VNDetectHumanHandPose verliert Spitzen.
 
 ## In 1.6.34 erledigt
 

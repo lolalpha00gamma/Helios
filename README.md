@@ -1,4 +1,4 @@
-# Helios **1.6.35**
+# Helios **1.6.36**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,17 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.36
+
+1.6.35 Closedness×q, Freeze-Predict, Ampel-Ring. pinchActor ohne z. pinch3DVeto tötete echte Pinzetten (Lift3D-z-Rauschen). Recover dämpfte nur Breite. Heranziehen nur Palm-Y. Faust-Scharf 0,22 s = ein Continuity-Tick.
+
+- **pinch3DApproach + pinch3DVeto(approach, reach).** Faust-in-Kamera = Approach. Echte Pinzette mit z-Rauschen bleibt (Reach ≥ Need+0,15 skippt nur Sep).
+- **pinchActor** zSep + Approach + Closedness-Need. 1.6.34-Veto war tot am Actor.
+- **emptyHandsRecoverPalmJump.** Palmensprung nach Dropout, nicht nur Breite.
+- **pullTowardPalmGrow.** Hand auf die Kamera = Palme wächst.
+- **fistScharfGrace(dt).** 8 fps ≥ 0,27 s unknown.
+- Tests + MARKETING_VERSION 1.6.36 (Build 69).
 
 ## Neu in 1.6.35
 

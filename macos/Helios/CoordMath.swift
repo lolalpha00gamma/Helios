@@ -301,8 +301,16 @@ enum GestureMath {
         abs(thumbZ - indexZ) / max(0.03, palmWidth)
     }
 
-    static func pinch3DVeto(sep: CGFloat, closedness2D: Double, need: CGFloat = 0.55) -> Bool {
-        closedness2D >= 0.50 && sep >= need
+    static func pinch3DVeto(sep: CGFloat, closedness2D: Double, need: CGFloat = 0.55, approach: CGFloat = 0, reach: CGFloat = 0.5) -> Bool {
+        if closedness2D < 0.50 { return false }
+        if approach >= need * 1.15 { return true }
+        if reach >= pinchReachNeed + 0.15 { return false }
+        return sep >= need
+    }
+
+    /// Faust in die Kamera: beide Spitzen gleich tief, Sep tot. Mittel |z| / Palme.
+    static func pinch3DApproach(thumbZ: CGFloat, indexZ: CGFloat, palmWidth: CGFloat) -> CGFloat {
+        ((abs(thumbZ) + abs(indexZ)) * 0.5) / max(0.03, palmWidth)
     }
 
     /// q < 0,55: Landmark tot, 2D-Closedness lügt. Tor hoch, sonst Faust-Klick.
@@ -453,6 +461,18 @@ enum GestureMath {
         return CGFloat(max(0.35, min(1, 1.28 / Double(jump))))
     }
 
+    /// Palme springt nach Dropout (nicht nur Breite). Relativ-Zeiger sonst 50 px trotz freezeGain.
+    static func emptyHandsRecoverPalmJump(prev: CGPoint, next: CGPoint, palmWidth: CGFloat) -> CGFloat {
+        let d = hypot(next.x - prev.x, next.y - prev.y) / max(0.02, palmWidth)
+        if d < 0.35 { return 1 }
+        return max(0.12, 1 - min(1, (d - 0.35) / 1.4))
+    }
+
+    /// 24 fps bleibt 0,22 s. 8 fps sonst ein unknown-Tick = Faust-Scharf tot.
+    static func fistScharfGrace(dt: TimeInterval) -> TimeInterval {
+        max(0.22, min(0.40, max(0.008, dt) * 2.2))
+    }
+
     /// Continuity 8 fps: 2 Frames. Built-in: 3, sonst ein Jitter-Tick skaliert.
     static let twoPinchEdgeNeed = 3
     static func twoPinchConfirmFrames(dt: TimeInterval, builtIn: Int = twoPinchEdgeNeed) -> Int {
@@ -511,6 +531,12 @@ enum GestureMath {
 
     static func pullTowardSelf(startY: CGFloat, nowY: CGFloat, need: CGFloat = pullToward) -> Bool {
         startY - nowY >= need
+    }
+
+    /// Hand kommt auf die Kamera zu: Palme wächst. Palm-Y allein sieht das nicht.
+    static func pullTowardPalmGrow(startW: CGFloat, nowW: CGFloat, need: CGFloat = 1.22) -> Bool {
+        guard startW > 0.02 else { return false }
+        return nowW / startW >= need
     }
 
     /// Schreibtisch / Wallpaper: fast schirmfüllend, ohne Fenstertitel.
@@ -806,8 +832,8 @@ enum GestureMath {
 
     /// Pinzette starten: Gate oder klare Closedness, und es muss wie Pinzette aussehen
     /// (Reach / Zeigefinger). Faust hat geschlossene Spitzen — das ist kein Klick.
-    static func pinchStartsGrab(gate: Bool, closedness: Double, reach: CGFloat = 1.2, index: Double = 1, zSep: CGFloat = 0, quality: Double = 1) -> Bool {
-        guard pinchLooksLikePinch(reach: reach, index: index, zSep: zSep) else { return false }
+    static func pinchStartsGrab(gate: Bool, closedness: Double, reach: CGFloat = 1.2, index: Double = 1, zSep: CGFloat = 0, quality: Double = 1, approach: CGFloat = 0) -> Bool {
+        guard pinchLooksLikePinch(reach: reach, index: index, zSep: zSep, approach: approach) else { return false }
         return gate || closedness > pinchClosednessNeed(quality: quality, start: true)
     }
 
@@ -819,14 +845,15 @@ enum GestureMath {
         index: Double = 1,
         allowFist: Bool = false,
         zSep: CGFloat = 0,
-        quality: Double = 1
+        quality: Double = 1,
+        approach: CGFloat = 0
     ) -> Bool {
-        if !allowFist, !pinchLooksLikePinch(reach: reach, index: index, zSep: zSep) { return false }
+        if !allowFist, !pinchLooksLikePinch(reach: reach, index: index, zSep: zSep, approach: approach) { return false }
         return gate || closedness > pinchClosednessNeed(quality: quality, start: false)
     }
 
-    static func pinchLooksLikePinch(reach: CGFloat, index: Double = 1, zSep: CGFloat = 0) -> Bool {
-        if pinch3DVeto(sep: zSep, closedness2D: 0.70) { return false }
+    static func pinchLooksLikePinch(reach: CGFloat, index: Double = 1, zSep: CGFloat = 0, approach: CGFloat = 0) -> Bool {
+        if pinch3DVeto(sep: zSep, closedness2D: 0.70, approach: approach, reach: reach) { return false }
         return reach >= pinchReachNeed || index >= pinchIndexNeed
     }
 

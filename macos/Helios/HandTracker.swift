@@ -100,6 +100,13 @@ struct TrackedHand: Identifiable {
         return GestureMath.pinch3DSep(thumbZ: t.z, indexZ: i.z, palmWidth: palmWidth)
     }
 
+    /// Beide Spitzen auf die Kamera. Sep tot wenn Daumen und Zeigefinger gleich tief.
+    var pinchZApproach: CGFloat {
+        guard let t = joints[.thumbTip], let i = joints[.indexTip],
+              t.confidence > 0.22, i.confidence > 0.22 else { return 0 }
+        return GestureMath.pinch3DApproach(thumbZ: t.z, indexZ: i.z, palmWidth: palmWidth)
+    }
+
     func confidence(_ name: VNHumanHandPoseObservation.JointName) -> Float {
         (displayJoints[name] ?? joints[name])?.confidence ?? 0
     }

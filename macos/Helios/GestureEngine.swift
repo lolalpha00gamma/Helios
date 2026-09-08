@@ -85,6 +85,7 @@ final class GestureEngine {
     private var pinchBeganAt: TimeInterval = 0
     private var pinchTrail: [(t: TimeInterval, x: CGFloat, y: CGFloat)] = []
     private var pinchSpan0: CGFloat?
+    private var pinchSpanW: CGFloat?
     private var pinchHandID: String?
     private var pinchLastHand: TrackedHand?
     private var pinchOriginCursor: CGPoint?
@@ -177,6 +178,7 @@ final class GestureEngine {
         pinchBeganAt = 0
         pinchTrail.removeAll()
         pinchSpan0 = nil
+        pinchSpanW = nil
         pinchHandID = nil
         pinchLastHand = nil
         pinchOriginCursor = nil
@@ -364,13 +366,20 @@ final class GestureEngine {
             recoverUntil = now + recoverSpan
         }
         let nextPalmW = hands.map(\.palmWidth).max() ?? lastPalmWidth
+        let nextPalm = hands.first(where: { $0.id == pointerHandID })?.palm
+            ?? hands.max(by: { $0.palmWidth < $1.palmWidth })?.palm
+            ?? lastPalm
         if now < recoverUntil {
             let live = GestureMath.emptyHandsRecoverLive(
                 now: now,
                 until: recoverUntil,
                 span: recoverSpan
             )
-            freezeGain = live * GestureMath.emptyHandsRecoverPalmMul(prev: lastPalmWidth, next: nextPalmW)
+            var gain = live * GestureMath.emptyHandsRecoverPalmMul(prev: lastPalmWidth, next: nextPalmW)
+            if let prev = lastPalm, let nxt = nextPalm {
+                gain *= GestureMath.emptyHandsRecoverPalmJump(prev: prev, next: nxt, palmWidth: nextPalmW)
+            }
+            freezeGain = gain
             if let chip = GestureMath.emptyHandsRecoverChip(now: now, until: recoverUntil, span: recoverSpan) {
                 lockFreeze = lockFreeze.isEmpty ? chip : "\(lockFreeze) \(chip)"
             }
@@ -379,6 +388,7 @@ final class GestureEngine {
         }
         lastHandSeen = now
         lastPalmWidth = nextPalmW
+        // lastPalm nur mappedPoint / freezePalmPredict. Hier schreiben = Highpass dx 0.
         mousePaused = !system.allowsInjection && !system.fromInstallMedia
 
         if system.fromInstallMedia {
@@ -399,7 +409,8 @@ final class GestureEngine {
             let confirm = actor.pinchClosed && GestureMath.pinchLooksLikePinch(
                 reach: actor.pinchReach,
                 index: actor.indexScore,
-                zSep: actor.pinchZSep
+                zSep: actor.pinchZSep,
+                approach: actor.pinchZApproach
             )
             if let done = cal.feed(palm: actor.palm, now: now, confirm: confirm) {
                 spaceMap = done
@@ -790,7 +801,7 @@ final class GestureEngine {
             }
         } else if fistSince != nil {
             if fistLostAt == nil { fistLostAt = now }
-            if now - (fistLostAt ?? now) > 0.22 {
+            if now - (fistLostAt ?? now) > GestureMath.fistScharfGrace(dt: sampleDt) {
                 fistSince = nil
                 fistLostAt = nil
             }
@@ -897,8 +908,13 @@ final class GestureEngine {
         }
         pinchLastHand = nil
         if let pinching = hands.filter({
-            ($0.pinchClosed || $0.pinchClosedness > 0.55)
-                && GestureMath.pinchLooksLikePinch(reach: $0.pinchReach, index: $0.indexScore)
+            ($0.pinchClosed || $0.pinchClosedness > GestureMath.pinchClosednessNeed(quality: $0.quality, start: true))
+                && GestureMath.pinchLooksLikePinch(
+                    reach: $0.pinchReach,
+                    index: $0.indexScore,
+                    zSep: $0.pinchZSep,
+                    approach: $0.pinchZApproach
+                )
         }).min(by: { $0.pinchRatio < $1.pinchRatio }) {
             pinchLastHand = pinching
             return pinching
@@ -952,7 +968,7 @@ final class GestureEngine {
         dy = step.y
         let seed = from ?? ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
         let stepped = ScreenGeometry.stepCursor(from: seed, dPalm: CGPoint(x: dx, y: dy), gain: pointerGain * freezeGain)
-        let a: CGFloat = 0.86
+        let a: CGFloat = freezeGain < 0.99 ? 1 : 0.86
         let s = CGPoint(x: a * stepped.x + (1 - a) * seed.x, y: a * stepped.y + (1 - a) * seed.y)
         cursorTracks[hand.id] = s
         if isActor {
@@ -991,7 +1007,12 @@ final class GestureEngine {
     private func handleTwoPinchScale(hands: [TrackedHand], now: TimeInterval) -> Bool {
         let pinches = hands.filter {
             ($0.pinchClosed || $0.pinchClosedness > GestureMath.twoPinchClosed)
-                && GestureMath.pinchLooksLikePinch(reach: $0.pinchReach, index: $0.indexScore, zSep: $0.pinchZSep)
+                && GestureMath.pinchLooksLikePinch(
+                    reach: $0.pinchReach,
+                    index: $0.indexScore,
+                    zSep: $0.pinchZSep,
+                    approach: $0.pinchZApproach
+                )
         }.sorted { $0.id < $1.id }
         guard pinches.count >= 2 else {
             if twoPinchSince != nil {
@@ -1220,6 +1241,7 @@ final class GestureEngine {
                 pinchReleasedAt = now
                 pinchTrail.removeAll()
                 pinchSpan0 = nil
+                pinchSpanW = nil
                 grabLogged = false
                 if !testMode { system.endWindowDrag() }
                 swipeMuteUntil = now + GestureMath.swipeMuteAfterPinch
@@ -1238,6 +1260,7 @@ final class GestureEngine {
             pinchReleasedAt = now
             pinchTrail.removeAll()
             pinchSpan0 = nil
+            pinchSpanW = nil
             grabLogged = false
             if !testMode { system.endWindowDrag() }
             swipeMuteUntil = now + GestureMath.swipeMuteAfterPinch
@@ -1251,7 +1274,8 @@ final class GestureEngine {
                 index: hand.indexScore,
                 allowFist: pinchBecameDrag,
                 zSep: hand.pinchZSep,
-                quality: hand.quality
+                quality: hand.quality,
+                approach: hand.pinchZApproach
             )
             : (fire && GestureMath.pinchStartsGrab(
                 gate: hand.pinchClosed,
@@ -1259,7 +1283,8 @@ final class GestureEngine {
                 reach: hand.pinchReach,
                 index: hand.indexScore,
                 zSep: hand.pinchZSep,
-                quality: hand.quality
+                quality: hand.quality,
+                approach: hand.pinchZApproach
             ))
         if isGrab && !pinchHeld {
             if GestureMath.pinchReleaseBlocks(now: now, releasedAt: pinchReleasedAt, dt: sampleDt) {
@@ -1275,6 +1300,7 @@ final class GestureEngine {
             pinchMissSince = nil
             pinchTrail = [(now, hand.palm.x, hand.palm.y)]
             pinchSpan0 = hand.palm.y
+            pinchSpanW = hand.palmWidth
             grabLogged = false
             lastAction = testMode ? "Test: Halten" : "Halten"
         } else if isGrab && pinchHeld {
@@ -1328,10 +1354,12 @@ final class GestureEngine {
                now - pinchBeganAt > 0.35,
                let y0 = pinchSpan0,
                !system.isDragging,
-               GestureMath.pullTowardSelf(startY: y0, nowY: hand.palm.y)
+               (GestureMath.pullTowardSelf(startY: y0, nowY: hand.palm.y)
+                || GestureMath.pullTowardPalmGrow(startW: pinchSpanW ?? hand.palmWidth, nowW: hand.palmWidth))
             {
                 perform("Heranziehen", confidence: Float(hand.poseProb)) { system.snapFocused(.fill, at: cursor) }
                 pinchSpan0 = hand.palm.y
+                pinchSpanW = hand.palmWidth
                 cooldownUntil = now + 0.5
             }
         } else if !isGrab && pinchHeld {
@@ -1358,6 +1386,7 @@ final class GestureEngine {
             pinchReleasedAt = now
             pinchTrail.removeAll()
             pinchSpan0 = nil
+            pinchSpanW = nil
             grabLogged = false
             trashHot = false
             let hotName = chromeHot

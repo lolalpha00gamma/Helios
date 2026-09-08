@@ -282,6 +282,7 @@ final class GestureEngine {
     func tick(hands incoming: [TrackedHand], now: TimeInterval) {
         sampleDt = GestureMath.sampleDt(now: now, last: lastTickNow)
         lastTickNow = now
+        system.sampleDt = sampleDt
         lockFreeze = ""
         qualityChip = ""
         freezeLive = false
@@ -1397,7 +1398,7 @@ final class GestureEngine {
                     guard let a = pinchOriginCursor, let b = cursor else { return 0 }
                     return hypot(a.x - b.x, a.y - b.y)
                 }()
-                if GestureMath.isDrag(palmMovedHW: moved, cursorMovedPx: cursorPx) {
+                if GestureMath.isDrag(palmMovedHW: moved, cursorMovedPx: cursorPx, dt: sampleDt) {
                     if chromeHot.isEmpty || cursorPx >= 52 {
                         pinchBecameDrag = true
                     }

@@ -79,6 +79,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     private var frameHandler: ((CVPixelBuffer, NSImage?, CGFloat, TimeInterval) -> Void)?
     let depthTap = DepthCapture()
     private var formatRenegotiated = false
+    private var lastRenegotiateAt: TimeInterval = 0
     var latestDepth: DepthSample? { depthTap.latest }
     var hasDepth: Bool { depthTap.attached }
     private var keepAlive: NSObjectProtocol?
@@ -87,20 +88,24 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         DispatchQueue.main.async { self.errorMessage = nil }
         pump.reset()
         formatRenegotiated = false
+        lastRenegotiateAt = 0
         cameraQueue.async { [weak self] in
             self?.configureAndRun()
         }
     }
 
-    /// Continuity 8 fps trotz Score → Format neu, einmal pro Session.
+    /// Continuity 8 fps trotz Score. Cooldown 8 s, Score mit gemessenen fps — einmal reicht nicht.
     func renegotiateIfSlow(measuredFps: Double) {
-        guard GestureMath.cameraFormatRenegotiate(measuredFps: measuredFps, already: formatRenegotiated) else { return }
+        let now = CACurrentMediaTime()
+        let cooling = formatRenegotiated && now - lastRenegotiateAt < 8
+        guard GestureMath.cameraFormatRenegotiate(measuredFps: measuredFps, already: cooling) else { return }
         formatRenegotiated = true
+        lastRenegotiateAt = now
         cameraQueue.async { [weak self] in
             guard let self else { return }
             let device = self.session.inputs.compactMap { ($0 as? AVCaptureDeviceInput)?.device }.first
             guard let device else { return }
-            self.configureDevice(device)
+            self.configureDevice(device, measuredFps: measuredFps)
         }
     }
 
@@ -506,7 +511,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     }
 
     /// Format + Framerate nur mit Werten aus dem unterstützten Bereich, plus NSException-Fang.
-    private func configureDevice(_ device: AVCaptureDevice) {
+    private func configureDevice(_ device: AVCaptureDevice, measuredFps: Double = 0) {
         var locked = false
         var err: NSError?
         _ = HeliosCatch({
@@ -516,7 +521,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
                 return
             }
             locked = true
-            if let format = Self.bestFormat(on: device) {
+            if let format = Self.bestFormat(on: device, measuredFps: measuredFps) {
                 device.activeFormat = format
             }
             self.depthTap.applyActiveFormat(device)
@@ -546,7 +551,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     }
 
     /// 720p@24 vor 1080p@8. Continuity ohne 24 fps nicht verwerfen — sonst Default = 8 fps.
-    fileprivate static func bestFormat(on device: AVCaptureDevice) -> AVCaptureDevice.Format? {
+    fileprivate static func bestFormat(on device: AVCaptureDevice, measuredFps: Double = 0) -> AVCaptureDevice.Format? {
         var best: AVCaptureDevice.Format?
         var bestScore = -1.0
         for format in device.formats {
@@ -554,7 +559,9 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             let w = Double(dims.width)
             let h = Double(dims.height)
             let fps = format.videoSupportedFrameRateRanges.map(\.maxFrameRate).max() ?? 0
-            let score = GestureMath.cameraFormatScore(width: w, height: h, maxFps: fps)
+            let score = measuredFps > 0 && measuredFps < 12
+                ? GestureMath.cameraFormatScoreMeasured(width: w, height: h, maxFps: fps, measuredFps: measuredFps)
+                : GestureMath.cameraFormatScore(width: w, height: h, maxFps: fps)
             if score > bestScore {
                 bestScore = score
                 best = format

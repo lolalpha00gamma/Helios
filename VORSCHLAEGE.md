@@ -1,6 +1,16 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.40**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen. Gelesen, nicht gemergt: IOHID Event-Tap, JSONL, AX-ein-Call.
+Stand: **1.6.41**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen. Gelesen, nicht gemergt: IOHID Event-Tap, JSONL, AX-ein-Call.
+
+## In 1.6.41 erledigt
+
+1.6.40 Kalman / AX-Cache / EMA / Gain×dt / q-Chips / Format einmal. AX-TTL 40 ms < Continuity-Frame. Drag = ein 8-fps-Tick. Format-Nachzug gleicher Score. HMM-Reset 0,35 s.
+
+1. **axHitCacheFresh(dt: sampleDt).**
+2. **pinchDragNeedOf / pinchDragCursorNeed.**
+3. **cameraFormatScoreMeasured** + Cooldown 8 s.
+4. **trackDropoutNeed(dt).**
+5. Tests + MARKETING_VERSION 1.6.41 (Build 74).
 
 ## In 1.6.40 erledigt
 
@@ -27,20 +37,25 @@ Stand: **1.6.40**. Die Punkte unten sind Erweiterungen, kein Backlog der schon g
 9. **Zwei-Pinzetten Freeze-Span** — Zoom-Anker nicht tot nach einem Miss.
 10. **Helios liest Aegis leftover-Boxen** als Palm-Occlusion.
 11. **Aegis-Yaw als Helios Click-Lock** — Blick weg = kein Klick.
-12. **pinchBecameDrag × dt** — Click-vs-Zug-Schwelle ein 8-fps-Tick.
-13. **SpaceMap Re-Calib** wenn Palm-Aspect nach Drehung kippt.
-14. **Two-pinch vs scroll hysteresis** — offene Hand + Coast darf Pinch-Start nicht fressen.
-15. **Wrist-IMU via Watch** für Pinch-Confirm wenn Vision-Spitzen tot.
-16. **Homographie Online-Nachzug** 4 Anschläge unsichtbar nach 20 s Pointer-Clutch.
-17. **DepthCapture an Continuity LiDAR** wirklich verdrahten (Datei ist Stub).
-18. **One-Euro auf Cursor-Output**, nicht nur Palm-Highpass — 8 fps sonst Nachschwingen.
-19. **Pinch analog 0…1 als Scroll-Gain** statt Bool-Gate (Ultraleap-Stil).
-20. **Per-Display Freeze-Clamp** — Geisterhand darf nicht den Nachbarschirm teleportieren.
-21. **Vision-Revision-Fallback** wenn Continuity die gepinnte Revision droppt.
-22. **Gesture-Macros** 2 s aufnehmen, Peace+Faust replay.
-23. **ARKit Gaze Click-Lock** wenn Aegis-Yaw fehlt (Studio Display).
-24. **AX-Hit-Cache × Fenster-ID** nicht nur Punkt — Resize während Freeze sonst tot.
-25. **Kalman-Q an fps** — 24 fps weniger Process-Noise als 8 fps.
+12. **SpaceMap Re-Calib** wenn Palm-Aspect nach Drehung kippt.
+13. **Two-pinch vs scroll hysteresis** — offene Hand + Coast darf Pinch-Start nicht fressen.
+14. **Wrist-IMU via Watch** für Pinch-Confirm wenn Vision-Spitzen tot.
+15. **Homographie Online-Nachzug** 4 Anschläge unsichtbar nach 20 s Pointer-Clutch.
+16. **DepthCapture an Continuity LiDAR** wirklich verdrahten (Datei ist Stub).
+17. **One-Euro auf Cursor-Output**, nicht nur Palm-Highpass — 8 fps sonst Nachschwingen.
+18. **Pinch analog 0…1 als Scroll-Gain** statt Bool-Gate (Ultraleap-Stil).
+19. **Per-Display Freeze-Clamp** — Geisterhand darf nicht den Nachbarschirm teleportieren.
+20. **Vision-Revision-Fallback** wenn Continuity die gepinnte Revision droppt.
+21. **Gesture-Macros** 2 s aufnehmen, Peace+Faust replay.
+22. **ARKit Gaze Click-Lock** wenn Aegis-Yaw fehlt (Studio Display).
+23. **AX-Hit-Cache × Fenster-ID** nicht nur Punkt — Resize während Freeze sonst tot.
+24. **Kalman-Q an fps** — 24 fps weniger Process-Noise als 8 fps.
+25. **Format-Probe beim Start** vor dem ersten 8-fps-Sample, nicht erst Cooldown.
+26. **Clutch-Radius × dt** — Jiggler 1,2 px bei 8 fps ein Tick.
+27. **Pointer-SourceID sticky** — Continuity uniqueID-Wechsel ohne Homographie-Reset wenn dieselbe Cam.
+28. **Scroll-Coast vs Kill** — zwei offene Hände nach Coast nicht Not-Aus.
+29. **Per-Finger Kontakt-Hysterese** — pinchFingerContact je Tip, nicht nur q.
+30. **Kalman-P HUD** — freezeVelChip um σ, nicht nur →/←.
 
 ## In 1.6.39 erledigt
 

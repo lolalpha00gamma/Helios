@@ -383,6 +383,20 @@ enum GestureMath {
         !already && measuredFps > 0 && measuredFps < floor
     }
 
+    /// Continuity meldet maxFps 30, liefert 8. Score ohne Messung bleibt 1080p.
+    static func cameraFormatScoreMeasured(
+        width: Double,
+        height: Double,
+        maxFps: Double,
+        measuredFps: Double
+    ) -> Double {
+        var s = cameraFormatScore(width: width, height: height, maxFps: maxFps)
+        if measuredFps > 0 && measuredFps < 12 {
+            s -= (12 - measuredFps) * (height >= 1000 ? 22 : 6)
+        }
+        return s
+    }
+
     /// 8 fps Palm-Jitter: kleineres α, sonst Reach/Gate skaliert mit einem Tick.
     static func palmWidthEMAAlpha(dt: TimeInterval, base: CGFloat = 0.22) -> CGFloat {
         dt >= 0.10 ? min(0.12, base * 0.55) : base
@@ -579,6 +593,11 @@ enum GestureMath {
     /// Pointer-Hold gilt auch ohne Pinzette — sonst stirbt der Zeiger beim Zeigen.
     static func emptyHandsHold(dt: TimeInterval, base: TimeInterval = pinchLockMiss) -> TimeInterval {
         max(base, min(0.45, dt * 2.2))
+    }
+
+    /// HMM-Reset hart 0,35 s. Freeze-Hold + Recover sonst tot nach Dropout.
+    static func trackDropoutNeed(dt: TimeInterval) -> TimeInterval {
+        max(0.35, emptyHandsHold(dt: dt) * 1.4)
     }
 
     /// Freeze-Decay: 1 am ersten Fehlframe, 0 am Ende des Holds.
@@ -864,14 +883,24 @@ enum GestureMath {
         return .none
     }
 
+    /// 8 fps: ein Tick Palm-Jitter ≥ 0,45 HW = Drag statt Klick.
+    static func pinchDragNeedOf(dt: TimeInterval) -> CGFloat {
+        let t = max(0.008, min(0.20, dt))
+        return pinchDragNeed * CGFloat(t >= 0.08 ? 1.35 : 1)
+    }
+
+    static func pinchDragCursorNeed(dt: TimeInterval) -> CGFloat {
+        dt >= 0.08 ? 40 : 28
+    }
+
     /// Kurze, stillstehende Pinzette = Klick, nicht Greifen.
     static func isClick(held: TimeInterval, palmMovedHW: CGFloat, cursorMovedPx: CGFloat, dt: TimeInterval = 0.016) -> Bool {
         guard held >= pinchClickMinNeed(dt: dt), held <= pinchClickMaxHold else { return false }
-        return palmMovedHW < pinchDragNeed && cursorMovedPx < pinchClickStillPx
+        return palmMovedHW < pinchDragNeedOf(dt: dt) && cursorMovedPx < pinchClickStillPx
     }
 
-    static func isDrag(palmMovedHW: CGFloat, cursorMovedPx: CGFloat) -> Bool {
-        palmMovedHW >= pinchDragNeed || cursorMovedPx >= 28
+    static func isDrag(palmMovedHW: CGFloat, cursorMovedPx: CGFloat, dt: TimeInterval = 0.016) -> Bool {
+        palmMovedHW >= pinchDragNeedOf(dt: dt) || cursorMovedPx >= pinchDragCursorNeed(dt: dt)
     }
 
     /// Nach Pinzette-Öffnen und Gegenwischen in derselben Sekunde nicht schalten.

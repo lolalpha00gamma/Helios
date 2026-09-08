@@ -60,6 +60,8 @@ final class SystemControl {
     private var axHitEl: AXUIElement?
     /// Freeze-Geisterhand: Jiggler seize tot.
     var freezeLive = false
+    /// Continuity 8 fps: axHitCacheFresh(dt: 0,04) tot vor dem nächsten Frame.
+    var sampleDt: TimeInterval = 0.04
 
     var fromInstallMedia: Bool { AppInstall.isFromDiskImage }
 
@@ -514,7 +516,7 @@ final class SystemControl {
     private func window(at point: CGPoint) -> AXUIElement? {
         let now = CACurrentMediaTime()
         let key = GestureMath.axHitCacheKey(cursor: point)
-        if GestureMath.axHitCacheFresh(cachedAt: axHitAt, now: now, dt: 0.04), key == axHitKey {
+        if GestureMath.axHitCacheFresh(cachedAt: axHitAt, now: now, dt: sampleDt), key == axHitKey {
             return axHitEl
         }
         let sys = ax(AXUIElementCreateSystemWide())

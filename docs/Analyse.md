@@ -1,5 +1,22 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
+Stand: 2026-09-08. Helios **1.6.41** (Build 74). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+
+## 0. 1.6.41 — AX-TTL sampleDt, Drag×dt, Format-Score gemessen, Track-Dropout
+
+1.6.40: Kalman, AX-Cache, EMA, Gain×dt, q-Chips, Format-Nachzug. Cache TTL hart 40 ms — 8 fps nie ein Treffer. pinchDragNeed 0,45 ein Continuity-Tick = Zug. renegotiateIfSlow einmal mit cameraFormatScore (1080p@30 gemeldet). HMM-Reset 0,35 s.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | AX-Cache 40 ms < 125 ms Frame | `axHitCacheFresh(dt: sampleDt)` |
+| 2 | Klick = Zug ein Tick | `pinchDragNeedOf` 8 fps 0,61 HW / 40 px |
+| 3 | Format-Nachzug gleicher Score | `cameraFormatScoreMeasured` + Cooldown 8 s |
+| 4 | HMM-Reset während Freeze | `trackDropoutNeed(dt)` |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe, DisplayLink 90 Hz, Hand-ID Reconnect.
+
+# Analyse, Fehlerbehebung, öffentlicher Abgleich
+
 Stand: 2026-09-08. Helios **1.6.40** (Build 73). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
 
 ## 0. 1.6.40 — Kalman-Palme, AX-Cache, Palm-EMA × dt, Gain × dt

@@ -1467,6 +1467,32 @@ enum CoordTests {
             fputs("FAIL Format already tot\n", stderr)
             fails += 1
         }
+        if !GestureMath.axHitCacheFresh(cachedAt: 1.00, now: 1.12, dt: 0.125) {
+            fputs("FAIL AX-Cache 8 fps 1 Frame frisch\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchDragNeedOf(dt: 0.125) <= GestureMath.pinchDragNeedOf(dt: 0.04) {
+            fputs("FAIL Drag-Need 8 fps höher\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.isDrag(palmMovedHW: 0.50, cursorMovedPx: 3, dt: 0.04) {
+            fputs("FAIL Drag 24 fps 0,50 HW\n", stderr)
+            fails += 1
+        }
+        if GestureMath.isDrag(palmMovedHW: 0.50, cursorMovedPx: 3, dt: 0.125) {
+            fputs("FAIL Drag 8 fps 0,50 HW tot (Klick)\n", stderr)
+            fails += 1
+        }
+        if GestureMath.trackDropoutNeed(dt: 0.125) < 0.35 {
+            fputs("FAIL Track-Dropout ≥ 0,35\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraFormatScoreMeasured(width: 1920, height: 1080, maxFps: 30, measuredFps: 8)
+            >= GestureMath.cameraFormatScoreMeasured(width: 1280, height: 720, maxFps: 24, measuredFps: 8)
+        {
+            fputs("FAIL gemessen 8 fps 720p vor 1080p\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

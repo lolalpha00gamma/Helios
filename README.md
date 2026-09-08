@@ -1,4 +1,4 @@
-# Helios **1.6.34**
+# Helios **1.6.35**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,17 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.35
+
+1.6.34 Ampel × dt, 3D-Pinch, Freeze-HUD. Closedness-Tor ignorierte Landmark-Qualität — Faust-Klick bei q tot. Freeze-Geist stand, Recover teleportierte. Ampel-Ring 6 px, bei 8 fps 4 Frames unsichtbar.
+
+- **pinchClosednessNeed(quality, start).** q < 0,55 hebt das Tor. Faust mit toten Spitzen kein Klick.
+- **pinchStartsGrab / pinchHoldsGrab** nehmen `quality`. GestureEngine reicht `hand.quality`.
+- **freezePalmPredict.** Geisterhand folgt letzter Vel × decay 0,82. Recover ohne Teleport.
+- **TrackedHand.shifted(by:)** + AppState wendet `freezeGhostDelta` an.
+- **chromeDwellRingWidth(dt).** 8 fps dicker, 24 fps bleibt 6 px.
+- Tests + MARKETING_VERSION 1.6.35 (Build 68).
 
 ## Neu in 1.6.34
 

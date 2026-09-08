@@ -1,6 +1,29 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.34**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen. Gelesen, nicht gemergt: IOHID Event-Tap, JSONL, AX-ein-Call.
+Stand: **1.6.35**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen. Gelesen, nicht gemergt: IOHID Event-Tap, JSONL, AX-ein-Call.
+
+## In 1.6.35 erledigt
+
+1.6.34 Ampel × dt, 3D-Pinch, Freeze-HUD. Closedness ohne q. Freeze-Geist stand. Ring 6 px bei 8 fps.
+
+1. **pinchClosednessNeed(quality, start).** q < 0,55 hebt Tor.
+2. **pinchStartsGrab / pinchHoldsGrab** `quality`. Faust mit toten Spitzen kein Klick.
+3. **freezePalmPredict** + **TrackedHand.shifted**. Recover ohne Teleport.
+4. **chromeDwellRingWidth(dt).** 8 fps dicker.
+5. Tests + MARKETING_VERSION 1.6.35 (Build 68).
+
+## Erweiterung (neu)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC, eine Session.
+2. **DisplayLink 90 Hz HUD**, Kamera 8–24 fps. Overlay-Lerp unabhängig.
+3. **HeliosAegisKit** gemeinsamer Broker + Mutex-PTS.
+4. **LiDAR-Pinch** (Depth) statt nur Landmark-z.
+5. **IOHID Event-Tap / AX SetPosition / Per-App Gain** (`bugfix`, opt-in).
+6. **JSONL Session-Replay** Gesten-Regression.
+7. **Zwei-Hand Freeze-Predict** (beide Palmen, nicht nur Actor).
+8. **AirKeyboard Dwell-Ring × fps** analog chromeDwellRingWidth.
+9. **Kalman-Palme während Freeze** statt nur Vel-Decay.
+10. **Clutch vs Freeze** — Jiggler darf Geisterhand nicht wecken.
 
 ## In 1.6.34 erledigt
 

@@ -70,6 +70,7 @@ final class GestureEngine {
     var peaceProgress: CGFloat = 0
     var lockFreeze = ""
     var freezeLive = false
+    var freezeGhostDelta: CGPoint = .zero
 
     private var fistSince: TimeInterval?
     private var fistLostAt: TimeInterval?
@@ -113,6 +114,7 @@ final class GestureEngine {
     private var pointerOrigin: CGPoint?
     private var cursorSmooth: CGPoint?
     private var lastPalm: CGPoint?
+    private var lastPalmVel: CGPoint = .zero
     private var pointerHandID: String?
     private var pointerSourceID: String = ""
     private var pointerLastHand: TrackedHand?
@@ -209,6 +211,7 @@ final class GestureEngine {
         cursorTracks.removeAll()
         handCursors = []
         lastPalm = nil
+        lastPalmVel = .zero
         pointerHandID = nil
         pointerSourceID = ""
         pointerLastHand = nil
@@ -254,6 +257,7 @@ final class GestureEngine {
         peaceProgress = 0
         lockFreeze = ""
         freezeLive = false
+        freezeGhostDelta = .zero
         sampleDt = 0.04
         lastTickNow = 0
         lastFusionEntropy = 0
@@ -266,10 +270,19 @@ final class GestureEngine {
         lastTickNow = now
         lockFreeze = ""
         freezeLive = false
+        freezeGhostDelta = .zero
         let hands = incoming.filter { $0.joints.count >= 8 && $0.meanConfidence >= 0.18 }
         if hands.isEmpty {
             if lastHandSeen > 0, now - lastHandSeen < GestureMath.emptyHandsHold(dt: sampleDt) {
                 freezeLive = true
+                if let p = lastPalm {
+                    let pred = GestureMath.freezePalmPredict(
+                        palm: p, vx: lastPalmVel.x, vy: lastPalmVel.y, dt: sampleDt
+                    )
+                    freezeGhostDelta = CGPoint(x: pred.palm.x - p.x, y: pred.palm.y - p.y)
+                    lastPalm = pred.palm
+                    lastPalmVel = CGPoint(x: pred.vx, y: pred.vy)
+                }
                 if let id = pointerHandID, let label = GestureMath.lockFreezeLabel(locked: id, missHeld: true) {
                     lockFreeze = label
                 } else {
@@ -526,6 +539,7 @@ final class GestureEngine {
 
     func recenterPointer() {
         lastPalm = nil
+        lastPalmVel = .zero
         palmSlow = nil
         pointerHandID = nil
         pointerSourceID = ""
@@ -538,6 +552,7 @@ final class GestureEngine {
     private func releasePointer() {
         cursor = nil
         lastPalm = nil
+        lastPalmVel = .zero
         palmSlow = nil
         pointerHandID = nil
         pointerSourceID = ""
@@ -918,6 +933,8 @@ final class GestureEngine {
         }
 
         let prevPalm = lastPalm ?? palm
+        let velDt = CGFloat(max(0.008, sampleDt))
+        lastPalmVel = CGPoint(x: (palm.x - prevPalm.x) / velDt, y: (palm.y - prevPalm.y) / velDt)
         lastPalm = palm
         let dt = sampleDt
         let slowA = min(0.28, GestureMath.palmHighpassAlpha(dt: dt))
@@ -1233,14 +1250,16 @@ final class GestureEngine {
                 reach: hand.pinchReach,
                 index: hand.indexScore,
                 allowFist: pinchBecameDrag,
-                zSep: hand.pinchZSep
+                zSep: hand.pinchZSep,
+                quality: hand.quality
             )
             : (fire && GestureMath.pinchStartsGrab(
                 gate: hand.pinchClosed,
                 closedness: hand.pinchClosedness,
                 reach: hand.pinchReach,
                 index: hand.indexScore,
-                zSep: hand.pinchZSep
+                zSep: hand.pinchZSep,
+                quality: hand.quality
             ))
         if isGrab && !pinchHeld {
             if GestureMath.pinchReleaseBlocks(now: now, releasedAt: pinchReleasedAt, dt: sampleDt) {

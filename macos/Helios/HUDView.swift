@@ -495,9 +495,16 @@ struct HUDView: View {
                                     )
                                     .frame(width: size, height: size)
                                 if hot, state.chromeDwell > 0.02 {
+                                    let dt = state.fps > 1 ? 1 / state.fps : 0.04
                                     Circle()
                                         .trim(from: 0, to: max(0.02, state.chromeDwell))
-                                        .stroke(HeliosTheme.cyan, style: StrokeStyle(lineWidth: 6, lineCap: .round))
+                                        .stroke(
+                                            HeliosTheme.cyan,
+                                            style: StrokeStyle(
+                                                lineWidth: GestureMath.chromeDwellRingWidth(dt: dt),
+                                                lineCap: .round
+                                            )
+                                        )
                                         .rotationEffect(.degrees(-90))
                                         .frame(width: size - 10, height: size - 10)
                                 }

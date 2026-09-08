@@ -305,6 +305,36 @@ enum GestureMath {
         closedness2D >= 0.50 && sep >= need
     }
 
+    /// q < 0,55: Landmark tot, 2D-Closedness lügt. Tor hoch, sonst Faust-Klick.
+    static func pinchClosednessNeed(quality: Double, start: Bool) -> Double {
+        let base = start ? 0.58 : 0.42
+        let q = max(0, min(1, quality))
+        if q >= 0.55 { return base }
+        let lift = (0.55 - q) * (start ? 0.55 : 0.45)
+        return min(start ? 0.84 : 0.70, base + lift)
+    }
+
+    /// Freeze-Palme: Geisterhand folgt letzter Vel, decay. Recover sonst Teleport.
+    static func freezePalmPredict(
+        palm: CGPoint,
+        vx: CGFloat,
+        vy: CGFloat,
+        dt: TimeInterval,
+        decay: CGFloat = 0.82
+    ) -> (palm: CGPoint, vx: CGFloat, vy: CGFloat) {
+        let d = max(0, min(1, decay))
+        let t = CGFloat(max(0, dt))
+        let nvx = vx * d
+        let nvy = vy * d
+        return (CGPoint(x: palm.x + nvx * t, y: palm.y + nvy * t), nvx, nvy)
+    }
+
+    /// Ampel-Ring: 8 fps dicker, sonst 4 Frames unsichtbar.
+    static func chromeDwellRingWidth(dt: TimeInterval, hot: Bool = true) -> CGFloat {
+        let base: CGFloat = hot ? 6 : 4
+        return max(base, min(14, base + CGFloat(max(0, dt - 0.04) * 48)))
+    }
+
     static func skeletonFreezeDim(_ freeze: Bool) -> CGFloat {
         freeze ? 0.38 : 1
     }
@@ -776,9 +806,9 @@ enum GestureMath {
 
     /// Pinzette starten: Gate oder klare Closedness, und es muss wie Pinzette aussehen
     /// (Reach / Zeigefinger). Faust hat geschlossene Spitzen — das ist kein Klick.
-    static func pinchStartsGrab(gate: Bool, closedness: Double, reach: CGFloat = 1.2, index: Double = 1, zSep: CGFloat = 0) -> Bool {
+    static func pinchStartsGrab(gate: Bool, closedness: Double, reach: CGFloat = 1.2, index: Double = 1, zSep: CGFloat = 0, quality: Double = 1) -> Bool {
         guard pinchLooksLikePinch(reach: reach, index: index, zSep: zSep) else { return false }
-        return gate || closedness > 0.58
+        return gate || closedness > pinchClosednessNeed(quality: quality, start: true)
     }
 
     /// Pinzette halten: weicher, aber Faust (kein Reach) gibt frei — außer Zug darf Faust tragen.
@@ -788,10 +818,11 @@ enum GestureMath {
         reach: CGFloat = 1.2,
         index: Double = 1,
         allowFist: Bool = false,
-        zSep: CGFloat = 0
+        zSep: CGFloat = 0,
+        quality: Double = 1
     ) -> Bool {
         if !allowFist, !pinchLooksLikePinch(reach: reach, index: index, zSep: zSep) { return false }
-        return gate || closedness > 0.42
+        return gate || closedness > pinchClosednessNeed(quality: quality, start: false)
     }
 
     static func pinchLooksLikePinch(reach: CGFloat, index: Double = 1, zSep: CGFloat = 0) -> Bool {

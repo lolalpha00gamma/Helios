@@ -1136,8 +1136,41 @@ enum CoordTests {
             fputs("FAIL 3D-Veto Reach tot\n", stderr)
             fails += 1
         }
-        if !GestureMath.pinchLooksLikePinch(reach: 1.1, index: 0.9, zSep: 0.10) {
+        if GestureMath.pinchLooksLikePinch(reach: 1.1, index: 0.9, zSep: 0.10) {
             fputs("FAIL 3D klein Reach hält\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchClosednessNeed(quality: 0.80, start: true) > 0.59 {
+            fputs("FAIL Closedness q 0,80 bleibt 0,58\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchClosednessNeed(quality: 0.20, start: true) < 0.70 {
+            fputs("FAIL Closedness q 0,20 hebt Tor\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchStartsGrab(gate: false, closedness: 0.62, quality: 0.20) {
+            fputs("FAIL q tot Closedness 0,62 kein Start\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinchStartsGrab(gate: false, closedness: 0.62, quality: 0.90) {
+            fputs("FAIL q scharf Closedness 0,62 Start\n", stderr)
+            fails += 1
+        }
+        let pred = GestureMath.freezePalmPredict(palm: CGPoint(x: 0.4, y: 0.5), vx: 0.20, vy: 0, dt: 0.125)
+        if pred.palm.x <= 0.40 {
+            fputs("FAIL Freeze Predict +x\n", stderr)
+            fails += 1
+        }
+        if pred.vx >= 0.20 {
+            fputs("FAIL Freeze Vel Decay\n", stderr)
+            fails += 1
+        }
+        if GestureMath.chromeDwellRingWidth(dt: 0.016) > 7 {
+            fputs("FAIL Ampel-Ring 24 fps ~6\n", stderr)
+            fails += 1
+        }
+        if GestureMath.chromeDwellRingWidth(dt: 0.125) < 8 {
+            fputs("FAIL Ampel-Ring 8 fps dicker\n", stderr)
             fails += 1
         }
         if GestureMath.skeletonFreezeDim(true) > 0.5 {

@@ -725,7 +725,10 @@ final class AppState: ObservableObject {
         peaceProgress = engine.peaceProgress
         lockFreeze = engine.lockFreeze
         if engine.freezeLive, hands.isEmpty, !self.hands.isEmpty {
-            // Continuity-Geisterhand: letzte Palme bleibt, Skeleton dimmt.
+            let d = engine.freezeGhostDelta
+            if d.x != 0 || d.y != 0 {
+                self.hands = self.hands.map { $0.shifted(by: d) }
+            }
         } else {
             self.hands = hands
         }

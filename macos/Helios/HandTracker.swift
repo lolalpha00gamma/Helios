@@ -66,6 +66,25 @@ struct TrackedHand: Identifiable {
         extended.contains(finger.rawValue)
     }
 
+    /// Freeze-Predict: Gelenke + Palme um Δ. Geisterhand sonst steht.
+    func shifted(by d: CGPoint) -> TrackedHand {
+        guard d.x != 0 || d.y != 0 else { return self }
+        var h = self
+        h.palm = CGPoint(x: palm.x + d.x, y: palm.y + d.y)
+        func move(_ src: [VNHumanHandPoseObservation.JointName: TrackedJoint]) -> [VNHumanHandPoseObservation.JointName: TrackedJoint] {
+            var out = src
+            for (k, j) in src {
+                var jj = j
+                jj.point = CGPoint(x: j.point.x + d.x, y: j.point.y + d.y)
+                out[k] = jj
+            }
+            return out
+        }
+        h.joints = move(h.joints)
+        if !h.displayJoints.isEmpty { h.displayJoints = move(h.displayJoints) }
+        return h
+    }
+
     /// Wrist → Daumen/Zeigefinger. Faust bleibt unter pinchReachNeed.
     var pinchReach: CGFloat {
         guard let w = point(.wrist), let t = point(.thumbTip), let i = point(.indexTip) else {

@@ -1,5 +1,22 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
+Stand: 2026-09-08. Helios **1.6.35** (Build 68). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+
+## 0. 1.6.35 — Qualität-Closedness, Freeze-Predict, Ampel-Ring
+
+1.6.34: Ampel × dt, 3D-Pinch, Freeze sichtbar. Danach klickte die Faust bei toten Landmarks, Freeze-Geist stand, Recover teleportierte, Ampel-Ring 4 Frames unsichtbar.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | pinchStartsGrab ignoriert q | `pinchClosednessNeed(quality, start)` |
+| 2 | Freeze-Geist statisch | `freezePalmPredict` Vel × decay 0,82 |
+| 3 | Recover-Teleport | `TrackedHand.shifted` + `freezeGhostDelta` |
+| 4 | Ampel-Ring 6 px bei 8 fps | `chromeDwellRingWidth(dt)` |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch.
+
+# Analyse, Fehlerbehebung, öffentlicher Abgleich
+
 Stand: 2026-09-07. Helios **1.6.34** (Build 67). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
 
 ## 0. 1.6.34 — Ampel, 3D-Pinch, Freeze sichtbar

@@ -1,4 +1,4 @@
-# Helios **1.6.77**
+# Helios **1.6.78**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -19,6 +19,13 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.78
+
+AXPosition-Fehler: Greifen hat die Fensterlage per Bedienungshilfen gelesen. Safari/Finder/Electron liefern das oft nicht. Tippen starb bei 8 fps in der Tentative-Phase.
+
+- Ziehen = Maustaste halten (CGEvent), wie eine echte Maus. In jeder App.
+- Ein geschlossener Continuity-Frame startet Halten. Kurze stillstehende Pinzette = Klick, auch ohne Closedness 0,50.
 
 ## Neu in 1.6.77
 

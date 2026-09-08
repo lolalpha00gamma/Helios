@@ -1618,7 +1618,7 @@ final class GestureEngine {
                                 let r = system.beginWindowDrag(at: at)
                                 if r.ok {
                                     pinchBecameDrag = true
-                                    lastAction = "Greifen"
+                                    lastAction = r.detail == "Ziehen" ? "Ziehen" : "Greifen"
                                     onLog?("Greifen · \(r.detail)", .executed, Int(hand.poseProb * 100))
                                     grabLogged = true
                                 } else if !grabLogged {
@@ -1697,7 +1697,7 @@ final class GestureEngine {
                 guard hypot(at.x - knob.center.x, at.y - knob.center.y) < 26 else { return nil }
                 return knob
             }()
-            if wantsClick || (!wasDrag && peakClosed >= 0.50 && held >= 0.04 && held <= 1.2 && palmMoved < 0.80) {
+            if wantsClick || (!wasDrag && held >= 0.04 && held <= 1.2 && palmMoved < 0.80) {
                 let at = cursor
                 perform("Klick", need: .input, confidence: 1) {
                     if let point = at { system.moveCursor(to: point) }

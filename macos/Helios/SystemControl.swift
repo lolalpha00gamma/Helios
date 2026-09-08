@@ -223,24 +223,16 @@ final class SystemControl {
         return out
     }
 
+    private var pointerDrag = false
+
     @discardableResult
     func beginWindowDrag(at quartz: CGPoint? = nil) -> ActionResult {
         guard allowsInjection else { return .fail("Maus hat Vorrang — Steuerung pausiert") }
         let loc = quartz ?? lastPosted ?? NSEvent.mouseLocation.screenFlipped
-        guard let win = targetWindow(at: loc) ?? frontWindow() else {
-            if AppInstall.needsCopy {
-                return .fail("Läuft nicht aus Programme")
-            }
-            return .fail("Kein Fenster unter der Hand")
-        }
-        guard let pos = position(of: win) else { return .fail("AXPosition") }
-        dragElement = ax(win)
-        dragDest = nil
-        dragInFlight = false
-        // AX and the engine cursor are both Quartz. Mixing Cocoa here inverted Y.
-        dragGrabOffset = CGPoint(x: loc.x - pos.x, y: loc.y - pos.y)
         lastPosted = loc
-        return .ok("Greifen")
+        guard postMouse(.leftMouseDown, at: loc) else { return .fail("CGEvent Down") }
+        pointerDrag = true
+        return .ok("Ziehen")
     }
 
     func updateWindowDrag(to quartz: CGPoint? = nil) {
@@ -248,37 +240,24 @@ final class SystemControl {
             endWindowDrag()
             return
         }
-        guard dragElement != nil else { return }
+        guard pointerDrag else { return }
         let loc = quartz ?? lastPosted ?? NSEvent.mouseLocation.screenFlipped
         lastPosted = loc
-        dragDest = CGPoint(x: loc.x - dragGrabOffset.x, y: loc.y - dragGrabOffset.y)
-        pumpDrag()
-    }
-
-    private func pumpDrag() {
-        guard let win = dragElement, let dest = dragDest else { return }
-        if dragInFlight { return }
-        dragInFlight = true
-        dragDest = nil
-        let captured = win
-        axQ.async {
-            _ = SystemControl.setPositionRaw(captured, dest)
-            Task { @MainActor in
-                self.dragInFlight = false
-                if self.dragElement != nil, self.dragDest != nil {
-                    self.pumpDrag()
-                }
-            }
-        }
+        _ = postMouse(.leftMouseDragged, at: loc)
     }
 
     func endWindowDrag() {
+        if pointerDrag {
+            let loc = lastPosted ?? NSEvent.mouseLocation.screenFlipped
+            _ = postMouse(.leftMouseUp, at: loc)
+            pointerDrag = false
+        }
         dragElement = nil
         dragDest = nil
         dragInFlight = false
     }
 
-    var isDragging: Bool { dragElement != nil }
+    var isDragging: Bool { pointerDrag }
 
     @discardableResult
     func resizeFocused(scale: CGFloat) -> ActionResult {

@@ -1590,6 +1590,11 @@ enum CoordTests {
             fputs("FAIL Leiter-Bias 720 vor 1080\n", stderr)
             fails += 1
         }
+        var pinch8 = GestureMath.pinchHoldAdvance(phase: .unseen, closed: true, heldFor: 0, dt: 0.125)
+        if pinch8.phase != .held {
+            fputs("FAIL 8 fps Tap unseen→held\n", stderr)
+            fails += 1
+        }
         var pinch = GestureMath.pinchHoldAdvance(phase: .unseen, closed: true, heldFor: 0, dt: 0.04)
         if pinch.phase != .tentative {
             fputs("FAIL Pinch unseen→tentative\n", stderr)

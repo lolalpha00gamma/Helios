@@ -826,7 +826,10 @@ enum GestureMath {
         let t = max(0, dt)
         switch phase {
         case .unseen:
-            return closed ? (.tentative, t) : (.unseen, 0)
+            if !closed { return (.unseen, 0) }
+            // 8 fps: ein geschlossener Tick (0,12 s) ist schon Halten, sonst stirbt der Tap in tentative.
+            if t > tentativeNeed { return (.held, t) }
+            return (.tentative, t)
         case .tentative:
             if !closed { return (.unseen, 0) }
             let h = heldFor + t

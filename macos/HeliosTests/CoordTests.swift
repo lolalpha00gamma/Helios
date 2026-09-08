@@ -1635,6 +1635,22 @@ enum CoordTests {
             fputs("FAIL Start lastFormatHeight hält\n", stderr)
             fails += 1
         }
+        if GestureMath.lastFormatHeightResets(prevID: "old", nextID: "new", prevName: "iPhone von Ada", nextName: "iPhone von Ada") {
+            fputs("FAIL sticky lastFormatHeight hält 720\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraIDSticky(prev: "M1", next: "M2", prevName: "FaceTime HD", nextName: "FaceTime HD", prevRole: "mac", nextRole: "mac") {
+            fputs("FAIL Mac-ID Wechsel nicht sticky\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.cameraIDSticky(prev: "O1", next: "O2", prevName: "Osmo Pocket", nextName: "Osmo Pocket", prevRole: "osmo", nextRole: "osmo") {
+            fputs("FAIL Osmo Reconnect sticky\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraIDSticky(prev: "A", next: "B", prevName: "iPhone von Ada", nextName: "iPhone von Bob", prevRole: "phone", nextRole: "phone") {
+            fputs("FAIL anderes iPhone nicht sticky\n", stderr)
+            fails += 1
+        }
         if GestureMath.cameraPreferredID(
             preferredID: "gone",
             preferredName: "iPhone von Ada",

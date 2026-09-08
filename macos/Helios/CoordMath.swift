@@ -452,27 +452,45 @@ enum GestureMath {
         return t
     }
 
-    static func cameraIDSticky(prev: String, next: String, prevName: String = "", nextName: String = "") -> Bool {
+    static func cameraIDSticky(prev: String, next: String, prevName: String = "", nextName: String = "", prevRole: String = "", nextRole: String = "") -> Bool {
         if prev.isEmpty || next.isEmpty { return false }
         if prev == next { return true }
+        if prevRole == "mac" || nextRole == "mac" { return false }
         let a = cameraNameBare(prevName)
         let b = cameraNameBare(nextName)
-        return !a.isEmpty && a == b
+        if a.isEmpty || a != b { return false }
+        if !prevRole.isEmpty && !nextRole.isEmpty && prevRole != nextRole { return false }
+        return true
     }
 
     static func cameraIDHomographyResets(
         prev: String,
         next: String,
         prevName: String = "",
-        nextName: String = ""
+        nextName: String = "",
+        prevRole: String = "",
+        nextRole: String = ""
     ) -> Bool {
         if prev.isEmpty || next.isEmpty { return false }
-        return !cameraIDSticky(prev: prev, next: next, prevName: prevName, nextName: nextName)
+        return !cameraIDSticky(prev: prev, next: next, prevName: prevName, nextName: nextName, prevRole: prevRole, nextRole: nextRole)
     }
 
-    /// Format-Leiter sonst 1080p der alten Cam. uniqueID-Wechsel = Höhe neu.
-    static func lastFormatHeightResets(prevID: String, nextID: String) -> Bool {
-        !prevID.isEmpty && prevID != nextID
+    /// Leiter nur bei echtem Cam-Wechsel, nicht uniqueID-Reconnect.
+    static func lastFormatHeightResets(
+        prevID: String,
+        nextID: String,
+        prevName: String = "",
+        nextName: String = "",
+        prevRole: String = "",
+        nextRole: String = ""
+    ) -> Bool {
+        if prevID.isEmpty || nextID.isEmpty { return false }
+        if prevID == nextID { return false }
+        return !cameraIDSticky(
+            prev: prevID, next: nextID,
+            prevName: prevName, nextName: nextName,
+            prevRole: prevRole, nextRole: nextRole
+        )
     }
 
     /// Continuity Reconnect: uniqueID tot, Name bleibt. Sonst fällt preferredDevice auf Built-in.

@@ -1,6 +1,20 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
-Stand: 2026-09-08. Helios **1.6.46** (Build 79). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+Stand: 2026-09-08. Helios **1.6.47** (Build 80). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+
+## 0. 1.6.47 — start() hält Leiter, lastFormatHeight sticky, Mac nie
+
+1.6.46: uniqueID sticky Name, PTS-Wall, Kalman-Palme. `start()` wischte lastFormatHeight=1080 und lastDeviceUniqueID. uniqueID-Wechsel dumpte Leiter trotz gleichem iPhone. FaceTime-Name klebte.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | start() Leiter 1080p@8 | lastFormatHeight / uniqueID / Role überleben start() |
+| 2 | uniqueID-Wechsel dumpte Höhe | lastFormatHeightResets via cameraIDSticky |
+| 3 | Mac-Name sticky | cameraIDSticky Mac nie, Osmo ja |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe.
+
+
 
 ## 0. 1.6.46 — uniqueID sticky, PTS-Freeze, lastFormatHeight, Kalman-Palme
 

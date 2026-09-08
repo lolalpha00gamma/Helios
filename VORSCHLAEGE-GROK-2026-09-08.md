@@ -1,3 +1,28 @@
+# Helios Vorschläge — 2026-09-08 (Pass 10b, 1.6.47)
+
+Stand 1.6.47. start() hält Leiter, lastFormatHeight sticky, Mac nie.
+
+## Gelandet in 1.6.47
+
+- start() ohne lastFormatHeight=1080 Wipe
+- lastFormatHeightResets via cameraIDSticky (Mac nie, Osmo ja)
+- lastAppliedCameraRole
+
+## Erweiterung (neu)
+
+91. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0 groß.
+92. **Clutch-Radius × backingScaleFactor**.
+93. **AX-Hit-Cache × Fenster-ID** während Freeze.
+94. **Two-pinch vs Scroll-Hysterese**.
+95. **JSONL Session-Replay** ohne Vision auf Linux.
+96. **Watch-IMU Pinch-Confirm**.
+97. **SpaceMap Re-Calib** nach Display-Drehung.
+98. **Sleep/Wake Camera-Recovery**.
+99. **Slot-ID persist** über uniqueID-Flicker.
+100. **DepthCapture an Continuity-LiDAR**.
+
+P0: CameraBroker. Kein weiteres dt-Pflaster.
+
 # Helios Vorschläge — 2026-09-08 (Pass 10, 1.6.46)
 
 Stand 1.6.46. uniqueID sticky, PTS-Freeze, lastFormatHeight, Kalman-Palme.

@@ -1,6 +1,39 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.46**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+Stand: **1.6.47**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.47 erledigt
+
+1.6.46 uniqueID sticky Name, PTS-Wall, Kalman-Palme. start() dumpte Leiter. uniqueID-Wechsel dumpte Höhe. Mac-Name klebte.
+
+1. **start() hält lastFormatHeight / uniqueID / Role.**
+2. **lastFormatHeightResets via cameraIDSticky.** Mac nie, Osmo ja.
+3. Tests + MARKETING_VERSION 1.6.47 (Build 80).
+
+## Erweiterung (neu, 1.6.47)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC, eine Session. P0.
+2. **HeliosAegisKit** gemeinsamer Broker + Mutex-PTS.
+3. **Two-pinch vs scroll hysteresis.**
+4. **Clutch-Radius × backingScaleFactor** je NSScreen.
+5. **AX-Hit-Cache × Fenster-ID.**
+6. **mmap leftover-Boxen** Helios↔Aegis.
+7. **Aegis-Yaw als Click-Lock.**
+8. **HUD Pose-Chips am DisplayLink.**
+9. **Session-Watchdog** Idle = fps>0 UND keine Aegis-Face UND 8 s leer.
+10. **Pointer-Accel × backingScaleFactor.**
+11. **DepthCapture an Continuity LiDAR** (Datei ist Stub).
+12. **JSONL Session-Replay** ohne Vision auf Linux.
+13. **MediaPipe Hands Fallback.**
+14. **SpaceMap Re-Calib** nach Bildschirm-Drehung.
+15. **Watch-IMU Pinch-Confirm.**
+16. **PinchHold analog** Closedness-Mix.
+17. **Sleep/Wake Camera-Recovery** ohne Homographie-Reset.
+18. **CGEvent-Tap coalescing 90 Hz.**
+19. **Slot-ID persist** über uniqueID-Flicker.
+20. **IOHID Force-Click vs Pinch.**
+
+P0 CameraBroker. Kein 1.6.48-dt-Pflaster ohne Broker.
 
 ## In 1.6.46 erledigt
 

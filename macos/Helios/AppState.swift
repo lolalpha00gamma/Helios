@@ -101,6 +101,7 @@ final class AppState: ObservableObject {
     private var lastArmedConsole: EngineMode = .idle
     private var lastAppliedCameraID = ""
     private var lastAppliedCameraName = ""
+    private var lastAppliedCameraRole = ""
     private var mapMemo: [String: SpaceMap] = [:]
     private var cancellables: Set<AnyCancellable> = []
     private var didShutdown = false
@@ -614,11 +615,14 @@ final class AppState: ObservableObject {
     ) {
         let camID = camera.selectedID
         let camName = camera.deviceName
+        let camRole = cameraDevices.first { $0.id == camID }?.role.rawValue ?? lastAppliedCameraRole
         if GestureMath.cameraIDHomographyResets(
             prev: lastAppliedCameraID,
             next: camID,
             prevName: lastAppliedCameraName,
-            nextName: camName
+            nextName: camName,
+            prevRole: lastAppliedCameraRole,
+            nextRole: camRole
         ) {
             engine.recenterPointer()
             engine.spaceMap = SpaceMap.load(cameraID: camID, displayID: ScreenGeometry.mainDisplayID)
@@ -637,6 +641,7 @@ final class AppState: ObservableObject {
         }
         lastAppliedCameraID = camID
         lastAppliedCameraName = camName
+        lastAppliedCameraRole = camRole
         engine.tick(hands: hands, now: now)
         if drill.running || drill.phase == .countdown || drill.phase == .capture || drill.phase == .rest {
             drill.tick(hands: hands, now: now)

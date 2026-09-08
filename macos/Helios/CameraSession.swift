@@ -83,6 +83,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     /// Letzte aktive Höhe — Leiter sonst denselben 1080p-Retry.
     private var lastFormatHeight: Double = 1080
     private var lastDeviceUniqueID: String = ""
+    private var lastDeviceRole: String = ""
     private var lastPts: TimeInterval = 0
     private var lastPtsWall: TimeInterval = 0
     private var preferredName: String = UserDefaults.standard.string(forKey: "helios.cameraName") ?? ""
@@ -93,10 +94,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     func start() {
         DispatchQueue.main.async { self.errorMessage = nil }
         pump.reset()
-        formatRenegotiated = false
         lastRenegotiateAt = 0
-        lastFormatHeight = 1080
-        lastDeviceUniqueID = ""
         lastPts = 0
         lastPtsWall = 0
         cameraQueue.async { [weak self] in
@@ -362,7 +360,14 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             session.commitConfiguration()
             return
         }
-        if GestureMath.lastFormatHeightResets(prevID: lastDeviceUniqueID, nextID: device.uniqueID) {
+        if GestureMath.lastFormatHeightResets(
+            prevID: lastDeviceUniqueID,
+            nextID: device.uniqueID,
+            prevName: preferredName,
+            nextName: device.localizedName,
+            prevRole: lastDeviceRole,
+            nextRole: Self.role(device).rawValue
+        ) {
             lastFormatHeight = 1080
             formatRenegotiated = false
             lastRenegotiateAt = 0
@@ -370,6 +375,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             lastPtsWall = 0
         }
         lastDeviceUniqueID = device.uniqueID
+        lastDeviceRole = Self.role(device).rawValue
         preferredName = device.localizedName
         preferredID = device.uniqueID
         UserDefaults.standard.set(device.uniqueID, forKey: "helios.cameraID")

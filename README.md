@@ -1,4 +1,4 @@
-# Helios **1.6.46**
+# Helios **1.6.47**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -19,6 +19,14 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.47
+
+1.6.46 uniqueID sticky Name, PTS-Wall, Kalman-Palme. `start()` setzte lastFormatHeight=1080 und lastDeviceUniqueID="". uniqueID-Wechsel dumpte die Leiter trotz gleichem iPhone. Mac-Name klebte.
+
+- **start() hält Leiter.** lastFormatHeight / lastDeviceUniqueID / Role überleben Reconnect.
+- **lastFormatHeightResets sticky.** Gleicher Name+Role, Mac nie. Continuity-Reconnect bleibt 720p@24.
+- Tests + MARKETING_VERSION 1.6.47 (Build 80).
 
 ## Neu in 1.6.46
 

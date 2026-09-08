@@ -1,4 +1,4 @@
-# Helios **1.6.76**
+# Helios **1.6.77**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -19,6 +19,14 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.77
+
+Protokoll 19:26: Zeiger saß nicht auf den Fenstern. Ohne Kalibrierung lief der Actor relativ zur OS-Maus. palmY < 0 klemmte an den Bildschirmrand. Hervorholen las NSEvent statt lastPosted.
+
+- Actor immer Homographie, sonst linear — nicht Maus-Delta.
+- Palme außerhalb des Kamerarahmens: letzter Zeiger, kein Rand.
+- Hervorholen an lastPosted, sonst Frontfenster.
 
 ## Neu in 1.6.76
 

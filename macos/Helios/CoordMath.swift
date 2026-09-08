@@ -1325,6 +1325,11 @@ enum GestureMath {
     static func hudLerpDrivesCursor() -> Bool { true }
 
     /// Accessibility: reduced-motion = HUD ohne Coast, Sample bleibt.
+    /// Kamera-UV. palmY −0,34 (Protokoll 19:26) ist außerhalb — Zeiger nicht an den Rand klemmen.
+    static func palmInFrame(_ palm: CGPoint, pad: CGFloat = 0.04) -> Bool {
+        palm.x + pad >= 0 && palm.x - pad <= 1 && palm.y + pad >= 0 && palm.y - pad <= 1
+    }
+
     static func hudCoastAllowed(reduceMotion: Bool) -> Bool { !reduceMotion }
 
     /// Retina 2×: 48 pt zu eng nach 90 Hz Coast. Scale 1 bleibt 48, 2× = 96.

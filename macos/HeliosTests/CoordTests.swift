@@ -1994,6 +1994,14 @@ enum CoordTests {
             fputs("FAIL Deadman Faust-Sperre\n", stderr)
             fails += 1
         }
+        if GestureMath.palmInFrame(CGPoint(x: 0.5, y: -0.34)) {
+            fputs("FAIL palmY −0,34 im Rahmen\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.palmInFrame(CGPoint(x: 0.35, y: 0.45)) {
+            fputs("FAIL palmY 0,45 draußen\n", stderr)
+            fails += 1
+        }
         if GestureMath.cgEventCoalesceDue(lastPost: 1.0, now: 1.005) {
             fputs("FAIL Coalesce zu früh\n", stderr)
             fails += 1

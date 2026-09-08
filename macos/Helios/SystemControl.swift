@@ -358,8 +358,10 @@ final class SystemControl {
     }
 
     @discardableResult
-    func unhideFront() -> ActionResult {
-        if let t = TargetProbe.windowUnderCursor(skipSelf: true),
+    func unhideFront(at quartz: CGPoint? = nil) -> ActionResult {
+        let loc = quartz ?? lastPosted ?? TargetProbe.cursorInWindowList()
+        if let t = TargetProbe.windowAt(quartz: loc, skipSelf: true)
+            ?? TargetProbe.frontmost(skipSelf: true),
            let app = NSRunningApplication(processIdentifier: t.pid)
         {
             app.unhide()

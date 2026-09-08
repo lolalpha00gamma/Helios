@@ -33,18 +33,20 @@ struct SpaceMap: Codable {
     var displayID: UInt32 = 0
     var cameraID: String = ""
     var rotation: Double = 0
+    var meanPalmWidth: CGFloat = 0
 
     var isReady: Bool { palms.count == 4 }
 
     enum CodingKeys: String, CodingKey {
-        case palms, displayID, cameraID, rotation
+        case palms, displayID, cameraID, rotation, meanPalmWidth
     }
 
-    init(palms: [XY], displayID: UInt32 = 0, cameraID: String = "", rotation: Double = 0) {
+    init(palms: [XY], displayID: UInt32 = 0, cameraID: String = "", rotation: Double = 0, meanPalmWidth: CGFloat = 0) {
         self.palms = palms
         self.displayID = displayID
         self.cameraID = cameraID
         self.rotation = rotation
+        self.meanPalmWidth = meanPalmWidth
     }
 
     init(from decoder: Decoder) throws {
@@ -53,6 +55,7 @@ struct SpaceMap: Codable {
         displayID = try c.decodeIfPresent(UInt32.self, forKey: .displayID) ?? 0
         cameraID = try c.decodeIfPresent(String.self, forKey: .cameraID) ?? ""
         rotation = try c.decodeIfPresent(Double.self, forKey: .rotation) ?? 0
+        meanPalmWidth = try c.decodeIfPresent(CGFloat.self, forKey: .meanPalmWidth) ?? 0
     }
 
     static func screenCorners(displayID: CGDirectDisplayID = 0) -> [CGPoint] {
@@ -319,9 +322,15 @@ private enum HomographyStore {
     }
 }
 
+enum CalibMode: Equatable {
+    case corners
+    case edgeLock
+}
+
 @MainActor
 final class CalibrationSession {
     private(set) var active = false
+    private(set) var mode: CalibMode = .corners
     private(set) var corner: CalibCorner = .topLeft
     private(set) var hold: CGFloat = 0
     private(set) var cursorGap: CGFloat = 0
@@ -337,12 +346,32 @@ final class CalibrationSession {
     private(set) var cameraID = ""
     private(set) var cameraLabel = ""
     private var finishedID: String?
+    private var palmWidths: [CGFloat] = []
+    var isEdgeLock: Bool { mode == .edgeLock }
+    var targetName: String { ScreenGeometry.displayName(targetDisplay) }
 
-    var progress: CGFloat { min(1, hold / 0.9) }
+    var progress: CGFloat { min(1, hold / (mode == .edgeLock ? 0.55 : 0.9)) }
     var remaining: Int { 4 - samples.count }
 
     func start(cameraID: String = "", label: String = "") {
+        resetBase(cameraID: cameraID, label: label, display: ScreenGeometry.mainDisplayID, mode: .corners)
+        if label.isEmpty {
+            hint = "Ecke oben links: dein Anschlag, nicht der Kamerarand. Pinzette 1 s."
+        } else {
+            hint = "\(label): Ecke oben links — Blickwinkel dieser Quelle. Anschlag, nicht Kamerarand."
+        }
+    }
+
+    /// Kamera filmt die Leinwand / den gespiegelten Schirm, nicht den Mac-Deckel.
+    func startEdgeLock(cameraID: String = "", label: String = "") {
+        let disp = ScreenGeometry.projectionDisplayID
+        resetBase(cameraID: cameraID, label: label, display: disp, mode: .edgeLock)
+        hint = "Beamer: an jeden Bildrand gehen, so weit die Hand kommt, Pinzette halten. Reihenfolge egal. Ziel: \(ScreenGeometry.displayName(disp))."
+    }
+
+    private func resetBase(cameraID: String, label: String, display: CGDirectDisplayID, mode: CalibMode) {
         active = true
+        self.mode = mode
         corner = .topLeft
         hold = 0
         samples.removeAll()
@@ -352,15 +381,11 @@ final class CalibrationSession {
         needMove = false
         rejected = false
         lastT = 0
-        targetDisplay = ScreenGeometry.mainDisplayID
+        targetDisplay = display
         self.cameraID = cameraID
         cameraLabel = label
         finishedID = nil
-        if label.isEmpty {
-            hint = "Ecke oben links: dein Anschlag, nicht der Kamerarand. Pinzette 1 s."
-        } else {
-            hint = "\(label): Ecke oben links — Blickwinkel dieser Quelle. Anschlag, nicht Kamerarand."
-        }
+        palmWidths.removeAll()
     }
 
     func consumeFinished() -> String? {
@@ -379,8 +404,11 @@ final class CalibrationSession {
     }
 
     /// Nur Pinzette. Nach jedem Treffer: Hand öffnen und zur nächsten Ecke gehen.
-    func feed(palm: CGPoint, now: TimeInterval, confirm: Bool) -> SpaceMap? {
+    func feed(palm: CGPoint, now: TimeInterval, confirm: Bool, palmWidth: CGFloat = 0) -> SpaceMap? {
         guard active else { return nil }
+        if mode == .edgeLock {
+            return feedEdge(palm: palm, now: now, confirm: confirm, palmWidth: palmWidth)
+        }
         let dt = lastT == 0 ? 0 : min(now - lastT, GestureMath.sampleDtCap)
         lastT = now
         let moved = lastPalm.map { hypot(palm.x - $0.x, palm.y - $0.y) } ?? 1
@@ -451,17 +479,110 @@ final class CalibrationSession {
             rejected = true
             return nil
         }
+        let mean = palmWidths.isEmpty ? 0 : palmWidths.reduce(0, +) / CGFloat(palmWidths.count)
         let map = SpaceMap(
             palms: pts.map(XY.init),
             displayID: targetDisplay,
             cameraID: cameraID,
-            rotation: GestureMath.spaceMapRotation(displayID: targetDisplay)
+            rotation: GestureMath.spaceMapRotation(displayID: targetDisplay),
+            meanPalmWidth: mean
         )
         map.save()
         active = false
         finishedID = cameraID
         hint = "Fertig"
         return map
+    }
+
+    /// Anschlag + Pinzette: Ecke aus der Kameraposition, Reihenfolge egal.
+    private func feedEdge(palm: CGPoint, now: TimeInterval, confirm: Bool, palmWidth: CGFloat) -> SpaceMap? {
+        let dt = lastT == 0 ? 0 : min(now - lastT, GestureMath.sampleDtCap)
+        lastT = now
+        let moved = lastPalm.map { hypot(palm.x - $0.x, palm.y - $0.y) } ?? 1
+        lastPalm = palm
+        cursorGap = 0
+        let slot = Self.classifyCorner(palm)
+        corner = slot
+        let reach = hypot(palm.x - 0.5, palm.y - 0.5)
+        let missing = CalibCorner.allCases.filter { samples[$0] == nil }.map(\.titleDE)
+        if needRelease {
+            hold = 0
+            hint = remaining == 0 ? "Hand öffnen" : "Öffnen, nächster Rand: \(missing.joined(separator: ", "))"
+            if !confirm { needRelease = false }
+            return nil
+        }
+        if !confirm {
+            hold = 0
+            hint = missing.isEmpty
+                ? "4 Ränder da"
+                : "Anschlag \(slot.titleDE), Pinzette halten. Offen: \(missing.joined(separator: ", "))"
+            return nil
+        }
+        if reach < 0.16 {
+            hold = 0
+            hint = "Weiter nach außen — bis nichts mehr geht, dann Pinzette"
+            return nil
+        }
+        if moved < 0.012 {
+            hold += CGFloat(dt)
+        } else {
+            hold = 0
+            hint = "Stillhalten am Rand …"
+            return nil
+        }
+        if hold < 0.55 {
+            hint = "Anschlag \(slot.titleDE) … \(Int(min(100, hold / 0.55 * 100))) %"
+            return nil
+        }
+        if lastCapture > 0, now - lastCapture < 0.9 {
+            hint = "Kurz warten …"
+            return nil
+        }
+        let prev = samples[slot]
+        let better = prev.map { hypot($0.x - 0.5, $0.y - 0.5) } ?? -1
+        if reach + 0.01 >= better {
+            samples[slot] = palm
+            if palmWidth > 0.02 { palmWidths.append(palmWidth) }
+        }
+        rejected = false
+        hold = 0
+        lastCapture = now
+        needRelease = true
+        let ordered: [CalibCorner] = [.topLeft, .topRight, .bottomRight, .bottomLeft]
+        let pts = ordered.compactMap { samples[$0] }
+        if pts.count < 4 {
+            hint = "OK \(slot.titleDE) (\(pts.count)/4). Öffnen, nächster Bildrand."
+            return nil
+        }
+        guard Self.quadArea(pts) >= GestureMath.calibMinArea else {
+            samples[slot] = nil
+            hint = "Viereck zu klein. Extremere Ecken, nicht Kamerarand."
+            rejected = true
+            return nil
+        }
+        let mean = palmWidths.isEmpty ? 0 : palmWidths.reduce(0, +) / CGFloat(palmWidths.count)
+        let map = SpaceMap(
+            palms: pts.map(XY.init),
+            displayID: targetDisplay,
+            cameraID: cameraID,
+            rotation: GestureMath.spaceMapRotation(displayID: targetDisplay),
+            meanPalmWidth: mean
+        )
+        map.save()
+        active = false
+        finishedID = cameraID
+        hint = "Beamer-Kalibrierung fertig — Homographie sitzt"
+        return map
+    }
+
+    /// Vision y nach oben. Kamera blickt auf die Leinwand.
+    static func classifyCorner(_ palm: CGPoint) -> CalibCorner {
+        let left = palm.x < 0.5
+        let top = palm.y >= 0.5
+        if top && left { return .topLeft }
+        if top && !left { return .topRight }
+        if !top && !left { return .bottomRight }
+        return .bottomLeft
     }
 
     private func lastSample() -> CGPoint? {

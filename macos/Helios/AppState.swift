@@ -537,6 +537,17 @@ final class AppState: ObservableObject {
         engine.calibration = calibSession
     }
 
+    /// Externe Kamera filmt Leinwand/Beamer. Anschlag+Pinzette, Homographie rest.
+    func startEdgeCalibration() {
+        hudVisible = true
+        overlayVisible()
+        let leadID = camera.selectedID
+        let label = camera.deviceName
+        calibSession.startEdgeLock(cameraID: leadID, label: label)
+        engine.calibration = calibSession
+        log.record("Beamer-Kalibrierung: \(label) → \(calibSession.targetName)", kind: .info)
+    }
+
     func cancelCalibration() {
         calibSession.cancel()
         log.record("Kalibrierung abgebrochen", kind: .info)

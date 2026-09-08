@@ -166,6 +166,26 @@ enum ScreenGeometry {
         NSScreen.main.map { displayID(of: $0) } ?? 0
     }
 
+    static func isBuiltIn(_ screen: NSScreen) -> Bool {
+        let n = screen.localizedName.lowercased()
+        return n.contains("built-in") || n.contains("color lcd")
+            || n.contains("liquid retina") || n.contains("macbook")
+    }
+
+    /// Beamer / externer Schirm: größte Fläche, die nicht Built-in ist. Spiegelung = ein Schirm.
+    static var projectionDisplayID: CGDirectDisplayID {
+        let screens = NSScreen.screens
+        let extern = screens.filter { !isBuiltIn($0) }
+        let pick = (extern.max { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height })
+            ?? screens.max { $0.frame.width * $0.frame.height < $1.frame.width * $1.frame.height }
+            ?? NSScreen.main
+        return pick.map { displayID(of: $0) } ?? mainDisplayID
+    }
+
+    static func displayName(_ id: CGDirectDisplayID) -> String {
+        NSScreen.screens.first { displayID(of: $0) == id }?.localizedName ?? "Bildschirm"
+    }
+
     /// Cursor in Union-Norm [0,1], Y Quartz (oben = 0).
     static func unitInUnion(quartz: CGPoint) -> CGPoint {
         let r = quartzRect(fromCocoa: cocoaUnion)

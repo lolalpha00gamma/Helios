@@ -256,11 +256,15 @@ struct ControlPanel: View {
                     } else {
                         Button("Vier Ecken kalibrieren") { state.startCalibration() }
                             .buttonStyle(.borderedProminent)
+                        Button("Beamer / externe Kamera") { state.startEdgeCalibration() }
                     }
                     if state.mapReady {
                         Button("Kalibrierung löschen") { state.clearCalibration() }
                             .buttonStyle(.borderless)
                     }
+                    Text("Vier Ecken: Kamera sieht den Mac-Schirm. Beamer: Kamera (Handy, Osmo, USB) sieht die Leinwand oder den gespiegelten Schirm. An jeden sichtbaren Bildrand gehen, so weit die Hand kommt, Pinzette halten — Reihenfolge egal. Homographie, Abstand und Gesten berechnet Helios.")
+                        .font(.system(size: 10))
+                        .foregroundStyle(.secondary)
                     Text("Mac (Lead) führt alle Aktionen. Osmo/iPhone ist nur zweite Sicht: bessere Fingerlage, kein eigenes Klicken/Ziehen. Kalibrierung: erst Mac 4 Ecken, dann Cover dieselben Bildschirmecken — Pinzette zählt nur, wenn die Mac-Kamera sie auch sieht. Weichen die gemappten Lagen stark ab, bleibt die Mac-Lage.")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)

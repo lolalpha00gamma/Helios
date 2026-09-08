@@ -73,7 +73,7 @@ struct HUDView: View {
         let onScreen = ScreenGeometry.contains(quartz: target, screen: screenFrame, pad: 40)
         return ZStack {
             HeliosTheme.void.opacity(0.28)
-            if onScreen {
+            if onScreen, !state.calibSession.isEdgeLock {
                 CornerMark()
                     .stroke(HeliosTheme.cyan, lineWidth: 5)
                     .frame(width: 110, height: 110)
@@ -87,9 +87,11 @@ struct HUDView: View {
             }
             if isPrimary {
                 VStack(spacing: 8) {
-                    Text(state.calibSession.cameraLabel.isEmpty
-                         ? "KALIBRIERUNG · ANSCHLAG, NICHT KAMERARAND"
-                         : "KALIBRIERUNG · \(state.calibSession.cameraLabel.uppercased())")
+                    Text(state.calibSession.isEdgeLock
+                         ? "BEAMER · ANSCHLAG AM BILD, PINZETTE"
+                         : (state.calibSession.cameraLabel.isEmpty
+                            ? "KALIBRIERUNG · ANSCHLAG, NICHT KAMERARAND"
+                            : "KALIBRIERUNG · \(state.calibSession.cameraLabel.uppercased())"))
                         .font(.system(size: 13, weight: .bold, design: .monospaced))
                         .foregroundStyle(HeliosTheme.amber)
                     Text("Ecke \(state.calibCorner)   ·   \(state.calibSession.samples.count)/4")
@@ -98,7 +100,9 @@ struct HUDView: View {
                     Text(state.calibSession.hint)
                         .font(.system(size: 13, design: .monospaced))
                         .foregroundStyle(.white.opacity(0.9))
-                    Text("Blickwinkel dieser Quelle. 4 Bildschirmecken, Anschlag in DIESEM Bild. Nur Pinzette bestätigt.")
+                    Text(state.calibSession.isEdgeLock
+                         ? "Kamera filmt die Leinwand. Rand so weit du kommst, zusammenkneifen, halten. Homographie übernimmt den Rest."
+                         : "Blickwinkel dieser Quelle. 4 Bildschirmecken, Anschlag in DIESEM Bild. Nur Pinzette bestätigt.")
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(HeliosTheme.amber)
                 }

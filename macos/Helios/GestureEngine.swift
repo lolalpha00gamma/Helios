@@ -520,7 +520,7 @@ final class GestureEngine {
                 closedness: actor.pinchClosedness,
                 residual: actor.liftResidual
             )
-            if let done = cal.feed(palm: actor.palm, now: now, confirm: confirm) {
+            if let done = cal.feed(palm: actor.palm, now: now, confirm: confirm, palmWidth: actor.palmWidth) {
                 spaceMap = done
                 lastAction = "Kalibrierung fertig"
                 onLog?("Kalibrierung · 4 Ecken", .executed, 100)

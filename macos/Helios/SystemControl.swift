@@ -369,6 +369,16 @@ final class SystemControl {
     }
 
     @discardableResult
+    func switchDesktop(forward: Bool) -> ActionResult {
+        // ctrl+← / ctrl+→  Mission Control Spaces
+        let key: CGKeyCode = forward ? 124 : 123
+        if chord(key: key, flags: .maskControl) {
+            return .ok(forward ? "→" : "←")
+        }
+        return .fail("Schreibtisch-Taste")
+    }
+
+    @discardableResult
     func switchApp(forward: Bool) -> ActionResult {
         let selfPID = TargetProbe.selfPID
         var seen = Set<pid_t>()

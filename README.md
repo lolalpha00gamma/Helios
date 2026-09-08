@@ -1,4 +1,4 @@
-# Helios **1.6.70**
+# Helios **1.6.71**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -19,6 +19,14 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.71
+
+Kalibrierung hat Cursor, Klick und Wischen geschluckt und ließ sich nicht beenden.
+
+- Abbruch: Button, Esc, 2× Klatschen, Faust. Overlay nimmt Klicks nur dann.
+- Cursor bleibt während Kalibrierung und Pinch sichtbar (clamp, nicht hide).
+- Offene Hand wischen = Schreibtisch (ctrl+Pfeil). Nach 4 Ecken automatisch Scharf.
 
 ## Neu in 1.6.70
 

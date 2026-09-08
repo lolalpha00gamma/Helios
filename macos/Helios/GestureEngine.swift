@@ -534,6 +534,29 @@ final class GestureEngine {
 
         if let cal = calibration, cal.active {
             let actor = preferred(hands)
+            placeCursors(hands, actor: actor)
+            if let p = cursor { postSampleCursor(p) }
+            if driveClap(hands: hands, now: now) {
+                cal.cancel()
+                lastAction = "Kalibrierung abgebrochen"
+                onLog?("Kalibrierung — 2× Klatschen, Abbruch", .info, nil)
+                return
+            }
+            let fisting = hands.contains {
+                $0.pose == .fist || ($0.openScore == 0 && $0.pinchRatio > 0.5 && $0.meanConfidence > 0.35)
+            }
+            if fisting {
+                if fistSince == nil { fistSince = now }
+                if now - (fistSince ?? now) >= 0.55 {
+                    cal.cancel()
+                    fistSince = nil
+                    lastAction = "Kalibrierung abgebrochen"
+                    onLog?("Kalibrierung — Faust, Abbruch", .info, nil)
+                    return
+                }
+            } else {
+                fistSince = nil
+            }
             let confirm = actor.pinchClosed && GestureMath.pinchLooksLikePinch(
                 reach: actor.pinchReach,
                 index: actor.indexScore,
@@ -544,16 +567,16 @@ final class GestureEngine {
             )
             if let done = cal.feed(palm: actor.palm, now: now, confirm: confirm, palmWidth: actor.palmWidth) {
                 spaceMap = done
-                lastAction = "Kalibrierung fertig"
+                lastAction = "Kalibrierung fertig — Scharf"
                 onLog?("Kalibrierung · 4 Ecken", .executed, 100)
                 dropPinchHold()
                 pinchBecameDrag = false
-                cooldownUntil = now + 1.1
+                cooldownUntil = now + 0.4
+                mode = .armed
+                mustRearm = false
             } else {
                 lastAction = cal.hint
             }
-            cursor = SpaceMap.linear(actor.palm)
-            cursorHand = actor.sideDE
             return
         }
 
@@ -616,11 +639,9 @@ final class GestureEngine {
         lastFusionEntropy = actor.fusion?.entropy ?? lastFusionEntropy
         let freezePointer = (pinchHeld && !pinchBecameDrag)
             || !hands.contains(where: { $0.id == actor.id })
-        if !freezePointer {
-            placeCursors(hands, actor: actor)
-            if !system.isDragging, let p = cursor {
-                postSampleCursor(p)
-            }
+        placeCursors(hands, actor: actor)
+        if !freezePointer, !system.isDragging, let p = cursor {
+            postSampleCursor(p)
         }
         magnetChrome(now: now)
         updateTrashHot()
@@ -1828,8 +1849,8 @@ final class GestureEngine {
         }
         onLog?("Wischen erkannt", .recognized, Int(hand.poseProb * 100))
         let forward = dx < 0
-        let name = forward ? "Nächste App" : "Vorherige App"
-        perform(name, need: .none, confidence: Float(hand.poseProb)) { system.switchApp(forward: forward) }
+        let name = forward ? "Nächster Schreibtisch" : "Vorheriger Schreibtisch"
+        perform(name, need: .input, confidence: Float(hand.poseProb)) { system.switchDesktop(forward: forward) }
         lastSwipeDx = dx
         lastSwipeAt = now
         swipeTrail.removeAll()

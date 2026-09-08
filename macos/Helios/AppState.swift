@@ -108,6 +108,7 @@ final class AppState: ObservableObject {
     private var mapMemo: [String: SpaceMap] = [:]
     private var cancellables: Set<AnyCancellable> = []
     private var didShutdown = false
+    private var keyMonitors: [Any] = []
     private var focusTick = 0
     private var focusHoldID: CGWindowID = 0
     private var focusHoldCount = 0
@@ -133,6 +134,7 @@ final class AppState: ObservableObject {
             self?.log.record(text, kind: kind, confidence: conf)
         }
         loadPrefs()
+        installCalibKeys()
         log.objectWillChange
             .sink { [weak self] in self?.objectWillChange.send() }
             .store(in: &cancellables)
@@ -355,6 +357,8 @@ final class AppState: ObservableObject {
         permTimer?.invalidate()
         permTimer = nil
         engine.stopInputClutch()
+        for m in keyMonitors { NSEvent.removeMonitor(m) }
+        keyMonitors.removeAll()
         overlay.detach()
         stopCamera()
         ConsolePolicy.uninstall()
@@ -553,7 +557,29 @@ final class AppState: ObservableObject {
 
     func cancelCalibration() {
         calibSession.cancel()
+        engine.calibration = calibSession
+        overlay.setVisible(hudVisible)
         log.record("Kalibrierung abgebrochen", kind: .info)
+    }
+
+    private func installCalibKeys() {
+        guard keyMonitors.isEmpty else { return }
+        let fire: (NSEvent) -> Void = { [weak self] e in
+            guard e.keyCode == 53 else { return }
+            Task { @MainActor in
+                guard let self, self.calibActive else { return }
+                self.cancelCalibration()
+            }
+        }
+        if let loc = NSEvent.addLocalMonitorForEvents(matching: .keyDown, handler: { e in
+            fire(e)
+            return e
+        }) {
+            keyMonitors.append(loc)
+        }
+        if let glob = NSEvent.addGlobalMonitorForEvents(matching: .keyDown, handler: fire) {
+            keyMonitors.append(glob)
+        }
     }
 
     func clearCalibration() {

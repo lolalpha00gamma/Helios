@@ -208,7 +208,11 @@ final class OverlayController {
         let fillOn = (state?.calibActive == true)
             || (state?.keyboardVisible == true)
             || (state.map { $0.drill.phase != .idle } ?? false)
+        let clickable = state?.calibActive == true
         for h in fillHostings.values { h.isHidden = !fillOn }
+        for panel in panels.values {
+            panel.ignoresMouseEvents = !clickable
+        }
         if posePrev == nil || freeze {
             paint(
                 cursors: cursors,
@@ -427,12 +431,18 @@ final class HandMarkerView: NSView {
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         defer { CATransaction.commit() }
-        guard let q = cursor, ScreenGeometry.contains(quartz: q, screen: screenFrame, pad: 80) else {
+        guard let q = cursor else {
+            isHidden = true
+            return
+        }
+        if !ScreenGeometry.contains(quartz: q, screen: screenFrame, pad: 280) {
             isHidden = true
             return
         }
         isHidden = false
-        let local = ScreenGeometry.local(quartz: q, on: screenFrame)
+        var local = ScreenGeometry.local(quartz: q, on: screenFrame)
+        local.x = min(max(local.x, 12), max(12, screenFrame.width - 12))
+        local.y = min(max(local.y, 12), max(12, screenFrame.height - 12))
         lastLocal = local
         let grab = phase == .grab
         let hold = phase == .hold

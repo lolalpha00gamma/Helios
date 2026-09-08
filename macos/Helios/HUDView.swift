@@ -43,7 +43,7 @@ struct HUDView: View {
             }
         }
         .containerBackground(.clear, for: .window)
-        .allowsHitTesting(false)
+        .allowsHitTesting(layer == .fill && state.calibActive)
     }
 
     private var calibOverlay: some View {
@@ -88,6 +88,17 @@ struct HUDView: View {
                          : "Blickwinkel dieser Quelle. 4 Bildschirmecken, Anschlag in DIESEM Bild. Nur Pinzette bestätigt.")
                         .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(HeliosTheme.amber)
+                    Button(action: { state.cancelCalibration() }) {
+                        Text("ABBRECHEN  ·  Esc  ·  2× Klatschen  ·  Faust")
+                            .font(.system(size: 13, weight: .bold, design: .monospaced))
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .foregroundStyle(.white)
+                            .background(HeliosTheme.danger)
+                    }
+                    .buttonStyle(.plain)
+                    .allowsHitTesting(true)
+                    .padding(.top, 8)
                 }
                 .padding(16)
                 .background(HeliosTheme.void.opacity(0.72))
@@ -282,7 +293,7 @@ struct HUDView: View {
             Text("Werfen nur Ruck  Dock / Mini")
             Text("Zeigen 0,85 s    Tastatur")
             Text("Taste verweilen  Tippen")
-            Text("Offene Hand wischen  App")
+            Text("Offene Hand wischen  Schreibtisch")
             Text("Eine Hand hoch/runter  Scroll")
             Text("Zwei Hände        zwei Zeiger")
             Text("Pinzette + Ring  Rechtsklick")

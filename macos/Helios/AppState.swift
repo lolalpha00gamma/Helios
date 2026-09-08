@@ -48,6 +48,7 @@ final class AppState: ObservableObject {
     @Published var testMode = false
     @Published var protocolMode = true
     @Published var leftHanded = false
+    @Published var faceRecognition = false
     @Published var showJointLabels = true
     @Published var showOutline = false
     @Published var showTrashZone = true
@@ -390,6 +391,13 @@ final class AppState: ObservableObject {
         log.record(on ? "Linkshänder" : "Rechtshänder", kind: .info)
     }
 
+    func setFaceRecognition(_ on: Bool) {
+        faceRecognition = on
+        engine.faceRecognition = on
+        Prefs.faceRecognition = on
+        log.record(on ? "Gesichtserkennung an" : "Gesichtserkennung aus", kind: .info)
+    }
+
     func setPointerGain(_ g: Double) {
         pointerGain = g
         engine.pointerGain = CGFloat(g)
@@ -413,6 +421,7 @@ final class AppState: ObservableObject {
 
     private func loadPrefs() {
         leftHanded = Prefs.leftHanded
+        faceRecognition = Prefs.faceRecognition
         pointerGain = Prefs.pointerGain
         protocolMode = Prefs.protocolMode
         testMode = Prefs.testMode
@@ -427,6 +436,7 @@ final class AppState: ObservableObject {
         hideConsoleWhenArmed = Prefs.hideConsoleWhenArmed
         fusionTemperature = Prefs.fusionTemperature
         engine.leftHanded = leftHanded
+        engine.faceRecognition = faceRecognition
         engine.pointerGain = CGFloat(pointerGain)
         engine.protocolMode = protocolMode
         engine.testMode = testMode
@@ -1034,6 +1044,10 @@ enum Prefs {
     static var leftHanded: Bool {
         get { UserDefaults.standard.object(forKey: "helios.leftHanded") as? Bool ?? false }
         set { UserDefaults.standard.set(newValue, forKey: "helios.leftHanded") }
+    }
+    static var faceRecognition: Bool {
+        get { UserDefaults.standard.bool(forKey: "helios.faceRecognition") }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.faceRecognition") }
     }
     static var dwellEnabled: Bool {
         get { UserDefaults.standard.bool(forKey: "helios.dwell") }

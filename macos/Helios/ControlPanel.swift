@@ -54,6 +54,20 @@ struct ControlPanel: View {
             .toggleStyle(.switch)
 
             Toggle(isOn: Binding(
+                get: { state.faceRecognition },
+                set: { state.setFaceRecognition($0) }
+            )) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Gesichtserkennung")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("Standard aus. Nur eigene Hand filtern — erst wenn die Steuerung steht.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.switch)
+
+            Toggle(isOn: Binding(
                 get: { state.protocolMode },
                 set: { state.setProtocolMode($0) }
             )) {

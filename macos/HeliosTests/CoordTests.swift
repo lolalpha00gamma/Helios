@@ -1595,6 +1595,18 @@ enum CoordTests {
             fputs("FAIL 8 fps Tap unseen→held\n", stderr)
             fails += 1
         }
+        let lights = GestureMath.trafficLights(bounds: CGRect(x: 100, y: 40, width: 800, height: 500))
+        if lights.count != 3 || lights[0].kind != "close"
+            || abs(lights[0].rect.midX - 120) > 0.5
+            || abs(lights[0].rect.midY - 54) > 0.5
+        {
+            fputs("FAIL Ampel Close 20/14\n", stderr)
+            fails += 1
+        }
+        if GestureMath.trafficLights(bounds: CGRect(x: 0, y: 0, width: 40, height: 20)).isEmpty == false {
+            fputs("FAIL Ampel zu klein\n", stderr)
+            fails += 1
+        }
         var pinch = GestureMath.pinchHoldAdvance(phase: .unseen, closed: true, heldFor: 0, dt: 0.04)
         if pinch.phase != .tentative {
             fputs("FAIL Pinch unseen→tentative\n", stderr)

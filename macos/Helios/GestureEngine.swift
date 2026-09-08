@@ -46,6 +46,7 @@ final class GestureEngine {
     var testMode = false
     var protocolMode = true
     var leftHanded = false
+    var faceRecognition = false
     var pointerGain: CGFloat = 1.6
     var spaceMap: SpaceMap?
     var calibration: CalibrationSession?
@@ -1467,13 +1468,9 @@ final class GestureEngine {
     }
 
     private func fireChrome(_ knob: ChromeKnob) {
-        switch knob.kind {
-        case .close:
-            perform("Schließen", confidence: 0.9) { system.closeFocused() }
-        case .min:
-            perform("Minimieren", confidence: 0.9) { system.minimizeFocused() }
-        case .zoom:
-            perform("Vollbild", confidence: 0.9) { system.zoomFocused() }
+        perform(knob.labelDE, confidence: 0.9) {
+            system.moveCursor(to: knob.center)
+            return system.click()
         }
     }
 

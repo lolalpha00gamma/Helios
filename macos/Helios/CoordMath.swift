@@ -156,6 +156,17 @@ enum GestureMath {
     static let peaceHold: TimeInterval = 1.10
     static let chromeMagnet: CGFloat = 48
     static let chromeLoupe: CGFloat = 168
+
+    /// Ampel ohne AX: Close / Min / Zoom in der Titelleiste, Quartz oben links.
+    static func trafficLights(bounds: CGRect, diameter: CGFloat = 14, gap: CGFloat = 20, insetX: CGFloat = 20, insetY: CGFloat = 14) -> [(kind: String, rect: CGRect)] {
+        guard bounds.width >= 90, bounds.height >= 36 else { return [] }
+        let y = bounds.minY + insetY
+        let kinds = ["close", "min", "zoom"]
+        return kinds.enumerated().map { i, kind in
+            let x = bounds.minX + insetX + CGFloat(i) * gap
+            return (kind, CGRect(x: x - diameter / 2, y: y - diameter / 2, width: diameter, height: diameter))
+        }
+    }
     static let chromeSpreadGap: CGFloat = 118
     static let chromeHit: CGFloat = 80
     static let chromeDwellHold: TimeInterval = 0.55

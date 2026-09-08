@@ -1,4 +1,4 @@
-# Helios **1.6.78**
+# Helios **1.6.79**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -19,6 +19,10 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.79
+
+Ziehen bleibt Cursor A→B (CGEvent). Schließen/Minimieren/Zoom klicken die Ampel-Pixel, nicht AXPress. Gesichtserkennung-Schalter, Standard aus.
 
 ## Neu in 1.6.78
 

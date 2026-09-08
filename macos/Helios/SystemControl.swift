@@ -189,31 +189,34 @@ final class SystemControl {
         if let c = chromeCache, now - c.at < 0.26, hypot(c.point.x - loc.x, c.point.y - loc.y) < 16 {
             return c.knobs
         }
-        guard let win = targetWindow(at: loc) else {
-            chromeCache = (now, loc, [])
-            return []
-        }
-        let specs: [(ChromeKnob.Kind, CFString)] = [
-            (.close, "AXCloseButton" as CFString),
-            (.min, "AXMinimizeButton" as CFString),
-            (.zoom, "AXFullScreenButton" as CFString),
-            (.zoom, "AXZoomButton" as CFString)
-        ]
         var out: [ChromeKnob] = []
         var seen = Set<ChromeKnob.Kind>()
-        for (kind, attr) in specs {
-            if seen.contains(kind) { continue }
-            var ref: CFTypeRef?
-            guard AXUIElementCopyAttributeValue(win, attr, &ref) == .success,
-                  let el = Self.asElement(ref),
-                  let pos = position(of: el),
-                  let size = size(of: el),
-                  size.width > 4, size.height > 4
-            else { continue }
-            // AXPosition/AXSize are Quartz (origin top-left), not Cocoa.
-            let q = CGRect(origin: pos, size: size)
-            out.append(ChromeKnob(kind: kind, quartz: q, hit: q))
-            seen.insert(kind)
+        if let win = targetWindow(at: loc) {
+            let specs: [(ChromeKnob.Kind, CFString)] = [
+                (.close, "AXCloseButton" as CFString),
+                (.min, "AXMinimizeButton" as CFString),
+                (.zoom, "AXFullScreenButton" as CFString),
+                (.zoom, "AXZoomButton" as CFString)
+            ]
+            for (kind, attr) in specs {
+                if seen.contains(kind) { continue }
+                var ref: CFTypeRef?
+                guard AXUIElementCopyAttributeValue(win, attr, &ref) == .success,
+                      let el = Self.asElement(ref),
+                      let pos = position(of: el),
+                      let size = size(of: el),
+                      size.width > 4, size.height > 4
+                else { continue }
+                let q = CGRect(origin: pos, size: size)
+                out.append(ChromeKnob(kind: kind, quartz: q, hit: q))
+                seen.insert(kind)
+            }
+        }
+        if out.count < 3 {
+            for k in geometricTrafficLights(at: loc) where !seen.contains(k.kind) {
+                out.append(k)
+                seen.insert(k.kind)
+            }
         }
         let spread = GestureMath.spreadChrome(centers: out.map { CGPoint(x: $0.quartz.midX, y: $0.quartz.midY) })
         for i in out.indices where i < spread.count {
@@ -221,6 +224,16 @@ final class SystemControl {
         }
         chromeCache = (now, loc, out)
         return out
+    }
+
+    private func geometricTrafficLights(at loc: CGPoint) -> [ChromeKnob] {
+        guard let t = TargetProbe.windowAt(quartz: loc, skipSelf: true) ?? TargetProbe.frontmost(skipSelf: true) else {
+            return []
+        }
+        return GestureMath.trafficLights(bounds: t.quartzBounds).compactMap { item in
+            guard let kind = ChromeKnob.Kind(rawValue: item.kind) else { return nil }
+            return ChromeKnob(kind: kind, quartz: item.rect, hit: item.rect)
+        }
     }
 
     private var pointerDrag = false
@@ -277,22 +290,25 @@ final class SystemControl {
 
     @discardableResult
     func minimizeFocused() -> ActionResult {
-        guard let win = targetWindow() else { return .fail("Kein Fenster") }
-        return pressButton(win, "AXMinimizeButton" as CFString)
+        clickChrome(.min)
     }
 
     @discardableResult
     func closeFocused() -> ActionResult {
-        guard let win = targetWindow() else { return .fail("Kein Fenster") }
-        return pressButton(win, "AXCloseButton" as CFString)
+        clickChrome(.close)
     }
 
     @discardableResult
     func zoomFocused() -> ActionResult {
-        guard let win = targetWindow() else { return .fail("Kein Fenster") }
-        let full = pressButton(win, "AXFullScreenButton" as CFString)
-        if full.ok { return full }
-        return pressButton(win, "AXZoomButton" as CFString)
+        clickChrome(.zoom)
+    }
+
+    @discardableResult
+    private func clickChrome(_ kind: ChromeKnob.Kind, at quartz: CGPoint? = nil) -> ActionResult {
+        let knobs = chromeKnobs(at: quartz)
+        guard let k = knobs.first(where: { $0.kind == kind }) else { return .fail("Keine Ampel") }
+        moveCursor(to: k.center)
+        return click()
     }
 
     @discardableResult

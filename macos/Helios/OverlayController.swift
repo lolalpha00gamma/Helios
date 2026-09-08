@@ -229,7 +229,9 @@ final class OverlayController {
                 } else {
                     cursors[i].point = GestureMath.hudCoastPoint(
                         sample: cursors[i].point, vel: vel, elapsed: max(0, now - next.at),
-                        cap: GestureMath.hudCoastCapScaled(scale: NSScreen.main?.backingScaleFactor ?? 1)
+                        cap: GestureMath.hudCoastCapScaled(
+                            scale: ScreenGeometry.backingScale(quartz: cursors[i].point)
+                        )
                     )
                 }
             }
@@ -332,7 +334,9 @@ final class HandMarkerView: NSView {
         label.font = NSFont.monospacedSystemFont(ofSize: 14, weight: .bold)
         label.fontSize = 14
         label.alignmentMode = .left
-        label.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
+        label.contentsScale = ScreenGeometry.backingScale(
+            quartz: ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
+        )
         label.bounds = CGRect(x: 0, y: 0, width: 280, height: 36)
         label.anchorPoint = CGPoint(x: 0, y: 0.5)
         let host = layer ?? CALayer()

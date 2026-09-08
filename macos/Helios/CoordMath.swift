@@ -367,7 +367,39 @@ enum GestureMath {
 
     /// UV bleibt. Gain in pt: Retina-Scale sonst Teleport (CGEvent-Echo in px).
     static func pointerGainScaled(gain: CGFloat, scale: CGFloat) -> CGFloat {
-        gain / max(1, min(3, scale))
+        gain / backingScaleClamped(scale)
+    }
+
+    /// 1× bleibt 1, Retina 2–3. Sidecar 1× darf 5K-Scale nicht erben.
+    static func backingScaleClamped(_ scale: CGFloat) -> CGFloat {
+        max(1, min(3, scale))
+    }
+
+    /// UV-Totzone wächst mit Scale — sonst leckt Jitter als CGEvent-Echo.
+    static func deadzoneScaled(dead: CGFloat, scale: CGFloat) -> CGFloat {
+        dead * backingScaleClamped(scale)
+    }
+
+    /// Fest+still klickt früher. Wackel-Pinzette blockt trotz Dauer.
+    static func clickEnergy(
+        closedness: Double,
+        palmMovedHW: CGFloat,
+        held: TimeInterval,
+        dt: TimeInterval
+    ) -> Double {
+        let drag = Double(max(0.01, pinchDragNeedOf(dt: dt)))
+        let still = max(0, 1 - Double(palmMovedHW) / drag)
+        let hold = min(1, held / max(0.04, pinchClickMinNeed(dt: dt)))
+        let close = max(0, min(1, closedness))
+        return max(0, min(1, close * still * max(0.45, hold)))
+    }
+
+    /// 90°-Raster für Homographie-Cache. Nudge ohne Store-Wipe.
+    static func spaceMapRotationKey(_ r: Double) -> Int {
+        var a = r.truncatingRemainder(dividingBy: 360)
+        if a < 0 { a += 360 }
+        let q = Int((a / 90.0).rounded()) % 4
+        return ((q + 4) % 4) * 90
     }
 
     /// AX-Hit 1 Frame. Continuity 8 fps sonst hitTest jeden Tick.
@@ -836,7 +868,7 @@ enum GestureMath {
         let mid = CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)
         let prev = CGPoint(x: (prevA.x + prevB.x) / 2, y: (prevA.y + prevB.y) / 2)
         let d = axis == .horizontal ? (mid.x - prev.x) : (mid.y - prev.y)
-        let ticks = Int32((d * 0.42 * max(1, min(3, scale))).rounded())
+        let ticks = Int32((d * 0.42 * backingScaleClamped(scale)).rounded())
         return max(-24, min(24, ticks))
     }
 
@@ -945,7 +977,7 @@ enum GestureMath {
 
     /// Retina 2×: 48 pt zu eng nach 90 Hz Coast. Scale 1 bleibt 48, 2× = 96.
     static func clutchOwnRadiusScaled(scale: CGFloat) -> CGFloat {
-        clutchOwnRadius * max(1, min(3, scale))
+        clutchOwnRadius * backingScaleClamped(scale)
     }
 
     /// Coast: Fenster-ID halten solange Cursor in Bounds+Pad. Nicht 90 Hz hitTest.
@@ -1025,12 +1057,12 @@ enum GestureMath {
 
     /// 5K / Retina: 80 pt Coast zu kurz, Sample warpt. Scale 1 bleibt 80, 2× = 160.
     static func hudCoastCapScaled(scale: CGFloat, base: CGFloat = 80) -> CGFloat {
-        base * max(1, min(3, scale))
+        base * backingScaleClamped(scale)
     }
 
     /// Echo der eigenen CGEvents auf Retina größer als 1,2 pt.
     static func clutchJiggleScaled(scale: CGFloat) -> CGFloat {
-        clutchJiggle * max(1, min(3, scale))
+        clutchJiggle * backingScaleClamped(scale)
     }
 
     /// Nach Zoom kein sofortiger Scroll. 0,28 s Hysterese.
@@ -1143,6 +1175,16 @@ enum GestureMath {
         guard window > 0, remain > 0, abs(velHW) > 0.02 else { return 0 }
         let frac = CGFloat(remain / window)
         return Int32(max(-16, min(16, -velHW * 18 * frac)))
+    }
+
+    /// Two-pinch Loslassen → gleiche Coast wie Ein-Finger. ticks 0 = nil.
+    static func twoPinchScrollMomentum(
+        ticks: Int32,
+        now: TimeInterval,
+        inertia: TimeInterval = scrollInertia
+    ) -> (until: TimeInterval, vel: CGFloat)? {
+        guard ticks != 0, inertia > 0 else { return nil }
+        return (now + inertia, CGFloat(-ticks) / 18)
     }
 
     /// Inertia darf keinen Klick-Start überdecken.
@@ -1342,9 +1384,20 @@ enum GestureMath {
         dt >= 0.08 ? 40 : 28
     }
 
-    /// Kurze, stillstehende Pinzette = Klick, nicht Greifen.
-    static func isClick(held: TimeInterval, palmMovedHW: CGFloat, cursorMovedPx: CGFloat, dt: TimeInterval = 0.016) -> Bool {
-        guard held >= pinchClickMinNeed(dt: dt), held <= pinchClickMaxHold else { return false }
+    /// Kurze, stillstehende Pinzette = Klick, nicht Greifen. Energy blockt Wackeln.
+    static func isClick(
+        held: TimeInterval,
+        palmMovedHW: CGFloat,
+        cursorMovedPx: CGFloat,
+        dt: TimeInterval = 0.016,
+        closedness: Double = 1
+    ) -> Bool {
+        let energy = clickEnergy(
+            closedness: closedness, palmMovedHW: palmMovedHW, held: held, dt: dt
+        )
+        if energy < 0.35 { return false }
+        let minHold = pinchClickMinNeed(dt: dt) * (energy >= 0.62 ? 0.55 : 1)
+        guard held >= minHold, held <= pinchClickMaxHold else { return false }
         return palmMovedHW < pinchDragNeedOf(dt: dt) && cursorMovedPx < pinchClickStillPx
     }
 

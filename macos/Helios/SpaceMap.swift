@@ -117,7 +117,9 @@ struct SpaceMap: Codable {
     }
 
     private func cachedHomography() -> [CGFloat]? {
-        HomographyStore.get(palms, displayID: displayID, cameraID: cameraID)
+        HomographyStore.get(
+            palms, displayID: displayID, cameraID: cameraID, rotation: rotation
+        )
     }
 
     /// 4 Punktpaare, h22 = 1, 8×8 Gauss.
@@ -250,9 +252,9 @@ struct SpaceMap: Codable {
     }
 
     /// Display 90/180/270°: Palmen halten, H auf aktuelle screenCorners.
+    /// Cache keyed by rotation — kein Store-Wipe, 0° bleibt liegen.
     mutating func nudgeRotation(_ live: Double) {
         rotation = live
-        HomographyStore.clear()
     }
 
     static func invalidateHomography() {
@@ -283,6 +285,7 @@ private enum HomographyStore {
         var palms: [XY]
         var displayID: UInt32
         var cameraID: String
+        var rotation: Int
         var H: [CGFloat]?
     }
 
@@ -290,27 +293,36 @@ private enum HomographyStore {
     private static let cap = 4
     nonisolated(unsafe) private static var slots: [Slot] = []
 
-    static func get(_ src: [XY], displayID: UInt32, cameraID: String = "") -> [CGFloat]? {
+    static func get(
+        _ src: [XY],
+        displayID: UInt32,
+        cameraID: String = "",
+        rotation: Double = 0
+    ) -> [CGFloat]? {
         lock.lock()
         defer { lock.unlock() }
+        let rot = GestureMath.spaceMapRotationKey(rotation)
         if let i = slots.firstIndex(where: {
-            $0.cameraID == cameraID && $0.displayID == displayID && $0.palms == src
+            $0.cameraID == cameraID && $0.displayID == displayID
+                && $0.rotation == rot && $0.palms == src
         }) {
             let hit = slots.remove(at: i)
             slots.append(hit)
             return hit.H
         }
         guard src.count == 4 else {
-            upsert(Slot(palms: src, displayID: displayID, cameraID: cameraID, H: nil))
+            upsert(Slot(palms: src, displayID: displayID, cameraID: cameraID, rotation: rot, H: nil))
             return nil
         }
         let H = SpaceMap.homography(from: src.map(\.point), to: SpaceMap.screenCorners(displayID: displayID))
-        upsert(Slot(palms: src, displayID: displayID, cameraID: cameraID, H: H))
+        upsert(Slot(palms: src, displayID: displayID, cameraID: cameraID, rotation: rot, H: H))
         return H
     }
 
     private static func upsert(_ slot: Slot) {
-        slots.removeAll { $0.cameraID == slot.cameraID && $0.displayID == slot.displayID }
+        slots.removeAll {
+            $0.cameraID == slot.cameraID && $0.displayID == slot.displayID && $0.rotation == slot.rotation
+        }
         slots.append(slot)
         if slots.count > cap { slots.removeFirst(slots.count - cap) }
     }

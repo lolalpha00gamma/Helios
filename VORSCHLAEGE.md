@@ -1,5 +1,52 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.54**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.54 erledigt
+
+1.6.53 Pointer×Scale immer Main. Deadzone UV. Zwei-Pinzette tot nach Loslassen. Nudge wischte H-Store. Klick nur Dauer.
+
+1. **Per-Display backingScaleFactor.** Cursor-Schirm, nicht `NSScreen.main`.
+2. **Deadzone × Scale.**
+3. **Two-pinch Scroll-Momentum** nach Loslassen.
+4. **Homographie-Cache keyed by rotation.** Nudge ohne Wipe.
+5. **Click-Energy** (Closedness × Still × Hold).
+6. Tests + MARKETING_VERSION 1.6.54 (Build 87).
+
+## Erweiterung (neu, 1.6.54)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+2. **HeliosAegisKit** gemeinsamer Broker + Mutex-PTS.
+3. **Pair-Stereo-Tiefe** Mac+iPhone statt DepthCapture-Stub.
+4. **Watch Double-Tap** Click-Confirm + Haptic.
+5. **App-Grammar** Safari-Scroll vs Finder-Drag vs Xcode-Caret.
+6. **JSONL Session-Replay** ohne Vision.
+7. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+8. **Slot-ID persist** über uniqueID-Flicker.
+9. **IOHID Force-Click vs Pinch.**
+10. **mmap leftover-Boxen** Helios↔Aegis Palm-Occlusion.
+11. **DepthCapture an Continuity-LiDAR.**
+12. **Overlay CAMetalLayer.**
+13. **Per-App Scroll-Gain.**
+14. **Pinch-Hold analog × Kalman-Q.**
+15. **VNTrack Hand-Box persist** bei Continuity 8 Hz.
+16. **Fling-Cap × Screen-Höhe.**
+17. **Session-Watchdog** Idle = fps>0 UND keine Aegis-Face UND 8 s leer.
+18. **Air-Keyboard Dwell × Scale.**
+19. **Adaptive Gain aus Jitter-RMS** 8 Hz vs 24 Hz, nicht nur dt.
+20. **HUD aus Screen-Capture ausschließen** (SCContentFilter).
+21. **Multi-Display Warp über die Lücke** — Cursor stirbt zwischen 5K und Sidecar.
+22. **Aegis-Gaze Pinch-Confirm** wenn Face frontal und Blick auf HUD.
+23. **Per-Display pointerGain** UserDefaults, nicht nur Scale.
+24. **Window-Edge Resistance** statt hartem Clamp.
+25. **Continuity HDR Tone-Map** bevor Vision 8-Bit sieht.
+26. **Air-Keyboard Shortcut-Overlay** ⌘C/V/Z ohne Maus.
+27. **Freeze-Kalman über uniqueID** — Palm-Vel überlebt Reconnect.
+
+P0 CameraBroker. Kein neues *Need(dt).
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.53**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
 
 ## In 1.6.53 erledigt

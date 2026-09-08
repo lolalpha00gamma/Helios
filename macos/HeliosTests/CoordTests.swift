@@ -2062,6 +2062,61 @@ enum CoordTests {
             fputs("FAIL Hitch ohne Freeze tot\n", stderr)
             fails += 1
         }
+        if abs(GestureMath.backingScaleClamped(2) - 2) > 0.01 {
+            fputs("FAIL Scale clamp 2\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.backingScaleClamped(0.5) - 1) > 0.01 {
+            fputs("FAIL Scale clamp 0,5 → 1\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.deadzoneScaled(dead: 0.012, scale: 1) - 0.012) > 0.0001 {
+            fputs("FAIL Deadzone 1×\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.deadzoneScaled(dead: 0.012, scale: 2) - 0.024) > 0.0001 {
+            fputs("FAIL Deadzone 2×\n", stderr)
+            fails += 1
+        }
+        if GestureMath.spaceMapRotationKey(5) != 0 {
+            fputs("FAIL RotationKey 5° → 0\n", stderr)
+            fails += 1
+        }
+        if GestureMath.spaceMapRotationKey(90) != 90 {
+            fputs("FAIL RotationKey 90\n", stderr)
+            fails += 1
+        }
+        if GestureMath.spaceMapRotationKey(270) != 270 {
+            fputs("FAIL RotationKey 270\n", stderr)
+            fails += 1
+        }
+        if GestureMath.spaceMapRotationKey(-90) != 270 {
+            fputs("FAIL RotationKey −90 → 270\n", stderr)
+            fails += 1
+        }
+        let mom = GestureMath.twoPinchScrollMomentum(ticks: 9, now: 1.0)
+        if mom == nil || abs(mom!.vel + 0.5) > 0.02 {
+            fputs("FAIL two-pinch momentum vel\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoPinchScrollMomentum(ticks: 0, now: 1.0) != nil {
+            fputs("FAIL two-pinch momentum 0 tot\n", stderr)
+            fails += 1
+        }
+        let firm = GestureMath.clickEnergy(closedness: 0.95, palmMovedHW: 0.04, held: 0.10, dt: 0.016)
+        let wobble = GestureMath.clickEnergy(closedness: 0.40, palmMovedHW: 0.40, held: 0.40, dt: 0.016)
+        if firm <= wobble {
+            fputs("FAIL Click-Energy fest > wackel\n", stderr)
+            fails += 1
+        }
+        if GestureMath.isClick(held: 0.40, palmMovedHW: 0.08, cursorMovedPx: 4, dt: 0.016, closedness: 0.20) {
+            fputs("FAIL Click-Energy schwach blockt\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.isClick(held: 0.08, palmMovedHW: 0.04, cursorMovedPx: 3, dt: 0.016, closedness: 0.95) {
+            fputs("FAIL Click-Energy fest kurz\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

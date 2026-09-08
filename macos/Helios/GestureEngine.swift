@@ -109,6 +109,7 @@ final class GestureEngine {
     private var twoPinchScaleStreak = 0
     private var twoPinchLockedAxis: TwoPinchAxis = .none
     private var twoPinchLastMapped: [CGPoint]?
+    private var twoPinchLastTicks: Int32 = 0
     private var freezeGain: CGFloat = 1
     private var recoverUntil: TimeInterval = 0
     private var recoverSpan: TimeInterval = 0.08
@@ -224,6 +225,7 @@ final class GestureEngine {
         twoPinchScaleStreak = 0
         twoPinchLockedAxis = .none
         twoPinchLastMapped = nil
+        twoPinchLastTicks = 0
         freezeGain = 1
         recoverUntil = 0
         recoverSpan = 0.08
@@ -410,7 +412,12 @@ final class GestureEngine {
             twoPinchLockedAxis = .none
             twoPinchLastMapped = nil
             freezeGain = 1
-            scrollCoast = nil
+            if twoPinchSince != nil, let m = GestureMath.twoPinchScrollMomentum(ticks: twoPinchLastTicks, now: now) {
+                scrollCoast = m
+            } else {
+                scrollCoast = nil
+            }
+            twoPinchLastTicks = 0
             if system.isDragging { system.endWindowDrag() }
             if pinchHeld {
                 swipeMuteUntil = now + GestureMath.swipeMuteAfterPinch
@@ -1093,17 +1100,18 @@ final class GestureEngine {
         if isActor { palmSlow = newSlow }
         var dx = (palm.x - newSlow.x) - (prevPalm.x - oldSlow.x)
         var dy = (palm.y - newSlow.y) - (prevPalm.y - oldSlow.y)
-        let dead = GestureMath.palmDead * 0.55
+        let seed = from ?? ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
+        let scale = ScreenGeometry.backingScale(quartz: seed)
+        let dead = GestureMath.deadzoneScaled(dead: GestureMath.palmDead * 0.55, scale: scale)
         let step = GestureMath.deadzone2D(dx: dx, dy: dy, dead: dead)
         dx = step.x
         dy = step.y
-        let seed = from ?? ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
         let stepped = ScreenGeometry.stepCursor(
             from: seed,
             dPalm: CGPoint(x: dx, y: dy),
             gain: GestureMath.pointerGainScaled(
                 gain: pointerGain * freezeGain * GestureMath.pointerGainDt(dt: sampleDt),
-                scale: NSScreen.main?.backingScaleFactor ?? 1
+                scale: scale
             )
         )
         let a: CGFloat = freezeGain < 0.99 ? 1 : 0.86
@@ -1160,6 +1168,9 @@ final class GestureEngine {
                 cooldownUntil = max(cooldownUntil, now + 0.25)
                 pinchTrail.removeAll()
                 twoPinchEndedAt = now
+                if let m = GestureMath.twoPinchScrollMomentum(ticks: twoPinchLastTicks, now: now) {
+                    scrollCoast = m
+                }
             }
             twoHandSpan = nil
             twoPinchSince = nil
@@ -1168,6 +1179,7 @@ final class GestureEngine {
             twoPinchScaleStreak = 0
             twoPinchLockedAxis = .none
             twoPinchLastMapped = nil
+            twoPinchLastTicks = 0
             return false
         }
         if twoPinchSince == nil { twoPinchSince = now }
@@ -1224,13 +1236,18 @@ final class GestureEngine {
                twoPinchLockedAxis != .none,
                let prev = twoPinchLastMapped, prev.count >= 2, mapped.count >= 2
             {
+                let mid = CGPoint(
+                    x: (mapped[0].x + mapped[1].x) / 2,
+                    y: (mapped[0].y + mapped[1].y) / 2
+                )
                 let ticks = GestureMath.twoPinchScrollTicks(
                     axis: twoPinchLockedAxis,
                     a: mapped[0], b: mapped[1],
                     prevA: prev[0], prevB: prev[1],
-                    scale: NSScreen.main?.backingScaleFactor ?? 1
+                    scale: ScreenGeometry.backingScale(quartz: mid)
                 )
                 if ticks != 0 {
+                    twoPinchLastTicks = ticks
                     let conf = Float(pinches.map(\.poseProb).min() ?? 0)
                     perform("Scroll", need: .input, confidence: conf) { system.scroll(ticks: ticks) }
                 }
@@ -1590,7 +1607,10 @@ final class GestureEngine {
                 onLog?("Loslassen", testMode ? .blocked : .executed, Int(hand.poseProb * 100))
             } else if let knob = knobsNow.first(where: { $0.labelDE == hotName }) {
                 fireChrome(knob)
-            } else if GestureMath.isClick(held: held, palmMovedHW: palmMoved, cursorMovedPx: cursorPx, dt: sampleDt) {
+            } else if GestureMath.isClick(
+                held: held, palmMovedHW: palmMoved, cursorMovedPx: cursorPx,
+                dt: sampleDt, closedness: hand.pinchClosedness
+            ) {
                 if GestureMath.clickHitchFromFreeze(freezeEnded: freezeEndedAt, now: now, dt: sampleDt) {
                     lastAction = "Hitch"
                 } else {

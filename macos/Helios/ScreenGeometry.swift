@@ -154,6 +154,13 @@ enum ScreenGeometry {
         NSScreen.screens.first { contains(quartz: quartz, screen: $0.frame, pad: 4) } ?? NSScreen.main
     }
 
+    /// Scale des Schirms unter dem Punkt. 5K ≠ Sidecar 1×.
+    static func backingScale(quartz: CGPoint) -> CGFloat {
+        screenContaining(quartz: quartz)?.backingScaleFactor
+            ?? NSScreen.main?.backingScaleFactor
+            ?? 1
+    }
+
     /// CGWindowList liefert bereits Quartz (Ursprung oben links am Hauptbildschirm).
     static func fromWindowList(_ r: CGRect) -> CGRect { r }
 

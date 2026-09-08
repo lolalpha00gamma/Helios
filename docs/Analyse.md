@@ -1,5 +1,23 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
+Stand: 2026-09-08. Helios **1.6.54** (Build 87). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+
+## 0. 1.6.54 — Per-Display Scale, Deadzone×Scale, Scroll-Momentum, Homographie-Rotation, Click-Energy
+
+1.6.53: Pointer×Scale, Scroll-Ticks×Scale, Rotation-Nudge, Click-Hitch — immer `NSScreen.main`. Sidecar 1× erbte 5K-Gain. Deadzone UV unabhängig von Scale. Zwei-Pinzette starb beim Loslassen. Nudge wischte den ganzen Homographie-Store. Klick nur über Halt-Dauer.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | Scale immer Main | `ScreenGeometry.backingScale(quartz:)` |
+| 2 | Deadzone 1× auf Retina | `deadzoneScaled` |
+| 3 | Two-pinch ohne Coast | `twoPinchScrollMomentum` → scrollCoast |
+| 4 | Nudge = Store-Wipe | Cache keyed by `spaceMapRotationKey` |
+| 5 | Klick = nur Dauer | `clickEnergy` × Closedness × Still |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe.
+
+# Analyse, Fehlerbehebung, öffentlicher Abgleich
+
 Stand: 2026-09-08. Helios **1.6.53** (Build 86). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
 
 ## 0. 1.6.53 — Pointer×Scale, Scroll-Ticks×Scale, Rotation-Nudge, Click-Hitch

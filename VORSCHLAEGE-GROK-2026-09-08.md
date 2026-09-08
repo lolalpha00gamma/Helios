@@ -1,3 +1,30 @@
+# Helios Vorschläge — 2026-09-08 (Pass 17, 1.6.54)
+
+Stand 1.6.54. Per-Display Scale, Deadzone×Scale, Scroll-Momentum, Homographie-Rotation, Click-Energy.
+
+## Gelandet in 1.6.54
+
+- ScreenGeometry.backingScale(quartz:) statt NSScreen.main
+- deadzoneScaled
+- twoPinchScrollMomentum → scrollCoast
+- spaceMapRotationKey + HomographyStore.rotation
+- clickEnergy / isClick closedness
+
+## Erweiterung (neu)
+
+176. **Adaptive Gain aus Jitter-RMS.**
+177. **HUD aus Screen-Capture ausschließen.**
+178. **Multi-Display Warp über die Lücke.**
+179. **Aegis-Gaze Pinch-Confirm.**
+180. **Per-Display pointerGain Pref.**
+181. **Window-Edge Resistance.**
+182. **Continuity HDR Tone-Map.**
+183. **Air-Keyboard Shortcut-Overlay.**
+184. **Freeze-Kalman über uniqueID.**
+185. **Watch Haptic on Click.**
+
+P0: CameraBroker. Kein neues *Need(dt).
+
 # Helios Vorschläge — 2026-09-08 (Pass 16, 1.6.53)
 
 Stand 1.6.53. Pointer-Gain×Scale, Scroll-Ticks×Scale, Rotation-Nudge, Click-Hitch.

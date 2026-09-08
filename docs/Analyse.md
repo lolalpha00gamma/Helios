@@ -1,5 +1,22 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
+Stand: 2026-09-08. Helios **1.6.38** (Build 71). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+
+## 0. 1.6.38 — Zwei-Hand-Freeze, Clutch, Vel-Chip, lastZ-Gate
+
+1.6.37: Format, Residual, Sign, q-Chip, One-Euro, Tastatur-Ring. Freeze-Δ nur Actor auf beide Hände. Jiggler weckt Geist. Predict unsichtbar. lastZ bei Occlusion weitergeschrieben.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | Freeze-Δ nur Actor, zweite Hand teleportiert | `freezePalmsPredict` + `freezeGhostDeltas` |
+| 2 | Jiggler seize während Freeze | `clutchIgnoresFreeze` |
+| 3 | Predict unsichtbar | `freezeVelChip` |
+| 4 | lastZ bei Residual hoch | `liftSignKeepsPrevious` |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe, AX-Hit-Cache, Kalman-Palme.
+
+# Analyse, Fehlerbehebung, öffentlicher Abgleich
+
 Stand: 2026-09-08. Helios **1.6.37** (Build 70). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
 
 ## 0. 1.6.37 — Format, Residual-Gate, Sign-Hysterese, q-Chip

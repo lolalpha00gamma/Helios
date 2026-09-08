@@ -1302,6 +1302,45 @@ enum CoordTests {
             fputs("FAIL Residual tot Start über 2D\n", stderr)
             fails += 1
         }
+        if GestureMath.liftSignKeepsPrevious(residual: 0.10) {
+            fputs("FAIL Residual klein schreibt z\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.liftSignKeepsPrevious(residual: 0.40) {
+            fputs("FAIL Residual Occlusion hält previous\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.clutchIgnoresFreeze(freezeLive: true) {
+            fputs("FAIL Clutch Freeze seize tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.clutchIgnoresFreeze(freezeLive: false) {
+            fputs("FAIL Clutch Live seize darf\n", stderr)
+            fails += 1
+        }
+        let two = GestureMath.freezePalmsPredict(
+            palms: [
+                ("T1", CGPoint(x: 0.2, y: 0.5), 0.20, 0),
+                ("T2", CGPoint(x: 0.8, y: 0.5), 0, 0)
+            ],
+            dt: 0.125
+        )
+        if two.count != 2 || two[0].palm.x <= 0.20 {
+            fputs("FAIL Zwei-Hand T1 Predict +x\n", stderr)
+            fails += 1
+        }
+        if abs(two[1].palm.x - 0.80) > 0.01 {
+            fputs("FAIL Zwei-Hand T2 still\n", stderr)
+            fails += 1
+        }
+        if GestureMath.freezeVelChip(dx: 0.02, dy: 0) != "→" {
+            fputs("FAIL Freeze-Vel →\n", stderr)
+            fails += 1
+        }
+        if GestureMath.freezeVelChip(dx: 0, dy: 0) != nil {
+            fputs("FAIL Freeze-Vel still tot\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

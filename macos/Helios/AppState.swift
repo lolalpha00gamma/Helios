@@ -727,9 +727,9 @@ final class AppState: ObservableObject {
         lockFreeze = engine.lockFreeze
         qualityChip = engine.qualityChip
         if engine.freezeLive, hands.isEmpty, !self.hands.isEmpty {
-            let d = engine.freezeGhostDelta
-            if d.x != 0 || d.y != 0 {
-                self.hands = self.hands.map { $0.shifted(by: d) }
+            self.hands = self.hands.map { h in
+                let d = engine.freezeGhostDeltas[h.id] ?? engine.freezeGhostDelta
+                return (d.x != 0 || d.y != 0) ? h.shifted(by: d) : h
             }
         } else {
             self.hands = hands

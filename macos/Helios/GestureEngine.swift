@@ -72,6 +72,7 @@ final class GestureEngine {
     var qualityChip = ""
     var freezeLive = false
     var freezeGhostDelta: CGPoint = .zero
+    var freezeGhostDeltas: [String: CGPoint] = [:]
 
     private var fistSince: TimeInterval?
     private var fistLostAt: TimeInterval?
@@ -117,6 +118,7 @@ final class GestureEngine {
     private var cursorSmooth: CGPoint?
     private var lastPalm: CGPoint?
     private var lastPalmVel: CGPoint = .zero
+    private var lastHandsFreeze: [(id: String, palm: CGPoint, vel: CGPoint)] = []
     private var pointerHandID: String?
     private var pointerSourceID: String = ""
     private var pointerLastHand: TrackedHand?
@@ -215,6 +217,7 @@ final class GestureEngine {
         handCursors = []
         lastPalm = nil
         lastPalmVel = .zero
+        lastHandsFreeze = []
         pointerHandID = nil
         pointerSourceID = ""
         pointerLastHand = nil
@@ -262,6 +265,7 @@ final class GestureEngine {
         qualityChip = ""
         freezeLive = false
         freezeGhostDelta = .zero
+        freezeGhostDeltas = [:]
         sampleDt = 0.04
         lastTickNow = 0
         lastFusionEntropy = 0
@@ -276,10 +280,13 @@ final class GestureEngine {
         qualityChip = ""
         freezeLive = false
         freezeGhostDelta = .zero
+        freezeGhostDeltas = [:]
+        system.freezeLive = false
         let hands = incoming.filter { $0.joints.count >= 8 && $0.meanConfidence >= 0.18 }
         if hands.isEmpty {
             if lastHandSeen > 0, now - lastHandSeen < GestureMath.emptyHandsHold(dt: sampleDt) {
                 freezeLive = true
+                system.freezeLive = true
                 if let p = lastPalm {
                     let pred = GestureMath.freezePalmPredict(
                         palm: p, vx: lastPalmVel.x, vy: lastPalmVel.y, dt: sampleDt
@@ -288,9 +295,24 @@ final class GestureEngine {
                     lastPalm = pred.palm
                     lastPalmVel = CGPoint(x: pred.vx, y: pred.vy)
                 }
+                let predHands = GestureMath.freezePalmsPredict(
+                    palms: lastHandsFreeze.map { ($0.id, $0.palm, $0.vel.x, $0.vel.y) },
+                    dt: sampleDt
+                )
+                var deltas: [String: CGPoint] = [:]
+                lastHandsFreeze = predHands.map { row in
+                    let prev = lastHandsFreeze.first { $0.id == row.id }
+                    let oldPalm = prev?.palm ?? row.palm
+                    deltas[row.id] = CGPoint(x: row.palm.x - oldPalm.x, y: row.palm.y - oldPalm.y)
+                    return (row.id, row.palm, CGPoint(x: row.vx, y: row.vy))
+                }
+                freezeGhostDeltas = deltas
+                if let chip = GestureMath.freezeVelChip(dx: freezeGhostDelta.x, dy: freezeGhostDelta.y) {
+                    lockFreeze = chip
+                }
                 if let id = pointerHandID, let label = GestureMath.lockFreezeLabel(locked: id, missHeld: true) {
-                    lockFreeze = label
-                } else {
+                    lockFreeze = lockFreeze.isEmpty ? label : "\(label) \(lockFreeze)"
+                } else if lockFreeze.isEmpty {
                     lockFreeze = "freeze"
                 }
                 if GestureMath.emptyHandsHoldReleaseAX(isDragging: system.isDragging) {
@@ -364,6 +386,7 @@ final class GestureEngine {
             }
             return
         }
+        rememberHandsFreeze(hands)
         if lastHandSeen > 0, now - lastHandSeen > sampleDt * 1.6 {
             recoverSpan = GestureMath.emptyHandsRecoverSpan(dt: sampleDt)
             recoverUntil = now + recoverSpan
@@ -559,6 +582,7 @@ final class GestureEngine {
     func recenterPointer() {
         lastPalm = nil
         lastPalmVel = .zero
+        lastHandsFreeze = []
         palmSlow = nil
         pointerHandID = nil
         pointerSourceID = ""
@@ -572,6 +596,7 @@ final class GestureEngine {
         cursor = nil
         lastPalm = nil
         lastPalmVel = .zero
+        lastHandsFreeze = []
         palmSlow = nil
         pointerHandID = nil
         pointerSourceID = ""
@@ -582,6 +607,23 @@ final class GestureEngine {
         handCursors = []
         pointerOrigin = nil
         cursorDidMove = false
+    }
+
+    /// Zwei-Hand Freeze: Vel je Track, nicht nur Actor.
+    private func rememberHandsFreeze(_ hands: [TrackedHand]) {
+        lastHandsFreeze = hands.map { h in
+            let prev = lastHandsFreeze.first { $0.id == h.id }
+            let d = CGFloat(max(0.008, sampleDt))
+            let vel: CGPoint
+            if let p = prev {
+                vel = CGPoint(x: (h.palm.x - p.palm.x) / d, y: (h.palm.y - p.palm.y) / d)
+            } else if h.id == pointerHandID {
+                vel = lastPalmVel
+            } else {
+                vel = .zero
+            }
+            return (h.id, h.palm, vel)
+        }
     }
 
     private func perform(

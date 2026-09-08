@@ -1,4 +1,4 @@
-# Helios **1.6.37**
+# Helios **1.6.38**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,16 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.38
+
+1.6.37 Format, Residual, Sign, q-Chip, One-Euro, Tastatur-Ring. Freeze-Δ nur Actor. Jiggler weckt Geist. Predict unsichtbar. lastZ bei Occlusion weitergeschrieben.
+
+- **freezePalmsPredict** + **freezeGhostDeltas.** Zweite Hand nicht mehr Actor-Δ.
+- **clutchIgnoresFreeze.** Jiggler seize tot während Freeze.
+- **freezeVelChip** →/←/↓/↑ am Lock-Chip.
+- **liftSignKeepsPrevious.** Occlusion hält lastZ.
+- Tests + MARKETING_VERSION 1.6.38 (Build 71).
 
 ## Neu in 1.6.37
 

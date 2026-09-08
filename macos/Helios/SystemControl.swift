@@ -54,6 +54,8 @@ final class SystemControl {
     private(set) var mouseHasControl = false
     private let axQ = DispatchQueue(label: "helios.ax", qos: .userInteractive)
     private var chromeCache: (at: TimeInterval, point: CGPoint, knobs: [ChromeKnob])?
+    /// Freeze-Geisterhand: Jiggler seize tot.
+    var freezeLive = false
 
     var fromInstallMedia: Bool { AppInstall.isFromDiskImage }
 
@@ -90,6 +92,7 @@ final class SystemControl {
         // Eigene CGEvents (moveCursor) kommen als mouseMoved zurück — bei <12 fps
         // war der Sprung > 10 px und hat Helios selbst pausiert.
         if lastPostAt > 0, now - lastPostAt < GestureMath.clutchOwnWindow { return }
+        if GestureMath.clutchIgnoresFreeze(freezeLive: freezeLive) { return }
         let d = hypot(e.deltaX, e.deltaY)
         if GestureMath.clutchIgnores(delta: d) { return }
         if let posted = lastPosted {

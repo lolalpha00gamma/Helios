@@ -379,6 +379,34 @@ enum GestureMath {
         return (CGPoint(x: palm.x + nvx * t, y: palm.y + nvy * t), nvx, nvy)
     }
 
+    /// Zwei-Hand Freeze: jede Palme eigene Vel. Actor-Δ auf die zweite Hand = Teleport.
+    static func freezePalmsPredict(
+        palms: [(id: String, palm: CGPoint, vx: CGFloat, vy: CGFloat)],
+        dt: TimeInterval,
+        decay: CGFloat = 0.82
+    ) -> [(id: String, palm: CGPoint, vx: CGFloat, vy: CGFloat)] {
+        palms.map { row in
+            let p = freezePalmPredict(palm: row.palm, vx: row.vx, vy: row.vy, dt: dt, decay: decay)
+            return (row.id, p.palm, p.vx, p.vy)
+        }
+    }
+
+    /// Predict sichtbar: Richtung an der Geisterhand. Still = tot.
+    static func freezeVelChip(dx: CGFloat, dy: CGFloat, floor: CGFloat = 0.002) -> String? {
+        let m = hypot(dx, dy)
+        guard m >= floor else { return nil }
+        if abs(dx) >= abs(dy) { return dx > 0 ? "→" : "←" }
+        return dy > 0 ? "↓" : "↑"
+    }
+
+    /// Residual hoch = Occlusion. lastZ nicht überschreiben, sonst Sign kippt trotz liftSignHolds.
+    static func liftSignKeepsPrevious(residual: CGFloat, floor: CGFloat = 0.28) -> Bool {
+        residual >= floor
+    }
+
+    /// Freeze: Jiggler darf Geisterhand nicht wecken.
+    static func clutchIgnoresFreeze(freezeLive: Bool) -> Bool { freezeLive }
+
     /// Ampel-Ring: 8 fps dicker, sonst 4 Frames unsichtbar.
     static func chromeDwellRingWidth(dt: TimeInterval, hot: Bool = true) -> CGFloat {
         let base: CGFloat = hot ? 6 : 4

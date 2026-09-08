@@ -270,7 +270,9 @@ final class HandTracker: @unchecked Sendable {
 
             let smoothed = slot.smoother.apply(obs.raw, now: now)
             let lifted = Lift3D.lift(joints: smoothed, conf: obs.conf, space: space, previous: slot.lastZ)
-            slot.lastZ = Dictionary(uniqueKeysWithValues: lifted.pts.map { ($0.key, $0.value.z) })
+            if !GestureMath.liftSignKeepsPrevious(residual: lifted.residual) {
+                slot.lastZ = Dictionary(uniqueKeysWithValues: lifted.pts.map { ($0.key, $0.value.z) })
+            }
             let zSep: CGFloat = {
                 guard let t = lifted.pts[.thumbTip], let i = lifted.pts[.indexTip] else { return 0 }
                 return GestureMath.pinch3DSep(thumbZ: t.z, indexZ: i.z, palmWidth: lifted.palmWidth)

@@ -2656,6 +2656,34 @@ enum CoordTests {
             fputs("FAIL Scroll Start hält\n", stderr)
             fails += 1
         }
+        if !GestureMath.bezelHopReload(count: 1) || GestureMath.bezelHopReload(count: 0) {
+            fputs("FAIL Bezel Reload erster Hop\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraMutexStampPick(lockPts: 1_700_000_000, stampPts: 1_700_000_080) != 1_700_000_080 {
+            fputs("FAIL Mutex Stamp neuer\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraMutexStampPick(lockPts: nil, stampPts: 1_700_000_000) != 1_700_000_000 {
+            fputs("FAIL Mutex Stamp ohne Lock\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraMutexStampPick(lockPts: 12.4, stampPts: nil) != nil {
+            fputs("FAIL Mutex Stamp Media-PTS tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraMutexStampName() != "helios.aegis.camera.pts" {
+            fputs("FAIL Mutex Stamp Name\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoPinchEdgeHold(ok: true, streak: 0, need: 2) != 1 {
+            fputs("FAIL Scroll-Streak analog Zoom Tick 1\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.twoPinchEdgeReady(streak: 2, need: 2) {
+            fputs("FAIL Scroll-Streak Ready 2\n", stderr)
+            fails += 1
+        }
         let twoPalmLine = GestureMath.cameraMutexLine(
             owner: "helios", pid: 1, now: 100, gen: 1, pts: 1.5,
             palms: [(0.20, 0.40, 0.10), (0.70, 0.50, 0.12)]

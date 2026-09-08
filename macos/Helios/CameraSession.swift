@@ -819,6 +819,29 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         return dir.appendingPathComponent(GestureMath.cameraMutexName())
     }
 
+    private func cameraMutexStampURL() -> URL {
+        let base = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+            ?? FileManager.default.temporaryDirectory
+        let dir = base.appendingPathComponent(GestureMath.cameraMutexCacheFolder(), isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir.appendingPathComponent(GestureMath.cameraMutexStampName())
+    }
+
+    private func writeCameraMutexStamp(line: String) {
+        try? line.write(to: cameraMutexStampURL(), atomically: true, encoding: .utf8)
+    }
+
+    private func flockExclusiveRetry(_ fd: Int32) -> Bool {
+        if flock(fd, LOCK_EX | LOCK_NB) == 0 { return true }
+        let n = max(0, GestureMath.cameraMutexFlockRetryN())
+        let us = GestureMath.cameraMutexFlockRetryUs()
+        for _ in 0..<n {
+            usleep(us)
+            if flock(fd, LOCK_EX | LOCK_NB) == 0 { return true }
+        }
+        return false
+    }
+
     private func beatCameraMutex() {
         let now = Date().timeIntervalSince1970
         guard GestureMath.cameraMutexClaimDue(last: lastMutexClaimAt, now: now) else { return }
@@ -830,10 +853,14 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         let url = cameraMutexURL()
         let pid = ProcessInfo.processInfo.processIdentifier
         let owner = GestureMath.cameraMutexOwnerHelios()
+        let stampLine = GestureMath.cameraMutexLine(
+            owner: owner, pid: pid, now: now, gen: 0, pts: pts, palm: palms.first, palms: palms
+        )
+        writeCameraMutexStamp(line: stampLine)
         let fd = open(url.path, O_RDWR | O_CREAT, 0o644)
         var wrote: String?
         if fd >= 0 {
-            if flock(fd, LOCK_EX | LOCK_NB) == 0 {
+            if flockExclusiveRetry(fd) {
                 let size = lseek(fd, 0, SEEK_END)
                 _ = lseek(fd, 0, SEEK_SET)
                 var buf = [UInt8](repeating: 0, count: max(0, Int(size)))
@@ -855,6 +882,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
                     }
                     _ = fsync(fd)
                     wrote = line
+                    writeCameraMutexStamp(line: line)
                 }
                 _ = flock(fd, LOCK_UN)
             }
@@ -879,6 +907,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         if holder == GestureMath.cameraMutexOwnerHelios() {
             try? FileManager.default.removeItem(at: url)
         }
+        try? FileManager.default.removeItem(at: cameraMutexStampURL())
         mutexChip = "MUTEX —"
         lastMutexClaimAt = 0
     }

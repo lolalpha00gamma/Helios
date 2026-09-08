@@ -1,4 +1,4 @@
-# Helios **1.6.73**
+# Helios **1.6.74**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -19,6 +19,15 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.74
+
+1.6.73 schrieb zwei Palmen, aber EX|NB failte während Aegis LOCK_SH — Fill 220 ms tot. `noteCursorHop` / `consumeBezelHopRecalib` ohne Call-Site. Scroll feuerte am ersten Jitter-Tick.
+
+- **Lock-free PTS-Stamp.** `helios.aegis.camera.pts` ohne flock. EX|NB 3×2 ms Retry.
+- **SpaceMap beim ersten Bezel-Hop.** Sidecar trägt nicht 5K-H bis Hop 20.
+- **Scroll-Streak analog Zoom.** Continuity 8 Hz Jitter scrollt nicht mehr.
+- Predict bleibt 0. Tests + MARKETING_VERSION 1.6.74 (Build 107).
 
 ## Neu in 1.6.73
 

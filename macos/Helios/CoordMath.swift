@@ -497,6 +497,9 @@ enum GestureMath {
         count >= need
     }
 
+    /// Erster Hop lädt SpaceMap. 20 wartete bis Sidecar 5K-H trug.
+    static func bezelHopReload(count: Int) -> Bool { count >= 1 }
+
     static func bezelHopChip(count: Int, need: Int = 20) -> String? {
         count >= need ? "RECAL · \(need) hops" : nil
     }
@@ -2065,6 +2068,21 @@ enum GestureMath {
     static func cameraMutexStale() -> TimeInterval { 12 }
     static func cameraMutexHeartbeatSec() -> TimeInterval { 2 }
     static func cameraMutexClaimMinDt() -> TimeInterval { 0.08 }
+    /// EX|NB Retry während Aegis LOCK_SH. 3×2 ms < Fill-Skew 220 ms.
+    static func cameraMutexFlockRetryN() -> Int { 3 }
+    static func cameraMutexFlockRetryUs() -> UInt32 { 2_000 }
+    static func cameraMutexStampName() -> String { "helios.aegis.camera.pts" }
+
+    static func cameraMutexStampPick(lockPts: TimeInterval?, stampPts: TimeInterval?) -> TimeInterval? {
+        let a = lockPts.flatMap { $0 > 1_000_000 ? $0 : nil }
+        let b = stampPts.flatMap { $0 > 1_000_000 ? $0 : nil }
+        switch (a, b) {
+        case (let x?, let y?): return max(x, y)
+        case (let x?, nil): return x
+        case (nil, let y?): return y
+        default: return nil
+        }
+    }
 
     static func cameraMutexRelPath() -> String {
         cameraMutexCacheFolder() + "/" + cameraMutexName()

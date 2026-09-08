@@ -111,6 +111,7 @@ final class GestureEngine {
     private var lastScrollSign: Int32 = 0
     private var twoPinchEdgeStreak = 0
     private var twoPinchScaleStreak = 0
+    private var twoPinchScrollStreak = 0
     private var twoPinchLockedAxis: TwoPinchAxis = .none
     private var twoPinchLastMapped: [CGPoint]?
     private var twoPinchLastTicks: Int32 = 0
@@ -240,6 +241,7 @@ final class GestureEngine {
         lastScrollSign = 0
         twoPinchEdgeStreak = 0
         twoPinchScaleStreak = 0
+        twoPinchScrollStreak = 0
         twoPinchLockedAxis = .none
         twoPinchLastMapped = nil
         twoPinchLastTicks = 0
@@ -431,6 +433,7 @@ final class GestureEngine {
             swipeHandID = nil
             twoPinchEdgeStreak = 0
             twoPinchScaleStreak = 0
+            twoPinchScrollStreak = 0
             twoPinchLockedAxis = .none
             twoPinchLastMapped = nil
             freezeGain = 1
@@ -1320,6 +1323,7 @@ final class GestureEngine {
             lastScrollSign = 0
             twoPinchEdgeStreak = 0
             twoPinchScaleStreak = 0
+            twoPinchScrollStreak = 0
             twoPinchLockedAxis = .none
             twoPinchLastMapped = nil
             twoPinchLastTicks = 0
@@ -1392,14 +1396,26 @@ final class GestureEngine {
                 )
                 if ticks != 0 {
                     let holds = GestureMath.twoPinchScrollHolds(ticks: ticks, lastSign: lastScrollSign)
+                    let frames = GestureMath.twoPinchConfirmFrames(dt: sampleDt)
+                    twoPinchScrollStreak = GestureMath.twoPinchEdgeHold(
+                        ok: holds,
+                        streak: twoPinchScrollStreak,
+                        need: frames
+                    )
                     if !holds {
                         lastScrollSign = 0
                     } else {
                         if lastScrollSign == 0 { lastScrollSign = ticks > 0 ? 1 : -1 }
+                        guard GestureMath.twoPinchEdgeReady(streak: twoPinchScrollStreak, need: frames) else {
+                            twoPinchLastMapped = mapped
+                            return true
+                        }
                         twoPinchLastTicks = ticks
                         let conf = Float(pinches.map(\.poseProb).min() ?? 0)
                         perform("Scroll", need: .input, confidence: conf) { system.scroll(ticks: ticks) }
                     }
+                } else {
+                    twoPinchScrollStreak = 0
                 }
                 twoPinchLastMapped = mapped
                 return true

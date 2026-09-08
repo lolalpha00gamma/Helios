@@ -1,3 +1,41 @@
+# Helios Vorschläge — 2026-09-08 (Pass 31, 1.6.74)
+
+Stand 1.6.74. Lock-free PTS-Stamp, SpaceMap erster Hop, Scroll-Streak. Predict bleibt 0.
+
+## Gelandet in 1.6.74
+
+- helios.aegis.camera.pts ohne flock, EX|NB 3×2 ms Retry
+- bezelHopReload count≥1, noteCursorHop + consumeBezelHopRecalib → reloadSpaceMap
+- twoPinchScrollStreak analog Zoom-EdgeHold
+
+## Erweiterung (neu)
+
+378. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+379. **VNTrackObjectRequest** echte Hand-Observation, ROI-Miss ohne Full-Retry. P1.
+380. **Overlay CAMetalLayer.**
+381. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+382. **Continuity 15-fps Probe** gemessen, nicht claimed.
+383. **Watch Double-Tap** destruktive Klicks.
+384. **Click-Tick Sound.**
+385. **JSONL Palm-Vel** Predict-Tuning.
+386. **iPhone Ultraweit FOV** statt Center-Stage-Crop.
+387. **DepthCapture an Continuity-LiDAR.**
+388. **Per-Display pointerGain Pref.**
+389. **Air-Keyboard Shortcut-Overlay.**
+390. **Stereo Mac+iPhone Disparität.**
+391. **Pointer-Gain × Continuity-FOV.**
+392. **Deadman-Ring** Overlay, nicht nur Clutch.
+393. **Homographie Recalib Tipp-Tap** nach RECAL.
+394. **Mission-Control Zwei-Palm-Spread.**
+395. **Aegis-Gaze Pinch-Confirm.**
+396. **Mutex-Stamp fsync** bevor Aegis Fill den PTS liest — atomic write kann hinterherhinken.
+397. **drei Palmen** (zweite Clutch + dritte Drop) nur wenn Helios drei Hände trackt.
+398. **Stamp-TTL 250 ms.** Verwaister PTS nach Helios-Crash sonst Fill 12 s.
+399. **SpaceMap per-Display Cache** nicht nur Reload — Sidecar-H bleibt nach Hop zurück.
+400. **Scroll-Coast × EdgeHold** — Momentum nach Streak-Reset 8 Hz tot.
+
+P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
 # Helios Vorschläge — 2026-09-08 (Pass 30, 1.6.73)
 
 Stand 1.6.73. Zwei Palmen in der Lock-Zeile, Interrupt-Release, Heartbeat ohne Frame, Scroll-Sign.

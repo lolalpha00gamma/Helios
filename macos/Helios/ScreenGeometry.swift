@@ -219,9 +219,9 @@ enum ScreenGeometry {
         GestureMath.bezelHopChip(count: hopCount)
     }
 
-    /// Einmal pro 20-Hop-Welle. Chip bleibt bis Decay, Homographie nicht jedes Frame neu.
+    /// Einmal pro Hop-Welle. Chip bleibt bis Decay, Homographie nicht jedes Frame neu.
     static func consumeBezelHopRecalib() -> Bool {
-        guard GestureMath.bezelHopRecalib(count: hopCount), !hopRecalibDone else { return false }
+        guard GestureMath.bezelHopReload(count: hopCount), !hopRecalibDone else { return false }
         hopRecalibDone = true
         return true
     }

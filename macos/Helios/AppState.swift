@@ -710,6 +710,12 @@ final class AppState: ObservableObject {
         lastAppliedCameraRole = camRole
         engine.tick(hands: hands, now: now)
         camera.setMutexPalms(engine.mutexActorPalms())
+        if let p = engine.cursor {
+            ScreenGeometry.noteCursorHop(p)
+            if ScreenGeometry.consumeBezelHopRecalib() {
+                reloadSpaceMap()
+            }
+        }
         if drill.running || drill.phase == .countdown || drill.phase == .capture || drill.phase == .rest {
             drill.tick(hands: hands, now: now)
         }

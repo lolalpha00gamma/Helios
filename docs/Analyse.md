@@ -1,5 +1,24 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
+Stand: 2026-09-08. Helios **1.6.49** (Build 82). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+
+## 0. 1.6.49 — 720-Lock persist, 24 fps, Click-Vel, HUD-Coast, Per-Display
+
+1.6.48: inputPriority, Native 420, Freeze-Cursor, Pinch/AX, Wake. Danach startete Continuity weiter auf claimed 1080@30 (8 fps). Slow-Drift wurde Zug. HUD interpolierte ein Frame hinten. Homographie immer Main. Body-Pose fraß 8-fps-Ticks.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | Restart = 1080@8 | `helios.formatHeight` + prefers720 phone; Mac bleibt 1080 |
+| 2 | 30 fps Request → 8 | `cameraLockFps` 24 |
+| 3 | Drift = Drag | `isDrag` Palm-Vel Click/Need |
+| 4 | HUD 1 Frame tot | `hudCoastPoint` + DisplayLink Cursor |
+| 5 | Zweitmonitor tot | `spaceMapDisplayID` |
+| 6 | Body bei 8 fps | `visionSkipsBody` |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe.
+
+# Analyse, Fehlerbehebung, öffentlicher Abgleich
+
 Stand: 2026-09-08. Helios **1.6.48** (Build 81). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
 
 ## 0. 1.6.48 — inputPriority, Native 420, Freeze-Cursor, Pinch/AX, Wake

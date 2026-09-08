@@ -1,5 +1,46 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.49**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.49 erledigt
+
+1.6.48 inputPriority, Native 420, Freeze-Cursor. Continuity Kaltstart 1080@8. Drift=Zug. HUD 1 Frame tot. Homographie Main. Body fraß 8 fps.
+
+1. **720p-Lock persist** UserDefaults. Mac nicht auf Phone-720.
+2. **cameraLockFps 24** statt 30-Request.
+3. **Click-vs-Drag Palm-Vel.**
+4. **HUD-Coast + OS-Cursor 90 Hz.** Clutch Radius.
+5. **Per-Display SpaceMap.**
+6. **visionSkipsBody** bei 8 fps.
+7. Tests + MARKETING_VERSION 1.6.49 (Build 82).
+
+## Erweiterung (neu, 1.6.49)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+2. **HeliosAegisKit** gemeinsamer Broker + Mutex-PTS.
+3. **Pair-Stereo-Tiefe** Mac+iPhone statt DepthCapture-Stub.
+4. **Watch Double-Tap** Click-Confirm.
+5. **App-Grammar** Safari-Scroll vs Finder-Drag vs Xcode-Caret.
+6. **HUD reduced-motion** ohne 90 Hz Coast.
+7. **Two-pinch vs scroll hysteresis.**
+8. **Clutch-Radius × backingScaleFactor.**
+9. **AX-Hit-Cache × Fenster-ID** während Freeze.
+10. **JSONL Session-Replay** ohne Vision.
+11. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+12. **Slot-ID persist** über uniqueID-Flicker.
+13. **IOHID Force-Click vs Pinch.**
+14. **Pinch analog** Closedness×zSep Mix.
+15. **mmap leftover-Boxen** Helios↔Aegis Palm-Occlusion.
+16. **DepthCapture an Continuity-LiDAR.**
+17. **Overlay CAMetalLayer.**
+18. **SpaceMap Re-Calib** nach Display-Drehung.
+19. **Watch-IMU Pinch-Confirm.**
+20. **Session-Watchdog** Idle = fps>0 UND keine Aegis-Face UND 8 s leer.
+
+P0 CameraBroker. Kein neues *Need(dt).
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.48**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
 
 ## In 1.6.48 erledigt

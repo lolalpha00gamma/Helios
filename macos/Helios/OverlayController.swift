@@ -49,6 +49,7 @@ final class OverlayController {
     private let linkDriver = HUDLinkDriver()
     private var posePrev: HUDPoseSample?
     private var poseNow: HUDPoseSample?
+    var onCoastCursor: ((CGPoint) -> Void)?
 
     func attach(state: AppState) {
         self.state = state
@@ -215,17 +216,19 @@ final class OverlayController {
             )
             return
         }
-        let t = GestureMath.hudLerpT(
-            prevAt: prev.at,
-            nextAt: next.at,
-            now: CACurrentMediaTime(),
-            freeze: next.freeze
-        )
+        let now = CACurrentMediaTime()
         var cursors = next.cursors
         for i in cursors.indices {
             let id = cursors[i].id
             if let old = prev.cursors.first(where: { $0.id == id }) {
-                cursors[i].point = GestureMath.hudLerpPoint(prev: old.point, next: cursors[i].point, t: t)
+                let vel = GestureMath.hudCoastVel(prev: old.point, next: cursors[i].point, dt: next.at - prev.at)
+                if next.freeze {
+                    cursors[i].point = GestureMath.hudLerpPoint(prev: old.point, next: cursors[i].point, t: 1)
+                } else {
+                    cursors[i].point = GestureMath.hudCoastPoint(
+                        sample: cursors[i].point, vel: vel, elapsed: max(0, now - next.at)
+                    )
+                }
             }
         }
         paint(
@@ -236,6 +239,11 @@ final class OverlayController {
             showReticle: next.showReticle,
             freeze: next.freeze
         )
+        if GestureMath.hudLerpDrivesCursor(), !next.freeze,
+           let actor = cursors.first(where: { $0.actor }) ?? cursors.first
+        {
+            onCoastCursor?(actor.point)
+        }
     }
 
     private func paint(

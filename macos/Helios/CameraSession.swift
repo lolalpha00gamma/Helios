@@ -80,8 +80,11 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     let depthTap = DepthCapture()
     private var formatRenegotiated = false
     private var lastRenegotiateAt: TimeInterval = 0
-    /// Letzte aktive Höhe — Leiter sonst denselben 1080p-Retry.
-    private var lastFormatHeight: Double = 1080
+    /// Letzte aktive Höhe — Leiter sonst denselben 1080p-Retry. Persist über Launches.
+    private var lastFormatHeight: Double = {
+        let stored = UserDefaults.standard.double(forKey: "helios.formatHeight")
+        return stored >= 360 ? stored : 1080
+    }()
     private var lastDeviceUniqueID: String = ""
     private var lastDeviceRole: String = ""
     private var lastPts: TimeInterval = 0
@@ -378,6 +381,9 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         }
         lastDeviceUniqueID = device.uniqueID
         lastDeviceRole = Self.role(device).rawValue
+        lastFormatHeight = GestureMath.cameraFormatHeightPrefers720(
+            role: lastDeviceRole, stored: lastFormatHeight
+        )
         preferredName = device.localizedName
         preferredID = device.uniqueID
         UserDefaults.standard.set(device.uniqueID, forKey: "helios.cameraID")
@@ -599,13 +605,17 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             if let format = Self.bestFormat(on: device, measuredFps: measuredFps, currentHeight: lastFormatHeight) {
                 device.activeFormat = format
                 let dims = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
-                lastFormatHeight = Double(dims.height)
+                lastFormatHeight = GestureMath.cameraFormatHeightPersist(height: Double(dims.height))
+                UserDefaults.standard.set(lastFormatHeight, forKey: "helios.formatHeight")
             }
             self.depthTap.applyActiveFormat(device)
             if let range = device.activeFormat.videoSupportedFrameRateRanges.max(by: {
                 $0.maxFrameRate < $1.maxFrameRate
             }) {
-                let dur = range.minFrameDuration
+                let sec = GestureMath.cameraLockDuration(
+                    maxFps: range.maxFrameRate, minFps: range.minFrameRate
+                )
+                let dur = CMTime(seconds: sec, preferredTimescale: 600)
                 device.activeVideoMinFrameDuration = dur
                 device.activeVideoMaxFrameDuration = dur
             }

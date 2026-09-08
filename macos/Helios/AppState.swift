@@ -114,6 +114,9 @@ final class AppState: ObservableObject {
         didStart = true
         HeliosAppDelegate.state = self
         overlay.attach(state: self)
+        overlay.onCoastCursor = { [weak self] p in
+            self?.engine.coastCursor(p)
+        }
         engine.startInputClutch()
         engine.calibration = calibSession
         engine.spaceMap = SpaceMap.load(displayID: ScreenGeometry.mainDisplayID)
@@ -551,7 +554,16 @@ final class AppState: ObservableObject {
     func reloadSpaceMap() {
         invalidateMaps()
         let id = usingCover ? camera.coverID : camera.selectedID
-        engine.spaceMap = SpaceMap.load(cameraID: id, displayID: ScreenGeometry.mainDisplayID)
+        let cursor = engine.cursor ?? .zero
+        let screens = NSScreen.screens.map {
+            (id: ScreenGeometry.displayID(of: $0), quartz: ScreenGeometry.quartzRect(fromCocoa: $0.frame))
+        }
+        let did = GestureMath.spaceMapDisplayID(
+            cursor: cursor, screens: screens, fallback: ScreenGeometry.mainDisplayID
+        )
+        engine.spaceMap = SpaceMap.load(cameraID: id, displayID: did)
+            ?? SpaceMap.load(cameraID: id, displayID: ScreenGeometry.mainDisplayID)
+            ?? SpaceMap.load(displayID: did)
             ?? SpaceMap.load(displayID: ScreenGeometry.mainDisplayID)
         mapReady = engine.spaceMap?.isReady == true
         coverMapReady = coverCalibrated(camera.coverID)

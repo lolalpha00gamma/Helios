@@ -858,6 +858,81 @@ enum GestureMath {
     /// Sleep/Wake: Session neu, Leiter halten.
     static func cameraRecoversOnWake() -> Bool { true }
 
+    /// Leiter-Höhe über Launches. 1080 nach Restart sonst wieder 8 fps.
+    static func cameraFormatHeightPersist(height: Double) -> Double {
+        if height >= 1000 { return 1080 }
+        if height >= 700 { return 720 }
+        if height >= 500 { return 540 }
+        return 360
+    }
+
+    /// Continuity: 720 zuerst, nicht claimed 1080@30. Mac nicht auf 720 der Phone-Session kleben.
+    static func cameraFormatHeightPrefers720(role: String, stored: Double) -> Double {
+        if role == "phone" || role == "continuity" { return 720 }
+        if role == "mac" { return 1080 }
+        return stored >= 360 ? stored : 1080
+    }
+
+    /// Continuity 30-fps-Request fällt auf 8. 24 bleibt.
+    static func cameraLockFps(maxFps: Double, prefer: Double = 24) -> Double {
+        let cap = max(1, maxFps)
+        if cap >= prefer { return prefer }
+        return cap
+    }
+
+    static func cameraLockDuration(maxFps: Double, minFps: Double, prefer: Double = 24) -> Double {
+        let fps = min(max(minFps, cameraLockFps(maxFps: maxFps, prefer: prefer)), max(1, maxFps))
+        return 1.0 / max(1, fps)
+    }
+
+    /// 8 fps: Body-Pose jedes 4. Frame = 500 ms tot + extra Vision.
+    static func visionSkipsBody(dt: TimeInterval) -> Bool { dt >= 0.10 }
+
+    /// FramePump drop: alte Vision-Gen tot.
+    static func visionCancelOnDrop(dropped: Bool) -> Bool { dropped }
+
+    /// DisplayLink 90 Hz darf den OS-Cursor treiben. Clutch dann Radius, nicht Zeitfenster.
+    static func hudLerpDrivesCursor() -> Bool { true }
+
+    /// Nach dem Sample coasten, nicht 1 Frame hinterher interpolieren.
+    static func hudCoastVel(prev: CGPoint, next: CGPoint, dt: TimeInterval) -> CGPoint {
+        let t = CGFloat(max(0.008, dt))
+        return CGPoint(x: (next.x - prev.x) / t, y: (next.y - prev.y) / t)
+    }
+
+    static func hudCoastPoint(sample: CGPoint, vel: CGPoint, elapsed: TimeInterval, cap: CGFloat = 80) -> CGPoint {
+        let t = CGFloat(max(0, min(0.20, elapsed)))
+        var dx = vel.x * t
+        var dy = vel.y * t
+        let m = hypot(dx, dy)
+        if m > cap {
+            dx *= cap / m
+            dy *= cap / m
+        }
+        return CGPoint(x: sample.x + dx, y: sample.y + dy)
+    }
+
+    /// Cursor-Screen, nicht immer Main. Homographie sonst auf dem falschen Display.
+    static func spaceMapDisplayID(cursor: CGPoint, screens: [(id: UInt32, quartz: CGRect)], fallback: UInt32) -> UInt32 {
+        for s in screens where s.quartz.contains(cursor) { return s.id }
+        return fallback
+    }
+
+    /// Instantane Palm-Vel in Handbreiten/s.
+    static func pinchPalmVel(movedHW: CGFloat, dt: TimeInterval) -> CGFloat {
+        CGFloat(movedHW) / CGFloat(max(0.008, dt))
+    }
+
+    /// Darüber Drag, auch kurze Distanz. 8 fps 2,0 HW/s.
+    static func pinchDragVelNeed(dt: TimeInterval) -> CGFloat {
+        dt >= 0.08 ? 2.0 : 3.0
+    }
+
+    /// Darunter Klick trotz akkumulierter Distanz. 8 fps Drift ≠ Zug.
+    static func pinchDragVelClick(dt: TimeInterval) -> CGFloat {
+        dt >= 0.08 ? 1.20 : 1.80
+    }
+
     /// R1 erste Recover-Hälfte, R2 zweite. HUD sonst nur freeze während Miss.
     static func emptyHandsRecoverChip(now: TimeInterval, until: TimeInterval, span: TimeInterval) -> String? {
         guard until > now else { return nil }
@@ -1124,8 +1199,19 @@ enum GestureMath {
         return palmMovedHW < pinchDragNeedOf(dt: dt) && cursorMovedPx < pinchClickStillPx
     }
 
-    static func isDrag(palmMovedHW: CGFloat, cursorMovedPx: CGFloat, dt: TimeInterval = 0.016) -> Bool {
-        palmMovedHW >= pinchDragNeedOf(dt: dt) || cursorMovedPx >= pinchDragCursorNeed(dt: dt)
+    static func isDrag(
+        palmMovedHW: CGFloat,
+        cursorMovedPx: CGFloat,
+        dt: TimeInterval = 0.016,
+        palmVelHW: CGFloat? = nil
+    ) -> Bool {
+        if let v = palmVelHW {
+            if v < pinchDragVelClick(dt: dt) {
+                return cursorMovedPx >= max(80, pinchDragCursorNeed(dt: dt) * 2)
+            }
+            if v >= pinchDragVelNeed(dt: dt) { return true }
+        }
+        return palmMovedHW >= pinchDragNeedOf(dt: dt) || cursorMovedPx >= pinchDragCursorNeed(dt: dt)
     }
 
     /// Nach Pinzette-Öffnen und Gegenwischen in derselben Sekunde nicht schalten.

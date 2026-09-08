@@ -1,3 +1,28 @@
+# Helios Vorschläge — 2026-09-08 (Pass 12, 1.6.49)
+
+Stand 1.6.49. 720-Lock persist, 24 fps, Click-Vel, HUD-Coast, Per-Display, Body-Skip.
+
+## Gelandet in 1.6.49
+
+- helios.formatHeight + prefers720 phone (Mac 1080)
+- cameraLockFps 24
+- isDrag palmVelHW Click/Need
+- hudCoastPoint + DisplayLink OS-Cursor
+- spaceMapDisplayID
+- visionSkipsBody 8 fps
+
+## Erweiterung (neu)
+
+118. **Stereo Mac+iPhone Disparität** statt Lift-z.
+119. **Clutch-Radius × backingScaleFactor** nach 90 Hz Coast.
+120. **AX-Fenster-ID Cache** während Coast.
+121. **reduced-motion HUD** ohne Coast.
+122. **FramePump Vision-Timeout 400 ms** (VN unkündbar).
+123. **Pinch analog** Closedness×zSep.
+124. **Watch Double-Tap** Confirm.
+
+P0: CameraBroker. Kein neues *Need(dt).
+
 # Helios Vorschläge — 2026-09-08 (Pass 11, 1.6.48)
 
 Stand 1.6.48. inputPriority, Native 420, Freeze-Cursor, Pinch/AX halten, Wake.

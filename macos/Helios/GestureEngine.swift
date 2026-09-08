@@ -164,6 +164,11 @@ final class GestureEngine {
     private var tablePalms: [String: CGPoint] = [:]
     private let system = SystemControl()
     var onLog: ((String, ProtocolKind, Int?) -> Void)?
+
+    func coastCursor(_ p: CGPoint) {
+        guard !testMode else { return }
+        system.moveCursor(to: p)
+    }
     var focused: FocusedTarget?
 
     private var space: AspectSpace { GestureClassifier.space }
@@ -1431,7 +1436,14 @@ final class GestureEngine {
                     guard let a = pinchOriginCursor, let b = cursor else { return 0 }
                     return hypot(a.x - b.x, a.y - b.y)
                 }()
-                if GestureMath.isDrag(palmMovedHW: moved, cursorMovedPx: cursorPx, dt: sampleDt) {
+                let vel: CGFloat = {
+                    guard pinchTrail.count >= 2 else { return 0 }
+                    let a = pinchTrail[pinchTrail.count - 2]
+                    let b = pinchTrail[pinchTrail.count - 1]
+                    let d = space.dist(CGPoint(x: b.x, y: b.y), CGPoint(x: a.x, y: a.y)) / max(0.04, hand.palmWidth)
+                    return GestureMath.pinchPalmVel(movedHW: d, dt: max(0.008, b.t - a.t))
+                }()
+                if GestureMath.isDrag(palmMovedHW: moved, cursorMovedPx: cursorPx, dt: sampleDt, palmVelHW: vel) {
                     if chromeHot.isEmpty || cursorPx >= 52 {
                         pinchBecameDrag = true
                     }

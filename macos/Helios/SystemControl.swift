@@ -97,7 +97,9 @@ final class SystemControl {
         let now = CACurrentMediaTime()
         // Eigene CGEvents (moveCursor) kommen als mouseMoved zurück — bei <12 fps
         // war der Sprung > 10 px und hat Helios selbst pausiert.
-        if lastPostAt > 0, now - lastPostAt < GestureMath.clutchOwnWindow { return }
+        if lastPostAt > 0, now - lastPostAt < GestureMath.clutchOwnWindow,
+           !GestureMath.hudLerpDrivesCursor()
+        { return }
         if GestureMath.clutchIgnoresFreeze(freezeLive: freezeLive) { return }
         let d = hypot(e.deltaX, e.deltaY)
         if GestureMath.clutchIgnores(delta: d) { return }

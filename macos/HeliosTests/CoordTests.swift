@@ -1736,6 +1736,98 @@ enum CoordTests {
             fputs("FAIL HandTracker Freeze Kalman +x\n", stderr)
             fails += 1
         }
+        if GestureMath.cameraFormatHeightPersist(height: 1080) != 1080 {
+            fputs("FAIL persist 1080\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraFormatHeightPersist(height: 720) != 720 {
+            fputs("FAIL persist 720\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraFormatHeightPrefers720(role: "phone", stored: 1080) != 720 {
+            fputs("FAIL Continuity start 720 nicht 1080\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraFormatHeightPrefers720(role: "phone", stored: 720) != 720 {
+            fputs("FAIL Continuity hält 720\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraFormatHeightPrefers720(role: "mac", stored: 1080) != 1080 {
+            fputs("FAIL Mac darf 1080\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraFormatHeightPrefers720(role: "mac", stored: 720) != 1080 {
+            fputs("FAIL Mac nicht auf Phone-720 kleben\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.cameraLockFps(maxFps: 30) - 24) > 1e-9 {
+            fputs("FAIL Lock 30 → 24\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.cameraLockFps(maxFps: 15) - 15) > 1e-9 {
+            fputs("FAIL Lock 15 bleibt 15\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.cameraLockDuration(maxFps: 30, minFps: 1) - 1.0 / 24.0) > 1e-9 {
+            fputs("FAIL Lock Duration 1/24\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.visionSkipsBody(dt: 0.125) {
+            fputs("FAIL 8 fps skip Body\n", stderr)
+            fails += 1
+        }
+        if GestureMath.visionSkipsBody(dt: 0.04) {
+            fputs("FAIL 24 fps Body bleibt\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.visionCancelOnDrop(dropped: true) {
+            fputs("FAIL Drop cancel\n", stderr)
+            fails += 1
+        }
+        if GestureMath.visionCancelOnDrop(dropped: false) {
+            fputs("FAIL kein Drop kein Cancel\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.hudLerpDrivesCursor() {
+            fputs("FAIL HUD coast Cursor\n", stderr)
+            fails += 1
+        }
+        let coastVel = GestureMath.hudCoastVel(prev: CGPoint(x: 0, y: 0), next: CGPoint(x: 10, y: 0), dt: 0.125)
+        if abs(coastVel.x - 80) > 0.5 {
+            fputs("FAIL Coast Vel 80 px/s\n", stderr)
+            fails += 1
+        }
+        let coastP = GestureMath.hudCoastPoint(sample: CGPoint(x: 10, y: 0), vel: CGPoint(x: 80, y: 0), elapsed: 0.05)
+        if abs(coastP.x - 14) > 0.2 {
+            fputs("FAIL Coast +4 px\n", stderr)
+            fails += 1
+        }
+        let screens: [(id: UInt32, quartz: CGRect)] = [
+            (1, CGRect(x: 0, y: 0, width: 1920, height: 1080)),
+            (2, CGRect(x: 1920, y: 0, width: 1280, height: 800))
+        ]
+        if GestureMath.spaceMapDisplayID(cursor: CGPoint(x: 2000, y: 10), screens: screens, fallback: 1) != 2 {
+            fputs("FAIL Per-Display SpaceMap Screen 2\n", stderr)
+            fails += 1
+        }
+        if GestureMath.spaceMapDisplayID(cursor: CGPoint(x: 10, y: 10), screens: screens, fallback: 1) != 1 {
+            fputs("FAIL Per-Display SpaceMap Screen 1\n", stderr)
+            fails += 1
+        }
+        let slow = GestureMath.pinchPalmVel(movedHW: 0.10, dt: 0.125)
+        if GestureMath.isDrag(palmMovedHW: 0.80, cursorMovedPx: 10, dt: 0.125, palmVelHW: slow) {
+            fputs("FAIL Slow-Drift kein Drag\n", stderr)
+            fails += 1
+        }
+        let flick = GestureMath.pinchPalmVel(movedHW: 0.30, dt: 0.125)
+        if !GestureMath.isDrag(palmMovedHW: 0.30, cursorMovedPx: 8, dt: 0.125, palmVelHW: flick) {
+            fputs("FAIL Flick ist Drag\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.isDrag(palmMovedHW: 0.80, cursorMovedPx: 50, dt: 0.125) {
+            fputs("FAIL Distanz ohne Vel bleibt Drag\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

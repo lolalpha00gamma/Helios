@@ -2043,8 +2043,8 @@ enum CoordTests {
             fputs("FAIL Wipe 40° schräg\n", stderr)
             fails += 1
         }
-        if GestureMath.clickHitchNeed(dt: 0.125) < 0.22 {
-            fputs("FAIL Hitch Need 8 fps ≥ 0,22\n", stderr)
+        if GestureMath.clickHitchNeed(dt: 0.125) > 0.18 {
+            fputs("FAIL Hitch Need kurz\n", stderr)
             fails += 1
         }
         if !GestureMath.clickHitchBlocks(lastClick: 1.0, now: 1.10, dt: 0.125) {
@@ -2589,8 +2589,8 @@ enum CoordTests {
             fputs("FAIL Bezel Chip\n", stderr)
             fails += 1
         }
-        if GestureMath.pointerPredictCap(false, screenH: 2880) <= GestureMath.pointerPredictCap(false, screenH: 1080) {
-            fputs("FAIL Predict-Cap 5K > Sidecar\n", stderr)
+        if GestureMath.pointerPredictCap(false, screenH: 2880) != 0 || GestureMath.pointerPredictCap(false, screenH: 1080) != 0 {
+            fputs("FAIL Predict-Cap tot\n", stderr)
             fails += 1
         }
         if GestureMath.pointerPredictCap(false, screenH: 1080) == 48 {

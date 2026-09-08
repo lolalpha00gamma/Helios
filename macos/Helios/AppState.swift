@@ -558,8 +558,7 @@ final class AppState: ObservableObject {
     func cancelCalibration() {
         calibSession.cancel()
         engine.calibration = calibSession
-        engine.mode = .armed
-        engine.mustRearm = false
+        engine.forceArm()
         overlay.setVisible(hudVisible)
         log.record("Kalibrierung abgebrochen — Scharf", kind: .info)
     }

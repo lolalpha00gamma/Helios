@@ -1,4 +1,4 @@
-# Helios **1.6.69**
+# Helios **1.6.70**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -19,6 +19,16 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.70
+
+1.6.66 hat `beatCameraMutex` gelöscht — Aegis PTS-Fill und Palm-skipPrint tot. 1.6.69 hat Overlay/Klatschen, Zoom-Streak blieb `ok: true`, Mutex-Palme war `hands.first`.
+
+- **Mutex-Write zurück.** `CameraSession.beatCameraMutex` flock-EX, Unix-PTS, Palme UV, Heartbeat 80 ms. Aegis kann füllen.
+- **Actor-Palm live.** Steuerhand, nicht `hands.first`. Dropout schreibt keine stale UV.
+- **Zwei-Pinch Zoom-Sign am Streak.** `lastScaleSign` sitzt beim ersten Hold, nicht erst nach Fire. Reverse nach einem rejected Jitter.
+- Predict bleibt 0. Overlay 1.6.68/69 unangetastet.
+- Tests + MARKETING_VERSION 1.6.70 (Build 103).
 
 ## Neu in 1.6.69
 

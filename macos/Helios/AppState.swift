@@ -30,6 +30,7 @@ final class AppState: ObservableObject {
     @Published var fpsAmber = false
     @Published var fpsSparkBars: [CGFloat] = []
     @Published var watchdogChip = "—"
+    @Published var mutexChip = "—"
     @Published var latencyMs: Double = 0
     @Published var latencyHistory: [Double] = []
     @Published var dwellEnabled = false
@@ -681,6 +682,7 @@ final class AppState: ObservableObject {
         lastAppliedCameraName = camName
         lastAppliedCameraRole = camRole
         engine.tick(hands: hands, now: now)
+        camera.setMutexPalm(engine.mutexActorPalm())
         if drill.running || drill.phase == .countdown || drill.phase == .capture || drill.phase == .rest {
             drill.tick(hands: hands, now: now)
         }
@@ -735,6 +737,8 @@ final class AppState: ObservableObject {
             } else if watchdogChip != "—" {
                 watchdogChip = "—"
             }
+            let mutex = camera.mutexChip
+            if mutex != mutexChip { mutexChip = mutex }
         }
         if protocolMode {
             recorder.push(

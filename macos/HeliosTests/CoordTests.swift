@@ -2621,6 +2621,30 @@ enum CoordTests {
             fputs("FAIL Mutex RelPath\n", stderr)
             fails += 1
         }
+        if GestureMath.cameraMutexActorPalm(actor: (0.40, 0.55, 0.12), fallback: (0.10, 0.10, 0.20))?.x != 0.40 {
+            fputs("FAIL Mutex Actor vor first\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraMutexActorPalm(actor: nil, fallback: (0.10, 0.10, 0.20))?.x != 0.10 {
+            fputs("FAIL Mutex Actor Fallback\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraMutexActorPalm(actor: nil, fallback: nil) != nil {
+            fputs("FAIL Mutex Actor leer\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraMutexActorPalm(actor: (0.40, 0.55, 0), fallback: (0.10, 0.10, 0.20))?.x != 0.10 {
+            fputs("FAIL Mutex Actor w=0 Fallback\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoPinchZoomHolds(delta: -0.04, lastSign: 1) {
+            fputs("FAIL Zoom Reverse tot (call-site)\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.twoPinchZoomHolds(delta: 0.04, lastSign: 0) {
+            fputs("FAIL Zoom Start nach Sign-Reset\n", stderr)
+            fails += 1
+        }
         if !GestureMath.bezelHopRecalib(count: 20) || GestureMath.bezelHopRecalib(count: 19) {
             fputs("FAIL Bezel Recalib Armed\n", stderr)
             fails += 1

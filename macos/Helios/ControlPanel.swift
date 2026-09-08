@@ -377,6 +377,12 @@ struct ControlPanel: View {
                     .foregroundStyle(HeliosTheme.amber)
                     .help("Kamera liefert Frames, Vision sieht 8 s keine Palme.")
             }
+            if state.mutexChip != "—" && state.mutexChip != "MUTEX —" {
+                Text(state.mutexChip)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(HeliosTheme.cyan)
+                    .help("Helios hält die Continuity-Kamera. Aegis füllt PTS und skippt Palme.")
+            }
             if state.cameraPair == .single {
                 if state.cameraDevices.isEmpty {
                     Text(state.deviceName)

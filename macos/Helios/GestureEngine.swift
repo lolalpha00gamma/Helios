@@ -1009,6 +1009,18 @@ final class GestureEngine {
         return false
     }
 
+    func mutexActorPalm() -> (x: CGFloat, y: CGFloat, w: CGFloat)? {
+        let live = lastHandsLive
+        let actor = pointerLastHand.flatMap { h -> (x: CGFloat, y: CGFloat, w: CGFloat)? in
+            guard live.contains(where: { $0.id == h.id }) else { return nil }
+            return (h.palm.x, h.palm.y, max(0.04, h.palmWidth))
+        }
+        return GestureMath.cameraMutexActorPalm(
+            actor: actor,
+            fallback: live.first.map { ($0.palm.x, $0.palm.y, max(0.04, $0.palmWidth)) }
+        )
+    }
+
     private func preferred(_ hands: [TrackedHand]) -> TrackedHand {
         let liveIDs = hands.map(\.id)
         let left = hands.first(where: { $0.chirality == .left })
@@ -1335,11 +1347,14 @@ final class GestureEngine {
             let need = GestureMath.twoPinchScaleNeed * (reversing ? GestureMath.twoPinchReverseMul : 1)
             if abs(d) > need {
                 let frames = GestureMath.twoPinchConfirmFrames(dt: sampleDt)
+                let holds = GestureMath.twoPinchZoomHolds(delta: d, lastSign: lastScaleSign)
                 twoPinchScaleStreak = GestureMath.twoPinchEdgeHold(
-                    ok: true,
+                    ok: holds,
                     streak: twoPinchScaleStreak,
                     need: frames
                 )
+                if !holds { lastScaleSign = 0 }
+                else if lastScaleSign == 0 { lastScaleSign = d > 0 ? 1 : -1 }
                 guard GestureMath.twoPinchEdgeReady(streak: twoPinchScaleStreak, need: frames) else {
                     twoPinchLastMapped = mapped
                     return true

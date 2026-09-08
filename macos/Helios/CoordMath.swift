@@ -2149,6 +2149,16 @@ enum GestureMath {
         return "MUTEX —"
     }
 
+    /// Steuerhand, nicht `hands.first`. Zweite Palme skippt Aegis-Prints sonst falsch.
+    static func cameraMutexActorPalm(
+        actor: (x: CGFloat, y: CGFloat, w: CGFloat)?,
+        fallback: (x: CGFloat, y: CGFloat, w: CGFloat)? = nil
+    ) -> (x: CGFloat, y: CGFloat, w: CGFloat)? {
+        if let actor, actor.w > 0 { return actor }
+        if let fallback, fallback.w > 0 { return fallback }
+        return nil
+    }
+
 }
 
 /// Safari nur Klick/Scroll, Finder Werfen, Xcode aus. Sonst voll.

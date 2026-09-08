@@ -1,3 +1,43 @@
+# Helios Vorschläge — 2026-09-08 (Pass 29, 1.6.70)
+
+Stand 1.6.70. Mutex-Write live, Actor-Palm live, Zoom-Sign am Streak. Predict bleibt 0.
+
+## Gelandet in 1.6.70
+
+- CameraSession beatCameraMutex Unix-PTS + Palme, Heartbeat 80 ms
+- mutexActorPalm Steuerhand nur live, nicht Dropout-Coast
+- twoPinchZoomHolds am Scale-Streak, lastScaleSign schon im Hold
+- MUTEX-Chip ControlPanel
+
+## Erweiterung (neu)
+
+331. **Zwei Palmen in die Lock-Zeile.** Clutch-Hand skippt Aegis-Prints sonst nicht. P1.
+332. **Mutex-Release bei sessionWasInterrupted**, nicht nur `stop()`. Continuity-Drop lässt stale Claim. P1.
+333. **Mutex Heartbeat ohne neuen Frame** wenn Vision 8 Hz und Aegis LOCK_SH 220 ms den Continuity-Frame verpasst. P1.
+334. **twoPinchScrollTicks Vorzeichen-Hold** analog Zoom — Continuity-Jitter scrollt rauf/runter.
+335. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+336. **VNTrackObjectRequest** echte Hand-Observation, ROI-Miss ohne Full-Retry. P1.
+337. **Overlay CAMetalLayer.**
+338. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+339. **Continuity 15-fps Probe** gemessen, nicht claimed.
+340. **SpaceMap load per Bezel-Hop**, nicht erst 20. Sidecar trägt sonst 5K-H bis RECAL.
+341. **Watch Double-Tap** destruktive Klicks.
+342. **Click-Tick Sound.**
+343. **JSONL Palm-Vel** Predict-Tuning.
+344. **iPhone Ultraweit FOV** statt Center-Stage-Crop.
+345. **DepthCapture an Continuity-LiDAR.**
+346. **Per-Display pointerGain Pref.**
+347. **Air-Keyboard Shortcut-Overlay.**
+348. **Stereo Mac+iPhone Disparität.**
+349. **Pointer-Gain × Continuity-FOV.**
+350. **Deadman-Ring** Overlay, nicht nur Clutch.
+351. **Mutex flock timeout / lock-free stamp.** EX|NB failt während Aegis-Read.
+352. **Homographie Recalib Tipp-Tap** nach RECAL, nicht nur Reload derselben Palmen.
+353. **Mission-Control Zwei-Palm-Spread.**
+354. **Aegis-Gaze Pinch-Confirm.**
+
+P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
 # Helios Vorschläge — 2026-09-08 (Pass 28, 1.6.67)
 
 Stand 1.6.67. Pinch×Palme live. Predict bleibt 0, Mutex-Writer bleibt tot (1.6.66 Cursor-Fix).

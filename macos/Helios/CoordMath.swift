@@ -1330,9 +1330,12 @@ enum GestureMath {
 
     static func pinchAnalogClosed(_ analog: Double) -> Bool { analog >= 0.58 }
 
-    /// Sample-Cursor nicht posten wenn DisplayLink-Coast den OS-Zeiger treibt.
+    /// Immer Sample posten. Coast allein war tot wenn DisplayLink nicht feuert.
     static func sampleCursorYieldsToCoast(coastDrives: Bool, dragging: Bool, freeze: Bool) -> Bool {
-        coastDrives && !dragging && !freeze
+        _ = coastDrives
+        _ = dragging
+        _ = freeze
+        return false
     }
 
     /// 90 Hz coalesced, unabhängig vom Vision-Tick. Kleiner als Coast-Cap.

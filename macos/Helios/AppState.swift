@@ -558,8 +558,10 @@ final class AppState: ObservableObject {
     func cancelCalibration() {
         calibSession.cancel()
         engine.calibration = calibSession
+        engine.mode = .armed
+        engine.mustRearm = false
         overlay.setVisible(hudVisible)
-        log.record("Kalibrierung abgebrochen", kind: .info)
+        log.record("Kalibrierung abgebrochen — Scharf", kind: .info)
     }
 
     private func installCalibKeys() {
@@ -738,7 +740,7 @@ final class AppState: ObservableObject {
             phase: engine.grabPhase,
             target: engine.grabTargetName,
             window: focused?.quartzBounds,
-            showReticle: showReticle,
+            showReticle: showReticle || !engine.handCursors.isEmpty,
             freeze: engine.freezeLive
         )
         frames += 1

@@ -538,7 +538,9 @@ final class GestureEngine {
             if let p = cursor { postSampleCursor(p) }
             if driveClap(hands: hands, now: now) {
                 cal.cancel()
-                lastAction = "Kalibrierung abgebrochen"
+                mode = .armed
+                mustRearm = false
+                lastAction = "Kalibrierung abgebrochen — Scharf"
                 onLog?("Kalibrierung — 2× Klatschen, Abbruch", .info, nil)
                 return
             }
@@ -550,7 +552,9 @@ final class GestureEngine {
                 if now - (fistSince ?? now) >= 0.55 {
                     cal.cancel()
                     fistSince = nil
-                    lastAction = "Kalibrierung abgebrochen"
+                    mode = .armed
+                    mustRearm = false
+                    lastAction = "Kalibrierung abgebrochen — Scharf"
                     onLog?("Kalibrierung — Faust, Abbruch", .info, nil)
                     return
                 }
@@ -607,6 +611,24 @@ final class GestureEngine {
             return
         }
         handleArming(hands: hands, now: now)
+        if mode != .armed, !testMode {
+            let p = primary
+            if GestureMath.pinchStartsGrab(
+                gate: p.pinchClosed,
+                closedness: p.pinchClosedness,
+                reach: p.pinchReach,
+                index: p.indexScore,
+                zSep: p.pinchZSep,
+                quality: p.quality,
+                approach: p.pinchZApproach,
+                residual: p.liftResidual,
+                palmWidth: p.palmWidth
+            ) {
+                mode = .armed
+                mustRearm = false
+                lastAction = "Scharf"
+            }
+        }
         let armed = mode == .armed || testMode
 
         if !armed {

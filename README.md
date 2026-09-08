@@ -1,4 +1,4 @@
-# Helios **1.6.71**
+# Helios **1.6.72**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -19,6 +19,13 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.72
+
+1.6.71 ließ nach Abbruch Idle, Sample-Cursor wich einem DisplayLink der nicht immer feuert, Marker hing an der Reticle-Prefs.
+
+- Pinzette im Idle schärft. Abbruch (Button/Esc/Faust/Klatschen) → Scharf.
+- Sample-Warp immer, Coast zusätzlich. Marker an wenn eine Hand da ist.
 
 ## Neu in 1.6.71
 

@@ -1963,16 +1963,11 @@ enum CoordTests {
             fputs("FAIL Two-pinch Scroll Ticks\n", stderr)
             fails += 1
         }
-        if !GestureMath.sampleCursorYieldsToCoast(coastDrives: true, dragging: false, freeze: false) {
-            fputs("FAIL Sample weicht Coast\n", stderr)
-            fails += 1
-        }
-        if GestureMath.sampleCursorYieldsToCoast(coastDrives: true, dragging: true, freeze: false) {
-            fputs("FAIL Drag postet Sample\n", stderr)
-            fails += 1
-        }
-        if GestureMath.sampleCursorYieldsToCoast(coastDrives: true, dragging: false, freeze: true) {
-            fputs("FAIL Freeze postet Sample\n", stderr)
+        if GestureMath.sampleCursorYieldsToCoast(coastDrives: true, dragging: false, freeze: false)
+            || GestureMath.sampleCursorYieldsToCoast(coastDrives: true, dragging: true, freeze: false)
+            || GestureMath.sampleCursorYieldsToCoast(coastDrives: true, dragging: false, freeze: true)
+        {
+            fputs("FAIL Sample weicht Coast nicht\n", stderr)
             fails += 1
         }
         if abs(GestureMath.cgEventCoalesceDt() - 1.0 / 90.0) > 0.001 {

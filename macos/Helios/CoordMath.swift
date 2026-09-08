@@ -836,12 +836,27 @@ enum GestureMath {
     }
 
     /// Dropout: Cursor einfrieren, AX-Zug nicht. Fenster klebt sonst in der Luft.
-    static func emptyHandsHoldReleaseAX(isDragging: Bool) -> Bool {
-        isDragging
+    /// Freeze (beyondHold false) hält den Zug — Continuity-Hitch sonst droppt das Fenster.
+    static func emptyHandsHoldReleaseAX(isDragging: Bool, beyondHold: Bool = false) -> Bool {
+        isDragging && beyondHold
     }
 
-    /// Freeze trägt pinchHeld. Hands zurück → Gate-Auf = Klick. AX ist schon frei.
-    static func emptyHandsHoldDropsPinch() -> Bool { true }
+    /// Freeze trägt pinchHeld. Nur Dropout jenseits Hold droppt Gate.
+    static func emptyHandsHoldDropsPinch(beyondHold: Bool = false) -> Bool { beyondHold }
+
+    /// Kalman-Palme bewegt den Cursor während Freeze. Return-ohne-Zeiger = tot bei 8 fps.
+    static func freezeDrivesCursor(hasHands: Bool) -> Bool { hasHands }
+
+    /// 1080p-Preset klemmt Continuity auf 8 fps. Leiter kann activeFormat nicht lösen.
+    static func captureSessionPresetClamps1080() -> Bool { true }
+
+    static func capturePrefersInputPriority() -> Bool { true }
+
+    /// Native 420 vor BGRA — Continuity konvertiert sonst 1080p BGRA @ 8.
+    static func capturePrefersNative420() -> Bool { true }
+
+    /// Sleep/Wake: Session neu, Leiter halten.
+    static func cameraRecoversOnWake() -> Bool { true }
 
     /// R1 erste Recover-Hälfte, R2 zweite. HUD sonst nur freeze während Miss.
     static func emptyHandsRecoverChip(now: TimeInterval, until: TimeInterval, span: TimeInterval) -> String? {

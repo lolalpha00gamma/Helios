@@ -1,5 +1,45 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.48**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.48 erledigt
+
+1.6.47 start() Leiter, sticky Höhe, Mac nie. 1080p-Preset klemmt Continuity. Freeze tot. Pinch/AX drop.
+
+1. **sessionPreset inputPriority / 720p.** Nie 1080 zuerst.
+2. **Native 420 vor BGRA.**
+3. **freezeDrivesCursor** + lastHandsLive.
+4. **emptyHandsHoldDropsPinch / ReleaseAX(beyondHold).**
+5. **didWake Session-Recovery.**
+6. Tests + MARKETING_VERSION 1.6.48 (Build 81).
+
+## Erweiterung (neu, 1.6.48)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC, eine Session. P0.
+2. **HeliosAegisKit** gemeinsamer Broker + Mutex-PTS.
+3. **Click-vs-Drag Classifier** aus Palm-Velocity-Histogramm, nicht nur Distanz.
+4. **Per-Display SpaceMap** wenn der Cursor den Screen wechselt.
+5. **720p-Lock persist** lastFormatHeight in UserDefaults über Launches.
+6. **Pair-Stereo-Tiefe** Mac+iPhone statt DepthCapture-Stub.
+7. **Watch Double-Tap** als Click-Confirm (neben IMU).
+8. **App-Grammar** Safari-Scroll vs Finder-Drag vs Xcode-Caret.
+9. **HUD reduced-motion** ohne 90 Hz Lerp.
+10. **Vision-Cancel-Token** wenn FramePump droppt.
+11. **Two-pinch vs scroll hysteresis.**
+12. **Clutch-Radius × backingScaleFactor.**
+13. **AX-Hit-Cache × Fenster-ID** während Freeze.
+14. **JSONL Session-Replay** ohne Vision.
+15. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+16. **CGEvent-Tap coalescing 90 Hz.**
+17. **Slot-ID persist** über uniqueID-Flicker.
+18. **IOHID Force-Click vs Pinch.**
+19. **Pinch analog** Closedness×zSep Mix, nicht nur Hold-SM.
+20. **mmap leftover-Boxen** Helios↔Aegis Palm-Occlusion.
+
+P0 CameraBroker. Kein neues *Need(dt).
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.47**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
 
 ## In 1.6.47 erledigt

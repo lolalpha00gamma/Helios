@@ -90,8 +90,10 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     var latestDepth: DepthSample? { depthTap.latest }
     var hasDepth: Bool { depthTap.attached }
     private var keepAlive: NSObjectProtocol?
+    private var wakeObs: NSObjectProtocol?
 
     func start() {
+        installWakeWatch()
         DispatchQueue.main.async { self.errorMessage = nil }
         pump.reset()
         lastRenegotiateAt = 0
@@ -347,8 +349,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         session.beginConfiguration()
         session.inputs.forEach { session.removeInput($0) }
         session.outputs.forEach { session.removeOutput($0) }
-        if session.canSetSessionPreset(.hd1920x1080) {
-            session.sessionPreset = .hd1920x1080
+        if GestureMath.capturePrefersInputPriority(), session.canSetSessionPreset(.inputPriority) {
+            session.sessionPreset = .inputPriority
         } else if session.canSetSessionPreset(.hd1280x720) {
             session.sessionPreset = .hd1280x720
         } else if session.canSetSessionPreset(.high) {
@@ -392,7 +394,6 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
 
         output.alwaysDiscardsLateVideoFrames = true
         output.videoSettings = [
-            kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA,
             kCVPixelBufferMetalCompatibilityKey as String: true,
             kCVPixelBufferIOSurfacePropertiesKey as String: [:] as CFDictionary
         ]
@@ -402,6 +403,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         tap = sink
         output.setSampleBufferDelegate(sink, queue: cameraQueue)
         if session.canAddOutput(output) { session.addOutput(output) }
+        applyNativePixelFormat()
         depthTap.attach(session: session, device: device, queue: cameraQueue)
         HeliosCatch({
             if let conn = self.output.connection(with: .video), conn.isVideoMirroringSupported {
@@ -525,6 +527,36 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             return builtIn
         }
         return discovered.first ?? AVCaptureDevice.default(for: .video)
+    }
+
+    /// Native 420 vor BGRA. Continuity sonst 1080p BGRA @ 8 fps.
+    private func applyNativePixelFormat() {
+        guard GestureMath.capturePrefersNative420() else { return }
+        let preferred: [OSType] = [
+            kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
+            kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+            kCVPixelFormatType_422YpCbCr8,
+            kCVPixelFormatType_32BGRA,
+        ]
+        let types = output.availableVideoPixelFormatTypes
+        guard let fmt = preferred.first(where: { types.contains($0) }) ?? types.first else { return }
+        var settings = output.videoSettings
+        settings[kCVPixelBufferPixelFormatTypeKey as String] = fmt
+        settings[kCVPixelBufferMetalCompatibilityKey as String] = true
+        settings[kCVPixelBufferIOSurfacePropertiesKey as String] = [:] as CFDictionary
+        output.videoSettings = settings
+    }
+
+    private func installWakeWatch() {
+        guard wakeObs == nil else { return }
+        wakeObs = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            guard let self, GestureMath.cameraRecoversOnWake() else { return }
+            if self.isRunning { self.start() }
+        }
     }
 
     /// Nach dem Format: `videoRotationAngle` statt deprecated `videoOrientation`.
@@ -811,8 +843,8 @@ final class CoverCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         session.beginConfiguration()
         session.inputs.forEach { session.removeInput($0) }
         session.outputs.forEach { session.removeOutput($0) }
-        if session.canSetSessionPreset(.hd1920x1080) {
-            session.sessionPreset = .hd1920x1080
+        if GestureMath.capturePrefersInputPriority(), session.canSetSessionPreset(.inputPriority) {
+            session.sessionPreset = .inputPriority
         } else if session.canSetSessionPreset(.hd1280x720) {
             session.sessionPreset = .hd1280x720
         } else if session.canSetSessionPreset(.high) {
@@ -830,9 +862,10 @@ final class CoverCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
             return error.localizedDescription
         }
         output.alwaysDiscardsLateVideoFrames = true
-        output.videoSettings = [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA]
+        output.videoSettings = [kCVPixelBufferMetalCompatibilityKey as String: true]
         output.setSampleBufferDelegate(self, queue: queue)
         if session.canAddOutput(output) { session.addOutput(output) }
+        Self.applyNativePixelFormat(output)
         HeliosCatch({
             if let conn = self.output.connection(with: .video), conn.isVideoMirroringSupported {
                 conn.isVideoMirrored = CameraSession.shouldMirror(device)
@@ -864,6 +897,22 @@ final class CoverCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         }
         lastPreview = 0
         return nil
+    }
+
+    private static func applyNativePixelFormat(_ videoOut: AVCaptureVideoDataOutput) {
+        guard GestureMath.capturePrefersNative420() else { return }
+        let preferred: [OSType] = [
+            kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
+            kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange,
+            kCVPixelFormatType_422YpCbCr8,
+            kCVPixelFormatType_32BGRA,
+        ]
+        let types = videoOut.availableVideoPixelFormatTypes
+        guard let fmt = preferred.first(where: { types.contains($0) }) ?? types.first else { return }
+        videoOut.videoSettings = [
+            kCVPixelBufferPixelFormatTypeKey as String: fmt,
+            kCVPixelBufferMetalCompatibilityKey as String: true,
+        ]
     }
 
     private static func tuneDevice(_ device: AVCaptureDevice) {

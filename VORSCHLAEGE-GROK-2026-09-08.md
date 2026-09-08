@@ -1,3 +1,28 @@
+# Helios Vorschläge — 2026-09-08 (Pass 11, 1.6.48)
+
+Stand 1.6.48. inputPriority, Native 420, Freeze-Cursor, Pinch/AX halten, Wake.
+
+## Gelandet in 1.6.48
+
+- sessionPreset inputPriority / 720p, nie 1080 zuerst
+- Native 420 vor BGRA
+- freezeDrivesCursor + lastHandsLive.shifted
+- emptyHandsHoldDropsPinch / ReleaseAX nur beyondHold
+- didWake start() ohne Leiter-Wipe
+
+## Erweiterung (neu)
+
+110. **Click-vs-Drag** Palm-Velocity-Histogramm.
+111. **Per-Display SpaceMap** Screen-Wechsel.
+112. **720p-Lock persist** UserDefaults.
+113. **Pair-Stereo-Tiefe** Mac+iPhone.
+114. **Watch Double-Tap** Click-Confirm.
+115. **App-Grammar** Safari vs Finder vs Xcode.
+116. **HUD reduced-motion.**
+117. **Vision-Cancel-Token** bei FramePump-Drop.
+
+P0: CameraBroker. Kein weiteres dt-Pflaster.
+
 # Helios Vorschläge — 2026-09-08 (Pass 10b, 1.6.47)
 
 Stand 1.6.47. start() hält Leiter, lastFormatHeight sticky, Mac nie.

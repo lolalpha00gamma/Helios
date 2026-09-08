@@ -124,6 +124,7 @@ final class GestureEngine {
     private var lastPalm: CGPoint?
     private var lastPalmVel: CGPoint = .zero
     private var lastHandsFreeze: [(id: String, palm: CGPoint, vel: CGPoint)] = []
+    private var lastHandsLive: [TrackedHand] = []
     private var pointerHandID: String?
     private var pointerSourceID: String = ""
     private var pointerLastHand: TrackedHand?
@@ -224,6 +225,7 @@ final class GestureEngine {
         lastPalm = nil
         lastPalmVel = .zero
         lastHandsFreeze = []
+        lastHandsLive = []
         pointerHandID = nil
         pointerSourceID = ""
         pointerLastHand = nil
@@ -343,7 +345,6 @@ final class GestureEngine {
                 if GestureMath.emptyHandsHoldReleaseAX(isDragging: system.isDragging) {
                     system.endWindowDrag()
                 }
-                dragging = false
                 if GestureMath.emptyHandsHoldDropsPinch() {
                     if pinchHeld {
                         swipeMuteUntil = now + GestureMath.swipeMuteAfterPinch
@@ -355,8 +356,21 @@ final class GestureEngine {
                     dropPinchHold()
                     pinchBecameDrag = false
                 }
+                if GestureMath.freezeDrivesCursor(hasHands: !lastHandsLive.isEmpty) {
+                    lastHandsLive = lastHandsLive.map { h in
+                        h.shifted(by: freezeGhostDeltas[h.id] ?? .zero)
+                    }
+                    let ghostPrimary = preferred(lastHandsLive)
+                    let actor = pinchActor(lastHandsLive, primary: ghostPrimary)
+                    placeCursors(lastHandsLive, actor: actor)
+                    if !testMode, let p = cursor {
+                        system.moveCursor(to: p)
+                    }
+                }
+                dragging = pinchHeld
                 return
             }
+            lastHandsLive = []
             releasePointer()
             fistSince = nil
             fistLostAt = nil
@@ -645,6 +659,7 @@ final class GestureEngine {
 
     /// Zwei-Hand Freeze: Vel je Track, nicht nur Actor.
     private func rememberHandsFreeze(_ hands: [TrackedHand]) {
+        lastHandsLive = hands
         lastHandsFreeze = hands.map { h in
             let prev = lastHandsFreeze.first { $0.id == h.id }
             let d = CGFloat(max(0.008, sampleDt))

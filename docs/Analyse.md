@@ -1,5 +1,23 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
+Stand: 2026-09-08. Helios **1.6.48** (Build 81). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+
+## 0. 1.6.48 — inputPriority, Native 420, Freeze-Cursor, Pinch/AX, Wake
+
+1.6.47: start() Leiter, sticky Höhe, Mac nie. Preset 1080p klemmt Continuity @ 8. Freeze return ohne Zeiger. Pinch+Fenster droppen beim Hitch.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | 1080p-Preset → 8 fps | inputPriority / 720p |
+| 2 | BGRA-Convert | Native 420 |
+| 3 | Freeze tot | freezeDrivesCursor + lastHandsLive |
+| 4 | Hitch = Klick + Fenster-Drop | DropsPinch / ReleaseAX nur beyondHold |
+| 5 | Sleep tötet Cam | didWake start() |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe.
+
+# Analyse, Fehlerbehebung, öffentlicher Abgleich
+
 Stand: 2026-09-08. Helios **1.6.47** (Build 80). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
 
 ## 0. 1.6.47 — start() hält Leiter, lastFormatHeight sticky, Mac nie

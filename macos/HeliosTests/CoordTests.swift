@@ -959,7 +959,11 @@ enum CoordTests {
             fputs("FAIL Recover-Span 8 fps zwei Frames\n", stderr)
             fails += 1
         }
-        if !GestureMath.emptyHandsHoldReleaseAX(isDragging: true) {
+        if GestureMath.emptyHandsHoldReleaseAX(isDragging: true) {
+            fputs("FAIL Freeze hält AX-Zug\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.emptyHandsHoldReleaseAX(isDragging: true, beyondHold: true) {
             fputs("FAIL Dropout gibt AX frei\n", stderr)
             fails += 1
         }
@@ -1012,8 +1016,36 @@ enum CoordTests {
             fputs("FAIL 24 fps Spark nicht amber\n", stderr)
             fails += 1
         }
-        if !GestureMath.emptyHandsHoldDropsPinch() {
-            fputs("FAIL Freeze droppt Pinch\n", stderr)
+        if GestureMath.emptyHandsHoldDropsPinch() {
+            fputs("FAIL Freeze hält Pinch\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.emptyHandsHoldDropsPinch(beyondHold: true) {
+            fputs("FAIL Dropout droppt Pinch\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.freezeDrivesCursor(hasHands: true) {
+            fputs("FAIL Freeze treibt Cursor\n", stderr)
+            fails += 1
+        }
+        if GestureMath.freezeDrivesCursor(hasHands: false) {
+            fputs("FAIL Freeze ohne Hands kein Cursor\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.captureSessionPresetClamps1080() {
+            fputs("FAIL 1080-Preset klemmt Continuity\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.capturePrefersInputPriority() {
+            fputs("FAIL inputPriority vor 1080\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.capturePrefersNative420() {
+            fputs("FAIL Native 420 vor BGRA\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.cameraRecoversOnWake() {
+            fputs("FAIL Wake-Recovery an\n", stderr)
             fails += 1
         }
         if GestureMath.emptyHandsRecoverChip(now: 1.0, until: 1.0, span: 0.25) != nil {

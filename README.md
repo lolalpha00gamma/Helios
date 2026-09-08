@@ -1,4 +1,4 @@
-# Helios **1.6.47**
+# Helios **1.6.48**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -19,6 +19,17 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.48
+
+1.6.47 start() hielt Leiter, lastFormatHeight sticky, Mac nie. SessionPreset `.hd1920x1080` klemmte Continuity trotzdem auf 8 fps. Freeze ließ Cursor stehen und droppte Pinch/Fenster.
+
+- **inputPriority statt 1080p.** Continuity darf 720p@24. Cover analog.
+- **Native 420.** Kein BGRA-Convert pro Frame.
+- **Freeze treibt Cursor.** Kalman-Palme bleibt der Zeiger.
+- **Freeze hält Pinch + AX-Zug.** Nur echter Dropout droppt Gate.
+- **Wake-Recovery.** Sleep tötet Continuity nicht dauerhaft.
+- Tests + MARKETING_VERSION 1.6.48 (Build 81).
 
 ## Neu in 1.6.47
 

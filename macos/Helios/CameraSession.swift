@@ -82,6 +82,10 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     private var lastRenegotiateAt: TimeInterval = 0
     /// Letzte aktive Höhe — Leiter sonst denselben 1080p-Retry.
     private var lastFormatHeight: Double = 1080
+    private var lastDeviceUniqueID: String = ""
+    private var lastPts: TimeInterval = 0
+    private var lastPtsWall: TimeInterval = 0
+    private var preferredName: String = UserDefaults.standard.string(forKey: "helios.cameraName") ?? ""
     var latestDepth: DepthSample? { depthTap.latest }
     var hasDepth: Bool { depthTap.attached }
     private var keepAlive: NSObjectProtocol?
@@ -92,6 +96,9 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         formatRenegotiated = false
         lastRenegotiateAt = 0
         lastFormatHeight = 1080
+        lastDeviceUniqueID = ""
+        lastPts = 0
+        lastPtsWall = 0
         cameraQueue.async { [weak self] in
             self?.configureAndRun()
         }
@@ -134,9 +141,13 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
 
     func selectDevice(_ id: String) {
         UserDefaults.standard.set(id, forKey: "helios.cameraID")
+        if let name = Self.discover().first(where: { $0.uniqueID == id })?.name, !name.isEmpty {
+            UserDefaults.standard.set(name, forKey: "helios.cameraName")
+        }
         cameraQueue.async { [weak self] in
             guard let self else { return }
             self.preferredID = id
+            if let n = UserDefaults.standard.string(forKey: "helios.cameraName") { self.preferredName = n }
             self.preferredCoverID = ""
             self.coverPipe.stop()
             DispatchQueue.main.async {
@@ -351,6 +362,18 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             session.commitConfiguration()
             return
         }
+        if GestureMath.lastFormatHeightResets(prevID: lastDeviceUniqueID, nextID: device.uniqueID) {
+            lastFormatHeight = 1080
+            formatRenegotiated = false
+            lastRenegotiateAt = 0
+            lastPts = 0
+            lastPtsWall = 0
+        }
+        lastDeviceUniqueID = device.uniqueID
+        preferredName = device.localizedName
+        preferredID = device.uniqueID
+        UserDefaults.standard.set(device.uniqueID, forKey: "helios.cameraID")
+        UserDefaults.standard.set(device.localizedName, forKey: "helios.cameraName")
 
         do {
             let input = try AVCaptureDeviceInput(device: device)
@@ -484,7 +507,12 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             mediaType: .video,
             position: .unspecified
         ).devices
-        if !preferredID.isEmpty, let chosen = discovered.first(where: { $0.uniqueID == preferredID }) {
+        let listed = discovered.map { (id: $0.uniqueID, name: $0.localizedName) }
+        if let pick = GestureMath.cameraPreferredID(
+            preferredID: preferredID,
+            preferredName: preferredName,
+            devices: listed
+        ), let chosen = discovered.first(where: { $0.uniqueID == pick }) {
             return chosen
         }
         if let builtIn = discovered.first(where: { $0.deviceType == .builtInWideAngleCamera }) {
@@ -595,7 +623,16 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         guard let pb = CMSampleBufferGetImageBuffer(buffer) else { return }
         let pts = CMSampleBufferGetPresentationTimeStamp(buffer)
         let ptsSec = CMTimeGetSeconds(pts)
-        let arrived = (pts.isValid && ptsSec.isFinite && ptsSec > 0) ? ptsSec : CACurrentMediaTime()
+        let wall = CACurrentMediaTime()
+        let rawPts = (pts.isValid && ptsSec.isFinite && ptsSec > 0) ? ptsSec : 0
+        let arrived = GestureMath.ptsWallStamp(
+            pts: rawPts,
+            wall: wall,
+            prevPts: lastPts > 0 ? lastPts : nil,
+            prevWall: lastPtsWall > 0 ? lastPtsWall : nil
+        )
+        lastPts = rawPts
+        lastPtsWall = arrived
         let (owned, slot) = ring.copy(pb)
         pump.push(owned, slot: slot, arrived: arrived, drop: { [weak self] s in
             self?.ring.release(s)

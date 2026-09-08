@@ -1,6 +1,44 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.45**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+Stand: **1.6.46**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.46 erledigt
+
+1.6.45 HMM pinchHeld, dtPalm, Format-Retry. Continuity uniqueID flackert Recenter. PTS = Dropout. Leiter alte Cam. Tracker Freeze stand.
+
+1. **uniqueID sticky.** `cameraIDSticky` / HomographyResets / SpaceMap.retarget. ` · Tiefe` strip.
+2. **PTS-Sprung = Freeze.** `ptsJumpIsFreeze` + `ptsWallStamp`.
+3. **lastFormatHeightResets** + `cameraPreferredID` Name-Reconnect.
+4. **Kalman-Palme im HandTracker** während Freeze (`lastVel`).
+5. Tests + MARKETING_VERSION 1.6.46 (Build 79).
+
+## Erweiterung (neu, 1.6.46)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC, eine Session. P0.
+2. **HeliosAegisKit** gemeinsamer Broker + Mutex-PTS.
+3. **Two-pinch vs scroll hysteresis** — offene Hand + Coast darf Pinch-Start nicht fressen.
+4. **Clutch-Radius × backingScaleFactor** je NSScreen.
+5. **AX-Hit-Cache × Fenster-ID** Resize während Freeze sonst tot.
+6. **mmap leftover-Boxen** Helios↔Aegis, nicht Datei-Poll. Palm-Occlusion.
+7. **Aegis-Yaw als Click-Lock** — Blick weg = kein Klick.
+8. **HUD Pose-Chips am DisplayLink** unabhängig von `overlay.mark()`.
+9. **Session-Watchdog** Idle nur fps>0 UND keine Aegis-Face UND 8 s leer.
+10. **Pointer-Accel × backingScaleFactor** je NSScreen, nicht 48 px universal.
+11. **DepthCapture an Continuity LiDAR** wirklich verdrahten (Datei ist Stub).
+12. **JSONL Session-Replay** Gesten-Regression ohne Vision auf Linux.
+13. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+14. **SpaceMap Re-Calib** nach Bildschirm-Drehung, nicht uniqueID-Flicker.
+15. **Watch-IMU Pinch-Confirm.**
+16. **PinchHold analog** Closedness als Emission-Mix, nicht nur Bool.
+17. **Continuity 420v-Luma-Sprung = Freeze** (nicht nur PTS).
+18. **Sleep/Wake Camera-Recovery** ohne Homographie-Reset.
+19. **CGEvent-Tap coalescing 90 Hz**, nicht 8 Hz Vision.
+20. **Slot-ID persist** über uniqueID-Flicker (Hand-ID nicht neu minten).
+21. **IOHID Force-Click vs Pinch** disambiguieren.
+
+P0 CameraBroker. Kein 1.6.47-dt-Pflaster ohne Broker.
+
+## In 1.6.45 erledigt
 
 ## In 1.6.45 erledigt
 

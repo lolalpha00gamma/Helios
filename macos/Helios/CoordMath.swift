@@ -445,6 +445,79 @@ enum GestureMath {
         return b
     }
 
+    /// Continuity uniqueID flackert. Homographie nur bei echtem Cam-Wechsel.
+    static func cameraNameBare(_ name: String) -> String {
+        let t = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let r = t.range(of: " · ") { return String(t[..<r.lowerBound]) }
+        return t
+    }
+
+    static func cameraIDSticky(prev: String, next: String, prevName: String = "", nextName: String = "") -> Bool {
+        if prev.isEmpty || next.isEmpty { return false }
+        if prev == next { return true }
+        let a = cameraNameBare(prevName)
+        let b = cameraNameBare(nextName)
+        return !a.isEmpty && a == b
+    }
+
+    static func cameraIDHomographyResets(
+        prev: String,
+        next: String,
+        prevName: String = "",
+        nextName: String = ""
+    ) -> Bool {
+        if prev.isEmpty || next.isEmpty { return false }
+        return !cameraIDSticky(prev: prev, next: next, prevName: prevName, nextName: nextName)
+    }
+
+    /// Format-Leiter sonst 1080p der alten Cam. uniqueID-Wechsel = Höhe neu.
+    static func lastFormatHeightResets(prevID: String, nextID: String) -> Bool {
+        !prevID.isEmpty && prevID != nextID
+    }
+
+    /// Continuity Reconnect: uniqueID tot, Name bleibt. Sonst fällt preferredDevice auf Built-in.
+    static func cameraPreferredID(
+        preferredID: String,
+        preferredName: String,
+        devices: [(id: String, name: String)]
+    ) -> String? {
+        if !preferredID.isEmpty, devices.contains(where: { $0.id == preferredID }) {
+            return preferredID
+        }
+        let n = cameraNameBare(preferredName)
+        if !n.isEmpty, let hit = devices.first(where: { cameraNameBare($0.name) == n }) {
+            return hit.id
+        }
+        return nil
+    }
+
+    /// PTS-Sprung (Continuity-Uhr) = Freeze, nicht Dropout. d ≤ 0 oder > 0,50 s.
+    static func ptsJumpIsFreeze(
+        pts: TimeInterval,
+        prevPts: TimeInterval,
+        maxFrame: TimeInterval = 0.50
+    ) -> Bool {
+        guard prevPts > 0, pts > 0, pts.isFinite, prevPts.isFinite else { return false }
+        let d = pts - prevPts
+        return d <= 1e-4 || d > maxFrame
+    }
+
+    /// Sample-PTS auf Wall. Sprung sonst lastHandSeen um Sekunden → Dropout.
+    static func ptsWallStamp(
+        pts: TimeInterval,
+        wall: TimeInterval,
+        prevPts: TimeInterval?,
+        prevWall: TimeInterval?
+    ) -> TimeInterval {
+        guard
+            let prevPts, let prevWall,
+            pts.isFinite, pts > 0, prevPts > 0,
+            wall.isFinite, prevWall > 0
+        else { return wall }
+        if ptsJumpIsFreeze(pts: pts, prevPts: prevPts) { return wall }
+        return prevWall + (pts - prevPts)
+    }
+
     /// Pinzette als Hold-SM. Sechs Uhren + Bool bleibt die Uhr.
     enum PinchHoldPhase: String, Equatable {
         case unseen, tentative, held, released

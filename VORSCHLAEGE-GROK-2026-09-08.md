@@ -1,32 +1,34 @@
-# Helios Vorschläge — 2026-09-08 (Pass 9, 1.6.45)
+# Helios Vorschläge — 2026-09-08 (Pass 10, 1.6.46)
 
-Stand 1.6.45. Call-Site pinchHeld, dtPalm, Format-Retry.
+Stand 1.6.46. uniqueID sticky, PTS-Freeze, lastFormatHeight, Kalman-Palme.
 
-## Gelandet in 1.6.45
+## Gelandet in 1.6.46
 
-- HMM `pinchHeld: pinchState.closed`
-- dtPalm = sampleDt
-- cameraFormatRenegotiateRetry verdrahtet
+- cameraIDSticky / HomographyResets / SpaceMap.retarget
+- ptsJumpIsFreeze + ptsWallStamp
+- lastFormatHeightResets + cameraPreferredID (Name, ` · Tiefe` strip)
+- HandTracker freezeKalmanPredict + lastVel
 
 ## Erweiterung (neu)
 
-91. **uniqueID sticky** Continuity ohne Homographie-Reset. P0 klein.
-92. **PTS-Sprung = Freeze** nicht Dropout.
-93. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0 groß.
-94. **Clutch-Radius × backingScaleFactor**.
-95. **AX-Hit-Cache × Fenster-ID** während Freeze.
-96. **Two-pinch vs Scroll-Hysterese**.
-97. **JSONL Session-Replay** ohne Vision auf Linux.
-98. **Watch-IMU Pinch-Confirm**.
-99. **SpaceMap Re-Calib** nach Drehung.
-100. **DepthCapture an Continuity-LiDAR** statt Stub.
-101. **HUD Pose-Chips am DisplayLink** unabhängig von mark().
-102. **Session-Watchdog** Idle = fps>0 UND keine Aegis-Face UND 8 s leer.
-103. **Pointer-Accel × backingScaleFactor**.
-104. **mmap leftover-Boxen** Helios↔Aegis Palm-Occlusion.
-105. **lastFormatHeight Reset** nach uniqueID-Wechsel.
-106. **Kalman-Palme in HandTracker** während Freeze.
-107. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
-108. **PinchHold analog** Closedness-Mix, nicht nur Bool.
+91. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0 groß.
+92. **Clutch-Radius × backingScaleFactor**.
+93. **AX-Hit-Cache × Fenster-ID** während Freeze.
+94. **Two-pinch vs Scroll-Hysterese**.
+95. **JSONL Session-Replay** ohne Vision auf Linux.
+96. **Watch-IMU Pinch-Confirm**.
+97. **SpaceMap Re-Calib** nach Display-Drehung, nicht uniqueID-Flicker.
+98. **DepthCapture an Continuity-LiDAR** statt Stub.
+99. **HUD Pose-Chips am DisplayLink** unabhängig von mark().
+100. **Session-Watchdog** Idle = fps>0 UND keine Aegis-Face UND 8 s leer.
+101. **Pointer-Accel × backingScaleFactor**.
+102. **mmap leftover-Boxen** Helios↔Aegis Palm-Occlusion.
+103. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+104. **PinchHold analog** Closedness-Mix, nicht nur Bool.
+105. **Continuity 420v-Luma-Sprung = Freeze** (nicht nur PTS).
+106. **Sleep/Wake Camera-Recovery** ohne Homographie-Reset.
+107. **CGEvent-Tap coalescing 90 Hz**, nicht 8 Hz Vision.
+108. **Slot-ID persist** über uniqueID-Flicker (Hand-ID nicht neu minten).
+109. **IOHID Force-Click vs Pinch** disambiguieren.
 
-P0: uniqueID sticky, dann CameraBroker. Kein weiteres dt-Pflaster.
+P0: CameraBroker. Kein weiteres dt-Pflaster.

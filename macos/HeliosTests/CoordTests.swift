@@ -1599,6 +1599,95 @@ enum CoordTests {
             fputs("FAIL Engine Tentative closed ohne Fire\n", stderr)
             fails += 1
         }
+        if !GestureMath.cameraIDSticky(prev: "A", next: "A") {
+            fputs("FAIL uniqueID gleich sticky\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.cameraIDSticky(prev: "old", next: "new", prevName: "iPhone von Ada", nextName: "iPhone von Ada · Tiefe") {
+            fputs("FAIL Continuity Name sticky trotz Tiefe-Suffix\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.cameraIDSticky(prev: "old", next: "new", prevName: "iPhone von Ada", nextName: "iPhone von Ada") {
+            fputs("FAIL Continuity Name sticky\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraIDSticky(prev: "old", next: "new", prevName: "iPhone", nextName: "FaceTime HD") {
+            fputs("FAIL Cam-Wechsel nicht sticky\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraIDHomographyResets(prev: "", next: "A") {
+            fputs("FAIL erster Frame kein Homographie-Reset\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.cameraIDHomographyResets(prev: "old", next: "new", prevName: "iPhone", nextName: "FaceTime HD") {
+            fputs("FAIL Cam-Wechsel Homographie reset\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraIDHomographyResets(prev: "old", next: "new", prevName: "iPhone von Ada", nextName: "iPhone von Ada") {
+            fputs("FAIL Continuity sticky kein Homographie-Reset\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.lastFormatHeightResets(prevID: "old", nextID: "new") {
+            fputs("FAIL uniqueID-Wechsel lastFormatHeight\n", stderr)
+            fails += 1
+        }
+        if GestureMath.lastFormatHeightResets(prevID: "", nextID: "new") {
+            fputs("FAIL Start lastFormatHeight hält\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraPreferredID(
+            preferredID: "gone",
+            preferredName: "iPhone von Ada",
+            devices: [("new", "iPhone von Ada"), ("mac", "FaceTime HD")]
+        ) != "new" {
+            fputs("FAIL preferredID Name-Reconnect\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraPreferredID(
+            preferredID: "gone",
+            preferredName: "iPhone von Ada",
+            devices: [("new", "iPhone von Ada · Tiefe"), ("mac", "FaceTime HD")]
+        ) != "new" {
+            fputs("FAIL preferredID Tiefe-Suffix\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraPreferredID(
+            preferredID: "mac",
+            preferredName: "iPhone von Ada",
+            devices: [("mac", "FaceTime HD"), ("ph", "iPhone von Ada")]
+        ) != "mac" {
+            fputs("FAIL preferredID uniqueID gewinnt\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.ptsJumpIsFreeze(pts: 4.0, prevPts: 1.0) {
+            fputs("FAIL PTS-Sprung 3 s Freeze\n", stderr)
+            fails += 1
+        }
+        if GestureMath.ptsJumpIsFreeze(pts: 1.125, prevPts: 1.000) {
+            fputs("FAIL PTS 8 fps kein Sprung\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.ptsJumpIsFreeze(pts: 0.50, prevPts: 4.0) {
+            fputs("FAIL PTS rückwärts Freeze\n", stderr)
+            fails += 1
+        }
+        let wallJump = GestureMath.ptsWallStamp(pts: 4.0, wall: 101.0, prevPts: 1.0, prevWall: 100.0)
+        if abs(wallJump - 101.0) > 1e-9 {
+            fputs("FAIL PTS-Wall Sprung = Wall\n", stderr)
+            fails += 1
+        }
+        let wallOk = GestureMath.ptsWallStamp(pts: 1.125, wall: 100.20, prevPts: 1.000, prevWall: 100.000)
+        if abs(wallOk - 100.125) > 1e-9 {
+            fputs("FAIL PTS-Wall 8 fps folgt PTS\n", stderr)
+            fails += 1
+        }
+        let pred = GestureMath.freezeKalmanPredict(
+            palm: CGPoint(x: 0.40, y: 0.50), vx: 0.20, vy: 0, dt: 0.125
+        )
+        if pred.palm.x <= 0.40 {
+            fputs("FAIL HandTracker Freeze Kalman +x\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

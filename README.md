@@ -1,4 +1,4 @@
-# Helios **1.6.45**
+# Helios **1.6.46**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -19,6 +19,16 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.46
+
+1.6.45 HMM pinchHeld Call-Site, dtPalm, Format-Retry. Continuity uniqueID flackert → Homographie+Recenter. PTS als Wall → Uhr-Sprung = Dropout. Leiter 1080p der alten Cam. preferredDevice fällt auf Built-in. Freeze stand 90 ms.
+
+- **uniqueID sticky.** Gleicher Gerätename (ohne ` · Tiefe`) hält Homographie. `SpaceMap.retarget` unter neue ID. Erster Frame kein Reset.
+- **PTS-Sprung = Freeze.** `ptsWallStamp` — Continuity-Uhr-Reset ist nicht Hand-weg.
+- **lastFormatHeight + preferredID.** Leiter neu nach Cam-Wechsel. Name-Reconnect statt Built-in.
+- **Kalman-Palme im Tracker.** Leere Observations: `freezeKalmanPredict` mit lastVel.
+- Tests + MARKETING_VERSION 1.6.46 (Build 79).
 
 ## Neu in 1.6.45
 

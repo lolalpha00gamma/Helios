@@ -235,6 +235,14 @@ struct SpaceMap: Codable {
         HomographyStore.clear()
     }
 
+    /// Continuity uniqueID-Reconnect: Map unter neuem ID, Homographie bleibt.
+    static func retarget(from oldID: String, to newID: String, displayID: CGDirectDisplayID = 0) {
+        guard oldID != newID, !oldID.isEmpty, !newID.isEmpty else { return }
+        guard var map = load(cameraID: oldID, displayID: displayID) else { return }
+        map.cameraID = newID
+        map.save()
+    }
+
     static func clear() {
         UserDefaults.standard.removeObject(forKey: "helios.spaceMap")
         for screen in NSScreen.screens {

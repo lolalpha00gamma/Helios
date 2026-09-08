@@ -100,6 +100,7 @@ final class AppState: ObservableObject {
 
     private var lastArmedConsole: EngineMode = .idle
     private var lastAppliedCameraID = ""
+    private var lastAppliedCameraName = ""
     private var mapMemo: [String: SpaceMap] = [:]
     private var cancellables: Set<AnyCancellable> = []
     private var didShutdown = false
@@ -612,14 +613,30 @@ final class AppState: ObservableObject {
         luma: CGFloat
     ) {
         let camID = camera.selectedID
-        if !lastAppliedCameraID.isEmpty, camID != lastAppliedCameraID {
+        let camName = camera.deviceName
+        if GestureMath.cameraIDHomographyResets(
+            prev: lastAppliedCameraID,
+            next: camID,
+            prevName: lastAppliedCameraName,
+            nextName: camName
+        ) {
             engine.recenterPointer()
             engine.spaceMap = SpaceMap.load(cameraID: camID, displayID: ScreenGeometry.mainDisplayID)
                 ?? SpaceMap.load(displayID: ScreenGeometry.mainDisplayID)
             mapReady = engine.spaceMap?.isReady == true
             log.record("Kamerawechsel — Zeiger neu, Homographie geladen.", kind: .info)
+        } else if lastAppliedCameraID != camID, !lastAppliedCameraID.isEmpty, !camID.isEmpty {
+            SpaceMap.retarget(
+                from: lastAppliedCameraID,
+                to: camID,
+                displayID: ScreenGeometry.mainDisplayID
+            )
+            engine.spaceMap = SpaceMap.load(cameraID: camID, displayID: ScreenGeometry.mainDisplayID)
+                ?? engine.spaceMap
+            mapReady = engine.spaceMap?.isReady == true
         }
         lastAppliedCameraID = camID
+        lastAppliedCameraName = camName
         engine.tick(hands: hands, now: now)
         if drill.running || drill.phase == .countdown || drill.phase == .capture || drill.phase == .rest {
             drill.tick(hands: hands, now: now)

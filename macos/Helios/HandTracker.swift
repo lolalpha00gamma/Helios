@@ -133,6 +133,9 @@ private struct TrackSlot {
     var lastZ: [VNHumanHandPoseObservation.JointName: CGFloat] = [:]
     var lastNow: TimeInterval = 0
     var palmWidthEma: CGFloat = 0
+    var lastVel: CGPoint = .zero
+    var freezePPos: CGFloat = 0.0004
+    var freezePVel: CGFloat = 0.008
 }
 
 final class HandTracker: @unchecked Sendable {
@@ -160,6 +163,7 @@ final class HandTracker: @unchecked Sendable {
     private(set) var lastSpace = AspectSpace.hd720
     private var lastHands: [TrackedHand] = []
     private var lastHandsAt: TimeInterval = 0
+    private var lastFreezeAt: TimeInterval = 0
     private var bodyTick = 0
     private var lastBodyPts: [VNHumanBodyPoseObservation.JointName: VNRecognizedPoint] = [:]
 
@@ -170,6 +174,7 @@ final class HandTracker: @unchecked Sendable {
         lastFusion = nil
         lastHands = []
         lastHandsAt = 0
+        lastFreezeAt = 0
         lastBodyPts = [:]
         bodyTick = 0
     }
@@ -207,14 +212,48 @@ final class HandTracker: @unchecked Sendable {
         }
         let observations = request.results ?? []
         if observations.isEmpty {
-            tracks.removeAll { now - $0.lastSeen > 0.12 }
-            if !lastHands.isEmpty, now - lastHandsAt < 0.09 {
-                return lastHands
+            tracks.removeAll { now - $0.lastSeen > 0.18 }
+            let hold = GestureMath.emptyHandsHold(
+                dt: lastHandsAt > 0 ? GestureMath.sampleDt(now: now, last: lastHandsAt) : 0.125
+            )
+            if !lastHands.isEmpty, lastHandsAt > 0, now - lastHandsAt < hold {
+                let dt = lastFreezeAt > 0
+                    ? GestureMath.sampleDt(now: now, last: lastFreezeAt)
+                    : 0.04
+                lastFreezeAt = now
+                var shifted: [TrackedHand] = []
+                for h in lastHands {
+                    guard let idx = tracks.firstIndex(where: { $0.id == h.id }) else {
+                        shifted.append(h)
+                        continue
+                    }
+                    var slot = tracks[idx]
+                    let pred = GestureMath.freezeKalmanPredict(
+                        palm: slot.lastPalm,
+                        vx: slot.lastVel.x,
+                        vy: slot.lastVel.y,
+                        pPos: slot.freezePPos,
+                        pVel: slot.freezePVel,
+                        dt: dt
+                    )
+                    let delta = CGPoint(x: pred.palm.x - h.palm.x, y: pred.palm.y - h.palm.y)
+                    slot.lastPalm = pred.palm
+                    slot.lastVel = CGPoint(x: pred.vx, y: pred.vy)
+                    slot.freezePPos = pred.pPos
+                    slot.freezePVel = pred.pVel
+                    tracks[idx] = slot
+                    shifted.append(h.shifted(by: delta))
+                }
+                lastHands = shifted
+                lastFusion = nil
+                return shifted
             }
             lastHands = []
             lastFusion = nil
+            lastFreezeAt = 0
             return []
         }
+        lastFreezeAt = 0
 
         let bodyPts = lastBodyPts
         depthAvailable = depth != nil
@@ -359,7 +398,18 @@ final class HandTracker: @unchecked Sendable {
             }
 
             slot.chirality = obs.chirality
+            if slot.lastNow > 0 {
+                let t = CGFloat(dt)
+                if t > 1e-4 {
+                    slot.lastVel = CGPoint(
+                        x: (fused.palm.x - slot.lastPalm.x) / t,
+                        y: (fused.palm.y - slot.lastPalm.y) / t
+                    )
+                }
+            }
             slot.lastPalm = fused.palm
+            slot.freezePPos = 0.0004
+            slot.freezePVel = 0.008
             let dtPalm = dt
             slot.lastSeen = now
             slot.lastNow = now

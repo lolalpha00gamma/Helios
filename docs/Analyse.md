@@ -1,6 +1,19 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
-Stand: 2026-09-08. Helios **1.6.45** (Build 78). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+Stand: 2026-09-08. Helios **1.6.46** (Build 79). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+
+## 0. 1.6.46 — uniqueID sticky, PTS-Freeze, lastFormatHeight, Kalman-Palme
+
+1.6.45: HMM Gate-Held, dtPalm, Format-Retry. Continuity uniqueID flackert Recenter+Homographie. PTS als Wall, Uhr-Sprung = Dropout. Leiter 1080p der alten Cam. preferredDevice Built-in. Freeze stand 90 ms.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | uniqueID-Flicker Recenter | cameraIDSticky + SpaceMap.retarget |
+| 2 | PTS-Sprung Dropout | ptsJumpIsFreeze + ptsWallStamp |
+| 3 | Leiter alte Cam | lastFormatHeightResets + cameraPreferredID |
+| 4 | Freeze-Stand 90 ms | freezeKalmanPredict lastVel im Tracker |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe.
 
 ## 0. 1.6.45 — HMM Gate-Held, dtPalm, Format-Retry
 

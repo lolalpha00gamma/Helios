@@ -1,6 +1,16 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.38**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen. Gelesen, nicht gemergt: IOHID Event-Tap, JSONL, AX-ein-Call.
+Stand: **1.6.39**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen. Gelesen, nicht gemergt: IOHID Event-Tap, JSONL, AX-ein-Call.
+
+## In 1.6.39 erledigt
+
+1.6.38 Zwei-Hand-Freeze / Clutch / Vel / lastZ. Approach-Veto vor Reach. Gate Close 0,55 hart. Kein Finger-Kontakt. Occluded Tips → z. pinchRatio ohne q.
+
+1. **pinch3DVeto** Reach skippt Approach.
+2. **pinchFingerContact** + **pinchClosednessNeed** im Gate.
+3. **pinchRatioSmooth × quality.**
+4. **Tip-Konfidenz** vor zSep/Approach.
+5. Tests + MARKETING_VERSION 1.6.39 (Build 72).
 
 ## In 1.6.38 erledigt
 
@@ -53,18 +63,21 @@ Stand: **1.6.38**. Die Punkte unten sind Erweiterungen, kein Backlog der schon g
 6. **JSONL Session-Replay** Gesten-Regression.
 7. **Kalman-Palme während Freeze** statt Vel-Decay (Predict 1.6.35/1.6.38).
 8. **AX-Hit-Cache 1 Frame.** Continuity 8 fps sonst hitTest jeden Tick.
-9. **Per-Finger Kontakt** (Daumen–Index / palmWidth) statt nur Closedness-Skalar.
-10. **MediaPipe Hands Sidecar** — VNDetectHumanHandPose verliert Spitzen.
-11. **Palm-Scale EMA** — 8 fps palmWidth-Jitter skaliert Reach/Gate.
-12. **Pointer-Gain × dt** — ein Continuity-Tick sonst Teleport trotz Freeze-Decay.
-13. **Per-Hand q-Chip** — qualityChip 1.6.37 nur Actor/primary.
-14. **Format nach Session neu verhandeln** wenn gemessene fps < 12 trotz Score.
-15. **Hand-ID über Continuity-Reconnect** — Slot stirbt, Pinch-Lock weg.
-16. **Zwei-Pinzetten Freeze-Span** — Zoom-Anker nicht tot nach einem Miss.
-17. **Helios liest Aegis leftover-Boxen** als Palm-Occlusion.
-18. **Aegis-Yaw als Helios Click-Lock** — Blick weg = kein Klick.
-19. **pinchBecameDrag × dt** — Click-vs-Zug-Schwelle ein 8-fps-Tick.
-20. **SpaceMap Re-Calib** wenn Palm-Aspect nach Drehung kippt.
+9. **MediaPipe Hands Sidecar** — VNDetectHumanHandPose verliert Spitzen.
+10. **Palm-Scale EMA** — 8 fps palmWidth-Jitter skaliert Reach/Gate.
+11. **Pointer-Gain × dt** — ein Continuity-Tick sonst Teleport trotz Freeze-Decay.
+12. **Per-Hand q-Chip** — qualityChip 1.6.37 nur Actor/primary.
+13. **Format nach Session neu verhandeln** wenn gemessene fps < 12 trotz Score.
+14. **Hand-ID über Continuity-Reconnect** — Slot stirbt, Pinch-Lock weg.
+15. **Zwei-Pinzetten Freeze-Span** — Zoom-Anker nicht tot nach einem Miss.
+16. **Helios liest Aegis leftover-Boxen** als Palm-Occlusion.
+17. **Aegis-Yaw als Helios Click-Lock** — Blick weg = kein Klick.
+18. **pinchBecameDrag × dt** — Click-vs-Zug-Schwelle ein 8-fps-Tick.
+19. **SpaceMap Re-Calib** wenn Palm-Aspect nach Drehung kippt.
+20. **Two-pinch vs scroll hysteresis** — offene Hand + Coast darf Pinch-Start nicht fressen.
+21. **Wrist-IMU via Watch** für Pinch-Confirm wenn Vision-Spitzen tot.
+22. **Homographie Online-Nachzug** 4 Anschläge unsichtbar nach 20 s Pointer-Clutch.
+23. **DepthCapture an Continuity LiDAR** wirklich verdrahten (Datei ist Stub).
 
 ## In 1.6.34 erledigt
 

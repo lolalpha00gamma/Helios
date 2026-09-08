@@ -303,14 +303,22 @@ enum GestureMath {
 
     static func pinch3DVeto(sep: CGFloat, closedness2D: Double, need: CGFloat = 0.55, approach: CGFloat = 0, reach: CGFloat = 0.5) -> Bool {
         if closedness2D < 0.50 { return false }
-        if approach >= need * 1.15 { return true }
-        if reach >= pinchReachNeed + 0.15 { return false }
+        let reachOk = reach >= pinchReachNeed + 0.15
+        // Faust-in-Kamera: 2D-Reach lügt. Echte Pinzette hat Reach — Approach allein tot.
+        if approach >= need * 1.15 && !reachOk { return true }
+        if reachOk { return false }
         return sep >= need
     }
 
     /// Faust in die Kamera: beide Spitzen gleich tief, Sep tot. Mittel |z| / Palme.
     static func pinch3DApproach(thumbZ: CGFloat, indexZ: CGFloat, palmWidth: CGFloat) -> CGFloat {
         ((abs(thumbZ) + abs(indexZ)) * 0.5) / max(0.03, palmWidth)
+    }
+
+    /// Daumen–Index in Palmenbreiten → 1 Kontakt, 0 offen. Closedness-Skalar allein jittert bei 8 fps.
+    static func pinchFingerContact(thumb: CGPoint, index: CGPoint, palmWidth: CGFloat) -> CGFloat {
+        let d = hypot(thumb.x - index.x, thumb.y - index.y) / max(0.03, palmWidth)
+        return max(0, min(1, (0.55 - d) / 0.40))
     }
 
     /// Lift-Residual hoch: z ist Rauschen. Veto/Approach sonst tot-Pinzette oder Faust-Klick.
@@ -339,10 +347,12 @@ enum GestureMath {
         quality < floor ? "q tot" : nil
     }
 
-    /// One-Euro auf pinchRatio. 8 fps Gate-Jitter sonst Klick.
-    static func pinchRatioSmooth(prev: CGFloat, next: CGFloat, dt: TimeInterval, minCutoff: CGFloat = 1) -> CGFloat {
+    /// One-Euro auf pinchRatio. 8 fps Gate-Jitter sonst Klick. q tot dämpft cutoff.
+    static func pinchRatioSmooth(prev: CGFloat, next: CGFloat, dt: TimeInterval, minCutoff: CGFloat = 1, quality: Double = 1) -> CGFloat {
         let t = CGFloat(max(0.008, dt))
-        let cutoff: CGFloat = dt >= 0.10 ? max(0.6, minCutoff * 0.85) : max(1.8, minCutoff * 2.2)
+        let q = CGFloat(max(0.35, min(1, quality)))
+        var cutoff: CGFloat = dt >= 0.10 ? max(0.6, minCutoff * 0.85) : max(1.8, minCutoff * 2.2)
+        cutoff = max(0.35, cutoff * q)
         let tau = 1 / (2 * .pi * cutoff)
         let a = t / (t + tau)
         return prev + a * (next - prev)

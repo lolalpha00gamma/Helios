@@ -274,11 +274,13 @@ final class HandTracker: @unchecked Sendable {
                 slot.lastZ = Dictionary(uniqueKeysWithValues: lifted.pts.map { ($0.key, $0.value.z) })
             }
             let zSep: CGFloat = {
-                guard let t = lifted.pts[.thumbTip], let i = lifted.pts[.indexTip] else { return 0 }
+                guard let t = lifted.pts[.thumbTip], let i = lifted.pts[.indexTip],
+                      t.c > 0.22, i.c > 0.22 else { return 0 }
                 return GestureMath.pinch3DSep(thumbZ: t.z, indexZ: i.z, palmWidth: lifted.palmWidth)
             }()
             let approach: CGFloat = {
-                guard let t = lifted.pts[.thumbTip], let i = lifted.pts[.indexTip] else { return 0 }
+                guard let t = lifted.pts[.thumbTip], let i = lifted.pts[.indexTip],
+                      t.c > 0.22, i.c > 0.22 else { return 0 }
                 return GestureMath.pinch3DApproach(thumbZ: t.z, indexZ: i.z, palmWidth: lifted.palmWidth)
             }()
             let pinchState = slot.pinch.update(

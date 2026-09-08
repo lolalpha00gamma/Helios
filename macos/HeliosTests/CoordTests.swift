@@ -1140,7 +1140,11 @@ enum CoordTests {
             fputs("FAIL Faust-Projektion 3D-Veto tot\n", stderr)
             fails += 1
         }
-        if GestureMath.pinchLooksLikePinch(reach: 1.1, index: 0.9, zSep: 0.10, approach: 1.4) {
+        if !GestureMath.pinchLooksLikePinch(reach: 1.1, index: 0.9, zSep: 0.10, approach: 1.4) {
+            fputs("FAIL Approach+Reach echte Pinzette tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchLooksLikePinch(reach: 0.70, index: 0.20, zSep: 0.10, approach: 1.4) {
             fputs("FAIL Approach-Veto Faust-in-Kamera tot\n", stderr)
             fails += 1
         }
@@ -1292,8 +1296,12 @@ enum CoordTests {
             fputs("FAIL Residual tot kein Approach-Veto\n", stderr)
             fails += 1
         }
-        if GestureMath.pinchLooksLikePinch(reach: 1.1, index: 0.9, zSep: 0.10, approach: 1.4) {
-            fputs("FAIL Approach-Veto ohne Residual\n", stderr)
+        if !GestureMath.pinchLooksLikePinch(reach: 1.1, index: 0.9, zSep: 0.10, approach: 1.4) {
+            fputs("FAIL Approach+Reach ohne Residual hält\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchLooksLikePinch(reach: 0.70, index: 0.20, zSep: 0.10, approach: 1.4) {
+            fputs("FAIL Approach-Veto Faust ohne Residual tot\n", stderr)
             fails += 1
         }
         if !GestureMath.pinchStartsGrab(
@@ -1339,6 +1347,27 @@ enum CoordTests {
         }
         if GestureMath.freezeVelChip(dx: 0, dy: 0) != nil {
             fputs("FAIL Freeze-Vel still tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchFingerContact(thumb: CGPoint(x: 0.40, y: 0.40), index: CGPoint(x: 0.41, y: 0.40), palmWidth: 0.10) < 0.85 {
+            fputs("FAIL Finger-Kontakt nah\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchFingerContact(thumb: CGPoint(x: 0.20, y: 0.20), index: CGPoint(x: 0.80, y: 0.80), palmWidth: 0.10) > 0.10 {
+            fputs("FAIL Finger-Kontakt weit tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchRatioSmooth(prev: 0.50, next: 0.10, dt: 0.125, quality: 0.40)
+            >= GestureMath.pinchRatioSmooth(prev: 0.50, next: 0.10, dt: 0.125, quality: 1) {
+            fputs("FAIL q tot dämpft pinchRatio α\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinch3DVeto(sep: 0.10, closedness2D: 0.70, approach: 1.4, reach: 1.1) {
+            fputs("FAIL Approach+Reach kein Veto\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinch3DVeto(sep: 0.10, closedness2D: 0.70, approach: 1.4, reach: 0.70) {
+            fputs("FAIL Approach Faust-Reach Veto tot\n", stderr)
             fails += 1
         }
 

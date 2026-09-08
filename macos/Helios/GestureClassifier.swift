@@ -411,7 +411,8 @@ struct PinchGate {
         let dist = dTips ?? ((dProx ?? 1) * 1.12)
         let rawRatio = dist / scale
         let dt = lastT == 0 ? 0.016 : GestureMath.sampleDt(now: now, last: lastT)
-        let ratio = lastT == 0 ? rawRatio : GestureMath.pinchRatioSmooth(prev: lastRatio, next: rawRatio, dt: dt)
+        let quality = Double(((conf[.thumbTip] ?? 0) + (conf[.indexTip] ?? 0)) / 2)
+        let ratio = lastT == 0 ? rawRatio : GestureMath.pinchRatioSmooth(prev: lastRatio, next: rawRatio, dt: dt, quality: quality)
         let vel = (ratio - lastRatio) / CGFloat(dt)
         lastRatio = ratio
         lastT = now
@@ -422,6 +423,10 @@ struct PinchGate {
             return GestureMath.pinchReach(wrist: w, thumb: t, index: i, scale: scale)
         }()
         let indexScore = GestureClassifier.fingerExtension(raw, .index, space: space, conf: conf).score
+        let contact: CGFloat = {
+            guard let t = raw[.thumbTip], let i = raw[.indexTip] else { return 0 }
+            return GestureMath.pinchFingerContact(thumb: t, index: i, palmWidth: scale)
+        }()
         let looksPinch = GestureMath.pinchLooksLikePinch(
             reach: reach,
             index: Double(indexScore),
@@ -430,8 +435,9 @@ struct PinchGate {
             closedness: Double(closedness),
             residual: residual
         )
+        let closeNeed = GestureMath.pinchClosednessNeed(quality: quality, start: true)
 
-        let wantClose = looksPinch && (closedness > 0.55 || (ratio < 0.44 && vel < GestureMath.pinchCloseVel(dt: dt)))
+        let wantClose = looksPinch && (closedness > closeNeed || (quality >= 0.55 && contact > 0.70) || (ratio < 0.44 && vel < GestureMath.pinchCloseVel(dt: dt)))
         var wantOpen = ratio > 0.56 && proxRatio > 0.50 && vel > GestureMath.pinchOpenVel(dt: dt)
         if closed && !looksPinch { wantOpen = true }
 

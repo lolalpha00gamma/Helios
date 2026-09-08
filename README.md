@@ -1,4 +1,4 @@
-# Helios **1.6.38**
+# Helios **1.6.39**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,16 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.39
+
+1.6.38 Zwei-Hand-Freeze, Clutch, Vel-Chip, lastZ. Approach-Veto tötete echte Pinzette zur Kamera (Reach 1,1). Gate Close 0,55 hart. Kein Finger-Kontakt. Occluded Tips fütterten z. q tot dämpfte pinchRatio nicht.
+
+- **pinch3DVeto** Reach skippt Approach. Echte Pinzette (Reach ≥ Need+0,15) bleibt. Faust-in-Kamera tot.
+- **pinchFingerContact** + Gate Close über `pinchClosednessNeed`. Contact nur q ≥ 0,55.
+- **pinchRatioSmooth × quality.** q tot dämpft cutoff.
+- **HandTracker** zSep/Approach nur bei Tip-Konfidenz > 0,22.
+- Tests + MARKETING_VERSION 1.6.39 (Build 72).
 
 ## Neu in 1.6.38
 

@@ -19,7 +19,6 @@ private struct HUDRoot: View {
 final class HUDPanel: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
-    override var isOpaque: Bool { false }
 }
 
 private struct HUDPoseSample {
@@ -313,7 +312,9 @@ final class OverlayController {
 
     /// NSHostingView.drawsBackground default true — Dark Mode = Vollbild schwarz nach orderFront.
     private func polish(_ hosting: NSHostingView<HUDRoot>, wrap: NSView?, panel: HUDPanel) {
-        hosting.drawsBackground = false
+        if hosting.responds(to: Selector(("setDrawsBackground:"))) {
+            hosting.setValue(false, forKey: "drawsBackground")
+        }
         hosting.wantsLayer = true
         hosting.layer?.isOpaque = false
         hosting.layer?.backgroundColor = NSColor.clear.cgColor

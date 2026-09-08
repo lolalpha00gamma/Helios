@@ -132,9 +132,6 @@ final class SystemControl {
         lastPosted = p
         lastPostAt = now
         let src = CGEventSource(stateID: .hidSystemState)
-        if let src {
-            CGEventSourceSetLocalEventsSuppressionInterval(src, 0)
-        }
         let e = CGEvent(mouseEventSource: src, mouseType: .mouseMoved, mouseCursorPosition: p, mouseButton: .left)
         e?.post(tap: .cghidEventTap)
     }

@@ -197,6 +197,30 @@ enum GestureTests {
         ok((sharp[.fist] ?? 0) > 0.70, "HMM Qualität 0,80 unverändert")
         ok(abs(PoseHMM.switchHold(dt: 0.016) - 0.05) < 0.001, "HMM-Hold 24 fps 50 ms")
         ok(PoseHMM.switchHold(dt: 0.125) >= 0.11, "HMM-Hold 8 fps ≥ 1 Frame")
+        var holdFist: [HandPose: Double] = [:]
+        for k in HandPose.allCases { holdFist[k] = 0.05 }
+        holdFist[.fist] = 0.70
+        let boosted = PoseHMM.pinchHoldBoost(holdFist)
+        ok((boosted[.pinch] ?? 0) >= 0.50, "pinchHoldBoost hebt Pinch")
+        ok((boosted[.fist] ?? 1) < (holdFist[.fist] ?? 0), "pinchHoldBoost dämpft Faust")
+        var stayPinch = PoseHMM()
+        var pinchPose = HandPose.unknown
+        for i in 0..<8 {
+            var em: [HandPose: Double] = [:]
+            for k in HandPose.allCases { em[k] = 0.04 }
+            em[.pinch] = 0.72
+            pinchPose = stayPinch.step(
+                emission: em, pinchClosedness: 0.82, now: Double(i) * 0.125, dt: 0.125, pinchHeld: true
+            ).pose
+        }
+        ok(pinchPose == .pinch, "HMM Gate-Held auf Pinch")
+        var emFistTick: [HandPose: Double] = [:]
+        for k in HandPose.allCases { emFistTick[k] = 0.05 }
+        emFistTick[.fist] = 0.70
+        pinchPose = stayPinch.step(
+            emission: emFistTick, pinchClosedness: 0.20, now: 8 * 0.125, dt: 0.125, pinchHeld: true
+        ).pose
+        ok(pinchPose == .pinch, "HMM Gate-Held überlebt Faust-Tick bei 8 fps")
         ok(TemporalNet.historyNeed(count: 3, dt: 0.125), "Temporal 8 fps braucht 3 Frames")
         ok(!TemporalNet.historyNeed(count: 3, dt: 0.016), "Temporal 24 fps braucht 6 Frames")
         ok(!TemporalNet.historyKeeps(now: 1.90, stamped: 1.0), "Temporal maxAge wirft 0,9 s")

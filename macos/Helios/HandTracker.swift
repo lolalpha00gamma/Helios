@@ -340,7 +340,8 @@ final class HandTracker: @unchecked Sendable {
                 pinchClosedness: fused.pinchClosedness,
                 now: now,
                 dt: dt,
-                quality: fused.quality
+                quality: fused.quality,
+                pinchHeld: pinchState.closed
             )
             lastFusion = dbg
 
@@ -359,10 +360,10 @@ final class HandTracker: @unchecked Sendable {
 
             slot.chirality = obs.chirality
             slot.lastPalm = fused.palm
-            let dt = slot.lastNow > 0 ? now - slot.lastNow : 0.04
+            let dtPalm = dt
             slot.lastSeen = now
             slot.lastNow = now
-            slot.palmWidthEma = GestureMath.palmWidthEMA(prev: slot.palmWidthEma, next: fused.palmWidth, dt: dt)
+            slot.palmWidthEma = GestureMath.palmWidthEMA(prev: slot.palmWidthEma, next: fused.palmWidth, dt: dtPalm)
             if let ti = assigned[idx], ti < tracks.count {
                 tracks[ti] = slot
             } else {

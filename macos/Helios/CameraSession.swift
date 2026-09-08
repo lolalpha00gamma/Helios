@@ -97,11 +97,17 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         }
     }
 
-    /// Continuity 8 fps trotz Score. Cooldown 8 s, Score mit gemessenen fps — einmal reicht nicht.
+    /// Continuity 8 fps trotz Score. Erster Drop + Leiter-Retry nach 3 s, nicht 8 s tot.
     func renegotiateIfSlow(measuredFps: Double) {
         let now = CACurrentMediaTime()
         let cooling = formatRenegotiated && now - lastRenegotiateAt < 8
-        guard GestureMath.cameraFormatRenegotiate(measuredFps: measuredFps, already: cooling) else { return }
+        let first = GestureMath.cameraFormatRenegotiate(measuredFps: measuredFps, already: cooling)
+        let retry = GestureMath.cameraFormatRenegotiateRetry(
+            measuredFps: measuredFps,
+            lastAt: lastRenegotiateAt,
+            now: now
+        )
+        guard first || retry else { return }
         formatRenegotiated = true
         lastRenegotiateAt = now
         cameraQueue.async { [weak self] in

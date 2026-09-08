@@ -1,30 +1,32 @@
-# Helios Vorschläge — 2026-09-08 (Pass 8, 1.6.45)
+# Helios Vorschläge — 2026-09-08 (Pass 9, 1.6.45)
 
-Stand 1.6.45. Ergänzung zu 1.6.44 (DisplayLink, PinchHoldPhase in driveGrab).
+Stand 1.6.45. Call-Site pinchHeld, dtPalm, Format-Retry.
 
 ## Gelandet in 1.6.45
 
-PoseHMM `pinchHeld` + `pinchHoldBoost`. HMM folgt dem Gate, nicht nur der Closedness-EMA.
+- HMM `pinchHeld: pinchState.closed`
+- dtPalm = sampleDt
+- cameraFormatRenegotiateRetry verdrahtet
 
 ## Erweiterung (neu)
 
-91. **HandTracker reicht `pinchState.closed` als pinchHeld** in `hmm.step`. Signatur liegt, Call-Site fehlt noch. P0 klein.
-92. **`let dt` Shadow in HandTracker** zweite Variable `dtPalm`.
+91. **uniqueID sticky** Continuity ohne Homographie-Reset. P0 klein.
+92. **PTS-Sprung = Freeze** nicht Dropout.
 93. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0 groß.
-94. **uniqueID sticky** Continuity ohne Homographie-Reset.
-95. **Clutch-Radius × backingScaleFactor**.
-96. **AX-Hit-Cache × Fenster-ID** während Freeze.
-97. **Two-pinch vs Scroll-Hysterese**.
-98. **JSONL Session-Replay** ohne Vision auf Linux.
-99. **Watch-IMU Pinch-Confirm**.
-100. **SpaceMap Re-Calib** nach Drehung.
-101. **DepthCapture an Continuity-LiDAR** statt Stub.
-102. **HUD Pose-Chips am DisplayLink** unabhängig von mark().
-103. **Session-Watchdog** Idle = fps>0 UND keine Aegis-Face UND 8 s leer.
-104. **Pointer-Accel × backingScaleFactor**.
-105. **mmap leftover-Boxen** Helios↔Aegis Palm-Occlusion.
-106. **Format-Leiter nach Drop unter 12 fps neu verhandeln**.
-107. **Kalman-Palme während Freeze**.
-108. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+94. **Clutch-Radius × backingScaleFactor**.
+95. **AX-Hit-Cache × Fenster-ID** während Freeze.
+96. **Two-pinch vs Scroll-Hysterese**.
+97. **JSONL Session-Replay** ohne Vision auf Linux.
+98. **Watch-IMU Pinch-Confirm**.
+99. **SpaceMap Re-Calib** nach Drehung.
+100. **DepthCapture an Continuity-LiDAR** statt Stub.
+101. **HUD Pose-Chips am DisplayLink** unabhängig von mark().
+102. **Session-Watchdog** Idle = fps>0 UND keine Aegis-Face UND 8 s leer.
+103. **Pointer-Accel × backingScaleFactor**.
+104. **mmap leftover-Boxen** Helios↔Aegis Palm-Occlusion.
+105. **lastFormatHeight Reset** nach uniqueID-Wechsel.
+106. **Kalman-Palme in HandTracker** während Freeze.
+107. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+108. **PinchHold analog** Closedness-Mix, nicht nur Bool.
 
-P0: Call-Site pinchHeld, dann CameraBroker. Kein weiteres dt-Pflaster.
+P0: uniqueID sticky, dann CameraBroker. Kein weiteres dt-Pflaster.

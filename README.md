@@ -1,4 +1,4 @@
-# Helios **1.6.44**
+# Helios **1.6.45**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -19,6 +19,15 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.45
+
+1.6.44 DisplayLink HUD, PinchHoldPhase in driveGrab. PoseHMM kannte pinchHeld, HandTracker reichte ihn nicht. Zweite `let dt` in analyze ungeklemmt. Format-Retry tot hinter 8 s already.
+
+- **HMM Gate-Held.** `hmm.step(..., pinchHeld: pinchState.closed)`. Stay-Tau 110 ms, Boost gegen Faust-Tick bei 8 fps.
+- **dtPalm = sampleDt.** Zweite Uhr `now - lastNow` war Dropout-Sprung in palmWidthEMA.
+- **Format-Leiter Retry.** `cameraFormatRenegotiateRetry` nach 3 s, nicht erst nach 8 s Cooldown. 1080p@8 → 720p@24 → 960p@15.
+- Tests + MARKETING_VERSION 1.6.45 (Build 78).
 
 ## Neu in 1.6.44
 

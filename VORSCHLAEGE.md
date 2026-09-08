@@ -1,6 +1,40 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.44**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen. Gelesen, nicht gemergt: IOHID Event-Tap, JSONL, AX-ein-Call.
+Stand: **1.6.45**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.45 erledigt
+
+1.6.44 DisplayLink HUD, PinchHoldPhase in driveGrab. HMM-Signatur da, Call-Site tot. `let dt` Shadow. Format-Retry hinter 8 s.
+
+1. **HMM pinchHeld Call-Site.** `pinchState.closed` in `hmm.step`. Stay-Tau 110 ms.
+2. **dtPalm = sampleDt.** Ungeklemmte zweite Uhr tot.
+3. **cameraFormatRenegotiateRetry** verdrahtet (3 s Leiter-Schritt).
+4. Tests + MARKETING_VERSION 1.6.45 (Build 78).
+
+## Erweiterung (neu, 1.6.45)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC, eine Session. P0.
+2. **HeliosAegisKit** gemeinsamer Broker + Mutex-PTS.
+3. **Continuity uniqueID-Reconnect** — Slot stirbt, Pinch-Lock weg. Homographie nur wenn Cam wirklich wechselt. P0 klein.
+4. **Continuity PTS-Sprung** als Freeze, nicht Dropout (Uhr reset ≠ Hand weg).
+5. **Two-pinch vs scroll hysteresis** — offene Hand + Coast darf Pinch-Start nicht fressen.
+6. **Clutch-Radius × backingScaleFactor** je NSScreen.
+7. **AX-Hit-Cache × Fenster-ID** Resize während Freeze sonst tot.
+8. **mmap leftover-Boxen** Helios↔Aegis, nicht Datei-Poll. Palm-Occlusion.
+9. **Aegis-Yaw als Click-Lock** — Blick weg = kein Klick.
+10. **HUD Pose-Chips am DisplayLink** unabhängig von `overlay.mark()`.
+11. **Session-Watchdog** Idle nur fps>0 UND keine Aegis-Face UND 8 s leer.
+12. **Pointer-Accel × backingScaleFactor** je NSScreen, nicht 48 px universal.
+13. **DepthCapture an Continuity LiDAR** wirklich verdrahten (Datei ist Stub).
+14. **JSONL Session-Replay** Gesten-Regression ohne Vision auf Linux.
+15. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+16. **SpaceMap Re-Calib** nach Bildschirm-Drehung / uniqueID-Wechsel.
+17. **Watch-IMU Pinch-Confirm.**
+18. **Kalman-Palme während Freeze** in HandTracker, nicht nur Engine (Recover-Blend).
+19. **Format-Leiter nach uniqueID-Wechsel** lastFormatHeight zurücksetzen.
+20. **PinchHold analog** Closedness als Emission-Mix, nicht nur Bool.
+
+P0 CameraBroker, dann uniqueID sticky. Kein 1.6.46-dt-Pflaster ohne eines davon.
 
 ## In 1.6.44 erledigt
 
@@ -9,31 +43,6 @@ Stand: **1.6.44**. Die Punkte unten sind Erweiterungen, kein Backlog der schon g
 1. **DisplayLink 90 Hz HUD.** `CADisplayLink` unabhängig von Detect. `hudLerpT` t=0 am Sample, t=1 nach Intervall. Freeze snap.
 2. **PinchHoldPhase in GestureEngine.** `pinchHoldAdvance` in `driveGrab`. `dropPinchHold` statt nacktem Bool. Tentative überlebt einen Continuity-Tick.
 3. Tests + MARKETING_VERSION 1.6.44 (Build 77).
-
-## Erweiterung (neu, 1.6.44)
-
-1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC, eine Session. P0.
-2. **HeliosAegisKit** gemeinsamer Broker + Mutex-PTS.
-3. **Continuity uniqueID-Reconnect** — Slot stirbt, Pinch-Lock weg. Homographie nur wenn Cam wirklich wechselt.
-4. **Two-pinch vs scroll hysteresis** — offene Hand + Coast darf Pinch-Start nicht fressen.
-5. **mmap leftover-Boxen** Helios↔Aegis, nicht Datei-Poll. Palm-Occlusion.
-6. **Aegis-Yaw als Click-Lock** — Blick weg = kein Klick.
-7. **Per-Finger One-Euro**, nicht nur pinchRatio.
-8. **VoiceOver-Rotor** Peace-Hold mappt Rotor, nicht System-Cmd.
-9. **Cover-Lead Blend nur Quality-Gap.**
-10. **Stereo Mac+Phone z aus Disparität**, Lift-Gewicht dann wirklich 0,06.
-11. **On-Device Create ML** aus `gesten.jsonl` ohne Bundle-Modell.
-12. **Tests ohne Vision.framework** Fusion/HMM auf Linux-CI (reine Double-Math) — CoordTests bleibt der Einstieg.
-13. **Session-Watchdog** Idle nur fps>0 UND keine Aegis-Face UND 8 s leer.
-14. **Pointer-Accel × backingScaleFactor** je NSScreen, nicht 48 px universal.
-15. **HUD Pose-Chips am DisplayLink** auch wenn Detect 8 Hz friert.
-16. **Palm-Silhouette Click-Lock** Aspect Kante-an = kein Klick.
-17. **DepthCapture an Continuity LiDAR** wirklich verdrahten (Datei ist Stub).
-18. **JSONL Session-Replay** Gesten-Regression.
-19. **PoseHMM liest PinchHoldPhase** — Gate ist verdrahtet, HMM noch Bool.
-20. **AX-Hit-Cache × Fenster-ID** Resize während Freeze sonst tot.
-
-P0 CameraBroker. Kein 1.6.45-dt-Pflaster ohne CameraBroker.
 
 ## In 1.6.43 erledigt
 

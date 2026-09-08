@@ -1,6 +1,20 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
-Stand: 2026-09-08. Helios **1.6.44** (Build 77). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+Stand: 2026-09-08. Helios **1.6.45** (Build 78). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+
+## 0. 1.6.45 — HMM Gate-Held, dtPalm, Format-Retry
+
+1.6.44: DisplayLink 90 Hz HUD, PinchHoldPhase in driveGrab. PoseHMM `pinchHeld` Default false — Call-Site fehlte. Zweite `let dt` ungeklemmt. `cameraFormatRenegotiateRetry` nur Tests.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | HMM sieht PinchHold nicht | `hmm.step(..., pinchHeld: pinchState.closed)` |
+| 2 | `let dt` Shadow ungeklemmt | `dtPalm = sampleDt` |
+| 3 | Leiter hinter 8 s already | `cameraFormatRenegotiateRetry` ODER first |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe, uniqueID sticky.
+
+
 
 ## 0. 1.6.44 — DisplayLink HUD, PinchHoldPhase in der Engine
 

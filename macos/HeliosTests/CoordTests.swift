@@ -2234,12 +2234,12 @@ enum CoordTests {
             fputs("FAIL Cold-Start 720@24 schlägt claimed 1080@30\n", stderr)
             fails += 1
         }
-        let pred = GestureMath.pointerPredict(sample: 100, vel: 80, dt: 0.125, cap: 48)
-        if pred <= 100 {
+        let predPtr = GestureMath.pointerPredict(sample: 100, vel: 80, dt: 0.125, cap: 48)
+        if predPtr <= 100 {
             fputs("FAIL Predict vorwärts\n", stderr)
             fails += 1
         }
-        if pred > 100 + 48 + 0.01 {
+        if predPtr > 100 + 48 + 0.01 {
             fputs("FAIL Predict Cap 48\n", stderr)
             fails += 1
         }

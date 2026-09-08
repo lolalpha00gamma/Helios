@@ -79,7 +79,9 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     private var frameHandler: ((CVPixelBuffer, NSImage?, CGFloat, TimeInterval) -> Void)?
     let depthTap = DepthCapture()
     private var formatRenegotiated = false
+    private var formatPromoted = false
     private var lastRenegotiateAt: TimeInterval = 0
+    private var lastPromoteAt: TimeInterval = 0
     /// Letzte aktive Höhe — Leiter sonst denselben 1080p-Retry. Persist über Launches.
     private var lastFormatHeight: Double = {
         let stored = UserDefaults.standard.double(forKey: "helios.formatHeight")
@@ -100,6 +102,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         DispatchQueue.main.async { self.errorMessage = nil }
         pump.reset()
         lastRenegotiateAt = 0
+        lastPromoteAt = 0
+        formatPromoted = false
         lastPts = 0
         lastPtsWall = 0
         cameraQueue.async { [weak self] in
@@ -117,9 +121,20 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             lastAt: lastRenegotiateAt,
             now: now
         )
-        guard first || retry else { return }
+        let promoting = GestureMath.cameraFormatPromoteReady(
+            measuredFps: measuredFps,
+            already: formatPromoted
+        )
+        guard first || retry || promoting else { return }
         formatRenegotiated = true
         lastRenegotiateAt = now
+        if first || retry {
+            formatPromoted = false
+        }
+        if promoting {
+            formatPromoted = true
+            lastPromoteAt = now
+        }
         cameraQueue.async { [weak self] in
             guard let self else { return }
             let device = self.session.inputs.compactMap { ($0 as? AVCaptureDeviceInput)?.device }.first
@@ -373,7 +388,9 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         ) {
             lastFormatHeight = 1080
             formatRenegotiated = false
+            formatPromoted = false
             lastRenegotiateAt = 0
+            lastPromoteAt = 0
             lastPts = 0
             lastPtsWall = 0
         }
@@ -611,7 +628,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
                 $0.maxFrameRate < $1.maxFrameRate
             }) {
                 let sec = GestureMath.cameraLockDuration(
-                    maxFps: range.maxFrameRate, minFps: range.minFrameRate
+                    maxFps: range.maxFrameRate, minFps: range.minFrameRate, measuredFps: measuredFps
                 )
                 let dur = CMTime(seconds: sec, preferredTimescale: 600)
                 device.activeVideoMinFrameDuration = dur

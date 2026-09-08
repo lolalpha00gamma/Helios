@@ -1,3 +1,29 @@
+# Helios Vorschläge — 2026-09-08 (Pass 21, 1.6.58)
+
+Stand 1.6.58. Predict-Clutch, USB-C-Promote, Fling-Cap, Scroll-Gain.
+
+## Gelandet in 1.6.58
+
+- pointerPredictArmed / Cap 0 bei Clutch
+- cameraLockFpsPromote gemessen ≥ 22 → 30
+- flingTeleport 42 % Schirmhöhe
+- scrollGainFor Safari/Xcode
+
+## Erweiterung (neu)
+
+216. **VNTrackObjectRequest** echte Hand-Observation.
+217. **Predict-Cap × Screen-Höhe.**
+218. **Click-Tick Sound.**
+219. **Miss-Click Heatmap.**
+220. **iPhone Ultraweit FOV.**
+221. **Per-Display pointerGain Pref.**
+222. **Aegis-Gaze Pinch-Confirm.**
+223. **Watch Double-Tap.**
+224. **Palm-Vel JSONL** Predict-Tuning.
+225. **Session-Watchdog** 8 s leer.
+
+P0: CameraBroker. Kein neues *Need(dt).
+
 # Helios Vorschläge — 2026-09-08 (Pass 20, 1.6.57)
 
 Stand 1.6.57. Predict, Zwei-Hand-Clutch, Stage-Clamp, Hand-Box.

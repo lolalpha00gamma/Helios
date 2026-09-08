@@ -1,5 +1,22 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
+Stand: 2026-09-08. Helios **1.6.58** (Build 91). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+
+## 0. 1.6.58 — Predict-Clutch, USB-C-Promote, Fling-Cap, Scroll-Gain
+
+1.6.57: Predict, Zwei-Hand-Clutch, Stage-Clamp, Hand-Box. Clutch nullte dx/dy, One-Euro-Deriv coastete trotzdem 48 pt. USB-C/Osmo claimed 30 ohne Messung blieb 8 bzw. Leiter nur abwärts. Continuity-Dropout (Palme springt) war Fling/Dock. Scroll-Ticks global — Safari zu dünn, Xcode-Caret zu grob.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | Clutch + Predict-Coast | `pointerPredictArmed` Cap 0 |
+| 2 | Osmo 30 → 8 | `cameraLockFpsPromote` gemessen ≥ 22 |
+| 3 | Dropout = Dock | `flingTeleport` 42 % Höhe |
+| 4 | Scroll global | `scrollGainFor` Safari/Xcode |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe.
+
+# Analyse, Fehlerbehebung, öffentlicher Abgleich
+
 Stand: 2026-09-08. Helios **1.6.57** (Build 90). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
 
 ## 0. 1.6.57 — Predict, Zwei-Hand-Clutch, Stage-Clamp, Hand-Box

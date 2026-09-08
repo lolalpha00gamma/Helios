@@ -1,4 +1,36 @@
-# Helios **1.6.57**
+# Helios **1.6.58**
+
+
+Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
+
+Privates Repo. Keine Open-Source-Lizenzdatei.
+
+Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Start
+
+**Nur die DMG-Datei laden, nicht Source code (zip):**
+
+[Helios.dmg](https://github.com/lolalpha00gamma/Helios/releases/latest/download/Helios.dmg)
+
+1. `Helios.dmg` doppelklicken (kein Entpacken)
+2. Helios nach **Programme** ziehen — nicht aus dem Image starten
+3. Erster Start (nicht notarisierte Ad-hoc-Signatur): **Systemeinstellungen → Datenschutz & Sicherheit → Trotzdem öffnen**
+4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
+
+Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.58
+
+1.6.57 Predict, Zwei-Hand-Clutch, Stage-Clamp, Hand-Box. Clutch coastete den Zeiger. Osmo claimed 30 ohne Messung. Dropout war Dock. Scroll global.
+
+- **Predict-Clutch.** Deadman/Zwei-Hand: Predict aus, Cap 0.
+- **USB-C 30-fps Promote.** Nur nach gemessenen ≥ 22 fps, nicht claimed 30.
+- **Fling-Cap × Screen-Höhe.** Dropout > 42 % Höhe ist kein Werfen.
+- **Per-App Scroll-Gain.** Safari 1,35×, Xcode 0,55×.
+- Tests + MARKETING_VERSION 1.6.58 (Build 91).
+
+## Neu in 1.6.57
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.

@@ -1178,12 +1178,21 @@ final class GestureEngine {
             euroDx = fx.deriv
             euroY = fy.value
             euroDy = fy.deriv
-            stepped = GestureMath.pointerPredictPoint(
-                sample: CGPoint(x: fx.value, y: fy.value),
-                vel: CGPoint(x: fx.deriv, y: fy.deriv),
-                dt: sampleDt,
-                cap: GestureMath.pointerPredictCap()
+            let clutchPredict = !GestureMath.pointerPredictArmed(
+                deadman: palmDeadman, clutch: twoHandClutchOn
             )
+            if clutchPredict {
+                euroDx = 0
+                euroDy = 0
+                stepped = CGPoint(x: fx.value, y: fy.value)
+            } else {
+                stepped = GestureMath.pointerPredictPoint(
+                    sample: CGPoint(x: fx.value, y: fy.value),
+                    vel: CGPoint(x: fx.deriv, y: fy.deriv),
+                    dt: sampleDt,
+                    cap: GestureMath.pointerPredictCap(false)
+                )
+            }
         }
         let a: CGFloat = freezeGain < 0.99 ? 1 : 0.86
         let s = CGPoint(x: a * stepped.x + (1 - a) * seed.x, y: a * stepped.y + (1 - a) * seed.y)
@@ -1318,7 +1327,8 @@ final class GestureEngine {
                     axis: twoPinchLockedAxis,
                     a: mapped[0], b: mapped[1],
                     prevA: prev[0], prevB: prev[1],
-                    scale: ScreenGeometry.backingScale(quartz: mid)
+                    scale: ScreenGeometry.backingScale(quartz: mid),
+                    gain: GestureMath.scrollGainFor(bundleId: focused?.bundleId ?? "")
                 )
                 if ticks != 0 {
                     twoPinchLastTicks = ticks
@@ -1725,7 +1735,8 @@ final class GestureEngine {
             aspect: space.aspect,
             afterDrag: afterDrag,
             screenUV: screenUV,
-            windowSec: GestureMath.flingWindowLen(medianDt: sampleDt)
+            windowSec: GestureMath.flingWindowLen(medianDt: sampleDt),
+            screenHeight: ScreenGeometry.screenContaining(quartz: cursor ?? .zero)?.frame.height ?? 0
         )
         guard kind != .none else { return false }
         onLog?("Werfen erkannt", .recognized, Int(confidence * 100))

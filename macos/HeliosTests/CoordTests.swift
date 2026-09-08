@@ -2294,6 +2294,100 @@ enum CoordTests {
             fputs("FAIL Hand-Box lerp folgt\n", stderr)
             fails += 1
         }
+        if GestureMath.pointerPredictCap(true) != 0 {
+            fputs("FAIL Predict Cap clutch 0\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pointerPredictCap(false) != 48 {
+            fputs("FAIL Predict Cap frei 48\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pointerPredictArmed(deadman: true, clutch: false) {
+            fputs("FAIL Predict Deadman tot\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pointerPredictArmed(deadman: false, clutch: false) {
+            fputs("FAIL Predict frei armed\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraLockFpsPromote(maxFps: 30, measuredFps: 8) != 24 {
+            fputs("FAIL USB-C 8 Hz bleibt 24\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraLockFpsPromote(maxFps: 30, measuredFps: 24) != 30 {
+            fputs("FAIL USB-C 24 Hz → 30\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraFormatPromoteReady(measuredFps: 8) {
+            fputs("FAIL Promote 8 tot\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.cameraFormatPromoteReady(measuredFps: 22) {
+            fputs("FAIL Promote 22\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraFormatPromoteReady(measuredFps: 24, already: true) {
+            fputs("FAIL Promote already tot\n", stderr)
+            fails += 1
+        }
+        let lock24 = GestureMath.cameraLockDuration(maxFps: 30, minFps: 1, measuredFps: 8)
+        if abs(lock24 - 1.0 / 24.0) > 0.001 {
+            fputs("FAIL Lock 8 Hz bleibt 24\n", stderr)
+            fails += 1
+        }
+        let lock30 = GestureMath.cameraLockDuration(maxFps: 30, minFps: 1, measuredFps: 24)
+        if abs(lock30 - 1.0 / 30.0) > 0.001 {
+            fputs("FAIL Lock 24 Hz → 30\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.scrollGainFor(bundleId: "com.apple.Safari") - 1.35) > 0.01 {
+            fputs("FAIL Scroll Safari 1,35\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.scrollGainFor(bundleId: "com.apple.dt.Xcode") - 0.55) > 0.01 {
+            fputs("FAIL Scroll Xcode 0,55\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.scrollGainFor(bundleId: "com.apple.finder") - 1.0) > 0.01 {
+            fputs("FAIL Scroll Finder 1\n", stderr)
+            fails += 1
+        }
+        let ticksHi = GestureMath.twoPinchScrollTicks(
+            axis: .vertical,
+            a: CGPoint(x: 0, y: 20), b: CGPoint(x: 10, y: 20),
+            prevA: CGPoint(x: 0, y: 0), prevB: CGPoint(x: 10, y: 0),
+            scale: 1, gain: 1.35
+        )
+        let ticksLo = GestureMath.twoPinchScrollTicks(
+            axis: .vertical,
+            a: CGPoint(x: 0, y: 20), b: CGPoint(x: 10, y: 20),
+            prevA: CGPoint(x: 0, y: 0), prevB: CGPoint(x: 10, y: 0),
+            scale: 1, gain: 0.55
+        )
+        if abs(ticksHi) <= abs(ticksLo) {
+            fputs("FAIL Scroll-Gain Safari > Xcode\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.flingCapPx(screenHeight: 800) - 336) > 1 {
+            fputs("FAIL Fling-Cap 800 → 336\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.flingTeleport(distHW: 8, palmWidth: 0.12, screenHeight: 800) {
+            fputs("FAIL Fling Teleport Dropout\n", stderr)
+            fails += 1
+        }
+        if GestureMath.flingTeleport(distHW: 1.2, palmWidth: 0.12, screenHeight: 800) {
+            fputs("FAIL Fling echter Wurf hält\n", stderr)
+            fails += 1
+        }
+        let jump = [
+            (t: 0.0 as TimeInterval, x: CGFloat(0.10), y: CGFloat(0.50)),
+            (t: 0.08 as TimeInterval, x: CGFloat(0.90), y: CGFloat(0.50))
+        ]
+        if GestureMath.flingFromTrail(jump, palmWidth: 0.12, centerDead: false, screenHeight: 800) != .none {
+            fputs("FAIL Fling Dropout tot\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

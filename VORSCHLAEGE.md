@@ -1,5 +1,48 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.58**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.58 erledigt
+
+1.6.57 Predict, Zwei-Hand-Clutch, Stage, Hand-Box. Clutch coastete Predict. Osmo 30 ohne Messung. Dropout-Fling. Scroll global.
+
+1. **Predict-Clutch** Deadman/Zwei-Hand Cap 0.
+2. **USB-C 30 fps Promote** gemessen ≥ 22.
+3. **Fling-Cap × Screen-Höhe** 42 %.
+4. **Per-App Scroll-Gain** Safari 1,35 / Xcode 0,55.
+5. Tests + MARKETING_VERSION 1.6.58 (Build 91).
+
+## Erweiterung (neu, 1.6.58)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+2. **HeliosAegisKit** gemeinsamer Broker + Mutex-PTS.
+3. **VNTrackObjectRequest** echte Hand-Observation, nicht nur IoU-Box.
+4. **Pair-Stereo-Tiefe** Mac+iPhone statt DepthCapture-Stub.
+5. **Watch Double-Tap** Click-Confirm + Haptic.
+6. **App-Grammar** Safari-Scroll vs Finder-Drag vs Xcode-Caret (Profile wirklich an).
+7. **JSONL Session-Replay** ohne Vision.
+8. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+9. **Click-Tick Sound** (optional, Accessibility).
+10. **iPhone Ultraweit** als FOV-Fallback wenn Hands am Bildrand sterben.
+11. **Per-Display pointerGain** UserDefaults.
+12. **Aegis-Gaze Pinch-Confirm** wenn Face frontal und Blick auf HUD.
+13. **Continuity HDR Tone-Map** bevor Vision 8-Bit sieht.
+14. **Miss-Click Heatmap** JSONL.
+15. **Accessibility Dwell-Click** unabhängig von Pinch.
+16. **IOHID Force-Click vs Pinch.**
+17. **mmap leftover-Boxen** Helios↔Aegis Palm-Occlusion.
+18. **DepthCapture an Continuity-LiDAR.**
+19. **Overlay CAMetalLayer.**
+20. **Session-Watchdog** Idle = fps>0 UND keine Aegis-Face UND 8 s leer.
+21. **Palm-Vel JSONL** für Predict-Tuning ohne Kamera.
+22. **Predict-Cap × Screen-Höhe** analog Fling (48 pt auf 5K zu klein).
+23. **Cover-Pipe 30-Promote** analog Lead.
+24. **Air-Keyboard Shortcut-Overlay** ⌘C/V/Z.
+
+P0 CameraBroker. Kein neues *Need(dt).
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.57**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
 
 ## In 1.6.57 erledigt

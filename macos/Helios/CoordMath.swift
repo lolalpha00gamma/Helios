@@ -511,7 +511,14 @@ enum GestureMath {
         CGFloat(max(0.04, min(0.20, dt)))
     }
 
-    static func pointerPredictCap() -> CGFloat { 48 }
+    static func pointerPredictCap(_ clutch: Bool = false) -> CGFloat {
+        clutch ? 0 : 48
+    }
+
+    /// Deadman/Zwei-Hand: Predict aus. Sonst coastet One-Euro-Deriv 48 pt trotz dx=0.
+    static func pointerPredictArmed(deadman: Bool, clutch: Bool) -> Bool {
+        !deadman && !clutch
+    }
 
     static func pointerPredict(sample: CGFloat, vel: CGFloat, dt: TimeInterval, cap: CGFloat = 48) -> CGFloat {
         let t = pointerPredictDt(dt)
@@ -1049,14 +1056,24 @@ enum GestureMath {
         b: CGPoint,
         prevA: CGPoint,
         prevB: CGPoint,
-        scale: CGFloat = 1
+        scale: CGFloat = 1,
+        gain: CGFloat = 1
     ) -> Int32 {
         guard axis != .none else { return 0 }
         let mid = CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)
         let prev = CGPoint(x: (prevA.x + prevB.x) / 2, y: (prevA.y + prevB.y) / 2)
         let d = axis == .horizontal ? (mid.x - prev.x) : (mid.y - prev.y)
-        let ticks = Int32((d * 0.42 * backingScaleClamped(scale)).rounded())
+        let g = max(0.25, min(2, gain))
+        let ticks = Int32((d * 0.42 * backingScaleClamped(scale) * g).rounded())
         return max(-24, min(24, ticks))
+    }
+
+    /// Safari zu dünn, Xcode-Caret zu grob. Finder 1×.
+    static func scrollGainFor(bundleId: String) -> CGFloat {
+        let b = bundleId.lowercased()
+        if b.contains("safari") { return 1.35 }
+        if b.contains("dt.xcode") || b.hasSuffix(".xcode") { return 0.55 }
+        return 1.0
     }
 
     /// Zwei-Pinzetten: IDs sortieren, sonst Vision-Reorder → Span-Sprung.
@@ -1145,9 +1162,38 @@ enum GestureMath {
         return cap
     }
 
-    static func cameraLockDuration(maxFps: Double, minFps: Double, prefer: Double = 24) -> Double {
-        let fps = min(max(minFps, cameraLockFps(maxFps: maxFps, prefer: prefer)), max(1, maxFps))
+    static func cameraLockDuration(
+        maxFps: Double,
+        minFps: Double,
+        prefer: Double = 24,
+        measuredFps: Double = 0
+    ) -> Double {
+        let fps = min(
+            max(minFps, cameraLockFpsPromote(maxFps: maxFps, measuredFps: measuredFps, prefer: prefer)),
+            max(1, maxFps)
+        )
         return 1.0 / max(1, fps)
+    }
+
+    /// USB-C/Osmo claimed 30 → 8. 30 nur nach gemessenen ≥ 22 fps.
+    static func cameraLockFpsPromote(
+        maxFps: Double,
+        measuredFps: Double,
+        prefer: Double = 24,
+        promote: Double = 30,
+        floor: Double = 22
+    ) -> Double {
+        let cap = max(1, maxFps)
+        if measuredFps >= floor, cap >= promote { return min(cap, promote) }
+        return cameraLockFps(maxFps: maxFps, prefer: prefer)
+    }
+
+    static func cameraFormatPromoteReady(
+        measuredFps: Double,
+        already: Bool = false,
+        floor: Double = 22
+    ) -> Bool {
+        !already && measuredFps >= floor
     }
 
     /// 8 fps: Body-Pose jedes 4. Frame = 500 ms tot + extra Vision.
@@ -1461,7 +1507,8 @@ enum GestureMath {
         centerDead: Bool = true,
         afterDrag: Bool = false,
         screenUV: CGPoint? = nil,
-        windowSec: TimeInterval = flingWindow
+        windowSec: TimeInterval = flingWindow,
+        screenHeight: CGFloat = 0
     ) -> FlingKind {
         guard let last = trail.last else { return .none }
         let slice = trail.filter { last.t - $0.t <= windowSec }
@@ -1472,6 +1519,9 @@ enum GestureMath {
         let dy = (last.y - first.y) / unit
         let dist = hypot(dx, dy)
         let speed = dist / CGFloat(dt)
+        if flingTeleport(distHW: dist, palmWidth: unit, screenHeight: screenHeight) {
+            return .none
+        }
         if centerDead {
             let u = screenUV?.x ?? last.x
             let v = screenUV?.y ?? last.y
@@ -1501,7 +1551,8 @@ enum GestureMath {
         centerDead: Bool = true,
         afterDrag: Bool = false,
         screenUV: CGPoint? = nil,
-        windowSec: TimeInterval = flingWindow
+        windowSec: TimeInterval = flingWindow,
+        screenHeight: CGFloat = 0
     ) -> FlingKind {
         guard let last = trail.last else { return .none }
         let slice = trail.filter { last.t - $0.t <= windowSec }
@@ -1510,6 +1561,9 @@ enum GestureMath {
         let dx = (last.x - first.x) * aspect / unit
         let dy = (last.y - first.y) / unit
         let dist = hypot(dx, dy)
+        if flingTeleport(distHW: dist, palmWidth: unit, screenHeight: screenHeight) {
+            return .none
+        }
         let tail = Array(slice.suffix(3))
         let t0 = tail.first?.t ?? first.t
         let x0 = tail.first?.x ?? first.x
@@ -1559,6 +1613,20 @@ enum GestureMath {
         if dx < -0.50 { return .dockLeft }
         if dx > 0.50 { return .dockRight }
         return .none
+    }
+
+    /// Continuity-Dropout = Palme springt über den Schirm. Cap 42 % Höhe, nicht Dock.
+    static func flingCapPx(screenHeight: CGFloat) -> CGFloat {
+        max(160, min(960, screenHeight * 0.42))
+    }
+
+    static func flingPx(distHW: CGFloat, palmWidth: CGFloat, screenHeight: CGFloat) -> CGFloat {
+        max(0, distHW) * max(0.04, palmWidth) * max(1, screenHeight)
+    }
+
+    static func flingTeleport(distHW: CGFloat, palmWidth: CGFloat, screenHeight: CGFloat) -> Bool {
+        guard screenHeight > 8 else { return false }
+        return flingPx(distHW: distHW, palmWidth: palmWidth, screenHeight: screenHeight) > flingCapPx(screenHeight)
     }
 
     /// 8 fps: ein Tick Palm-Jitter ≥ 0,45 HW = Drag statt Klick.

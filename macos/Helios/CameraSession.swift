@@ -123,7 +123,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         )
         let promoting = GestureMath.cameraFormatPromoteReady(
             measuredFps: measuredFps,
-            already: formatPromoted
+            already: formatPromoted,
+            role: lastDeviceRole
         )
         guard first || retry || promoting else { return }
         formatRenegotiated = true
@@ -628,7 +629,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
                 $0.maxFrameRate < $1.maxFrameRate
             }) {
                 let sec = GestureMath.cameraLockDuration(
-                    maxFps: range.maxFrameRate, minFps: range.minFrameRate, measuredFps: measuredFps
+                    maxFps: range.maxFrameRate, minFps: range.minFrameRate, measuredFps: measuredFps, role: lastDeviceRole
                 )
                 let dur = CMTime(seconds: sec, preferredTimescale: 600)
                 device.activeVideoMinFrameDuration = dur

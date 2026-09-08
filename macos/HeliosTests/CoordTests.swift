@@ -2388,6 +2388,42 @@ enum CoordTests {
             fputs("FAIL Fling Dropout tot\n", stderr)
             fails += 1
         }
+        if GestureMath.trackDropoutNeed(dt: 0.125) <= 0.18 {
+            fputs("FAIL Track-TTL > 0,18 Continuity\n", stderr)
+            fails += 1
+        }
+        if GestureMath.emptyHandsHold(dt: 0.125) <= 0.12 {
+            fputs("FAIL Pinch-Reset > 1 Continuity-Frame\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraFormatColdStartBias(height: 1080, currentHeight: 720, role: "osmo") != 0 {
+            fputs("FAIL Cold-Start Osmo kein Phone-Bias\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraLockFpsPromote(maxFps: 30, measuredFps: 24, role: "phone") != 24 {
+            fputs("FAIL Phone 24 Hz bleibt 24\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraLockFpsPromote(maxFps: 30, measuredFps: 24, role: "osmo") != 30 {
+            fputs("FAIL Osmo 24 Hz → 30\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraFormatPromoteReady(measuredFps: 24, role: "phone") {
+            fputs("FAIL Promote Phone tot\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.cameraFormatPromoteReady(measuredFps: 24, role: "osmo") {
+            fputs("FAIL Promote Osmo 24\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.cameraLockDuration(maxFps: 30, minFps: 1, measuredFps: 24, role: "phone") - 1.0 / 24.0) > 1e-9 {
+            fputs("FAIL Phone Lock 24\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.cameraLockDuration(maxFps: 30, minFps: 1, measuredFps: 24, role: "osmo") - 1.0 / 30.0) > 1e-9 {
+            fputs("FAIL Osmo Lock 30\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

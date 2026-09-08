@@ -1,5 +1,22 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
+Stand: 2026-09-08. Helios **1.6.59** (Build 92). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+
+## 0. 1.6.59 — Track-TTL, Pinch-Reset, Osmo-Rolle, USB-Promote gated
+
+1.6.58: Predict-Clutch, USB-C-Promote, Fling-Cap, Scroll-Gain. Danach starb der Slot trotzdem — `tracks.removeAll` und pinch.reset hart 0,18 / 0,12. Promote ohne Rolle: Continuity-Phone mit einem 24-fps-Tick lockte 30 und fiel auf 8. Osmo im Cold-Start als Phone (720@24).
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | Track-TTL 0,18 s < 2 Frames | `trackDropoutNeed` ≥ 0,35 s |
+| 2 | Pinch-Reset 0,12 s < 1 Frame | `emptyHandsHold` ≥ 0,22 s |
+| 3 | Osmo = Phone 720@24 | Cold-Start ohne osmo |
+| 4 | Phone-Promote → 8 Hz | `cameraFormatUsbRole` |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe.
+
+# Analyse, Fehlerbehebung, öffentlicher Abgleich
+
 Stand: 2026-09-08. Helios **1.6.58** (Build 91). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
 
 ## 0. 1.6.58 — Predict-Clutch, USB-C-Promote, Fling-Cap, Scroll-Gain

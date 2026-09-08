@@ -1,3 +1,29 @@
+# Helios Vorschläge — 2026-09-08 (Pass 22, 1.6.59)
+
+Stand 1.6.59. Track-TTL, Pinch-Reset, Osmo-Rolle, USB-Promote gated.
+
+## Gelandet in 1.6.59
+
+- tracks.removeAll / assign live → trackDropoutNeed, nicht 0,18
+- pinch.reset → emptyHandsHold, nicht 0,12
+- cameraFormatColdStartBias ohne osmo
+- cameraFormatUsbRole gated Promote — Phone bleibt 24
+
+## Erweiterung (neu)
+
+226. **Continuity Center Stage off.**
+227. **Vision ROI 2× Palm-Box.**
+228. **Chirality-Lock** nach Dropout.
+229. **Continuity AE/WB-Lock.**
+230. **Fling-Achsen-Deadzone × palmWidth.**
+231. **Display-Reconfig SpaceMap-Nudge.**
+232. **Pinch-Hysterese × palmWidth.**
+233. **AVCapture Mutex-File** ohne XPC.
+234. **Mission-Control Zwei-Palm-Spread.**
+235. **VNTrackObjectRequest.**
+
+P0: CameraBroker. Kein neues *Need(dt).
+
 # Helios Vorschläge — 2026-09-08 (Pass 21, 1.6.58)
 
 Stand 1.6.58. Predict-Clutch, USB-C-Promote, Fling-Cap, Scroll-Gain.

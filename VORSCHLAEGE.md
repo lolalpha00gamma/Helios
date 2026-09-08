@@ -1,5 +1,48 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.59**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.59 erledigt
+
+1.6.58 Predict-Clutch, USB-Promote, Fling-Cap, Scroll-Gain. Track-TTL 0,18 remintete den Slot. Pinch-Reset 0,12. Osmo = Phone. Promote ohne Rolle.
+
+1. **Track-TTL trackDropoutNeed** statt hart 0,18.
+2. **Pinch-Reset emptyHandsHold** statt hart 0,12.
+3. **Osmo kein Phone-Bias** im Cold-Start.
+4. **USB-Promote rollen-gated** Phone bleibt 24.
+5. Tests + MARKETING_VERSION 1.6.59 (Build 92).
+
+## Erweiterung (neu, 1.6.59)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+2. **HeliosAegisKit** gemeinsamer Broker + Mutex-PTS.
+3. **VNTrackObjectRequest** echte Observation, nicht nur IoU-Box.
+4. **Pair-Stereo-Tiefe** Mac+iPhone statt DepthCapture-Stub.
+5. **Watch Double-Tap** Click-Confirm + Haptic.
+6. **JSONL Session-Replay** ohne Vision.
+7. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+8. **Click-Tick Sound** (optional, Accessibility).
+9. **iPhone Ultraweit** FOV-Fallback.
+10. **Per-Display pointerGain** UserDefaults.
+11. **Aegis-Gaze Pinch-Confirm.**
+12. **Continuity Center Stage off.** Cropt Palmen am FOV-Rand.
+13. **Vision ROI aus letzter Palm-Box** (2× Crop).
+14. **Chirality-Lock** nach Dropout.
+15. **Continuity AE/WB-Lock.** Gegenlicht tötet Pinch.
+16. **Fling-Achsen-Deadzone × palmWidth.**
+17. **Display-Reconfig SpaceMap-Nudge.**
+18. **Pinch-Hysterese × palmWidth.**
+19. **AVCapture Mutex-File** ohne XPC.
+20. **Mission-Control Zwei-Palm-Spread.**
+21. **Session-Watchdog** 8 s leer.
+22. **Overlay CAMetalLayer.**
+23. **DepthCapture an Continuity-LiDAR.**
+24. **Palm-Vel JSONL.**
+
+P0 CameraBroker. Kein neues *Need(dt).
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.58**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
 
 ## In 1.6.58 erledigt

@@ -1,3 +1,35 @@
+# Helios **1.6.59**
+
+
+Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
+
+Privates Repo. Keine Open-Source-Lizenzdatei.
+
+Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Start
+
+**Nur die DMG-Datei laden, nicht Source code (zip):**
+
+[Helios.dmg](https://github.com/lolalpha00gamma/Helios/releases/latest/download/Helios.dmg)
+
+1. `Helios.dmg` doppelklicken (kein Entpacken)
+2. Helios nach **Programme** ziehen — nicht aus dem Image starten
+3. Erster Start (nicht notarisierte Ad-hoc-Signatur): **Systemeinstellungen → Datenschutz & Sicherheit → Trotzdem öffnen**
+4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
+
+Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.59
+
+1.6.58 Predict-Clutch, USB-C-Promote, Fling-Cap, Scroll-Gain. Track-TTL blieb hart 0,18 s — Slot tot vor dem 2. Continuity-Frame, Hand-Box-IoU wirkungslos. Pinch-Reset 0,12 s. Osmo im Cold-Start als Phone. Promote ohne Rolle: Continuity-Phone mit kurz 24 fps lockte 30 → 8 Hz.
+
+- **Track-TTL = trackDropoutNeed.** 0,18 → ≥ 0,35 s. Slot überlebt 2 Misses.
+- **Pinch-Reset emptyHandsHold.** 0,12 s resetete Closedness zwischen 8-Hz-Frames.
+- **Osmo kein Phone-Bias.** Cold-Start 720@24 nur Continuity, nicht USB-C.
+- **USB-Promote rollen-gated.** Phone bleibt 24. Osmo/USB gemessen ≥ 22 → 30.
+- Tests + MARKETING_VERSION 1.6.59 (Build 92).
+
 # Helios **1.6.58**
 
 

@@ -216,7 +216,8 @@ final class HandTracker: @unchecked Sendable {
         }
         let observations = request.results ?? []
         if observations.isEmpty {
-            tracks.removeAll { now - $0.lastSeen > 0.18 }
+            let dtKeep = lastHandsAt > 0 ? GestureMath.sampleDt(now: now, last: lastHandsAt) : 0.125
+            tracks.removeAll { now - $0.lastSeen > GestureMath.trackDropoutNeed(dt: dtKeep) }
             let hold = GestureMath.emptyHandsHold(
                 dt: lastHandsAt > 0 ? GestureMath.sampleDt(now: now, last: lastHandsAt) : 0.125
             )
@@ -450,8 +451,9 @@ final class HandTracker: @unchecked Sendable {
                 )
             )
         }
-        tracks.removeAll { now - $0.lastSeen > 0.18 }
-        for i in tracks.indices where now - tracks[i].lastSeen > 0.12 {
+        let dtKeep = lastHandsAt > 0 ? GestureMath.sampleDt(now: now, last: lastHandsAt) : 0.125
+        tracks.removeAll { now - $0.lastSeen > GestureMath.trackDropoutNeed(dt: dtKeep) }
+        for i in tracks.indices where now - tracks[i].lastSeen > GestureMath.emptyHandsHold(dt: dtKeep) {
             tracks[i].pinch.reset()
         }
         lastHands = hands
@@ -461,7 +463,11 @@ final class HandTracker: @unchecked Sendable {
 
     private func assign(_ obs: [RawObs], space: AspectSpace, now: TimeInterval) -> [Int: Int] {
         var result: [Int: Int] = [:]
-        let live = tracks.enumerated().filter { now - $0.element.lastSeen < 0.35 }
+        let live = tracks.enumerated().filter {
+            now - $0.element.lastSeen < GestureMath.trackDropoutNeed(
+                dt: lastHandsAt > 0 ? GestureMath.sampleDt(now: now, last: lastHandsAt) : 0.125
+            )
+        }
         if live.isEmpty || obs.isEmpty { return [:] }
         var usedT: Set<Int> = []
         var usedO: Set<Int> = []

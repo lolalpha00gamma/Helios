@@ -498,7 +498,7 @@ enum GestureMath {
 
     /// Kaltstart: Continuity claimed 1080@30, liefert 8. 720@24 vor 1080, ohne Messung.
     static func cameraFormatColdStartBias(height: Double, currentHeight: Double, role: String) -> Double {
-        let phone = role == "phone" || role == "continuity" || role == "osmo"
+        let phone = role == "phone" || role == "continuity"
         guard phone else { return 0 }
         if height >= 1000 { return -90 }
         if abs(height - 720) < 80 { return 110 }
@@ -1166,34 +1166,43 @@ enum GestureMath {
         maxFps: Double,
         minFps: Double,
         prefer: Double = 24,
-        measuredFps: Double = 0
+        measuredFps: Double = 0,
+        role: String = ""
     ) -> Double {
         let fps = min(
-            max(minFps, cameraLockFpsPromote(maxFps: maxFps, measuredFps: measuredFps, prefer: prefer)),
+            max(minFps, cameraLockFpsPromote(maxFps: maxFps, measuredFps: measuredFps, prefer: prefer, role: role)),
             max(1, maxFps)
         )
         return 1.0 / max(1, fps)
     }
 
-    /// USB-C/Osmo claimed 30 → 8. 30 nur nach gemessenen ≥ 22 fps.
+    /// USB-C/Osmo: 30 nur nach Messung. Continuity-Phone bleibt 24, auch bei kurz 24 fps.
+    static func cameraFormatUsbRole(_ role: String) -> Bool {
+        if role.isEmpty { return true }
+        return role == "osmo" || role == "external" || role == "usb"
+    }
+
+    /// USB-C/Osmo claimed 30 → 8. 30 nur nach gemessenen ≥ 22 fps und USB-Rolle.
     static func cameraLockFpsPromote(
         maxFps: Double,
         measuredFps: Double,
         prefer: Double = 24,
         promote: Double = 30,
-        floor: Double = 22
+        floor: Double = 22,
+        role: String = ""
     ) -> Double {
         let cap = max(1, maxFps)
-        if measuredFps >= floor, cap >= promote { return min(cap, promote) }
+        if cameraFormatUsbRole(role), measuredFps >= floor, cap >= promote { return min(cap, promote) }
         return cameraLockFps(maxFps: maxFps, prefer: prefer)
     }
 
     static func cameraFormatPromoteReady(
         measuredFps: Double,
         already: Bool = false,
-        floor: Double = 22
+        floor: Double = 22,
+        role: String = ""
     ) -> Bool {
-        !already && measuredFps >= floor
+        cameraFormatUsbRole(role) && !already && measuredFps >= floor
     }
 
     /// 8 fps: Body-Pose jedes 4. Frame = 500 ms tot + extra Vision.

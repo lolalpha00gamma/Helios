@@ -2644,6 +2644,42 @@ enum CoordTests {
             fputs("FAIL Bezel Recalib Armed\n", stderr)
             fails += 1
         }
+        if !GestureMath.twoPinchScrollHolds(ticks: 4, lastSign: 1) {
+            fputs("FAIL Scroll gleichsinnig hält\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoPinchScrollHolds(ticks: -4, lastSign: 1) {
+            fputs("FAIL Scroll Reverse tot\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.twoPinchScrollHolds(ticks: -4, lastSign: 0) {
+            fputs("FAIL Scroll Start hält\n", stderr)
+            fails += 1
+        }
+        let twoPalmLine = GestureMath.cameraMutexLine(
+            owner: "helios", pid: 1, now: 100, gen: 1, pts: 1.5,
+            palms: [(0.20, 0.40, 0.10), (0.70, 0.50, 0.12)]
+        )
+        if GestureMath.cameraMutexPalms(twoPalmLine).count != 2 {
+            fputs("FAIL Mutex zwei Palmen\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraMutexPalm(twoPalmLine)?.x != 0.20 {
+            fputs("FAIL Mutex erste Palme\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraMutexParse(twoPalmLine, now: 101) != "helios" {
+            fputs("FAIL Mutex zwei Palmen Parse\n", stderr)
+            fails += 1
+        }
+        let actorPalms = GestureMath.cameraMutexActorPalms(
+            actor: (0.40, 0.55, 0.12),
+            others: [(0.40, 0.55, 0.12), (0.80, 0.30, 0.10)]
+        )
+        if actorPalms.count != 2 || actorPalms[1].x != 0.80 {
+            fputs("FAIL Mutex Actor+Clutch\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

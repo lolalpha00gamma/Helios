@@ -1,4 +1,4 @@
-# Helios **1.6.72**
+# Helios **1.6.73**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -19,6 +19,15 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.73
+
+1.6.70 schrieb eine Palme und beat nur am Frame. Continuity-Drop ließ den Mutex-Claim stehen — Aegis Fill tot, Clutch-Hand druckte Gesichter. Scroll-Jitter rauf/runter.
+
+- **Zwei Palmen** in der Lock-Zeile (Actor + Clutch).
+- **Mutex-Release** bei Continuity-Interrupt, Heartbeat 80 ms ohne Frame.
+- **Scroll-Vorzeichen** analog Zoom. Predict bleibt 0.
+- Tests + MARKETING_VERSION 1.6.73 (Build 106).
 
 ## Neu in 1.6.72
 

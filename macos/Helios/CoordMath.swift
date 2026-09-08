@@ -1110,6 +1110,11 @@ enum GestureMath {
         return max(-24, min(24, ticks))
     }
 
+    /// Continuity-Jitter scrollt sonst rauf/runter. Analog twoPinchZoomHolds.
+    static func twoPinchScrollHolds(ticks: Int32, lastSign: Int32) -> Bool {
+        lastSign == 0 || ticks == 0 || (ticks > 0) == (lastSign > 0)
+    }
+
     /// Safari zu dünn, Xcode-Caret zu grob. Finder 1×.
     static func scrollGainFor(bundleId: String) -> CGFloat {
         let b = bundleId.lowercased()
@@ -2065,13 +2070,17 @@ enum GestureMath {
         cameraMutexCacheFolder() + "/" + cameraMutexName()
     }
 
-    static func cameraMutexLine(owner: String, pid: Int32, now: TimeInterval, gen: UInt32 = 0, pts: TimeInterval? = nil, palm: (x: CGFloat, y: CGFloat, w: CGFloat)? = nil) -> String {
+    static func cameraMutexLine(owner: String, pid: Int32, now: TimeInterval, gen: UInt32 = 0, pts: TimeInterval? = nil, palm: (x: CGFloat, y: CGFloat, w: CGFloat)? = nil, palms: [(x: CGFloat, y: CGFloat, w: CGFloat)] = []) -> String {
         let p: TimeInterval
         if let pts, pts > 0, pts.isFinite { p = pts } else { p = 0 }
-        if let palm {
-            return String(format: "%@ %d %.3f %u %.3f %.3f %.3f %.3f v2", owner, pid, now, gen, p, Double(palm.x), Double(palm.y), Double(palm.w))
+        var all = palms.filter { $0.w > 0 }
+        if all.isEmpty, let palm, palm.w > 0 { all = [palm] }
+        var s = String(format: "%@ %d %.3f %u %.3f", owner, pid, now, gen, p)
+        for row in all.prefix(2) {
+            s += String(format: " %.3f %.3f %.3f", Double(row.x), Double(row.y), Double(row.w))
         }
-        return String(format: "%@ %d %.3f %u %.3f v2", owner, pid, now, gen, p)
+        s += " v2"
+        return s
     }
 
     /// Unix-Wall, nie CMSampleBuffer-PTS. Media < 1e6 ist Session-Zeit — Aegis obsFill sonst tot.
@@ -2087,13 +2096,24 @@ enum GestureMath {
         return v
     }
 
-    /// Palme UV vor v2. Alte 6-Felder-Zeile bleibt lesbar.
+    /// Palme UV vor v2. Alte 6-Felder-Zeile bleibt lesbar. Zweite Palme: cameraMutexPalms.
     static func cameraMutexPalm(_ text: String) -> (x: CGFloat, y: CGFloat, w: CGFloat)? {
+        cameraMutexPalms(text).first
+    }
+
+    static func cameraMutexPalms(_ text: String) -> [(x: CGFloat, y: CGFloat, w: CGFloat)] {
         let parts = text.split(whereSeparator: { $0 == " " || $0 == "\n" }).map(String.init)
-        guard parts.count >= 9, parts.last == "v2" else { return nil }
-        guard let x = Double(parts[5]), let y = Double(parts[6]), let w = Double(parts[7]) else { return nil }
-        guard x.isFinite, y.isFinite, w.isFinite, w > 0 else { return nil }
-        return (CGFloat(x), CGFloat(y), CGFloat(w))
+        guard parts.count >= 9, parts.last == "v2" else { return [] }
+        var out: [(x: CGFloat, y: CGFloat, w: CGFloat)] = []
+        var i = 5
+        while i + 2 < parts.count - 1 {
+            if let x = Double(parts[i]), let y = Double(parts[i + 1]), let w = Double(parts[i + 2]),
+               x.isFinite, y.isFinite, w.isFinite, w > 0 {
+                out.append((CGFloat(x), CGFloat(y), CGFloat(w)))
+            }
+            i += 3
+        }
+        return out
     }
 
     static func cameraMutexParse(_ text: String, now: TimeInterval, stale: TimeInterval = cameraMutexStale(), pidLive: Bool? = nil) -> String? {
@@ -2138,12 +2158,13 @@ enum GestureMath {
         now: TimeInterval,
         pidLive: Bool? = nil,
         pts: TimeInterval? = nil,
-        palm: (x: CGFloat, y: CGFloat, w: CGFloat)? = nil
+        palm: (x: CGFloat, y: CGFloat, w: CGFloat)? = nil,
+        palms: [(x: CGFloat, y: CGFloat, w: CGFloat)] = []
     ) -> String? {
         let holder = existing.flatMap { cameraMutexParse($0, now: now, pidLive: pidLive) }
         guard cameraMutexClaimWrites(holder: holder, owner: owner) else { return nil }
         let gen = ((existing.flatMap { cameraMutexGen($0) }) ?? 0) &+ 1
-        return cameraMutexLine(owner: owner, pid: pid, now: now, gen: gen, pts: pts, palm: palm)
+        return cameraMutexLine(owner: owner, pid: pid, now: now, gen: gen, pts: pts, palm: palm, palms: palms)
     }
 
     static func cameraMutexChip(holder: String?, yielded: Bool) -> String {
@@ -2160,6 +2181,21 @@ enum GestureMath {
         if let actor, actor.w > 0 { return actor }
         if let fallback, fallback.w > 0 { return fallback }
         return nil
+    }
+
+    /// Actor + Clutch. Cap 2 — Lock-Zeile bleibt v2-lesbar.
+    static func cameraMutexActorPalms(
+        actor: (x: CGFloat, y: CGFloat, w: CGFloat)?,
+        others: [(x: CGFloat, y: CGFloat, w: CGFloat)]
+    ) -> [(x: CGFloat, y: CGFloat, w: CGFloat)] {
+        var out: [(x: CGFloat, y: CGFloat, w: CGFloat)] = []
+        if let actor, actor.w > 0 { out.append(actor) }
+        for p in others where p.w > 0 {
+            if out.contains(where: { hypot($0.x - p.x, $0.y - p.y) < 1e-4 }) { continue }
+            out.append(p)
+            if out.count >= 2 { break }
+        }
+        return out
     }
 
 }

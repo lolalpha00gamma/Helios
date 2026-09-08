@@ -1,3 +1,42 @@
+# Helios Vorschläge — 2026-09-08 (Pass 30, 1.6.73)
+
+Stand 1.6.73. Zwei Palmen in der Lock-Zeile, Interrupt-Release, Heartbeat ohne Frame, Scroll-Sign.
+
+## Gelandet in 1.6.73
+
+- cameraMutexActorPalms Actor+Clutch, Lock-Zeile zwei UV
+- sessionWasInterrupted → releaseCameraMutex
+- Mutex-Beat 80 ms ohne Frame
+- twoPinchScrollHolds analog Zoom
+
+## Erweiterung (neu)
+
+355. **Mutex flock timeout / lock-free stamp.** EX|NB failt während Aegis LOCK_SH. Fill 220 ms verpasst den Frame. P1.
+356. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+357. **VNTrackObjectRequest** echte Hand-Observation, ROI-Miss ohne Full-Retry. P1.
+358. **SpaceMap load per Bezel-Hop**, nicht erst 20. Sidecar trägt sonst 5K-H bis RECAL.
+359. **Overlay CAMetalLayer.**
+360. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+361. **Continuity 15-fps Probe** gemessen, nicht claimed.
+362. **Watch Double-Tap** destruktive Klicks.
+363. **Click-Tick Sound.**
+364. **JSONL Palm-Vel** Predict-Tuning.
+365. **iPhone Ultraweit FOV** statt Center-Stage-Crop.
+366. **DepthCapture an Continuity-LiDAR.**
+367. **Per-Display pointerGain Pref.**
+368. **Air-Keyboard Shortcut-Overlay.**
+369. **Stereo Mac+iPhone Disparität.**
+370. **Pointer-Gain × Continuity-FOV.**
+371. **Deadman-Ring** Overlay, nicht nur Clutch.
+372. **Homographie Recalib Tipp-Tap** nach RECAL.
+373. **Mission-Control Zwei-Palm-Spread.**
+374. **Aegis-Gaze Pinch-Confirm.**
+375. **Mutex-PTS nur wall, nie last-frame** wenn Beat ohne Sample — Aegis Fill sonst 80 ms hinter dem Continuity-PTS.
+376. **drei Palmen** (zweite Clutch + dritte Drop) nur wenn Helios drei Hände trackt.
+377. **Scroll-Streak analog Zoom-EdgeHold** — ein gleichsinniger Tick reicht noch für 8 Hz Jitter.
+
+P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
 # Helios Vorschläge — 2026-09-08 (Pass 29, 1.6.70)
 
 Stand 1.6.70. Mutex-Write live, Actor-Palm live, Zoom-Sign am Streak. Predict bleibt 0.

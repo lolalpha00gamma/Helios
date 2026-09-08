@@ -108,6 +108,7 @@ final class GestureEngine {
     private var twoPinchSince: TimeInterval?
     private var twoPinchEndedAt: TimeInterval?
     private var lastScaleSign: CGFloat = 0
+    private var lastScrollSign: Int32 = 0
     private var twoPinchEdgeStreak = 0
     private var twoPinchScaleStreak = 0
     private var twoPinchLockedAxis: TwoPinchAxis = .none
@@ -236,6 +237,7 @@ final class GestureEngine {
         twoPinchSince = nil
         twoPinchEndedAt = nil
         lastScaleSign = 0
+        lastScrollSign = 0
         twoPinchEdgeStreak = 0
         twoPinchScaleStreak = 0
         twoPinchLockedAxis = .none
@@ -453,6 +455,7 @@ final class GestureEngine {
             if twoPinchSince != nil { twoPinchEndedAt = now }
             twoPinchSince = nil
             lastScaleSign = 0
+            lastScrollSign = 0
             twoHandSpan = nil
             scrollAnchor = nil
             ringPinchSince = nil
@@ -1053,14 +1056,22 @@ final class GestureEngine {
     }
 
     func mutexActorPalm() -> (x: CGFloat, y: CGFloat, w: CGFloat)? {
+        mutexActorPalms().first
+    }
+
+    func mutexActorPalms() -> [(x: CGFloat, y: CGFloat, w: CGFloat)] {
         let live = lastHandsLive
         let actor = pointerLastHand.flatMap { h -> (x: CGFloat, y: CGFloat, w: CGFloat)? in
             guard live.contains(where: { $0.id == h.id }) else { return nil }
             return (h.palm.x, h.palm.y, max(0.04, h.palmWidth))
         }
-        return GestureMath.cameraMutexActorPalm(
-            actor: actor,
-            fallback: live.first.map { ($0.palm.x, $0.palm.y, max(0.04, $0.palmWidth)) }
+        let others = live.map { ($0.palm.x, $0.palm.y, max(0.04, $0.palmWidth)) }
+        return GestureMath.cameraMutexActorPalms(
+            actor: GestureMath.cameraMutexActorPalm(
+                actor: actor,
+                fallback: live.first.map { ($0.palm.x, $0.palm.y, max(0.04, $0.palmWidth)) }
+            ),
+            others: others
         )
     }
 
@@ -1306,6 +1317,7 @@ final class GestureEngine {
             twoHandSpan = nil
             twoPinchSince = nil
             lastScaleSign = 0
+            lastScrollSign = 0
             twoPinchEdgeStreak = 0
             twoPinchScaleStreak = 0
             twoPinchLockedAxis = .none
@@ -1379,9 +1391,15 @@ final class GestureEngine {
                     gain: GestureMath.scrollGainFor(bundleId: focused?.bundleId ?? "")
                 )
                 if ticks != 0 {
-                    twoPinchLastTicks = ticks
-                    let conf = Float(pinches.map(\.poseProb).min() ?? 0)
-                    perform("Scroll", need: .input, confidence: conf) { system.scroll(ticks: ticks) }
+                    let holds = GestureMath.twoPinchScrollHolds(ticks: ticks, lastSign: lastScrollSign)
+                    if !holds {
+                        lastScrollSign = 0
+                    } else {
+                        if lastScrollSign == 0 { lastScrollSign = ticks > 0 ? 1 : -1 }
+                        twoPinchLastTicks = ticks
+                        let conf = Float(pinches.map(\.poseProb).min() ?? 0)
+                        perform("Scroll", need: .input, confidence: conf) { system.scroll(ticks: ticks) }
+                    }
                 }
                 twoPinchLastMapped = mapped
                 return true

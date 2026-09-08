@@ -95,11 +95,20 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     private var lastMutexClaimAt: TimeInterval = 0
     private let mutexLock = NSLock()
     private var mutexPalmUV: (x: CGFloat, y: CGFloat, w: CGFloat)?
+    private var mutexPalmUVs: [(x: CGFloat, y: CGFloat, w: CGFloat)] = []
     private(set) var mutexChip: String = "—"
+    private var mutexBeat: DispatchSourceTimer?
+    private var interruptObs: NSObjectProtocol?
+    private var interruptEndObs: NSObjectProtocol?
 
     func setMutexPalm(_ palm: (x: CGFloat, y: CGFloat, w: CGFloat)?) {
+        setMutexPalms(palm.map { [$0] } ?? [])
+    }
+
+    func setMutexPalms(_ palms: [(x: CGFloat, y: CGFloat, w: CGFloat)]) {
         mutexLock.lock()
-        mutexPalmUV = palm
+        mutexPalmUVs = palms.filter { $0.w > 0 }
+        mutexPalmUV = mutexPalmUVs.first
         mutexLock.unlock()
     }
     private var preferredName: String = UserDefaults.standard.string(forKey: "helios.cameraName") ?? ""
@@ -110,6 +119,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
 
     func start() {
         installWakeWatch()
+        installInterruptWatch()
+        installMutexBeat()
         DispatchQueue.main.async { self.errorMessage = nil }
         pump.reset()
         lastRenegotiateAt = 0
@@ -159,6 +170,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         cameraQueue.async { [weak self] in
             guard let self else { return }
             self.pump.cancel()
+            self.stopMutexBeat()
             self.releaseCameraMutex()
             HeliosCatch({ self.session.stopRunning() }, nil)
             self.coverPipe.stop()
@@ -593,6 +605,38 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         }
     }
 
+    private func installInterruptWatch() {
+        guard interruptObs == nil else { return }
+        interruptObs = NotificationCenter.default.addObserver(
+            forName: .AVCaptureSessionWasInterrupted,
+            object: session,
+            queue: nil
+        ) { [weak self] _ in
+            self?.cameraQueue.async { self?.releaseCameraMutex() }
+        }
+        interruptEndObs = NotificationCenter.default.addObserver(
+            forName: .AVCaptureSessionInterruptionEnded,
+            object: session,
+            queue: nil
+        ) { [weak self] _ in
+            self?.cameraQueue.async { self?.beatCameraMutex() }
+        }
+    }
+
+    private func installMutexBeat() {
+        guard mutexBeat == nil else { return }
+        let t = DispatchSource.makeTimerSource(queue: cameraQueue)
+        t.schedule(deadline: .now() + 0.08, repeating: 0.08)
+        t.setEventHandler { [weak self] in self?.beatCameraMutex() }
+        t.resume()
+        mutexBeat = t
+    }
+
+    private func stopMutexBeat() {
+        mutexBeat?.cancel()
+        mutexBeat = nil
+    }
+
     /// Nach dem Format: `videoRotationAngle` statt deprecated `videoOrientation`.
     private func applyCaptureGeometry() {
         HeliosCatch({
@@ -780,7 +824,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         guard GestureMath.cameraMutexClaimDue(last: lastMutexClaimAt, now: now) else { return }
         lastMutexClaimAt = now
         mutexLock.lock()
-        let palm = mutexPalmUV
+        let palms = mutexPalmUVs
         mutexLock.unlock()
         let pts = GestureMath.cameraMutexPtsWall(now: now, mediaPts: 0)
         let url = cameraMutexURL()
@@ -800,7 +844,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
                 let holderPid = existing.flatMap { GestureMath.cameraMutexPid($0) }
                 let pidLive: Bool? = holderPid.map { p in p > 0 && (kill(p, 0) == 0 || errno == EPERM) }
                 if let line = GestureMath.cameraMutexLockedLine(
-                    existing: existing, owner: owner, pid: pid, now: now, pidLive: pidLive, pts: pts, palm: palm
+                    existing: existing, owner: owner, pid: pid, now: now, pidLive: pidLive, pts: pts, palm: palms.first, palms: palms
                 ) {
                     _ = ftruncate(fd, 0)
                     _ = lseek(fd, 0, SEEK_SET)
@@ -818,7 +862,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         } else {
             let existing = try? String(contentsOf: url, encoding: .utf8)
             if let line = GestureMath.cameraMutexLockedLine(
-                existing: existing, owner: owner, pid: pid, now: now, pts: pts, palm: palm
+                existing: existing, owner: owner, pid: pid, now: now, pts: pts, palm: palms.first, palms: palms
             ) {
                 try? line.write(to: url, atomically: true, encoding: .utf8)
                 wrote = line

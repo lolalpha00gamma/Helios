@@ -1,5 +1,44 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.73**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.73 erledigt
+
+1.6.70 Mutex-Write, Actor-Palm, Zoom-Sign. Eine Palme. Beat nur am Frame. Interrupt ließ den Claim stehen. Scroll ohne Vorzeichen.
+
+1. **Zwei Palmen** Actor+Clutch in der Lock-Zeile.
+2. **Mutex-Release** bei sessionWasInterrupted.
+3. **Heartbeat 80 ms** ohne Frame.
+4. **twoPinchScrollHolds** analog Zoom.
+5. Tests + MARKETING_VERSION 1.6.73 (Build 106).
+
+## Erweiterung (neu, 1.6.73)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+2. **HeliosAegisKit** gemeinsamer Broker + Mutex-PTS.
+3. **VNTrackObjectRequest** echte Observation, nicht nur IoU-Box.
+4. **Mutex flock timeout / lock-free stamp.** EX|NB während Aegis LOCK_SH.
+5. **SpaceMap load per Bezel-Hop**, nicht erst 20.
+6. **Watch Double-Tap** Click-Confirm + Haptic.
+7. **JSONL Session-Replay** ohne Vision.
+8. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+9. **Click-Tick Sound** (optional, Accessibility).
+10. **iPhone Ultraweit** FOV-Fallback.
+11. **Per-Display pointerGain** UserDefaults.
+12. **Aegis-Gaze Pinch-Confirm.**
+13. **Overlay CAMetalLayer.**
+14. **DepthCapture an Continuity-LiDAR.**
+15. **Homographie Recalib-Tap** nach RECAL-Chip.
+16. **Mission-Control Zwei-Palm-Spread.**
+17. **Continuity 15-fps Probe** gemessen.
+18. **Deadman-Ring Overlay.**
+19. **Air-Keyboard Shortcut-Overlay.**
+20. **Scroll-Streak analog Zoom-EdgeHold.**
+
+P0 CameraBroker. Kein neues *Need(dt).
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.63**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
 
 ## In 1.6.63 erledigt

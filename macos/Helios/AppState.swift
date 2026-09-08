@@ -709,7 +709,7 @@ final class AppState: ObservableObject {
         lastAppliedCameraName = camName
         lastAppliedCameraRole = camRole
         engine.tick(hands: hands, now: now)
-        camera.setMutexPalm(engine.mutexActorPalm())
+        camera.setMutexPalms(engine.mutexActorPalms())
         if drill.running || drill.phase == .countdown || drill.phase == .capture || drill.phase == .rest {
             drill.tick(hands: hands, now: now)
         }

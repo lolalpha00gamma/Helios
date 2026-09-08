@@ -6,12 +6,13 @@ private struct HUDRoot: View {
     @ObservedObject var state: AppState
     var screenFrame: CGRect
     var isPrimary: Bool
+    var layer: HUDLayer
 
     var body: some View {
-        HUDView(screenFrame: screenFrame, isPrimary: isPrimary)
+        HUDView(screenFrame: screenFrame, isPrimary: isPrimary, layer: layer)
             .environmentObject(state)
             .ignoresSafeArea()
-            .background(Color.clear)
+            .containerBackground(.clear, for: .window)
     }
 }
 
@@ -41,7 +42,9 @@ private final class HUDLinkDriver: NSObject {
 @MainActor
 final class OverlayController {
     private var panels: [CGDirectDisplayID: HUDPanel] = [:]
-    private var hostings: [CGDirectDisplayID: NSHostingView<HUDRoot>] = [:]
+    private var chromeHostings: [CGDirectDisplayID: NSHostingView<HUDRoot>] = [:]
+    private var dockHostings: [CGDirectDisplayID: NSHostingView<HUDRoot>] = [:]
+    private var fillHostings: [CGDirectDisplayID: NSHostingView<HUDRoot>] = [:]
     private var markers: [CGDirectDisplayID: (left: HandMarkerView, right: HandMarkerView)] = [:]
     private weak var state: AppState?
     private var screenObs: NSObjectProtocol?
@@ -77,35 +80,55 @@ final class OverlayController {
             panel.orderOut(nil)
             panel.close()
             panels[id] = nil
-            hostings[id] = nil
+            chromeHostings[id] = nil
+            dockHostings[id] = nil
+            fillHostings[id] = nil
             markers[id] = nil
         }
         let mainID = NSScreen.main.map { ScreenGeometry.displayID(of: $0) }
         for screen in screens {
             let id = ScreenGeometry.displayID(of: screen)
-            let root = HUDRoot(state: state, screenFrame: screen.frame, isPrimary: id == mainID)
-            if let existing = panels[id], let hosting = hostings[id] {
-                hosting.rootView = root
+            let box = CGRect(origin: .zero, size: screen.frame.size)
+            let chromeRoot = HUDRoot(state: state, screenFrame: screen.frame, isPrimary: id == mainID, layer: .chrome)
+            let dockRoot = HUDRoot(state: state, screenFrame: screen.frame, isPrimary: id == mainID, layer: .dock)
+            let fillRoot = HUDRoot(state: state, screenFrame: screen.frame, isPrimary: id == mainID, layer: .fill)
+            if let existing = panels[id], let chrome = chromeHostings[id], let dock = dockHostings[id], let fill = fillHostings[id] {
+                chrome.rootView = chromeRoot
+                dock.rootView = dockRoot
+                fill.rootView = fillRoot
                 existing.setFrame(screen.frame, display: true)
-                hosting.frame = CGRect(origin: .zero, size: screen.frame.size)
-                let box = CGRect(origin: .zero, size: screen.frame.size)
+                layoutChrome(chrome, box: box)
+                layoutDock(dock, box: box)
+                fill.frame = box
                 markers[id]?.left.frame = box
                 markers[id]?.right.frame = box
                 markers[id]?.left.screenFrame = screen.frame
                 markers[id]?.right.screenFrame = screen.frame
-                polish(hosting, wrap: existing.contentView, panel: existing)
+                polish(chrome, wrap: existing.contentView, panel: existing)
+                polish(dock, wrap: existing.contentView, panel: existing)
+                polish(fill, wrap: existing.contentView, panel: existing)
+                fill.isHidden = true
                 existing.orderFrontRegardless()
                 continue
             }
-            let hosting = NSHostingView(rootView: root)
-            hosting.frame = CGRect(origin: .zero, size: screen.frame.size)
-            let box = CGRect(origin: .zero, size: screen.frame.size)
+            let chrome = NSHostingView(rootView: chromeRoot)
+            let dock = NSHostingView(rootView: dockRoot)
+            let fill = NSHostingView(rootView: fillRoot)
+            layoutChrome(chrome, box: box)
+            layoutDock(dock, box: box)
+            fill.frame = box
+            fill.isHidden = true
             let leftM = HandMarkerView(frame: box)
             leftM.screenFrame = screen.frame
             let rightM = HandMarkerView(frame: box)
             rightM.screenFrame = screen.frame
             let wrap = NSView(frame: box)
-            wrap.addSubview(hosting)
+            wrap.wantsLayer = true
+            wrap.layer?.isOpaque = false
+            wrap.layer?.backgroundColor = NSColor.clear.cgColor
+            wrap.addSubview(fill)
+            wrap.addSubview(chrome)
+            wrap.addSubview(dock)
             wrap.addSubview(leftM)
             wrap.addSubview(rightM)
             let panel = HUDPanel(
@@ -127,11 +150,15 @@ final class OverlayController {
             panel.hidesOnDeactivate = false
             panel.becomesKeyOnlyIfNeeded = true
             panel.contentView = wrap
-            polish(hosting, wrap: wrap, panel: panel)
+            polish(chrome, wrap: wrap, panel: panel)
+            polish(dock, wrap: wrap, panel: panel)
+            polish(fill, wrap: wrap, panel: panel)
             panel.setFrame(screen.frame, display: true)
             panel.orderFrontRegardless()
             panels[id] = panel
-            hostings[id] = hosting
+            chromeHostings[id] = chrome
+            dockHostings[id] = dock
+            fillHostings[id] = fill
             markers[id] = (leftM, rightM)
         }
         restartDisplayLink()
@@ -153,7 +180,9 @@ final class OverlayController {
             panel.close()
         }
         panels.removeAll()
-        hostings.removeAll()
+        chromeHostings.removeAll()
+        dockHostings.removeAll()
+        fillHostings.removeAll()
         markers.removeAll()
     }
 
@@ -176,6 +205,10 @@ final class OverlayController {
             freeze: freeze
         )
         ensureDisplayLink()
+        let fillOn = (state?.calibActive == true)
+            || (state?.keyboardVisible == true)
+            || (state.map { $0.drill.phase != .idle } ?? false)
+        for h in fillHostings.values { h.isHidden = !fillOn }
         if posePrev == nil || freeze {
             paint(
                 cursors: cursors,
@@ -300,14 +333,24 @@ final class OverlayController {
     func setVisible(_ visible: Bool) {
         for (id, panel) in panels {
             if visible {
-                if let hosting = hostings[id] {
-                    polish(hosting, wrap: panel.contentView, panel: panel)
-                }
+                if let chrome = chromeHostings[id] { polish(chrome, wrap: panel.contentView, panel: panel) }
+                if let dock = dockHostings[id] { polish(dock, wrap: panel.contentView, panel: panel) }
+                if let fill = fillHostings[id] { polish(fill, wrap: panel.contentView, panel: panel) }
+                panel.isOpaque = false
+                panel.backgroundColor = .clear
                 panel.orderFrontRegardless()
             } else {
                 panel.orderOut(nil)
             }
         }
+    }
+
+    private func layoutChrome(_ hosting: NSHostingView<HUDRoot>, box: CGRect) {
+        hosting.frame = CGRect(x: 0, y: box.height - 48, width: box.width, height: 48)
+    }
+
+    private func layoutDock(_ hosting: NSHostingView<HUDRoot>, box: CGRect) {
+        hosting.frame = CGRect(x: max(0, box.width - 420), y: 8, width: min(420, box.width), height: 228)
     }
 
     /// NSHostingView.drawsBackground default true — Dark Mode = Vollbild schwarz nach orderFront.

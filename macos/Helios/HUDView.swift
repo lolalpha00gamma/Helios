@@ -1,68 +1,48 @@
 import SwiftUI
 import Vision
 
+enum HUDLayer {
+    case chrome, dock, fill
+}
+
 struct HUDView: View {
     @EnvironmentObject private var state: AppState
     var screenFrame: CGRect
     var isPrimary: Bool
+    var layer: HUDLayer = .fill
 
     var body: some View {
-        GeometryReader { geo in
-            ZStack(alignment: .topLeading) {
-                Color.clear
-                if state.killFlash {
-                    HeliosTheme.danger.opacity(0.18)
+        Group {
+            switch layer {
+            case .chrome:
+                topBar
+                    .padding(.top, 3)
+                    .fixedSize(horizontal: false, vertical: true)
+            case .dock:
+                if isPrimary, state.showPreviewChip {
+                    cameraChip.padding(16)
                 }
-
-                if state.showOutline, let target = state.focused,
-                   (state.grabPhase == .hold || state.grabPhase == .grab),
-                   target.quartzBounds.width > 40,
-                   ScreenGeometry.intersects(quartz: target.quartzBounds, screen: screenFrame)
-                {
-                    windowOutline(target)
-                        .transaction { $0.animation = nil }
-                }
-
-                if state.calibActive {
-                    calibOverlay
-                }
-
-                if isPrimary, state.drill.phase != .idle {
-                    drillOverlay
-                }
-
-                chromeLoupe
-
-                if isPrimary {
-                    airKeyboard
-                }
-
-                if state.showTrashZone {
-                    trashZone
-                }
-
-                if isPrimary {
-                    VStack(spacing: 0) {
-                        topBar
-                            .padding(.top, 3)
-                        Spacer()
-                        HStack(alignment: .bottom) {
-                            if state.showCheats {
-                                cheatSheet
-                            }
-                            Spacer()
-                            if state.showPreviewChip {
-                                cameraChip
-                            }
+            case .fill:
+                GeometryReader { geo in
+                    ZStack(alignment: .topLeading) {
+                        if state.calibActive { calibOverlay }
+                        if isPrimary, state.drill.phase != .idle { drillOverlay }
+                        chromeLoupe
+                        if isPrimary { airKeyboard }
+                        if state.showOutline, let target = state.focused,
+                           (state.grabPhase == .hold || state.grabPhase == .grab),
+                           target.quartzBounds.width > 40,
+                           ScreenGeometry.intersects(quartz: target.quartzBounds, screen: screenFrame)
+                        {
+                            windowOutline(target)
+                                .transaction { $0.animation = nil }
                         }
-                        .padding(22)
                     }
+                    .frame(width: geo.size.width, height: geo.size.height)
                 }
             }
-            .frame(width: geo.size.width, height: geo.size.height)
-            .background(Color.clear)
         }
-        .background(Color.clear)
+        .containerBackground(.clear, for: .window)
         .allowsHitTesting(false)
     }
 

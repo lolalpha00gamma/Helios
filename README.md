@@ -1,4 +1,4 @@
-# Helios **1.6.68**
+# Helios **1.6.69**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -19,6 +19,15 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.69
+
+1.6.68 hat das Vollbild-NSHostingView gelassen — Dark Mode bleibt schwarz. Maus-Clutch hat eigene Warps gefressen.
+
+- HUD nur Leiste + Dock, Fill-Hosting aus außer Kalibrierung/Tastatur.
+- Cursor-Warp ohne Clutch-Pause. Clutch nur echte Maus-Züge.
+- Klatschen bricht den Tick nicht. Not-Aus/Tisch 2 s nach Klatschen tot.
+- Tests + MARKETING_VERSION 1.6.69 (Build 102).
 
 ## Neu in 1.6.68
 

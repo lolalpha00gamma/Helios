@@ -77,7 +77,7 @@ final class SystemControl {
 
     func startClutch() {
         guard monitors.isEmpty else { return }
-        let mask: NSEvent.EventTypeMask = [.leftMouseDragged, .mouseMoved]
+        let mask: NSEvent.EventTypeMask = [.leftMouseDragged]
         let note: (NSEvent) -> Void = { [weak self] e in
             Task { @MainActor in self?.noteHardware(e) }
         }
@@ -116,7 +116,6 @@ final class SystemControl {
     }
 
     func moveCursor(to point: CGPoint) {
-        guard allowsInjection else { return }
         guard GestureMath.pointerWarpAllowed(axTrusted: AXIsProcessTrusted()) else { return }
         let p = ScreenGeometry.clampQuartz(point)
         let now = CACurrentMediaTime()

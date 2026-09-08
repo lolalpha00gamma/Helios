@@ -559,8 +559,6 @@ final class GestureEngine {
 
         let primary = preferred(hands)
         qualityChip = GestureMath.qualityChips(hands.map { ($0.id, $0.quality) })
-        let live = mode == .armed || testMode
-
         if protocolMode, now - lastPoseLog > 0.28 {
             let key = hands.map { "\($0.sideDE):\($0.pose.rawValue)" }.joined(separator: ",")
             if key != lastLoggedPose {
@@ -574,26 +572,23 @@ final class GestureEngine {
             }
         }
 
-        if driveClap(hands: hands, now: now) {
+        _ = driveClap(hands: hands, now: now)
+        if now - lastClapFire > 2, handleKillSwitch(hands: hands, now: now) {
             placeCursors(hands, actor: primary)
-            handleArming(hands: hands, now: now)
+            if let p = cursor { postSampleCursor(p) }
             return
         }
-        if handleKillSwitch(hands: hands, now: now) {
+        if now - lastClapFire > 2, driveTableIdle(hands: hands, now: now) {
             placeCursors(hands, actor: primary)
-            if cursorDidMove, let p = cursor {
-                postSampleCursor(p)
-            }
-            return
-        }
-        if driveTableIdle(hands: hands, now: now) {
-            placeCursors(hands, actor: primary)
+            if let p = cursor { postSampleCursor(p) }
             return
         }
         handleArming(hands: hands, now: now)
+        let armed = mode == .armed || testMode
 
-        if !live {
+        if !armed {
             placeCursors(hands, actor: primary)
+            if let p = cursor { postSampleCursor(p) }
             grabPhase = (primary.pose == .pinch || primary.pose == .fist) ? .hold : .follow
             grabTargetName = focused?.appName ?? ""
             if hands.contains(where: { $0.pose == .pinch || $0.pose == .fist }) {
@@ -604,7 +599,7 @@ final class GestureEngine {
         }
         if now < cooldownUntil || now < armedQuietUntil {
             placeCursors(hands, actor: primary)
-            if !system.isDragging, cursorDidMove, primary.pose != .fist, let p = cursor {
+            if !system.isDragging, let p = cursor {
                 postSampleCursor(p)
             }
             if pinchHeld {
@@ -623,7 +618,7 @@ final class GestureEngine {
             || !hands.contains(where: { $0.id == actor.id })
         if !freezePointer {
             placeCursors(hands, actor: actor)
-            if !system.isDragging, cursorDidMove, actor.pose != .fist, let p = cursor {
+            if !system.isDragging, let p = cursor {
                 postSampleCursor(p)
             }
         }
@@ -831,7 +826,7 @@ final class GestureEngine {
                 mode = .armed
                 lastArmToggle = now
                 cooldownUntil = now + 0.4
-                armedQuietUntil = now + 0.70
+                armedQuietUntil = now + 0.12
                 lastAction = testMode ? "Test: Doppelklatschen" : "Doppelklatschen → Scharf"
                 onLog?(
                     testMode
@@ -955,7 +950,7 @@ final class GestureEngine {
                 mode = .armed
                 lastAction = "Scharf"
                 cooldownUntil = now + 0.4
-                armedQuietUntil = now + 0.70
+                armedQuietUntil = now + 0.12
                 onLog?("Faust → Scharf", .executed, Int((hands.map(\.poseProb).max() ?? 0) * 100))
             } else if held >= 0.08 {
                 lastAction = "Faust …"
@@ -1143,10 +1138,7 @@ final class GestureEngine {
                 palmStillFor = 0
             }
             palmDeadman = GestureMath.palmDeadmanClutch(stillFor: palmStillFor)
-            if palmDeadman {
-                dx = 0
-                dy = 0
-            }
+            _ = palmDeadman
         }
         let adapt = GestureMath.pointerGainAdaptive(
             gain: pointerGain * freezeGain * GestureMath.pointerGainDt(dt: sampleDt),
@@ -1716,10 +1708,6 @@ final class GestureEngine {
                 onLog?("Loslassen", testMode ? .blocked : .executed, Int(hand.poseProb * 100))
             } else if let knob = knobHit {
                 fireChrome(knob)
-            } else if palmDeadman {
-                lastAction = "Deadman"
-            } else if twoHandClutchOn {
-                lastAction = "Zwei-Hand"
             } else if held < GestureMath.pinchClickMinNeed(dt: sampleDt) {
                 lastAction = "zu kurz"
             } else {

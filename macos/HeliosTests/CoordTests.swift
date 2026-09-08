@@ -2708,13 +2708,13 @@ enum CoordTests {
             fputs("FAIL Mutex Heartbeat Claim 80 ms\n", stderr)
             fails += 1
         }
-        let samplePts = GestureMath.cameraMutexPtsFromSample(now: 1_700_000_080, lastSample: 1_700_000_000)
-        if samplePts != 1_700_000_000 {
+        let samplePts = GestureMath.cameraMutexPtsFromSample(now: 1_700_000_000.08, lastSample: 1_700_000_000)
+        if abs(samplePts - 1_700_000_000) > 1e-9 {
             fputs("FAIL Mutex PTS last-sample \(samplePts)\n", stderr)
             fails += 1
         }
-        let stalePts = GestureMath.cameraMutexPtsFromSample(now: 1_700_000_400, lastSample: 1_700_000_000)
-        if stalePts != 1_700_000_400 {
+        let stalePts = GestureMath.cameraMutexPtsFromSample(now: 1_700_000_000.40, lastSample: 1_700_000_000)
+        if abs(stalePts - 1_700_000_000.40) > 1e-9 {
             fputs("FAIL Mutex PTS dropout now \(stalePts)\n", stderr)
             fails += 1
         }

@@ -1712,7 +1712,7 @@ enum GestureMath {
 
     static func flingTeleport(distHW: CGFloat, palmWidth: CGFloat, screenHeight: CGFloat) -> Bool {
         guard screenHeight > 8 else { return false }
-        return flingPx(distHW: distHW, palmWidth: palmWidth, screenHeight: screenHeight) > flingCapPx(screenHeight)
+        return flingPx(distHW: distHW, palmWidth: palmWidth, screenHeight: screenHeight) > flingCapPx(screenHeight: screenHeight)
     }
 
     /// 8 fps: ein Tick Palm-Jitter ≥ 0,45 HW = Drag statt Klick.

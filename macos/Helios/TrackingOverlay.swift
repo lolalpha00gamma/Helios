@@ -92,7 +92,7 @@ struct TrackingOverlay: View {
             var bar = Path()
             bar.move(to: a)
             bar.addLine(to: b)
-            let closed = hand.pinchClosed || hand.pinchClosedness >= 0.28
+            let closed = hand.pinchClosed || hand.pinchClosedness >= 0.24
             ctx.stroke(
                 bar,
                 with: .color(closed ? HeliosTheme.amber : HeliosTheme.cyan.opacity(0.55)),

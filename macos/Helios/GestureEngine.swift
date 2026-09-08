@@ -627,13 +627,15 @@ final class GestureEngine {
             let pinch = GestureMath.pinchMeterClosed(
                 gate: p.pinchClosed,
                 closedness: p.pinchClosedness,
-                isFist: p.pose == .fist
+                isFist: p.pose == .fist,
+                restPose: p.pose == .openPalm || p.pose == .thumbsUp
             )
             let held = now - (idleArmSince ?? now)
             if pinch || (!mustRearm && held >= GestureMath.idleHandArm) {
                 mode = .armed
                 mustRearm = false
                 idleArmSince = nil
+                lastArmToggle = now
                 lastAction = "Scharf"
             }
         } else if mode == .armed {
@@ -843,7 +845,7 @@ final class GestureEngine {
         lastTwoHands = now
         let a = hands[0]
         let b = hands[1]
-        if a.openScore == 0, b.openScore == 0 { return false }
+        if a.openScore < 2 || b.openScore < 2 { return false }
         let unit = max(0.04, (a.palmWidth + b.palmWidth) / 2)
         let span = space.dist(a.palm, b.palm) / unit
         defer { clapSpan = (now, span) }
@@ -1522,7 +1524,8 @@ final class GestureEngine {
         let closedWanted = GestureMath.pinchMeterClosed(
             gate: hand.pinchClosed || analogClosed,
             closedness: hand.pinchClosedness,
-            isFist: hand.pose == .fist && !pinchBecameDrag
+            isFist: hand.pose == .fist && !pinchBecameDrag,
+            restPose: !pinchHeld && (hand.pose == .openPalm || hand.pose == .thumbsUp)
         )
         let advanced = GestureMath.pinchHoldAdvance(
             phase: pinchHoldPhase,
@@ -1739,7 +1742,7 @@ final class GestureEngine {
         let open = hands.filter { $0.pose == .openPalm || $0.openScore >= GestureMath.swipeOpenNeed }
         let hand = open.first(where: { $0.id == preferred.id })
             ?? open.max(by: { $0.poseProb < $1.poseProb })
-        guard let hand else {
+        guard let hand, hand.pose == .openPalm, hand.poseProb >= 0.80 else {
             if now < swipeGraceUntil, let id = swipeHandID,
                let same = hands.first(where: { $0.id == id }),
                same.pose != .fist
@@ -1748,6 +1751,10 @@ final class GestureEngine {
             }
             swipeTrail.removeAll()
             swipeHandID = nil
+            return
+        }
+        if now - lastArmToggle < 2.5 {
+            swipeTrail.removeAll()
             return
         }
         if swipeHandID != hand.id {
@@ -1818,7 +1825,7 @@ final class GestureEngine {
 
     private func driveThumbs(_ hand: TrackedHand, now: TimeInterval) {
         let ok = hand.pose == .thumbsUp
-            && hand.poseProb >= 0.75
+            && hand.poseProb >= 0.88
             && GestureMath.thumbsUpAllowed(openScore: hand.openScore)
         if ok {
             if thumbsSince == nil { thumbsSince = now }

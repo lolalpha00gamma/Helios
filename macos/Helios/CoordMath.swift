@@ -1971,9 +1971,9 @@ enum GestureMath {
     }
 
     /// Dieselbe Anzeige wie der Abstandszeiger: Finger nah = zu. Ohne Reach/3D/Pose.
-    static func pinchMeterClosed(gate: Bool, closedness: Double, isFist: Bool = false) -> Bool {
-        if isFist { return false }
-        return gate || closedness >= 0.28
+    static func pinchMeterClosed(gate: Bool, closedness: Double, isFist: Bool = false, restPose: Bool = false) -> Bool {
+        if isFist || restPose { return false }
+        return gate || closedness >= 0.24
     }
 
     /// 8-fps Tap: zu → auf = Klick. Faust zählt nicht.

@@ -46,6 +46,7 @@ final class OverlayController {
     private var dockHostings: [CGDirectDisplayID: NSHostingView<HUDRoot>] = [:]
     private var fillHostings: [CGDirectDisplayID: NSHostingView<HUDRoot>] = [:]
     private var markers: [CGDirectDisplayID: (left: HandMarkerView, right: HandMarkerView)] = [:]
+    private var loupes: [CGDirectDisplayID: CursorLoupeView] = [:]
     private weak var state: AppState?
     private var screenObs: NSObjectProtocol?
     private var attached = false
@@ -84,6 +85,7 @@ final class OverlayController {
             dockHostings[id] = nil
             fillHostings[id] = nil
             markers[id] = nil
+            loupes[id] = nil
         }
         let mainID = NSScreen.main.map { ScreenGeometry.displayID(of: $0) }
         for screen in screens {
@@ -108,7 +110,14 @@ final class OverlayController {
                 polish(dock, wrap: existing.contentView, panel: existing)
                 polish(fill, wrap: existing.contentView, panel: existing)
                 fill.isHidden = true
-                existing.orderFrontRegardless()
+                if loupes[id] == nil, let wrap = existing.contentView {
+                    let loupe = CursorLoupeView(frame: CGRect(x: 0, y: 0, width: 180, height: 180))
+                    wrap.addSubview(loupe)
+                    loupes[id] = loupe
+                }
+                if !existing.isVisible {
+                    existing.orderFrontRegardless()
+                }
                 continue
             }
             let chrome = NSHostingView(rootView: chromeRoot)
@@ -131,6 +140,8 @@ final class OverlayController {
             wrap.addSubview(dock)
             wrap.addSubview(leftM)
             wrap.addSubview(rightM)
+            let loupe = CursorLoupeView(frame: CGRect(x: 0, y: 0, width: 180, height: 180))
+            wrap.addSubview(loupe)
             let panel = HUDPanel(
                 contentRect: screen.frame,
                 styleMask: [.borderless, .nonactivatingPanel],
@@ -160,6 +171,7 @@ final class OverlayController {
             dockHostings[id] = dock
             fillHostings[id] = fill
             markers[id] = (leftM, rightM)
+            loupes[id] = loupe
         }
         restartDisplayLink()
     }
@@ -184,6 +196,7 @@ final class OverlayController {
         dockHostings.removeAll()
         fillHostings.removeAll()
         markers.removeAll()
+        loupes.removeAll()
     }
 
     func mark(
@@ -340,6 +353,13 @@ final class OverlayController {
                 showBeam: right?.actor == true,
                 dim: GestureMath.skeletonFreezeDim(freeze)
             )
+            let actorPt = (left?.actor == true ? left?.point : nil) ?? (right?.actor == true ? right?.point : nil) ?? left?.point ?? right?.point
+            loupes[id]?.apply(
+                quartz: actorPt,
+                screen: panel.frame,
+                windowID: CGWindowID(panel.windowNumber),
+                show: showReticle && (state?.showLoupe ?? true)
+            )
         }
     }
 
@@ -348,10 +368,18 @@ final class OverlayController {
             if visible {
                 if let chrome = chromeHostings[id] { polish(chrome, wrap: panel.contentView, panel: panel) }
                 if let dock = dockHostings[id] { polish(dock, wrap: panel.contentView, panel: panel) }
-                if let fill = fillHostings[id] { polish(fill, wrap: panel.contentView, panel: panel) }
+                if let fill = fillHostings[id] {
+                    polish(fill, wrap: panel.contentView, panel: panel)
+                    let fillOn = (state?.calibActive == true)
+                        || (state?.keyboardVisible == true)
+                        || (state.map { $0.drill.phase != .idle } ?? false)
+                    fill.isHidden = !fillOn
+                }
                 panel.isOpaque = false
                 panel.backgroundColor = .clear
-                panel.orderFrontRegardless()
+                if !panel.isVisible {
+                    panel.orderFrontRegardless()
+                }
             } else {
                 panel.orderOut(nil)
             }
@@ -484,5 +512,72 @@ final class HandMarkerView: NSView {
         core.opacity = a
         label.opacity = a
         beam.opacity = a
+    }
+}
+
+/// 2×-Ausschnitt unter dem Zeiger. Dauerhafter Klick-Bereich, ohne Fullscreen-Fill.
+final class CursorLoupeView: NSView {
+    private let glass = CALayer()
+    private let rim = CAShapeLayer()
+    private let hair = CAShapeLayer()
+    private var lastCap: CFTimeInterval = 0
+    private let side: CGFloat = 180
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        layer?.backgroundColor = .clear
+        isHidden = true
+        let inner = CGRect(x: 5, y: 5, width: side - 10, height: side - 10)
+        glass.frame = inner
+        glass.cornerRadius = inner.width / 2
+        glass.masksToBounds = true
+        glass.contentsGravity = .resizeAspectFill
+        rim.frame = CGRect(origin: .zero, size: CGSize(width: side, height: side))
+        rim.path = CGPath(ellipseIn: CGRect(x: 2, y: 2, width: side - 4, height: side - 4), transform: nil)
+        rim.fillColor = NSColor.black.withAlphaComponent(0.18).cgColor
+        rim.strokeColor = CGColor(red: 0.25, green: 0.9, blue: 1, alpha: 0.95)
+        rim.lineWidth = 2.5
+        let mid = side / 2
+        let p = CGMutablePath()
+        p.move(to: CGPoint(x: mid - 12, y: mid))
+        p.addLine(to: CGPoint(x: mid + 12, y: mid))
+        p.move(to: CGPoint(x: mid, y: mid - 12))
+        p.addLine(to: CGPoint(x: mid, y: mid + 12))
+        hair.path = p
+        hair.strokeColor = CGColor(red: 1, green: 0.72, blue: 0.22, alpha: 0.9)
+        hair.lineWidth = 1.2
+        hair.fillColor = nil
+        let host = layer ?? CALayer()
+        host.addSublayer(rim)
+        host.addSublayer(glass)
+        host.addSublayer(hair)
+        self.frame.size = CGSize(width: side, height: side)
+    }
+
+    required init?(coder: NSCoder) { fatalError() }
+    override var isFlipped: Bool { true }
+    override var isOpaque: Bool { false }
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+    func apply(quartz: CGPoint?, screen: CGRect, windowID: CGWindowID, show: Bool) {
+        guard show, let q = quartz, ScreenGeometry.contains(quartz: q, screen: screen, pad: 12) else {
+            isHidden = true
+            return
+        }
+        isHidden = false
+        var local = ScreenGeometry.local(quartz: q, on: screen)
+        local.x -= side / 2
+        local.y -= side + 16
+        local.x = min(max(8, local.x), max(8, screen.width - side - 8))
+        local.y = min(max(8, local.y), max(8, screen.height - side - 8))
+        setFrameOrigin(local)
+        let now = CACurrentMediaTime()
+        guard now - lastCap >= 0.09 else { return }
+        lastCap = now
+        let src = CGRect(x: q.x - 40, y: q.y - 40, width: 80, height: 80)
+        if let img = CGWindowListCreateImage(src, .optionOnScreenBelowWindow, windowID, [.bestResolution]) {
+            glass.contents = img
+        }
     }
 }

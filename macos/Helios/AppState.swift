@@ -43,6 +43,7 @@ final class AppState: ObservableObject {
     @Published var engineCursor: CGPoint?
     @Published var hudVisible = true
     @Published var showReticle = true
+    @Published var showLoupe = true
     @Published var showPreviewChip = true
     @Published var showCheats = true
     @Published var testMode = false
@@ -143,17 +144,8 @@ final class AppState: ObservableObject {
             .sink { [weak self] in self?.objectWillChange.send() }
             .store(in: &cancellables)
         $hudVisible.sink { Prefs.hudVisible = $0 }.store(in: &cancellables)
-        $showReticle.sink { [weak self] v in
-            Prefs.showReticle = v
-            guard let self else { return }
-            self.overlay.mark(
-                cursors: self.engine.handCursors,
-                phase: self.engine.grabPhase,
-                target: self.engine.grabTargetName,
-                window: self.focused?.quartzBounds,
-                showReticle: v
-            )
-        }.store(in: &cancellables)
+        $showReticle.sink { Prefs.showReticle = $0 }.store(in: &cancellables)
+        $showLoupe.sink { Prefs.showLoupe = $0 }.store(in: &cancellables)
         $showJointLabels.sink { Prefs.showJointLabels = $0 }.store(in: &cancellables)
         $showCheats.sink { Prefs.showCheats = $0 }.store(in: &cancellables)
         $showOutline.sink { Prefs.showOutline = $0 }.store(in: &cancellables)
@@ -427,6 +419,7 @@ final class AppState: ObservableObject {
         testMode = Prefs.testMode
         hudVisible = Prefs.hudVisible
         showReticle = Prefs.showReticle
+        showLoupe = Prefs.showLoupe
         showJointLabels = Prefs.showJointLabels
         showCheats = Prefs.showCheats
         showOutline = Prefs.showOutline
@@ -1075,6 +1068,10 @@ enum Prefs {
     static var showReticle: Bool {
         get { UserDefaults.standard.object(forKey: "helios.reticle") as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "helios.reticle") }
+    }
+    static var showLoupe: Bool {
+        get { UserDefaults.standard.object(forKey: "helios.loupe") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.loupe") }
     }
     static var showJointLabels: Bool {
         get { UserDefaults.standard.object(forKey: "helios.joints") as? Bool ?? true }

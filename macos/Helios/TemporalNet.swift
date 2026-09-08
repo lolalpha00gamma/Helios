@@ -81,7 +81,7 @@ final class TemporalNet {
             .pinch: (1 - pinch) * 4.2 + ext[1] * 0.6 - ext[2] * 0.8,
             .point: ext[1] * 3.2 - ext[2] * 2.4 - ext[3] * 1.6,
             .peace: ext[1] * 2.2 + ext[2] * 2.2 - ext[3] * 2.4 - ext[4] * 2.0,
-            .thumbsUp: ext[0] * 2.8 + thumbY * 2.4 - ext.dropFirst().reduce(0, +),
+            .thumbsUp: ext[0] * 2.8 + thumbY * 2.4 - ext.dropFirst().reduce(0, +) * 2.2,
             .unknown: -1.2
         ]
         if hold { for k in logits.keys { logits[k, default: 0] *= 1.15 } }

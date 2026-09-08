@@ -127,6 +127,7 @@ final class GestureEngine {
     private var lastPoseLog: TimeInterval = 0
     private var killLatched = false
     private var mustRearm = false
+    private var idleArmSince: TimeInterval?
     private var armLockUntil: TimeInterval = 0
     private var pointerOrigin: CGPoint?
     private var cursorSmooth: CGPoint?
@@ -260,6 +261,7 @@ final class GestureEngine {
         lastPoseLog = 0
         killLatched = false
         mustRearm = false
+        idleArmSince = nil
         armLockUntil = 0
         pointerOrigin = nil
         cursorSmooth = nil
@@ -477,12 +479,13 @@ final class GestureEngine {
             peaceProgress = 0
             if mode == .armed, lastHandSeen > 0, now - lastHandSeen >= GestureMath.deadMan {
                 mode = .idle
-                mustRearm = true
+                if GestureMath.deadManRequiresFist() { mustRearm = true }
                 lastAction = "Keine Hand — Idle"
                 onLog?("\(Int(GestureMath.deadMan)) s ohne Hand → Idle", .info, nil)
             } else if mustRearm {
                 mode = .idle
             }
+            idleArmSince = nil
             return
         }
         if wasFrozen {
@@ -617,9 +620,10 @@ final class GestureEngine {
             return
         }
         handleArming(hands: hands, now: now)
-        if mode != .armed, !testMode {
+        if mode != .armed, !testMode, !mustRearm {
+            if idleArmSince == nil { idleArmSince = now }
             let p = primary
-            if GestureMath.pinchStartsGrab(
+            let pinch = GestureMath.pinchStartsGrab(
                 gate: p.pinchClosed,
                 closedness: p.pinchClosedness,
                 reach: p.pinchReach,
@@ -629,11 +633,16 @@ final class GestureEngine {
                 approach: p.pinchZApproach,
                 residual: p.liftResidual,
                 palmWidth: p.palmWidth
-            ) {
+            )
+            let held = now - (idleArmSince ?? now)
+            if pinch || held >= GestureMath.idleHandArm {
                 mode = .armed
                 mustRearm = false
+                idleArmSince = nil
                 lastAction = "Scharf"
             }
+        } else if mode == .armed {
+            idleArmSince = nil
         }
         let armed = mode == .armed || testMode
 
@@ -984,9 +993,7 @@ final class GestureEngine {
         }
         if mode == .armed { return }
 
-        let fisting = hands.contains {
-            $0.pose == .fist || ($0.openScore == 0 && $0.pinchRatio > 0.5 && $0.meanConfidence > 0.35)
-        }
+        let fisting = hands.contains { $0.pose == .fist }
         if fisting {
             fistLostAt = nil
             if fistSince == nil { fistSince = now }
@@ -1686,30 +1693,30 @@ final class GestureEngine {
                 }()
                 if GestureMath.isDrag(palmMovedHW: moved, cursorMovedPx: cursorPx, dt: sampleDt, palmVelHW: vel) {
                     if chromeHot.isEmpty || cursorPx >= 52 {
-                        pinchBecameDrag = true
-                    }
-                }
-            }
-            if pinchBecameDrag, !system.isDragging, !testMode, now - lastGrabTry > 0.35 {
-                lastGrabTry = now
-                let profile = AppInjectProfile.of(bundleId: focused?.bundleId ?? "")
-                if !profile.allowsWindowDrag {
-                    lastAction = "Greifen — \(profile.titleDE)"
-                    onLog?("Greifen — Profil \(profile.titleDE)", .blocked, Int(hand.poseProb * 100))
-                    grabLogged = true
-                } else {
-                    let at = cursor ?? SpaceMap.linear(hand.palm)
-                    let r = system.beginWindowDrag(at: at)
-                    if r.ok {
-                        lastAction = "Greifen"
-                        onLog?("Greifen · \(r.detail)", .executed, Int(hand.poseProb * 100))
-                        grabLogged = true
-                    } else if !grabLogged {
-                        grabLogged = true
-                        lastAction = "Greifen fehlgeschlagen"
-                        onLog?("Greifen — NICHT AUSGEFÜHRT: \(r.detail)", .failed, Int(hand.poseProb * 100))
-                        if r.detail.contains("Bedienung") || !AXIsProcessTrusted() {
-                            Permissions.demand(.accessibility)
+                        if !system.isDragging, !testMode, now - lastGrabTry > 0.20 {
+                            lastGrabTry = now
+                            let profile = AppInjectProfile.of(bundleId: focused?.bundleId ?? "")
+                            if !profile.allowsWindowDrag {
+                                lastAction = "Greifen — \(profile.titleDE)"
+                                onLog?("Greifen — Profil \(profile.titleDE)", .blocked, Int(hand.poseProb * 100))
+                                grabLogged = true
+                            } else {
+                                let at = cursor ?? SpaceMap.linear(hand.palm)
+                                let r = system.beginWindowDrag(at: at)
+                                if r.ok {
+                                    pinchBecameDrag = true
+                                    lastAction = "Greifen"
+                                    onLog?("Greifen · \(r.detail)", .executed, Int(hand.poseProb * 100))
+                                    grabLogged = true
+                                } else if !grabLogged {
+                                    grabLogged = true
+                                    lastAction = "Halten"
+                                    onLog?("Greifen — NICHT AUSGEFÜHRT: \(r.detail)", .failed, Int(hand.poseProb * 100))
+                                    if r.detail.contains("Bedienung") || !AXIsProcessTrusted() {
+                                        Permissions.demand(.accessibility)
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -1722,9 +1729,9 @@ final class GestureEngine {
                 lastAction = trashHot ? "Test: Papierkorb" : "Test: Ziehen"
             }
             if pinchBecameDrag,
-               now - pinchBeganAt > 0.35,
+               system.isDragging,
+               now - pinchBeganAt > 0.45,
                let y0 = pinchSpan0,
-               !system.isDragging,
                (GestureMath.pullTowardSelf(startY: y0, nowY: hand.palm.y)
                 || GestureMath.pullTowardPalmGrow(startW: pinchSpanW ?? hand.palmWidth, nowW: hand.palmWidth))
             {
@@ -1944,12 +1951,22 @@ final class GestureEngine {
     }
 
     private func driveThumbs(_ hand: TrackedHand, now: TimeInterval) {
-        if hand.pose == .thumbsUp, hand.poseProb >= 0.50 {
+        let ok = hand.pose == .thumbsUp
+            && hand.poseProb >= 0.75
+            && GestureMath.thumbsUpAllowed(openScore: hand.openScore)
+        if ok {
             if thumbsSince == nil { thumbsSince = now }
             if now - (thumbsSince ?? now) > GestureMath.thumbsHold {
-                perform("Hervorholen", need: .none, confidence: Float(hand.poseProb)) { system.unhideFront() }
+                let r = system.unhideFront()
+                if r.ok {
+                    lastAction = "Hervorholen"
+                    onLog?("Hervorholen · \(r.detail)", .executed, Int(hand.poseProb * 100))
+                    cooldownUntil = now + 3
+                } else {
+                    lastAction = "Hervorholen — kein Ziel"
+                    onLog?("Hervorholen — NICHT AUSGEFÜHRT: \(r.detail)", .failed, Int(hand.poseProb * 100))
+                }
                 thumbsSince = nil
-                cooldownUntil = now + 3
             }
         } else {
             thumbsSince = nil
@@ -2001,23 +2018,29 @@ final class GestureEngine {
     @discardableResult
     private func driveRightClick(_ hand: TrackedHand, now: TimeInterval) -> Bool {
         let ringOut = hand.isExtended(.ring) && !hand.isExtended(.middle)
-        let pinching = hand.pinchClosed || hand.pinchClosedness > 0.55
-        guard pinching, ringOut, !pinchHeld else {
+        let ready = GestureMath.rightClickArms(
+            closedness: hand.pinchClosedness,
+            ringOut: ringOut,
+            middleOut: hand.isExtended(.middle),
+            pinchHeld: pinchHeld
+        )
+        guard ready else {
             ringPinchSince = nil
             return false
         }
         if ringPinchSince == nil { ringPinchSince = now }
         let held = now - (ringPinchSince ?? now)
-        if held >= 0.14 {
+        if held >= GestureMath.rightClickHold {
             perform("Rechtsklick", need: .input, confidence: Float(max(hand.poseProb, hand.pinchClosedness))) {
                 system.rightClick()
             }
             ringPinchSince = nil
+            dropPinchHold()
             cooldownUntil = now + 0.45
             return true
         }
         lastAction = "Rechtsklick …"
-        return true
+        return false
     }
 
     /// Offene Hand 1 s still. Aus by default — Accessibility, nicht Alltags-Klick.

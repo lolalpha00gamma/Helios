@@ -1,4 +1,4 @@
-# Helios **1.6.75**
+# Helios **1.6.76**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -19,6 +19,15 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.76
+
+Protokoll 19:26: Erkennung war da, Aktionen falsch. Offene Hand = Daumen-hoch (Hervorholen), Pinzette = Greifen/Rechtsklick statt Klick, Continuity-Loch → Idle plus Faust-Sperre.
+
+- Offene Hand ist kein Daumen-hoch. Hervorholen ohne Ziel blockt nicht mehr 3 s.
+- Pinzette klickt, wenn kein Fenster unter dem Cursor ist. Greifen nur bei Treffer.
+- Rechtsklick braucht klare Closedness + Ring, stiehlt den Klick nicht.
+- 8 s ohne Palme: Idle, aber keine Faust-Sperre. Sichtbare Hand schärft nach 0,4 s.
 
 ## Neu in 1.6.75
 

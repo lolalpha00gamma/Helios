@@ -427,14 +427,20 @@ final class HandTracker: @unchecked Sendable {
                 tracks.append(slot)
             }
 
+            var poseOut = hmmOut.pose
+            var poseP = hmmOut.prob
+            if poseOut == .thumbsUp, !GestureMath.thumbsUpAllowed(openScore: feat2D.openScore) {
+                poseOut = .openPalm
+                poseP = fused.probabilities[.openPalm] ?? max(0.55, poseP)
+            }
             hands.append(
                 TrackedHand(
                     id: slot.id,
                     chirality: obs.chirality,
                     joints: joints,
                     displayJoints: display,
-                    pose: hmmOut.pose,
-                    poseProb: hmmOut.prob,
+                    pose: poseOut,
+                    poseProb: poseP,
                     pinchDistance: pinchState.distance,
                     pinchRatio: feat2D.pinchRatio,
                     pinchClosed: pinchState.closed,

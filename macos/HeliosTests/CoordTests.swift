@@ -1974,6 +1974,26 @@ enum CoordTests {
             fputs("FAIL Coalesce 90 Hz\n", stderr)
             fails += 1
         }
+        if GestureMath.thumbsUpAllowed(openScore: 3) {
+            fputs("FAIL Daumen-hoch bei offener Hand\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.thumbsUpAllowed(openScore: 1) {
+            fputs("FAIL Daumen-hoch eine Finger\n", stderr)
+            fails += 1
+        }
+        if GestureMath.rightClickArms(closedness: 0.2, ringOut: true, middleOut: false, pinchHeld: false) {
+            fputs("FAIL Rechtsklick zu weich\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.rightClickArms(closedness: 0.70, ringOut: true, middleOut: false, pinchHeld: false) {
+            fputs("FAIL Rechtsklick blockt klaren Ring\n", stderr)
+            fails += 1
+        }
+        if GestureMath.deadManRequiresFist() {
+            fputs("FAIL Deadman Faust-Sperre\n", stderr)
+            fails += 1
+        }
         if GestureMath.cgEventCoalesceDue(lastPost: 1.0, now: 1.005) {
             fputs("FAIL Coalesce zu früh\n", stderr)
             fails += 1

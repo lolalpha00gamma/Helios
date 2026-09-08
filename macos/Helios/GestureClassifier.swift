@@ -210,7 +210,8 @@ enum GestureClassifier {
         logits[.point] = Double(index.score) * 3.4 - Double(middle.score + ring.score + little.score) * 1.5
         logits[.peace] = Double(index.score + middle.score) * 2.1 - Double(ring.score + little.score) * 2.2
         logits[.thumbsUp] = Double(thumbUp) * 4.2
-            + Double((1 - index.score) + (1 - middle.score) + (1 - ring.score)) * 0.7
+            + Double((1 - index.score) + (1 - middle.score) + (1 - ring.score) + (1 - little.score)) * 1.1
+            - Double([index, middle, ring, little].filter { $0.score > 0.55 }.count) * 1.8
             - Double(closedness) * 1.4
         logits[.unknown] = -1.8
 
@@ -218,6 +219,9 @@ enum GestureClassifier {
         let sm = JointGeom.softmax(keys.map { logits[$0] ?? 0 }, temperature: 0.72)
         var probs: [HandPose: Double] = [:]
         for (i, k) in keys.enumerated() { probs[k] = sm[i] }
+        if [index, middle, ring, little].filter({ $0.score > 0.55 }).count >= 2 {
+            probs[.thumbsUp] = min(probs[.thumbsUp] ?? 0, 0.06)
+        }
 
         let used: [VNHumanHandPoseObservation.JointName] = [
             .wrist, .thumbTip, .indexTip, .middleTip, .ringTip, .littleTip,
@@ -357,13 +361,16 @@ enum GestureClassifier {
             .pinch: Double(closedness) * 4.0 - Double(1 - index) * 1.2,
             .point: Double(index) * 3 - Double(middle + ring) * 1.4,
             .peace: Double(index + middle) * 2 - Double(ring + little) * 2,
-            .thumbsUp: Double(thumb) * 2.5,
+            .thumbsUp: Double(thumb) * 2.5 - Double(index + middle + ring + little) * 1.6,
             .unknown: -1.8
         ]
         let keys = HandPose.allCases
         let sm = JointGeom.softmax(keys.map { logits[$0] ?? 0 }, temperature: 0.7)
         var probs: [HandPose: Double] = [:]
         for (i, k) in keys.enumerated() { probs[k] = sm[i] }
+        if [index, middle, ring, little].filter({ $0 > 0.55 }).count >= 2 {
+            probs[.thumbsUp] = min(probs[.thumbsUp] ?? 0, 0.06)
+        }
         f.probs = probs
         return f
     }

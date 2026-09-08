@@ -128,7 +128,16 @@ enum GestureMath {
     static let bodyVoteLoose: Double = 0.72
     static let bodyVoteStrict: Double = 0.50
     static let swipeOpenNeed = 3
-    static let thumbsHold: TimeInterval = 0.70
+    static let thumbsHold: TimeInterval = 1.10
+    /// Offene Hand mit Daumen oben ist kein Daumen-hoch. Sitzung 19:26 flippt sonst jede halbe Sekunde.
+    static func thumbsUpAllowed(openScore: Int) -> Bool { openScore <= 1 }
+    static let rightClickHold: TimeInterval = 0.32
+    static func rightClickArms(closedness: Double, ringOut: Bool, middleOut: Bool, pinchHeld: Bool) -> Bool {
+        !pinchHeld && ringOut && !middleOut && closedness >= 0.58
+    }
+    /// Continuity-Loch: Idle ja, Faust-Sperre nein.
+    static func deadManRequiresFist() -> Bool { false }
+    static let idleHandArm: TimeInterval = 0.40
     /// Sitzung 12:59:50: Öffnen nach Pinzette wurde zum Wischen, Rückkehr zur Gegenrichtung.
     static let swipeMuteAfterPinch: TimeInterval = 0.45
     static let swipeReverseLock: TimeInterval = 0.90

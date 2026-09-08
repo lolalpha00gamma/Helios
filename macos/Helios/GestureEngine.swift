@@ -143,6 +143,13 @@ final class GestureEngine {
     private var cursorDidMove = false
     private var lastPalmWidth: CGFloat = 0.12
     private var palmJitter: [CGFloat] = []
+    private var euroX: CGFloat = 0
+    private var euroY: CGFloat = 0
+    private var euroDx: CGFloat = 0
+    private var euroDy: CGFloat = 0
+    private var euroInited = false
+    private var palmStillFor: TimeInterval = 0
+    private var palmDeadman = false
     private var scrollAnchor: (t: TimeInterval, y: CGFloat)?
     private var ringPinchSince: TimeInterval?
     private var dwellSince: TimeInterval?
@@ -257,6 +264,9 @@ final class GestureEngine {
         pointerMissSince = nil
         palmSlow = nil
         palmJitter = []
+        euroInited = false
+        palmStillFor = 0
+        palmDeadman = false
         swipeGraceUntil = 0
         armedQuietUntil = 0
         cursorDidMove = false
@@ -672,6 +682,9 @@ final class GestureEngine {
         lastHandsFreeze = []
         palmSlow = nil
         palmJitter = []
+        euroInited = false
+        palmStillFor = 0
+        palmDeadman = false
         pointerHandID = nil
         pointerSourceID = ""
         pointerLastHand = nil
@@ -687,6 +700,9 @@ final class GestureEngine {
         lastHandsFreeze = []
         palmSlow = nil
         palmJitter = []
+        euroInited = false
+        palmStillFor = 0
+        palmDeadman = false
         pointerHandID = nil
         pointerSourceID = ""
         pointerLastHand = nil
@@ -1114,11 +1130,24 @@ final class GestureEngine {
             palmJitter.append(hypot(dx, dy))
             if palmJitter.count > 8 { palmJitter.removeFirst() }
         }
+        let rms = GestureMath.jitterRms(palmJitter)
+        if isActor {
+            if GestureMath.palmDeadmanStill(delta: hypot(dx, dy), dead: dead) {
+                palmStillFor += sampleDt
+            } else {
+                palmStillFor = 0
+            }
+            palmDeadman = GestureMath.palmDeadmanClutch(stillFor: palmStillFor)
+            if palmDeadman {
+                dx = 0
+                dy = 0
+            }
+        }
         let adapt = GestureMath.pointerGainAdaptive(
             gain: pointerGain * freezeGain * GestureMath.pointerGainDt(dt: sampleDt),
-            jitterRms: GestureMath.jitterRms(palmJitter)
+            jitterRms: rms
         )
-        let stepped = ScreenGeometry.stepCursor(
+        var stepped = ScreenGeometry.stepCursor(
             from: seed,
             dPalm: CGPoint(x: dx, y: dy),
             gain: GestureMath.pointerGainScaled(
@@ -1126,6 +1155,27 @@ final class GestureEngine {
                 scale: scale
             )
         )
+        if isActor {
+            let minC = GestureMath.oneEuroMinCutoff(jitterRms: rms)
+            if !euroInited {
+                euroX = stepped.x
+                euroY = stepped.y
+                euroDx = 0
+                euroDy = 0
+                euroInited = true
+            }
+            let fx = GestureMath.oneEuroFilter(
+                prev: euroX, sample: stepped.x, dt: sampleDt, minCutoff: minC, dPrev: euroDx
+            )
+            let fy = GestureMath.oneEuroFilter(
+                prev: euroY, sample: stepped.y, dt: sampleDt, minCutoff: minC, dPrev: euroDy
+            )
+            euroX = fx.value
+            euroDx = fx.deriv
+            euroY = fy.value
+            euroDy = fy.deriv
+            stepped = CGPoint(x: fx.value, y: fy.value)
+        }
         let a: CGFloat = freezeGain < 0.99 ? 1 : 0.86
         let s = CGPoint(x: a * stepped.x + (1 - a) * seed.x, y: a * stepped.y + (1 - a) * seed.y)
         cursorTracks[hand.id] = s
@@ -1619,6 +1669,8 @@ final class GestureEngine {
                 onLog?("Loslassen", testMode ? .blocked : .executed, Int(hand.poseProb * 100))
             } else if let knob = knobsNow.first(where: { $0.labelDE == hotName }) {
                 fireChrome(knob)
+            } else if palmDeadman {
+                lastAction = "Deadman"
             } else if GestureMath.isClick(
                 held: held, palmMovedHW: palmMoved, cursorMovedPx: cursorPx,
                 dt: sampleDt, closedness: hand.pinchClosedness

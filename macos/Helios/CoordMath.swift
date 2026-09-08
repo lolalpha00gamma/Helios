@@ -443,6 +443,69 @@ enum GestureMath {
         fromOnScreen && !proposedOnScreen
     }
 
+    /// One-Euro α. Höherer Cutoff = weniger Glättung.
+    static func oneEuroAlpha(dt: TimeInterval, cutoff: Double) -> CGFloat {
+        let te = max(0.001, dt)
+        let tau = 1.0 / (2 * Double.pi * max(0.05, cutoff))
+        return CGFloat(1.0 / (1.0 + tau / te))
+    }
+
+    /// min-cutoff fällt mit Jitter — 8 Hz Rauschen glättet, Intent bleibt.
+    static func oneEuroMinCutoff(jitterRms: CGFloat, base: Double = 1.15, k: Double = 28) -> Double {
+        let j = max(0, Double(jitterRms))
+        return max(0.35, base / (1 + k * j))
+    }
+
+    static func oneEuroFilter(
+        prev: CGFloat,
+        sample: CGFloat,
+        dt: TimeInterval,
+        minCutoff: Double,
+        dPrev: CGFloat,
+        beta: Double = 0.007
+    ) -> (value: CGFloat, deriv: CGFloat) {
+        let te = CGFloat(max(0.001, dt))
+        let dx = (sample - prev) / te
+        let aD = oneEuroAlpha(dt: dt, cutoff: 1.0)
+        let hatD = aD * dx + (1 - aD) * dPrev
+        let fc = minCutoff + beta * Double(abs(hatD))
+        let a = oneEuroAlpha(dt: dt, cutoff: fc)
+        return (a * sample + (1 - a) * prev, hatD)
+    }
+
+    /// Hop nur wenn der Vorschlag ≥ need pt im anderen Schirm sitzt.
+    static func bezelHopNeed() -> CGFloat { 80 }
+
+    static func bezelHopAllows(proposed: CGPoint, otherFrame: CGRect, need: CGFloat = 80) -> Bool {
+        let n = max(8, need)
+        guard otherFrame.width > 2 * n, otherFrame.height > 2 * n else { return false }
+        return proposed.x >= otherFrame.minX + n
+            && proposed.x <= otherFrame.maxX - n
+            && proposed.y >= otherFrame.minY + n
+            && proposed.y <= otherFrame.maxY - n
+    }
+
+    /// 2 s still → Clutch, nicht Kill. Continuity-Drift sonst Klick.
+    static func palmDeadmanNeed() -> TimeInterval { 2.0 }
+
+    static func palmDeadmanClutch(stillFor: TimeInterval, need: TimeInterval = 2) -> Bool {
+        stillFor >= need
+    }
+
+    static func palmDeadmanStill(delta: CGFloat, dead: CGFloat) -> Bool {
+        delta < max(0.0004, dead * 1.15)
+    }
+
+    /// Kaltstart: Continuity claimed 1080@30, liefert 8. 720@24 vor 1080, ohne Messung.
+    static func cameraFormatColdStartBias(height: Double, currentHeight: Double, role: String) -> Double {
+        let phone = role == "phone" || role == "continuity" || role == "osmo"
+        guard phone else { return 0 }
+        if height >= 1000 { return -90 }
+        if abs(height - 720) < 80 { return 110 }
+        if currentHeight >= 700, currentHeight < 1000, abs(height - currentHeight) < 40 { return 40 }
+        return 0
+    }
+
     /// 90°-Raster für Homographie-Cache. Nudge ohne Store-Wipe.
     static func spaceMapRotationKey(_ r: Double) -> Int {
         var a = r.truncatingRemainder(dividingBy: 360)

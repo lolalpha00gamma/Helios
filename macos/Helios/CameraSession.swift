@@ -602,7 +602,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
                 return
             }
             locked = true
-            if let format = Self.bestFormat(on: device, measuredFps: measuredFps, currentHeight: lastFormatHeight) {
+            if let format = Self.bestFormat(on: device, measuredFps: measuredFps, currentHeight: lastFormatHeight, role: lastDeviceRole) {
                 device.activeFormat = format
                 let dims = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
                 lastFormatHeight = GestureMath.cameraFormatHeightPersist(height: Double(dims.height))
@@ -642,7 +642,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     fileprivate static func bestFormat(
         on device: AVCaptureDevice,
         measuredFps: Double = 0,
-        currentHeight: Double = 0
+        currentHeight: Double = 0,
+        role: String = ""
     ) -> AVCaptureDevice.Format? {
         var best: AVCaptureDevice.Format?
         var bestScore = -1.0
@@ -659,6 +660,9 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
                     height: h, currentHeight: currentHeight, measuredFps: measuredFps
                 )
             }
+            score += GestureMath.cameraFormatColdStartBias(
+                height: h, currentHeight: currentHeight, role: role
+            )
             if score > bestScore {
                 bestScore = score
                 best = format
@@ -935,14 +939,22 @@ final class CoverCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         HeliosCatch({
             do { try device.lockForConfiguration() } catch { return }
             locked = true
-            if let format = CameraSession.bestFormat(on: device) {
+            if let format = CameraSession.bestFormat(
+                on: device,
+                currentHeight: 720,
+                role: CameraSession.role(device).rawValue
+            ) {
                 device.activeFormat = format
             }
             if let range = device.activeFormat.videoSupportedFrameRateRanges.max(by: {
                 $0.maxFrameRate < $1.maxFrameRate
             }) {
-                device.activeVideoMinFrameDuration = range.minFrameDuration
-                device.activeVideoMaxFrameDuration = range.minFrameDuration
+                let sec = GestureMath.cameraLockDuration(
+                    maxFps: range.maxFrameRate, minFps: range.minFrameRate
+                )
+                let dur = CMTime(seconds: sec, preferredTimescale: 600)
+                device.activeVideoMinFrameDuration = dur
+                device.activeVideoMaxFrameDuration = dur
             }
         }, nil)
         if locked {

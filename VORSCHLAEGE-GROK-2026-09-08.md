@@ -1,3 +1,30 @@
+# Helios Vorschläge — 2026-09-08 (Pass 19, 1.6.56)
+
+Stand 1.6.56. One-Euro, 24-fps Kaltstart, Bezel-Hop, Deadman.
+
+## Gelandet in 1.6.56
+
+- oneEuroFilter / oneEuroMinCutoff × jitterRms
+- cameraFormatColdStartBias 720@24 > claimed 1080@30
+- Cover cameraLockDuration
+- bezelHopAllows 80 pt
+- palmDeadmanClutch 2 s
+
+## Erweiterung (neu)
+
+196. **VNTrack Hand-Box persist.**
+197. **Stage-Manager Space-Clamp.**
+198. **Pointer 1-Frame Predict** 8 Hz.
+199. **USB-C Wired Continuity.**
+200. **Two-Hand Clutch.**
+201. **Aegis-Gaze Pinch-Confirm.**
+202. **Click-Tick Sound.**
+203. **Miss-Click Heatmap.**
+204. **iPhone Ultraweit FOV.**
+205. **Per-Display pointerGain Pref.**
+
+P0: CameraBroker. Kein neues *Need(dt).
+
 # Helios Vorschläge — 2026-09-08 (Pass 18, 1.6.55)
 
 Stand 1.6.55. Adaptive Gain, HUD-Sharing, Edge-Resistance, Display-Gap.

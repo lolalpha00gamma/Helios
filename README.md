@@ -1,4 +1,4 @@
-# Helios **1.6.55**
+# Helios **1.6.56**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -19,6 +19,16 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.56
+
+1.6.55 Adaptive Gain, HUD-Sharing, Edge-Resistance, Display-Gap. Continuity startete trotzdem claimed 1080@30 → 8 Hz. Cover-Session lockte Max-FPS. Bezel-Hop ohne Hysterese. Stillstand klickte.
+
+- **One-Euro Filter.** min-cutoff × Jitter auf den Cursor, nicht nur Highpass.
+- **Continuity 24-fps Kaltstart.** 720@24 schlägt claimed 1080@30. Cover nutzt `cameraLockDuration`.
+- **Bezel-Hop Hysterese 80 pt.** Sidecar erst nach echtem Eindringen.
+- **Palm-Deadman 2 s.** Stillstand = Clutch, kein Klick.
+- Tests + MARKETING_VERSION 1.6.56 (Build 89).
 
 ## Neu in 1.6.55
 

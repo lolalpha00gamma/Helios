@@ -2166,6 +2166,65 @@ enum CoordTests {
             fputs("FAIL Gap Warp ohne Start tot\n", stderr)
             fails += 1
         }
+        let qCut = GestureMath.oneEuroMinCutoff(jitterRms: 0.003)
+        let nCut = GestureMath.oneEuroMinCutoff(jitterRms: 0.030)
+        if qCut <= nCut {
+            fputs("FAIL One-Euro min-cutoff ruhig > laut\n", stderr)
+            fails += 1
+        }
+        let step = GestureMath.oneEuroFilter(prev: 0, sample: 10, dt: 0.125, minCutoff: 1.15, dPrev: 0)
+        let stepN = GestureMath.oneEuroFilter(prev: 0, sample: 10, dt: 0.125, minCutoff: nCut, dPrev: 0)
+        if stepN.value >= step.value {
+            fputs("FAIL One-Euro laut glättet mehr\n", stderr)
+            fails += 1
+        }
+        if abs(step.value - 10) < 0.5 {
+            fputs("FAIL One-Euro 8 fps nicht roh\n", stderr)
+            fails += 1
+        }
+        let other = CGRect(x: 2000, y: 0, width: 1280, height: 800)
+        if GestureMath.bezelHopAllows(proposed: CGPoint(x: 2010, y: 40), otherFrame: other) {
+            fputs("FAIL Bezel-Hop 10 pt tot\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.bezelHopAllows(proposed: CGPoint(x: 2200, y: 400), otherFrame: other) {
+            fputs("FAIL Bezel-Hop 200 pt\n", stderr)
+            fails += 1
+        }
+        if GestureMath.palmDeadmanClutch(stillFor: 1.5) {
+            fputs("FAIL Deadman 1,5 s tot\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.palmDeadmanClutch(stillFor: 2.0) {
+            fputs("FAIL Deadman 2 s\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.palmDeadmanStill(delta: 0.002, dead: 0.012) {
+            fputs("FAIL Deadman still\n", stderr)
+            fails += 1
+        }
+        if GestureMath.palmDeadmanStill(delta: 0.04, dead: 0.012) {
+            fputs("FAIL Deadman bewegt tot\n", stderr)
+            fails += 1
+        }
+        let cold1080 = GestureMath.cameraFormatColdStartBias(height: 1080, currentHeight: 720, role: "phone")
+        let cold720 = GestureMath.cameraFormatColdStartBias(height: 720, currentHeight: 720, role: "phone")
+        if cold720 <= cold1080 {
+            fputs("FAIL Cold-Start 720 > 1080 Phone\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraFormatColdStartBias(height: 1080, currentHeight: 1080, role: "mac") != 0 {
+            fputs("FAIL Cold-Start Mac tot\n", stderr)
+            fails += 1
+        }
+        let claimed = GestureMath.cameraFormatScore(width: 1920, height: 1080, maxFps: 30)
+            + GestureMath.cameraFormatColdStartBias(height: 1080, currentHeight: 720, role: "phone")
+        let real = GestureMath.cameraFormatScore(width: 1280, height: 720, maxFps: 24)
+            + GestureMath.cameraFormatColdStartBias(height: 720, currentHeight: 720, role: "phone")
+        if real <= claimed {
+            fputs("FAIL Cold-Start 720@24 schlägt claimed 1080@30\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

@@ -1,5 +1,22 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
+Stand: 2026-09-08. Helios **1.6.56** (Build 89). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+
+## 0. 1.6.56 — One-Euro, 24-fps Kaltstart, Bezel-Hop, Deadman
+
+1.6.55: Adaptive Gain, HUD-Sharing, Edge, Gap. Danach blieb Continuity-Kaltstart claimed 1080@30 (liefert 8 Hz) — `cameraFormatScore` belohnte 1080 sobald maxFps≥24, `prefers720` schrieb nur die Höhe, `bestFormat` ignorierte sie. Cover-Session setzte min=max=`minFrameDuration` (schnellste Rate). Bezel-Hop ohne Hysterese. Stillstand + Pinch = Klick.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | 8 Hz Teleport trotz Gain | One-Euro min-cutoff × Jitter |
+| 2 | Kaltstart 1080@8 | `cameraFormatColdStartBias` + Cover 24-Lock |
+| 3 | Sidecar-Rand-Hop | `bezelHopAllows` 80 pt |
+| 4 | Drift-Klick | `palmDeadmanClutch` 2 s |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe.
+
+# Analyse, Fehlerbehebung, öffentlicher Abgleich
+
 Stand: 2026-09-08. Helios **1.6.55** (Build 88). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
 
 ## 0. 1.6.55 — Adaptive Gain, HUD-Sharing, Edge-Resistance, Display-Gap

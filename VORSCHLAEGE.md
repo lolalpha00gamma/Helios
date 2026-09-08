@@ -1,5 +1,50 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.56**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.56 erledigt
+
+1.6.55 Adaptive Gain, HUD-Sharing, Edge, Gap. Continuity-Kaltstart blieb 1080@8. Cover Max-FPS. Bezel ohne Hysterese. Drift-Klick.
+
+1. **One-Euro Filter** min-cutoff × Jitter.
+2. **Continuity 24-fps Kaltstart** + Cover `cameraLockDuration`.
+3. **Bezel-Hop Hysterese** 80 pt.
+4. **Palm-Deadman 2 s** → Clutch.
+5. Tests + MARKETING_VERSION 1.6.56 (Build 89).
+
+## Erweiterung (neu, 1.6.56)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+2. **HeliosAegisKit** gemeinsamer Broker + Mutex-PTS.
+3. **VNTrack Hand-Box persist** bei Continuity 8 Hz.
+4. **Pair-Stereo-Tiefe** Mac+iPhone statt DepthCapture-Stub.
+5. **Watch Double-Tap** Click-Confirm + Haptic.
+6. **App-Grammar** Safari-Scroll vs Finder-Drag vs Xcode-Caret.
+7. **JSONL Session-Replay** ohne Vision.
+8. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+9. **Stage-Manager Space-Clamp** — Cursor nicht in unsichtbare Spaces.
+10. **Click-Tick Sound** (optional, Accessibility).
+11. **iPhone Ultraweit** als FOV-Fallback wenn Hands am Bildrand sterben.
+12. **Per-Display pointerGain** UserDefaults.
+13. **Aegis-Gaze Pinch-Confirm** wenn Face frontal und Blick auf HUD.
+14. **Continuity HDR Tone-Map** bevor Vision 8-Bit sieht.
+15. **Pointer 1-Frame Predict** bei 8 Hz (Palm-Vel × dt).
+16. **Two-Hand Clutch** — zweite Palme friert die erste.
+17. **USB-C Wired Continuity** statt Wi-Fi 8 fps.
+18. **Miss-Click Heatmap** JSONL.
+19. **Accessibility Dwell-Click** unabhängig von Pinch.
+20. **IOHID Force-Click vs Pinch.**
+21. **mmap leftover-Boxen** Helios↔Aegis Palm-Occlusion.
+22. **DepthCapture an Continuity-LiDAR.**
+23. **Overlay CAMetalLayer.**
+24. **Per-App Scroll-Gain.**
+25. **Freeze-Kalman über uniqueID.**
+26. **Air-Keyboard Shortcut-Overlay** ⌘C/V/Z.
+
+P0 CameraBroker. Kein neues *Need(dt).
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.55**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
 
 ## In 1.6.55 erledigt

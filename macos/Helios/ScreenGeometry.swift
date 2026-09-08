@@ -137,8 +137,17 @@ enum ScreenGeometry {
         p.y -= dPalm.y * hostFrame.height * g * accel
         let onHost = host.map { contains(quartz: p, screen: $0.frame, pad: 0) } ?? false
         if onHost { return p }
-        let onOther = NSScreen.screens.contains { contains(quartz: p, screen: $0.frame, pad: 0) }
-        if onOther { return clampQuartz(p) }
+        let other = NSScreen.screens.first { contains(quartz: p, screen: $0.frame, pad: 0) }
+        if let other {
+            let of = quartzRect(fromCocoa: other.frame)
+            if GestureMath.bezelHopAllows(proposed: p, otherFrame: of) {
+                return clampQuartz(p)
+            }
+            return CGPoint(
+                x: min(max(p.x, hostFrame.minX + 2), hostFrame.maxX - 2),
+                y: min(max(p.y, hostFrame.minY + 2), hostFrame.maxY - 2)
+            )
+        }
         if GestureMath.displayGapWarp(fromOnScreen: true, proposedOnScreen: false) {
             return CGPoint(
                 x: min(max(p.x, hostFrame.minX + 2), hostFrame.maxX - 2),

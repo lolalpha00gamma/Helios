@@ -477,7 +477,7 @@ final class SystemControl {
             mouseCursorPosition: ScreenGeometry.clampQuartz(point),
             mouseButton: button
         ) else { return false }
-        e.setIntegerValueField(.mouseEventClickState, 1)
+        e.setIntegerValueField(.mouseEventClickState, value: 1)
         e.post(tap: .cghidEventTap)
         return true
     }

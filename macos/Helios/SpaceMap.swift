@@ -32,17 +32,19 @@ struct SpaceMap: Codable {
     var palms: [XY]
     var displayID: UInt32 = 0
     var cameraID: String = ""
+    var rotation: Double = 0
 
     var isReady: Bool { palms.count == 4 }
 
     enum CodingKeys: String, CodingKey {
-        case palms, displayID, cameraID
+        case palms, displayID, cameraID, rotation
     }
 
-    init(palms: [XY], displayID: UInt32 = 0, cameraID: String = "") {
+    init(palms: [XY], displayID: UInt32 = 0, cameraID: String = "", rotation: Double = 0) {
         self.palms = palms
         self.displayID = displayID
         self.cameraID = cameraID
+        self.rotation = rotation
     }
 
     init(from decoder: Decoder) throws {
@@ -50,6 +52,7 @@ struct SpaceMap: Codable {
         palms = try c.decode([XY].self, forKey: .palms)
         displayID = try c.decodeIfPresent(UInt32.self, forKey: .displayID) ?? 0
         cameraID = try c.decodeIfPresent(String.self, forKey: .cameraID) ?? ""
+        rotation = try c.decodeIfPresent(Double.self, forKey: .rotation) ?? 0
     }
 
     static func screenCorners(displayID: CGDirectDisplayID = 0) -> [CGPoint] {
@@ -438,7 +441,12 @@ final class CalibrationSession {
             rejected = true
             return nil
         }
-        let map = SpaceMap(palms: pts.map(XY.init), displayID: targetDisplay, cameraID: cameraID)
+        let map = SpaceMap(
+            palms: pts.map(XY.init),
+            displayID: targetDisplay,
+            cameraID: cameraID,
+            rotation: GestureMath.spaceMapRotation(displayID: targetDisplay)
+        )
         map.save()
         active = false
         finishedID = cameraID

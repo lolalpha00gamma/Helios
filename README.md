@@ -1,4 +1,4 @@
-# Helios **1.6.51**
+# Helios **1.6.52**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -19,6 +19,15 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.52
+
+1.6.51 Two-pinch vs Scroll, Coast-Cap×Scale, Jiggle×Scale. Achse kippte bei Jitter. Display-Drehung tot. Sample-Cursor zog Coast zurück.
+
+- **Two-pinch Hysterese.** Achse hält bei Jitter. Kleine Span-Δ = Scroll-Ticks.
+- **SpaceMap Re-Calib** nach Display-Drehung (≥ 15°).
+- **CGEvent 90 Hz.** Sample weicht Coast. SuppressionInterval 0.
+- Tests + MARKETING_VERSION 1.6.52 (Build 85).
 
 ## Neu in 1.6.51
 
@@ -28,28 +37,6 @@ Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Da
 - **HUD-Coast-Cap × Scale.** 2× = 160 pt.
 - **Clutch-Jiggle × Scale.** Echo ignoriert.
 - Tests + MARKETING_VERSION 1.6.51 (Build 84).
-
-## Neu in 1.6.50
-
-
-Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
-
-Privates Repo. Keine Open-Source-Lizenzdatei.
-
-Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
-
-## Start
-
-**Nur die DMG-Datei laden, nicht Source code (zip):**
-
-[Helios.dmg](https://github.com/lolalpha00gamma/Helios/releases/latest/download/Helios.dmg)
-
-1. `Helios.dmg` doppelklicken (kein Entpacken)
-2. Helios nach **Programme** ziehen — nicht aus dem Image starten
-3. Erster Start (nicht notarisierte Ad-hoc-Signatur): **Systemeinstellungen → Datenschutz & Sicherheit → Trotzdem öffnen**
-4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
-
-Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
 
 ## Neu in 1.6.50
 

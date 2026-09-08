@@ -1,3 +1,31 @@
+# Helios Vorschläge — 2026-09-08 (Pass 15, 1.6.52)
+
+Stand 1.6.52. Two-pinch Hysterese, Rotation-Recalib, CGEvent 90 Hz.
+
+## Gelandet in 1.6.52
+
+- twoPinchAxisHysteresis + PrefersScroll
+- spaceMapNeedsRecalib / rotation stamp
+- sampleCursorYieldsToCoast
+- cgEventCoalesceDue 90 Hz
+
+## Erweiterung (neu)
+
+153. **Pointer-Accel × backingScaleFactor.**
+154. **VNTrack Hand-Box persist** bei Continuity 8 Hz.
+155. **Two-pinch Scroll-Ticks × backingScale.**
+156. **SpaceMap Rotation-Nudge** statt Wipe.
+157. **Click-Hitch Debounce** Continuity-Miss ≠ Double-Click.
+158. **Per-App Scroll-Gain** Safari vs Xcode vs Preview.
+159. **Pinch-Hold analog × Kalman-Q** statt Bool-OR.
+160. **Fling-Cap × Screen-Höhe.**
+161. **Session-Watchdog** Idle = fps>0 UND keine Aegis-Face UND 8 s leer.
+162. **Air-Keyboard Dwell × Scale.**
+163. **Overlay CAMetalLayer.**
+164. **MediaPipe Hands Fallback.**
+
+P0: CameraBroker. Kein neues *Need(dt).
+
 # Helios Vorschläge — 2026-09-08 (Pass 14, 1.6.51)
 
 Stand 1.6.51. Two-pinch vs Scroll, Coast-Cap×Scale, Jiggle×Scale.

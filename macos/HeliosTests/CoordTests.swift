@@ -1918,6 +1918,86 @@ enum CoordTests {
             fputs("FAIL 1× Jiggle 2 pt seizes nicht ignorieren\n", stderr)
             fails += 1
         }
+        let heldH = GestureMath.twoPinchAxisHysteresis(
+            locked: .horizontal, next: .none, dx: 0.40, dy: 0.12
+        )
+        if heldH != .horizontal {
+            fputs("FAIL Hysterese hält H bei .none\n", stderr)
+            fails += 1
+        }
+        let flipV = GestureMath.twoPinchAxisHysteresis(
+            locked: .horizontal, next: .vertical, dx: 0.12, dy: 0.40
+        )
+        if flipV != .vertical {
+            fputs("FAIL Hysterese flip V stark\n", stderr)
+            fails += 1
+        }
+        let keepH = GestureMath.twoPinchAxisHysteresis(
+            locked: .horizontal, next: .vertical, dx: 0.40, dy: 0.42
+        )
+        if keepH != .horizontal {
+            fputs("FAIL Hysterese hält H bei schwachem V\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.twoPinchPrefersScroll(spanDelta: 0.10) {
+            fputs("FAIL Two-pinch kleine Span = Scroll\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoPinchPrefersScroll(spanDelta: 0.70) {
+            fputs("FAIL Two-pinch große Span = Scale\n", stderr)
+            fails += 1
+        }
+        let ticks = GestureMath.twoPinchScrollTicks(
+            axis: .vertical,
+            a: CGPoint(x: 100, y: 180),
+            b: CGPoint(x: 100, y: 80),
+            prevA: CGPoint(x: 100, y: 140),
+            prevB: CGPoint(x: 100, y: 40)
+        )
+        if ticks == 0 {
+            fputs("FAIL Two-pinch Scroll Ticks\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.sampleCursorYieldsToCoast(coastDrives: true, dragging: false, freeze: false) {
+            fputs("FAIL Sample weicht Coast\n", stderr)
+            fails += 1
+        }
+        if GestureMath.sampleCursorYieldsToCoast(coastDrives: true, dragging: true, freeze: false) {
+            fputs("FAIL Drag postet Sample\n", stderr)
+            fails += 1
+        }
+        if GestureMath.sampleCursorYieldsToCoast(coastDrives: true, dragging: false, freeze: true) {
+            fputs("FAIL Freeze postet Sample\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.cgEventCoalesceDt() - 1.0 / 90.0) > 0.001 {
+            fputs("FAIL Coalesce 90 Hz\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cgEventCoalesceDue(lastPost: 1.0, now: 1.005) {
+            fputs("FAIL Coalesce zu früh\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.cgEventCoalesceDue(lastPost: 1.0, now: 1.02) {
+            fputs("FAIL Coalesce fällig\n", stderr)
+            fails += 1
+        }
+        if GestureMath.spaceMapNeedsRecalib(stored: 0, live: 5) {
+            fputs("FAIL Rotation 5° hält\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.spaceMapNeedsRecalib(stored: 0, live: 90) {
+            fputs("FAIL Rotation 90° tot\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.spaceMapNeedsRecalib(stored: 350, live: 20) {
+            fputs("FAIL Rotation wrap 350→20\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.spaceMapRotationDelta(350, 10) - 20) > 0.01 {
+            fputs("FAIL Rotation Delta wrap\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

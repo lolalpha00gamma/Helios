@@ -122,9 +122,17 @@ final class SystemControl {
         guard allowsInjection else { return }
         guard GestureMath.pointerWarpAllowed(axTrusted: AXIsProcessTrusted()) else { return }
         let p = ScreenGeometry.clampQuartz(point)
+        let now = CACurrentMediaTime()
+        if let posted = lastPosted,
+           !GestureMath.cgEventCoalesceDue(lastPost: lastPostAt, now: now),
+           hypot(p.x - posted.x, p.y - posted.y) < 0.6
+        {
+            return
+        }
         lastPosted = p
-        lastPostAt = CACurrentMediaTime()
+        lastPostAt = now
         let src = CGEventSource(stateID: .hidSystemState)
+        src?.setLocalEventsSuppressionInterval(0)
         let e = CGEvent(mouseEventSource: src, mouseType: .mouseMoved, mouseCursorPosition: p, mouseButton: .left)
         e?.post(tap: .cghidEventTap)
     }

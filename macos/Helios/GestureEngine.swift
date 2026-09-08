@@ -107,6 +107,7 @@ final class GestureEngine {
     private var twoPinchEdgeStreak = 0
     private var twoPinchScaleStreak = 0
     private var twoPinchLockedAxis: TwoPinchAxis = .none
+    private var twoPinchLastMapped: [CGPoint]?
     private var freezeGain: CGFloat = 1
     private var recoverUntil: TimeInterval = 0
     private var recoverSpan: TimeInterval = 0.08
@@ -170,6 +171,18 @@ final class GestureEngine {
         guard !testMode else { return }
         system.moveCursor(to: p)
     }
+
+    private func postSampleCursor(_ p: CGPoint, freeze: Bool = false) {
+        guard !testMode else { return }
+        let coast = GestureMath.hudLerpDrivesCursor()
+            && GestureMath.hudCoastAllowed(
+                reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+            )
+        if GestureMath.sampleCursorYieldsToCoast(
+            coastDrives: coast, dragging: system.isDragging, freeze: freeze
+        ) { return }
+        system.moveCursor(to: p)
+    }
     var focused: FocusedTarget?
 
     private var space: AspectSpace { GestureClassifier.space }
@@ -209,6 +222,7 @@ final class GestureEngine {
         twoPinchEdgeStreak = 0
         twoPinchScaleStreak = 0
         twoPinchLockedAxis = .none
+        twoPinchLastMapped = nil
         freezeGain = 1
         recoverUntil = 0
         recoverSpan = 0.08
@@ -370,8 +384,8 @@ final class GestureEngine {
                     let ghostPrimary = preferred(lastHandsLive)
                     let actor = pinchActor(lastHandsLive, primary: ghostPrimary)
                     placeCursors(lastHandsLive, actor: actor)
-                    if !testMode, let p = cursor {
-                        system.moveCursor(to: p)
+                    if let p = cursor {
+                        postSampleCursor(p, freeze: true)
                     }
                 }
                 dragging = pinchHeld
@@ -390,6 +404,8 @@ final class GestureEngine {
             swipeHandID = nil
             twoPinchEdgeStreak = 0
             twoPinchScaleStreak = 0
+            twoPinchLockedAxis = .none
+            twoPinchLastMapped = nil
             freezeGain = 1
             scrollCoast = nil
             if system.isDragging { system.endWindowDrag() }
@@ -537,8 +553,8 @@ final class GestureEngine {
         }
         if handleKillSwitch(hands: hands, now: now) {
             placeCursors(hands, actor: primary)
-            if !testMode, cursorDidMove, let p = cursor {
-                system.moveCursor(to: p)
+            if cursorDidMove, let p = cursor {
+                postSampleCursor(p)
             }
             return
         }
@@ -560,8 +576,8 @@ final class GestureEngine {
         }
         if now < cooldownUntil || now < armedQuietUntil {
             placeCursors(hands, actor: primary)
-            if !testMode, !system.isDragging, cursorDidMove, primary.pose != .fist, let p = cursor {
-                system.moveCursor(to: p)
+            if !system.isDragging, cursorDidMove, primary.pose != .fist, let p = cursor {
+                postSampleCursor(p)
             }
             if pinchHeld {
                 let actor = pinchActor(hands, primary: primary)
@@ -579,8 +595,8 @@ final class GestureEngine {
             || !hands.contains(where: { $0.id == actor.id })
         if !freezePointer {
             placeCursors(hands, actor: actor)
-            if !testMode, !system.isDragging, cursorDidMove, actor.pose != .fist, let p = cursor {
-                system.moveCursor(to: p)
+            if !system.isDragging, cursorDidMove, actor.pose != .fist, let p = cursor {
+                postSampleCursor(p)
             }
         }
         magnetChrome(now: now)
@@ -1142,6 +1158,7 @@ final class GestureEngine {
             twoPinchEdgeStreak = 0
             twoPinchScaleStreak = 0
             twoPinchLockedAxis = .none
+            twoPinchLastMapped = nil
             return false
         }
         if twoPinchSince == nil { twoPinchSince = now }
@@ -1164,16 +1181,14 @@ final class GestureEngine {
         }
         if let bounds = focused?.quartzBounds, mapped.count >= 2 {
             let axis = GestureMath.twoPinchAxis(mapped[0], mapped[1], window: bounds)
-            let holds = GestureMath.twoPinchAxisHolds(locked: twoPinchLockedAxis, next: axis)
-            if holds {
-                if twoPinchLockedAxis == .none {
-                    twoPinchLockedAxis = axis
-                }
-                if let chip = GestureMath.twoPinchAxisChip(twoPinchLockedAxis) {
-                    lockFreeze = lockFreeze.isEmpty ? chip : "\(lockFreeze) \(chip)"
-                }
-            } else {
-                twoPinchLockedAxis = .none
+            let dx = abs(mapped[0].x - mapped[1].x) / max(40, bounds.width)
+            let dy = abs(mapped[0].y - mapped[1].y) / max(40, bounds.height)
+            twoPinchLockedAxis = GestureMath.twoPinchAxisHysteresis(
+                locked: twoPinchLockedAxis, next: axis, dx: dx, dy: dy
+            )
+            let holds = twoPinchLockedAxis != .none
+            if holds, let chip = GestureMath.twoPinchAxisChip(twoPinchLockedAxis) {
+                lockFreeze = lockFreeze.isEmpty ? chip : "\(lockFreeze) \(chip)"
             }
             let frames = GestureMath.twoPinchConfirmFrames(dt: sampleDt)
             twoPinchEdgeStreak = GestureMath.twoPinchEdgeHold(
@@ -1182,6 +1197,7 @@ final class GestureEngine {
                 need: frames
             )
             if !GestureMath.twoPinchEdgeReady(streak: twoPinchEdgeStreak, need: frames) {
+                twoPinchLastMapped = mapped
                 return true
             }
         }
@@ -1195,6 +1211,22 @@ final class GestureEngine {
         }()
         if let old = twoHandSpan, now >= cooldownUntil {
             let d = span - old
+            if GestureMath.twoPinchPrefersScroll(spanDelta: d),
+               twoPinchLockedAxis != .none,
+               let prev = twoPinchLastMapped, prev.count >= 2, mapped.count >= 2
+            {
+                let ticks = GestureMath.twoPinchScrollTicks(
+                    axis: twoPinchLockedAxis,
+                    a: mapped[0], b: mapped[1],
+                    prevA: prev[0], prevB: prev[1]
+                )
+                if ticks != 0 {
+                    let conf = Float(pinches.map(\.poseProb).min() ?? 0)
+                    perform("Scroll", need: .input, confidence: conf) { system.scroll(ticks: ticks) }
+                }
+                twoPinchLastMapped = mapped
+                return true
+            }
             let reversing = lastScaleSign != 0 && d * lastScaleSign < 0
             let need = GestureMath.twoPinchScaleNeed * (reversing ? GestureMath.twoPinchReverseMul : 1)
             if abs(d) > need {
@@ -1205,6 +1237,7 @@ final class GestureEngine {
                     need: frames
                 )
                 guard GestureMath.twoPinchEdgeReady(streak: twoPinchScaleStreak, need: frames) else {
+                    twoPinchLastMapped = mapped
                     return true
                 }
                 let conf = Float(pinches.map(\.poseProb).min() ?? 0)
@@ -1214,6 +1247,7 @@ final class GestureEngine {
                 lastScaleSign = d > 0 ? 1 : -1
                 twoHandSpan = span
                 twoPinchScaleStreak = 0
+                twoPinchLastMapped = mapped
                 cooldownUntil = now + 0.28
                 return true
             }
@@ -1222,6 +1256,7 @@ final class GestureEngine {
         if twoHandSpan == nil {
             twoHandSpan = span
         }
+        twoPinchLastMapped = mapped
         return true
     }
 

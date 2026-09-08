@@ -794,6 +794,46 @@ enum GestureMath {
         return locked == next
     }
 
+    /// Ein Jitter-Frame darf die Achse nicht auf .none setzen — sonst Scroll↔Scale-Flip.
+    static func twoPinchAxisHysteresis(
+        locked: TwoPinchAxis,
+        next: TwoPinchAxis,
+        dx: CGFloat,
+        dy: CGFloat,
+        ratio: CGFloat = 1.35
+    ) -> TwoPinchAxis {
+        if locked == .none { return next }
+        if next == .none { return locked }
+        if next == locked { return locked }
+        let strong: Bool
+        switch locked {
+        case .horizontal: strong = dy >= dx * ratio
+        case .vertical: strong = dx >= dy * ratio
+        case .none: strong = true
+        }
+        return strong ? next : locked
+    }
+
+    /// Kleine Span-Änderung bei gelockter Achse = Scroll, nicht Fenster-Scale.
+    static func twoPinchPrefersScroll(spanDelta: CGFloat, scaleNeed: CGFloat = twoPinchScaleNeed) -> Bool {
+        abs(spanDelta) < scaleNeed * 0.42
+    }
+
+    static func twoPinchScrollTicks(
+        axis: TwoPinchAxis,
+        a: CGPoint,
+        b: CGPoint,
+        prevA: CGPoint,
+        prevB: CGPoint
+    ) -> Int32 {
+        guard axis != .none else { return 0 }
+        let mid = CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)
+        let prev = CGPoint(x: (prevA.x + prevB.x) / 2, y: (prevA.y + prevB.y) / 2)
+        let d = axis == .horizontal ? (mid.x - prev.x) : (mid.y - prev.y)
+        let ticks = Int32((d * 0.42).rounded())
+        return max(-24, min(24, ticks))
+    }
+
     /// Zwei-Pinzetten: IDs sortieren, sonst Vision-Reorder → Span-Sprung.
     static func twoPinchSorted(ids: [String]) -> [String] {
         ids.sorted()
@@ -921,6 +961,35 @@ enum GestureMath {
     }
 
     static func pinchAnalogClosed(_ analog: Double) -> Bool { analog >= 0.58 }
+
+    /// Sample-Cursor nicht posten wenn DisplayLink-Coast den OS-Zeiger treibt.
+    static func sampleCursorYieldsToCoast(coastDrives: Bool, dragging: Bool, freeze: Bool) -> Bool {
+        coastDrives && !dragging && !freeze
+    }
+
+    /// 90 Hz coalesced, unabhängig vom Vision-Tick. Kleiner als Coast-Cap.
+    static func cgEventCoalesceDt(displayHz: Double = 90) -> TimeInterval {
+        1.0 / max(30, displayHz)
+    }
+
+    static func cgEventCoalesceDue(lastPost: TimeInterval, now: TimeInterval, dt: TimeInterval? = nil) -> Bool {
+        lastPost <= 0 || now - lastPost >= (dt ?? cgEventCoalesceDt())
+    }
+
+    /// Nach Display-Drehung ist die Homographie tot. Zirkuläre Δ ≥ 15°.
+    static func spaceMapRotationDelta(_ a: Double, _ b: Double) -> Double {
+        var d = abs(a - b).truncatingRemainder(dividingBy: 360)
+        if d > 180 { d = 360 - d }
+        return d
+    }
+
+    static func spaceMapNeedsRecalib(stored: Double, live: Double, need: Double = 15) -> Bool {
+        spaceMapRotationDelta(stored, live) >= need
+    }
+
+    static func spaceMapRotation(displayID: UInt32) -> Double {
+        CGDisplayRotation(CGDirectDisplayID(displayID))
+    }
 
     /// 5K / Retina: 80 pt Coast zu kurz, Sample warpt. Scale 1 bleibt 80, 2× = 160.
     static func hudCoastCapScaled(scale: CGFloat, base: CGFloat = 80) -> CGFloat {

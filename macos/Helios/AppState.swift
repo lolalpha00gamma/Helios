@@ -565,6 +565,13 @@ final class AppState: ObservableObject {
             ?? SpaceMap.load(cameraID: id, displayID: ScreenGeometry.mainDisplayID)
             ?? SpaceMap.load(displayID: did)
             ?? SpaceMap.load(displayID: ScreenGeometry.mainDisplayID)
+        if let map = engine.spaceMap, map.displayID != 0 {
+            let live = GestureMath.spaceMapRotation(displayID: map.displayID)
+            if GestureMath.spaceMapNeedsRecalib(stored: map.rotation, live: live) {
+                engine.spaceMap = nil
+                log.record("Display gedreht — Homographie tot, neu kalibrieren", kind: .info)
+            }
+        }
         mapReady = engine.spaceMap?.isReady == true
         coverMapReady = coverCalibrated(camera.coverID)
     }

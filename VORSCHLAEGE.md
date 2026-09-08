@@ -1,5 +1,43 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.52**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.52 erledigt
+
+1.6.51 Two-pinch vs Scroll, Coast-Cap×Scale, Jiggle×Scale. Achse kippte. Display-Drehung tot. Sample vs Coast.
+
+1. **Two-pinch vs Scroll-Hysterese.** Achse hält, kleine Span = Ticks.
+2. **SpaceMap Re-Calib** nach Display-Drehung.
+3. **CGEvent coalescing 90 Hz.**
+4. **Sample-Cursor weicht Coast.**
+5. Tests + MARKETING_VERSION 1.6.52 (Build 85).
+
+## Erweiterung (neu, 1.6.52)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+2. **HeliosAegisKit** gemeinsamer Broker + Mutex-PTS.
+3. **Pair-Stereo-Tiefe** Mac+iPhone statt DepthCapture-Stub.
+4. **Watch Double-Tap** Click-Confirm.
+5. **App-Grammar** Safari-Scroll vs Finder-Drag vs Xcode-Caret.
+6. **JSONL Session-Replay** ohne Vision.
+7. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+8. **Slot-ID persist** über uniqueID-Flicker.
+9. **IOHID Force-Click vs Pinch.**
+10. **mmap leftover-Boxen** Helios↔Aegis Palm-Occlusion.
+11. **DepthCapture an Continuity-LiDAR.**
+12. **Overlay CAMetalLayer.**
+13. **Per-App Scroll-Gain.**
+14. **Pinch-Hold analog × Kalman-Q.**
+15. **Pointer-Accel × backingScaleFactor.**
+16. **VNTrack Hand-Box persist** bei Continuity 8 Hz.
+17. **Two-pinch Scroll-Ticks × backingScale.**
+18. **SpaceMap Rotation-Nudge** statt Wipe.
+19. **Click-Hitch Debounce** Continuity-Miss ≠ Double-Click.
+
+P0 CameraBroker. Kein neues *Need(dt).
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.51**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
 
 ## In 1.6.51 erledigt

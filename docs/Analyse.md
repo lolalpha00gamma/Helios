@@ -1,5 +1,22 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
+Stand: 2026-09-08. Helios **1.6.52** (Build 85). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+
+## 0. 1.6.52 — Two-pinch Hysterese, Rotation-Recalib, CGEvent 90 Hz
+
+1.6.51: Two-pinch vs Scroll, Coast-Cap×Scale, Jiggle×Scale. Danach kippte Zwei-Pinzette zwischen Scroll und Scale (Achse `.none` nach einem Jitter). Display-Drehung ließ die Homographie stehen. Sample-Cursor (8 Hz) zog den Coast-Zeiger zurück.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | Two-pinch Achse `.none` nach 1 Frame | `twoPinchAxisHysteresis` + PrefersScroll |
+| 2 | Display-Drehung tot | `spaceMapNeedsRecalib` + rotation stamp |
+| 3 | Sample-Cursor vs Coast | `sampleCursorYieldsToCoast` |
+| 4 | CGEvent Burst | `cgEventCoalesceDue` 90 Hz, Suppression 0 |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe.
+
+# Analyse, Fehlerbehebung, öffentlicher Abgleich
+
 Stand: 2026-09-08. Helios **1.6.51** (Build 84). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
 
 ## 0. 1.6.51 — Two-pinch vs Scroll, Coast-Cap×Scale, Jiggle×Scale

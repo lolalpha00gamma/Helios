@@ -1745,10 +1745,10 @@ enum CoordTests {
             fputs("FAIL PTS-Wall 8 fps folgt PTS\n", stderr)
             fails += 1
         }
-        let pred = GestureMath.freezeKalmanPredict(
+        let predKalman = GestureMath.freezeKalmanPredict(
             palm: CGPoint(x: 0.40, y: 0.50), vx: 0.20, vy: 0, dt: 0.125
         )
-        if pred.palm.x <= 0.40 {
+        if predKalman.palm.x <= 0.40 {
             fputs("FAIL HandTracker Freeze Kalman +x\n", stderr)
             fails += 1
         }
@@ -1856,16 +1856,16 @@ enum CoordTests {
             fputs("FAIL Clutch Scale min 1\n", stderr)
             fails += 1
         }
-        let win = CGRect(x: 100, y: 100, width: 400, height: 300)
-        if !GestureMath.axWindowCacheHolds(cursor: CGPoint(x: 120, y: 120), bounds: win) {
+        let axWin = CGRect(x: 100, y: 100, width: 400, height: 300)
+        if !GestureMath.axWindowCacheHolds(cursor: CGPoint(x: 120, y: 120), bounds: axWin) {
             fputs("FAIL AX Window Cache innen\n", stderr)
             fails += 1
         }
-        if !GestureMath.axWindowCacheHolds(cursor: CGPoint(x: 90, y: 90), bounds: win) {
+        if !GestureMath.axWindowCacheHolds(cursor: CGPoint(x: 90, y: 90), bounds: axWin) {
             fputs("FAIL AX Window Cache Pad\n", stderr)
             fails += 1
         }
-        if GestureMath.axWindowCacheHolds(cursor: CGPoint(x: 10, y: 10), bounds: win) {
+        if GestureMath.axWindowCacheHolds(cursor: CGPoint(x: 10, y: 10), bounds: axWin) {
             fputs("FAIL AX Window Cache außen tot\n", stderr)
             fails += 1
         }

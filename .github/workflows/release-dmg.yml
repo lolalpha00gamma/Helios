@@ -3,12 +3,9 @@ name: Helios.dmg
 on:
   push:
     branches: [main]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - 'AGENT.md'
-      - 'CLAUDE.md'
-      - 'agent.md'
+    paths:
+      - 'macos/**'
+      - '.github/workflows/release-dmg.yml'
   workflow_dispatch:
 
 permissions:

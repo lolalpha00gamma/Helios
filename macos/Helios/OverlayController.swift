@@ -228,7 +228,8 @@ final class OverlayController {
                     cursors[i].point = GestureMath.hudLerpPoint(prev: old.point, next: cursors[i].point, t: 1)
                 } else {
                     cursors[i].point = GestureMath.hudCoastPoint(
-                        sample: cursors[i].point, vel: vel, elapsed: max(0, now - next.at)
+                        sample: cursors[i].point, vel: vel, elapsed: max(0, now - next.at),
+                        cap: GestureMath.hudCoastCapScaled(scale: NSScreen.main?.backingScaleFactor ?? 1)
                     )
                 }
             }

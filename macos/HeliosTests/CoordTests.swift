@@ -817,6 +817,22 @@ enum CoordTests {
             fputs("FAIL Pinzette blockt Scroll\n", stderr)
             fails += 1
         }
+        if GestureMath.scrollAllowed(openPalms: 1, pinchHeld: false, twoPinch: true) {
+            fputs("FAIL Zwei-Pinzette blockt Scroll\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.scrollMuteAfterTwoPinch(now: 1.10, endedAt: 1.0) {
+            fputs("FAIL Scroll-Mute 100 ms nach Zoom\n", stderr)
+            fails += 1
+        }
+        if GestureMath.scrollMuteAfterTwoPinch(now: 1.40, endedAt: 1.0) {
+            fputs("FAIL Scroll-Mute 400 ms tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.scrollCoastBreaks(pinchHeld: false, twoPinch: true) == false {
+            fputs("FAIL Zwei-Pinzette bricht Scroll-Coast\n", stderr)
+            fails += 1
+        }
         if GestureMath.pinchReleaseDead < 0.08 || GestureMath.pinchReleaseDead > 0.18 {
             fputs("FAIL pinchReleaseDead 80–180 ms\n", stderr)
             fails += 1
@@ -1880,6 +1896,26 @@ enum CoordTests {
         }
         if GestureMath.pinchAnalogClosed(GestureMath.pinchAnalog(closedness: 0.20, zSep: 1.10)) {
             fputs("FAIL Analog offen\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.hudCoastCapScaled(scale: 1) - 80) > 0.5 {
+            fputs("FAIL Coast-Cap 1× = 80\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.hudCoastCapScaled(scale: 2) - 160) > 0.5 {
+            fputs("FAIL Coast-Cap 2× = 160\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.clutchJiggleScaled(scale: 2) - 2.4) > 0.01 {
+            fputs("FAIL Jiggle 2× = 2,4\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.clutchIgnores(delta: 2.0, scale: 2) {
+            fputs("FAIL Retina-Jiggle ignoriert 2 pt\n", stderr)
+            fails += 1
+        }
+        if GestureMath.clutchIgnores(delta: 2.0, scale: 1) {
+            fputs("FAIL 1× Jiggle 2 pt seizes nicht ignorieren\n", stderr)
             fails += 1
         }
 

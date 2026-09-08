@@ -1,4 +1,35 @@
-# Helios **1.6.50**
+# Helios **1.6.51**
+
+
+Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
+
+Privates Repo. Keine Open-Source-Lizenzdatei.
+
+Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Start
+
+**Nur die DMG-Datei laden, nicht Source code (zip):**
+
+[Helios.dmg](https://github.com/lolalpha00gamma/Helios/releases/latest/download/Helios.dmg)
+
+1. `Helios.dmg` doppelklicken (kein Entpacken)
+2. Helios nach **Programme** ziehen — nicht aus dem Image starten
+3. Erster Start (nicht notarisierte Ad-hoc-Signatur): **Systemeinstellungen → Datenschutz & Sicherheit → Trotzdem öffnen**
+4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
+
+Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.51
+
+1.6.50 Clutch×Scale, AX-Window, reduced-motion, Vision-Stale, Pinch analog. Zoom startete Scroll. Coast 80 pt auf Retina zu kurz. Jiggle 1,2 pt ließ eigene CGEvents durch.
+
+- **Two-pinch vs Scroll.** Zoom hält Wisch 0,28 s tot.
+- **HUD-Coast-Cap × Scale.** 2× = 160 pt.
+- **Clutch-Jiggle × Scale.** Echo ignoriert.
+- Tests + MARKETING_VERSION 1.6.51 (Build 84).
+
+## Neu in 1.6.50
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.

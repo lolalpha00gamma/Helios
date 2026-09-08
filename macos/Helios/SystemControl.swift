@@ -103,10 +103,10 @@ final class SystemControl {
         { return }
         if GestureMath.clutchIgnoresFreeze(freezeLive: freezeLive) { return }
         let d = hypot(e.deltaX, e.deltaY)
-        if GestureMath.clutchIgnores(delta: d) { return }
+        let scale = NSScreen.main?.backingScaleFactor ?? 1
+        if GestureMath.clutchIgnores(delta: d, scale: scale) { return }
         if let posted = lastPosted {
             let nowLoc = NSEvent.mouseLocation.screenFlipped
-            let scale = NSScreen.main?.backingScaleFactor ?? 1
             if hypot(nowLoc.x - posted.x, nowLoc.y - posted.y) < GestureMath.clutchOwnRadiusScaled(scale: scale) { return }
         }
         guard d > 3.5 else { return }

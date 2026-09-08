@@ -246,8 +246,8 @@ enum GestureMath {
     }
 
     /// Scroll nur mit genau einer offenen Hand. Zwei offene gehören dem Not-Aus.
-    static func scrollAllowed(openPalms: Int, pinchHeld: Bool) -> Bool {
-        if pinchHeld { return false }
+    static func scrollAllowed(openPalms: Int, pinchHeld: Bool, twoPinch: Bool = false) -> Bool {
+        if pinchHeld || twoPinch { return false }
         return openPalms == 1
     }
 
@@ -770,8 +770,8 @@ enum GestureMath {
         return now - t < pinchReleaseNeed(dt: dt)
     }
 
-    static func clutchIgnores(delta: CGFloat) -> Bool {
-        delta < clutchJiggle
+    static func clutchIgnores(delta: CGFloat, scale: CGFloat = 1) -> Bool {
+        delta < clutchJiggleScaled(scale: scale)
     }
 
     /// Zwei-Pinzetten an gegenüberliegenden Fensterhälften, nicht am Palmenabstand.
@@ -922,6 +922,26 @@ enum GestureMath {
 
     static func pinchAnalogClosed(_ analog: Double) -> Bool { analog >= 0.58 }
 
+    /// 5K / Retina: 80 pt Coast zu kurz, Sample warpt. Scale 1 bleibt 80, 2× = 160.
+    static func hudCoastCapScaled(scale: CGFloat, base: CGFloat = 80) -> CGFloat {
+        base * max(1, min(3, scale))
+    }
+
+    /// Echo der eigenen CGEvents auf Retina größer als 1,2 pt.
+    static func clutchJiggleScaled(scale: CGFloat) -> CGFloat {
+        clutchJiggle * max(1, min(3, scale))
+    }
+
+    /// Nach Zoom kein sofortiger Scroll. 0,28 s Hysterese.
+    static func scrollMuteAfterTwoPinch(
+        now: TimeInterval,
+        endedAt: TimeInterval?,
+        hold: TimeInterval = 0.28
+    ) -> Bool {
+        guard let t = endedAt else { return false }
+        return now - t >= 0 && now - t < hold
+    }
+
     /// Nach dem Sample coasten, nicht 1 Frame hinterher interpolieren.
     static func hudCoastVel(prev: CGPoint, next: CGPoint, dt: TimeInterval) -> CGPoint {
         let t = CGFloat(max(0.008, dt))
@@ -1025,8 +1045,8 @@ enum GestureMath {
     }
 
     /// Inertia darf keinen Klick-Start überdecken.
-    static func scrollCoastBreaks(pinchHeld: Bool) -> Bool {
-        pinchHeld
+    static func scrollCoastBreaks(pinchHeld: Bool, twoPinch: Bool = false) -> Bool {
+        pinchHeld || twoPinch
     }
 
     /// Continuity-Dropout sichtbar ohne Konsole.

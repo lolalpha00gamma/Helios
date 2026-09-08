@@ -102,6 +102,7 @@ final class GestureEngine {
     private var grabLogged = false
     private var lastGrabTry: TimeInterval = 0
     private var twoPinchSince: TimeInterval?
+    private var twoPinchEndedAt: TimeInterval?
     private var lastScaleSign: CGFloat = 0
     private var twoPinchEdgeStreak = 0
     private var twoPinchScaleStreak = 0
@@ -203,6 +204,7 @@ final class GestureEngine {
         grabLogged = false
         lastGrabTry = 0
         twoPinchSince = nil
+        twoPinchEndedAt = nil
         lastScaleSign = 0
         twoPinchEdgeStreak = 0
         twoPinchScaleStreak = 0
@@ -402,6 +404,7 @@ final class GestureEngine {
             pinchOriginCursor = nil
             pinchPalmMoved = 0
             pinchMissSince = nil
+            if twoPinchSince != nil { twoPinchEndedAt = now }
             twoPinchSince = nil
             lastScaleSign = 0
             twoHandSpan = nil
@@ -1131,6 +1134,7 @@ final class GestureEngine {
                 swipeMuteUntil = now + GestureMath.swipeMuteAfterPinch
                 cooldownUntil = max(cooldownUntil, now + 0.25)
                 pinchTrail.removeAll()
+                twoPinchEndedAt = now
             }
             twoHandSpan = nil
             twoPinchSince = nil
@@ -1699,8 +1703,12 @@ final class GestureEngine {
     /// Eine offene Steuerhand vertikal. Zwei offene Palmen gehören dem Not-Aus.
     private func driveScroll(hands: [TrackedHand], preferred: TrackedHand, now: TimeInterval) {
         let open = hands.filter { $0.openScore >= 3 }
-        if !GestureMath.scrollAllowed(openPalms: open.count, pinchHeld: pinchHeld) {
-            if GestureMath.scrollCoastBreaks(pinchHeld: pinchHeld) {
+        if !GestureMath.scrollAllowed(
+            openPalms: open.count,
+            pinchHeld: pinchHeld,
+            twoPinch: twoPinchSince != nil
+        ) || GestureMath.scrollMuteAfterTwoPinch(now: now, endedAt: twoPinchEndedAt) {
+            if GestureMath.scrollCoastBreaks(pinchHeld: pinchHeld, twoPinch: twoPinchSince != nil) {
                 scrollCoast = nil
                 scrollAnchor = nil
                 return

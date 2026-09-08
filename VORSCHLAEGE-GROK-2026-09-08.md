@@ -1,3 +1,34 @@
+# Helios Vorschläge — 2026-09-08 (Pass 14, 1.6.51)
+
+Stand 1.6.51. Two-pinch vs Scroll, Coast-Cap×Scale, Jiggle×Scale.
+
+## Gelandet in 1.6.51
+
+- scrollAllowed twoPinch + scrollMuteAfterTwoPinch
+- hudCoastCapScaled backingScaleFactor
+- clutchJiggleScaled
+
+## Erweiterung (neu)
+
+137. **Stereo Mac+iPhone Disparität** statt Lift-z.
+138. **Watch Double-Tap** Confirm.
+139. **App-Grammar** Safari vs Finder vs Xcode.
+140. **JSONL Session-Replay** ohne Vision auf Linux.
+141. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+142. **Slot-ID persist** über uniqueID-Flicker.
+143. **IOHID Force-Click vs Pinch.**
+144. **mmap leftover-Boxen** Helios↔Aegis Palm-Occlusion.
+145. **DepthCapture an Continuity-LiDAR.**
+146. **CGEvent-Tap coalescing 90 Hz** unabhängig von Coast.
+147. **SpaceMap Re-Calib** nach Display-Drehung.
+148. **Pointer-Accel × backingScaleFactor.**
+149. **Fling-Cap × Screen-Höhe.**
+150. **Session-Watchdog** Idle = fps>0 UND keine Aegis-Face UND 8 s leer.
+151. **Air-Keyboard Dwell × Scale.**
+152. **Overlay CAMetalLayer.**
+
+P0: CameraBroker. Kein neues *Need(dt).
+
 # Helios Vorschläge — 2026-09-08 (Pass 13, 1.6.50)
 
 Stand 1.6.50. Clutch×Scale, AX-Window-Cache, reduced-motion, Vision-Stale, Pinch analog.

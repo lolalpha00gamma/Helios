@@ -1,5 +1,21 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
+Stand: 2026-09-08. Helios **1.6.51** (Build 84). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+
+## 0. 1.6.51 — Two-pinch vs Scroll, Coast-Cap×Scale, Jiggle×Scale
+
+1.6.50: Clutch×Scale, AX-Window, reduced-motion, Vision-Stale, Pinch analog. Danach Zoom während einer offenen Palme = Scroll. Coast 80 pt auf 5K zu kurz. Jiggle 1,2 pt lässt CGEvent-Echo durch.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | Two-pinch startet Scroll | `scrollAllowed` + Mute 0,28 s |
+| 2 | Coast-Cap 80 pt Retina | `hudCoastCapScaled` |
+| 3 | Jiggle 1,2 pt Retina | `clutchJiggleScaled` |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe.
+
+# Analyse, Fehlerbehebung, öffentlicher Abgleich
+
 Stand: 2026-09-08. Helios **1.6.50** (Build 83). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
 
 ## 0. 1.6.50 — Clutch×Scale, AX-Window, reduced-motion, Vision-Stale, Pinch analog

@@ -203,6 +203,7 @@ enum ScreenGeometry {
     nonisolated(unsafe) private static var lastHopAt: TimeInterval = 0
     nonisolated(unsafe) private static var lastHopPoint: CGPoint?
     nonisolated(unsafe) private static var hopRecalibDone = false
+    nonisolated(unsafe) private static var hopLoadAt = 0
 
     static func noteCursorHop(_ p: CGPoint, now: TimeInterval = Date().timeIntervalSince1970) {
         if let last = lastHopPoint, bezelHopOccurred(from: last, to: p) {
@@ -211,7 +212,10 @@ enum ScreenGeometry {
         } else {
             hopCount = GestureMath.bezelHopDecay(count: hopCount, lastAt: lastHopAt, now: now)
         }
-        if hopCount == 0 { hopRecalibDone = false }
+        if hopCount == 0 {
+            hopRecalibDone = false
+            hopLoadAt = 0
+        }
         lastHopPoint = p
     }
 
@@ -219,9 +223,10 @@ enum ScreenGeometry {
         GestureMath.bezelHopChip(count: hopCount)
     }
 
-    /// Einmal pro Hop-Welle. Chip bleibt bis Decay, Homographie nicht jedes Frame neu.
+    /// Jeder Hop lädt die Homographie. Einmal pro Welle ließ Display 3 die Sidecar-H.
     static func consumeBezelHopRecalib() -> Bool {
-        guard GestureMath.bezelHopReload(count: hopCount), !hopRecalibDone else { return false }
+        guard GestureMath.bezelHopLoadStep(count: hopCount, loaded: hopLoadAt) else { return false }
+        hopLoadAt = hopCount
         hopRecalibDone = true
         return true
     }
@@ -230,6 +235,7 @@ enum ScreenGeometry {
         hopCount = 0
         lastHopAt = 0
         hopRecalibDone = false
+        hopLoadAt = 0
     }
 
     static func bezelHopOccurred(from: CGPoint, to: CGPoint) -> Bool {

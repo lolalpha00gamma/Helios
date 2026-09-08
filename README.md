@@ -1,4 +1,4 @@
-# Helios **1.6.74**
+# Helios **1.6.75**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -19,6 +19,15 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.75
+
+1.6.74 lud SpaceMap nur einmal. Sidecar→dritter Schirm behielt 5K-H. Heartbeat schrieb Date() als Continuity-PTS. Stamp ohne fsync. Scroll-Streak feuerte nach Zoom sofort.
+
+- **SpaceMap je Hop.** Hop 2 lädt Display 3.
+- **PTS last-sample.** Heartbeat ohne Frame kein neuer PTS.
+- **Beat-Helper + Stamp fsync.** Scroll-Streak Reset Pause/Zoom. Predict bleibt 0.
+- Tests + MARKETING_VERSION 1.6.75 (Build 108).
 
 ## Neu in 1.6.74
 

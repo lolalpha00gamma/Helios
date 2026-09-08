@@ -2676,6 +2676,28 @@ enum CoordTests {
             fputs("FAIL Mutex Stamp Name\n", stderr)
             fails += 1
         }
+        if !GestureMath.bezelHopLoadStep(count: 1, loaded: 0)
+            || GestureMath.bezelHopLoadStep(count: 1, loaded: 1)
+            || !GestureMath.bezelHopLoadStep(count: 2, loaded: 1)
+            || GestureMath.bezelHopLoadStep(count: 0, loaded: 0)
+        {
+            fputs("FAIL Bezel Load Step je Hop\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.cameraMutexHeartbeatClaimSec() - 0.08) > 1e-9 {
+            fputs("FAIL Mutex Heartbeat Claim 80 ms\n", stderr)
+            fails += 1
+        }
+        let samplePts = GestureMath.cameraMutexPtsFromSample(now: 1_700_000_080, lastSample: 1_700_000_000)
+        if samplePts != 1_700_000_000 {
+            fputs("FAIL Mutex PTS last-sample \(samplePts)\n", stderr)
+            fails += 1
+        }
+        let stalePts = GestureMath.cameraMutexPtsFromSample(now: 1_700_000_400, lastSample: 1_700_000_000)
+        if stalePts != 1_700_000_400 {
+            fputs("FAIL Mutex PTS dropout now \(stalePts)\n", stderr)
+            fails += 1
+        }
         if GestureMath.twoPinchEdgeHold(ok: true, streak: 0, need: 2) != 1 {
             fputs("FAIL Scroll-Streak analog Zoom Tick 1\n", stderr)
             fails += 1

@@ -1416,10 +1416,12 @@ final class GestureEngine {
                     }
                 } else {
                     twoPinchScrollStreak = 0
+                    lastScrollSign = 0
                 }
                 twoPinchLastMapped = mapped
                 return true
             }
+            twoPinchScrollStreak = 0
             let reversing = lastScaleSign != 0 && d * lastScaleSign < 0
             let need = GestureMath.twoPinchScaleNeed * (reversing ? GestureMath.twoPinchReverseMul : 1)
             if abs(d) > need {

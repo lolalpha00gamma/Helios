@@ -500,6 +500,11 @@ enum GestureMath {
     /// Erster Hop lädt SpaceMap. 20 wartete bis Sidecar 5K-H trug.
     static func bezelHopReload(count: Int) -> Bool { count >= 1 }
 
+    /// Jeder Hop ein Load. hopRecalibDone einmal ließ Monitor 3 die Sidecar-H.
+    static func bezelHopLoadStep(count: Int, loaded: Int, need: Int = 1) -> Bool {
+        count >= need && count > loaded
+    }
+
     static func bezelHopChip(count: Int, need: Int = 20) -> String? {
         count >= need ? "RECAL · \(need) hops" : nil
     }
@@ -2068,6 +2073,8 @@ enum GestureMath {
     static func cameraMutexStale() -> TimeInterval { 12 }
     static func cameraMutexHeartbeatSec() -> TimeInterval { 2 }
     static func cameraMutexClaimMinDt() -> TimeInterval { 0.08 }
+    /// Fill 220 ms. 2 s Heartbeat verpasst den Continuity-Frame.
+    static func cameraMutexHeartbeatClaimSec() -> TimeInterval { cameraMutexClaimMinDt() }
     /// EX|NB Retry während Aegis LOCK_SH. 3×2 ms < Fill-Skew 220 ms.
     static func cameraMutexFlockRetryN() -> Int { 3 }
     static func cameraMutexFlockRetryUs() -> UInt32 { 2_000 }
@@ -2082,6 +2089,17 @@ enum GestureMath {
         case (nil, let y?): return y
         default: return nil
         }
+    }
+
+    /// Heartbeat ohne Sample darf nicht Date() als neuen Continuity-PTS schreiben.
+    static func cameraMutexPtsFromSample(
+        now: TimeInterval,
+        lastSample: TimeInterval,
+        fresh: TimeInterval = 0.25
+    ) -> TimeInterval {
+        let wall = cameraMutexPtsWall(now: now)
+        if lastSample > 1_000_000, wall - lastSample <= fresh { return lastSample }
+        return wall
     }
 
     static func cameraMutexRelPath() -> String {

@@ -93,6 +93,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     private var lastPts: TimeInterval = 0
     private var lastPtsWall: TimeInterval = 0
     private var lastMutexClaimAt: TimeInterval = 0
+    private var lastMutexSampleUnix: TimeInterval = 0
     private let mutexLock = NSLock()
     private var mutexPalmUV: (x: CGFloat, y: CGFloat, w: CGFloat)?
     private var mutexPalmUVs: [(x: CGFloat, y: CGFloat, w: CGFloat)] = []
@@ -128,6 +129,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         formatPromoted = false
         lastPts = 0
         lastPtsWall = 0
+        lastMutexSampleUnix = 0
         cameraQueue.async { [weak self] in
             self?.configureAndRun()
         }
@@ -418,6 +420,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             lastPromoteAt = 0
             lastPts = 0
             lastPtsWall = 0
+            lastMutexSampleUnix = 0
         }
         lastDeviceUniqueID = device.uniqueID
         lastDeviceRole = Self.role(device).rawValue
@@ -625,8 +628,9 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
 
     private func installMutexBeat() {
         guard mutexBeat == nil else { return }
+        let dt = GestureMath.cameraMutexHeartbeatClaimSec()
         let t = DispatchSource.makeTimerSource(queue: cameraQueue)
-        t.schedule(deadline: .now() + 0.08, repeating: 0.08)
+        t.schedule(deadline: .now() + dt, repeating: dt)
         t.setEventHandler { [weak self] in self?.beatCameraMutex() }
         t.resume()
         mutexBeat = t
@@ -757,6 +761,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         )
         lastPts = rawPts
         lastPtsWall = arrived
+        lastMutexSampleUnix = Date().timeIntervalSince1970
         beatCameraMutex()
         let (owned, slot) = ring.copy(pb)
         pump.push(owned, slot: slot, arrived: arrived, drop: { [weak self] s in
@@ -829,6 +834,10 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
 
     private func writeCameraMutexStamp(line: String) {
         try? line.write(to: cameraMutexStampURL(), atomically: true, encoding: .utf8)
+        if let fh = FileHandle(forUpdatingAtPath: cameraMutexStampURL().path) {
+            try? fh.synchronize()
+            try? fh.close()
+        }
     }
 
     private func flockExclusiveRetry(_ fd: Int32) -> Bool {
@@ -849,7 +858,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         mutexLock.lock()
         let palms = mutexPalmUVs
         mutexLock.unlock()
-        let pts = GestureMath.cameraMutexPtsWall(now: now, mediaPts: 0)
+        let pts = GestureMath.cameraMutexPtsFromSample(now: now, lastSample: lastMutexSampleUnix)
         let url = cameraMutexURL()
         let pid = ProcessInfo.processInfo.processIdentifier
         let owner = GestureMath.cameraMutexOwnerHelios()
@@ -910,6 +919,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         try? FileManager.default.removeItem(at: cameraMutexStampURL())
         mutexChip = "MUTEX —"
         lastMutexClaimAt = 0
+        lastMutexSampleUnix = 0
     }
 }
 

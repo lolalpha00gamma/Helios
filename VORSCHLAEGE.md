@@ -1,5 +1,49 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.75**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.75 erledigt
+
+1.6.74 Stamp lock-free, erster Hop, Scroll-Streak. Load einmal. PTS = Date() ohne Sample. Beat hart 0,08. Stamp ohne fsync.
+
+1. **SpaceMap je Hop** (`bezelHopLoadStep`).
+2. **PTS last-sample** 0,25 s.
+3. **Beat-Helper + Stamp fsync.**
+4. **Scroll-Streak Reset** Pause/Zoom.
+5. Tests + MARKETING_VERSION 1.6.75 (Build 108).
+
+## Erweiterung (neu, 1.6.75)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+2. **HeliosAegisKit** gemeinsamer Broker + Mutex-PTS.
+3. **VNTrackObjectRequest** echte Observation, nicht nur IoU-Box.
+4. **Watch Double-Tap** Click-Confirm + Haptic.
+5. **JSONL Session-Replay** ohne Vision, Palm-Vel für Predict-Tuning.
+6. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+7. **Click-Tick Sound** (optional, Accessibility).
+8. **iPhone Ultraweit** FOV-Fallback statt Center-Stage-Crop.
+9. **Per-Display pointerGain** UserDefaults.
+10. **Aegis-Gaze Pinch-Confirm.**
+11. **Overlay CAMetalLayer.**
+12. **DepthCapture an Continuity-LiDAR.**
+13. **Homographie Recalib-Tap** nach RECAL-Chip.
+14. **Mission-Control Zwei-Palm-Spread.**
+15. **Continuity 15-fps Probe** gemessen, nicht claimed.
+16. **Deadman-Ring Overlay.**
+17. **Air-Keyboard Shortcut-Overlay.**
+18. **Stereo Mac+iPhone Disparität.**
+19. **Pointer-Gain × Continuity-FOV.**
+20. **drei Palmen** nur wenn Helios drei Hände trackt.
+21. **Watch-IMU** Confirm für destruktive Klicks.
+22. **FramePump Vision-Cancel Token** statt 400 ms Drop.
+23. **Per-App Scroll-Gain Pref.**
+24. **SpaceMap JSONL Replay** der Hop-Welle.
+25. **Bezel-Hop Homographie Blend** 200 ms.
+
+P0 CameraBroker. Kein neues *Need(dt). Predict nicht wieder an.
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.73**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
 
 ## In 1.6.73 erledigt

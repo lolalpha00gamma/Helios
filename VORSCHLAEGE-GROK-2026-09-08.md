@@ -1,3 +1,43 @@
+# Helios Vorschläge — 2026-09-08 (Pass 32, 1.6.75)
+
+Stand 1.6.75. SpaceMap je Hop, PTS last-sample, Beat-Helper, Stamp fsync, Scroll-Streak Reset.
+
+## Gelandet in 1.6.75
+
+- bezelHopLoadStep Hop 2 lädt Display 3
+- cameraMutexPtsFromSample 0,25 s
+- cameraMutexHeartbeatClaimSec + Stamp fsync
+- Scroll-Streak Reset ticks=0 / Zoom
+
+## Erweiterung (neu)
+
+401. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+402. **VNTrackObjectRequest** echte Hand-Observation. P1.
+403. **Overlay CAMetalLayer.**
+404. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+405. **Watch Double-Tap** destruktive Klicks.
+406. **Click-Tick Sound.**
+407. **JSONL Palm-Vel** Predict-Tuning.
+408. **iPhone Ultraweit FOV.**
+409. **DepthCapture an Continuity-LiDAR.**
+410. **Per-Display pointerGain Pref.**
+411. **Air-Keyboard Shortcut-Overlay.**
+412. **Stereo Mac+iPhone Disparität.**
+413. **Pointer-Gain × Continuity-FOV.**
+414. **Deadman-Ring Overlay.**
+415. **Homographie Recalib Tipp-Tap** nach RECAL.
+416. **Mission-Control Zwei-Palm-Spread.**
+417. **Aegis-Gaze Pinch-Confirm.**
+418. **drei Palmen** wenn Helios drei Hände trackt.
+419. **Continuity 15-fps Probe** gemessen.
+420. **Watch-IMU** Confirm.
+421. **FramePump Vision-Cancel Token.**
+422. **Per-App Scroll-Gain Pref.**
+423. **SpaceMap JSONL Replay.**
+424. **Bezel-Hop Homographie Blend** 200 ms.
+
+P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
 # Helios Vorschläge — 2026-09-08 (Pass 31, 1.6.74)
 
 Stand 1.6.74. Lock-free PTS-Stamp, SpaceMap erster Hop, Scroll-Streak. Predict bleibt 0.

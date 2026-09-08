@@ -1967,6 +1967,31 @@ enum GestureMath {
         return palmsY.allSatisfy { $0 < tablePalmY } && stillHW < tableStillHW
     }
 
+    /// Dieselbe Anzeige wie der Abstandszeiger: Finger nah = zu. Ohne Reach/3D/Pose.
+    static func pinchMeterClosed(gate: Bool, closedness: Double, isFist: Bool = false) -> Bool {
+        if isFist { return false }
+        return gate || closedness >= 0.28
+    }
+
+    /// 8-fps Tap: zu → auf = Klick. Faust zählt nicht.
+    static func pinchTapWouldClick(closedness: [Double], gates: [Bool] = [], dt: TimeInterval = 0.125, isFist: [Bool] = []) -> Bool {
+        var phase = PinchHoldPhase.unseen
+        var heldFor: TimeInterval = 0
+        var down = false
+        for i in closedness.indices {
+            let g = i < gates.count ? gates[i] : false
+            let fist = i < isFist.count ? isFist[i] : false
+            let closed = pinchMeterClosed(gate: g, closedness: closedness[i], isFist: fist)
+            let adv = pinchHoldAdvance(phase: phase, closed: closed, heldFor: heldFor, dt: dt)
+            let fire = pinchHoldFire(adv.phase)
+            if fire && !down { down = true }
+            else if !fire && down { return true }
+            phase = adv.phase
+            heldFor = adv.heldFor
+        }
+        return false
+    }
+
     /// Pinzette starten: Gate oder klare Closedness, und es muss wie Pinzette aussehen
     /// (Reach / Zeigefinger). Faust hat geschlossene Spitzen — das ist kein Klick.
     static func pinchStartsGrab(gate: Bool, closedness: Double, reach: CGFloat = 1.2, index: Double = 1, zSep: CGFloat = 0, quality: Double = 1, approach: CGFloat = 0, residual: CGFloat = 0, palmWidth: CGFloat = 0.12) -> Bool {

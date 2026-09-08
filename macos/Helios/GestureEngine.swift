@@ -624,16 +624,10 @@ final class GestureEngine {
         if mode != .armed, !testMode, !mustRearm {
             if idleArmSince == nil { idleArmSince = now }
             let p = primary
-            let pinch = GestureMath.pinchStartsGrab(
+            let pinch = GestureMath.pinchMeterClosed(
                 gate: p.pinchClosed,
                 closedness: p.pinchClosedness,
-                reach: p.pinchReach,
-                index: p.indexScore,
-                zSep: p.pinchZSep,
-                quality: p.quality,
-                approach: p.pinchZApproach,
-                residual: p.liftResidual,
-                palmWidth: p.palmWidth
+                isFist: p.pose == .fist
             )
             let held = now - (idleArmSince ?? now)
             if pinch || held >= GestureMath.idleHandArm {
@@ -658,15 +652,14 @@ final class GestureEngine {
             dragging = false
             return
         }
-        if now < cooldownUntil || now < armedQuietUntil {
+        let cooling = now < cooldownUntil || now < armedQuietUntil
+        if cooling {
             placeCursors(hands, actor: primary)
             if !system.isDragging, let p = cursor {
                 postSampleCursor(p)
             }
-            if pinchHeld {
-                let actor = pinchActor(hands, primary: primary)
-                driveGrab(actor, now: now, fire: false)
-            }
+            let actor = pinchActor(hands, primary: primary)
+            driveGrab(actor, now: now)
             updateTrashHot()
             dragging = pinchHeld
             return
@@ -687,10 +680,7 @@ final class GestureEngine {
             dragging = pinchHeld
             return
         }
-        let right = driveRightClick(actor, now: now)
-        if !right {
-            driveGrab(actor, now: now)
-        }
+        driveGrab(actor, now: now)
         driveSwipe(hands: hands, preferred: primary, now: now)
         driveScroll(hands: hands, preferred: primary, now: now)
         drivePeace(preferred: primary, hands: hands, now: now)
@@ -1532,30 +1522,11 @@ final class GestureEngine {
         let analogClosed = GestureMath.pinchAnalogClosed(
             GestureMath.pinchAnalog(closedness: hand.pinchClosedness, zSep: hand.pinchZSep)
         )
-        let closedWanted = (pinchHoldPhase == .held || pinchHoldPhase == .tentative)
-            ? (analogClosed || GestureMath.pinchHoldsGrab(
-                gate: hand.pinchClosed,
-                closedness: hand.pinchClosedness,
-                reach: hand.pinchReach,
-                index: hand.indexScore,
-                allowFist: pinchBecameDrag,
-                zSep: hand.pinchZSep,
-                quality: hand.quality,
-                approach: hand.pinchZApproach,
-                residual: hand.liftResidual,
-                palmWidth: hand.palmWidth
-            ))
-            : (fire && GestureMath.pinchStartsGrab(
-                gate: hand.pinchClosed,
-                closedness: hand.pinchClosedness,
-                reach: hand.pinchReach,
-                index: hand.indexScore,
-                zSep: hand.pinchZSep,
-                quality: hand.quality,
-                approach: hand.pinchZApproach,
-                residual: hand.liftResidual,
-                palmWidth: hand.palmWidth
-            ))
+        let closedWanted = GestureMath.pinchMeterClosed(
+            gate: hand.pinchClosed || analogClosed,
+            closedness: hand.pinchClosedness,
+            isFist: hand.pose == .fist && !pinchBecameDrag
+        )
         let advanced = GestureMath.pinchHoldAdvance(
             phase: pinchHoldPhase,
             closed: closedWanted,
@@ -1679,7 +1650,7 @@ final class GestureEngine {
             let knobsNow = chromeKnobs
             if !testMode { system.endWindowDrag() }
             swipeMuteUntil = now + GestureMath.swipeMuteAfterPinch
-            if !fire {
+            if !fire, pinchBecameDrag {
                 lastAction = "Loslassen"
                 return
             }

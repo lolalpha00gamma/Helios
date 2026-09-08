@@ -1590,6 +1590,42 @@ enum CoordTests {
             fputs("FAIL Leiter-Bias 720 vor 1080\n", stderr)
             fails += 1
         }
+        if !GestureMath.pinchMeterClosed(gate: false, closedness: 0.30) {
+            fputs("FAIL Meter 0,30 zu\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchMeterClosed(gate: false, closedness: 0.10) {
+            fputs("FAIL Meter 0,10 offen\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinchMeterClosed(gate: true, closedness: 0) {
+            fputs("FAIL Meter Gate zu\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchMeterClosed(gate: true, closedness: 0.9, isFist: true) {
+            fputs("FAIL Meter Faust\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinchTapWouldClick(closedness: [0.05, 0.45, 0.55, 0.08]) {
+            fputs("FAIL Tap 8 fps zu-auf\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinchTapWouldClick(closedness: [0.40, 0.08], dt: 0.125) {
+            fputs("FAIL Tap ein Frame zu\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchTapWouldClick(closedness: [0.05, 0.08, 0.10]) {
+            fputs("FAIL Tap ohne Zu\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchTapWouldClick(closedness: [0.5, 0.6, 0.1], isFist: [true, true, false]) {
+            fputs("FAIL Tap Faust kein Klick\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinchTapWouldClick(closedness: [0, 0, 0], gates: [false, true, false], dt: 0.125) {
+            fputs("FAIL Tap Gate-Zeiger\n", stderr)
+            fails += 1
+        }
         var pinch8 = GestureMath.pinchHoldAdvance(phase: .unseen, closed: true, heldFor: 0, dt: 0.125)
         if pinch8.phase != .held {
             fputs("FAIL 8 fps Tap unseen→held\n", stderr)

@@ -21,6 +21,29 @@ final class HUDPanel: NSPanel {
     override var canBecomeMain: Bool { false }
 }
 
+/// NSHostingView malt sonst opak schwarz, sobald das Panel neu nach vorn kommt.
+/// isOpaque hart false, Layer-Hintergrund bei jedem Layout klar — einmalig beim
+/// Erzeugen reicht nicht, SwiftUI setzt die Backing-Opazität wieder zurück.
+private final class ClearHostingView<Content: View>: NSHostingView<Content> {
+    override var isOpaque: Bool { false }
+
+    override func layout() {
+        super.layout()
+        clearBacking()
+    }
+
+    override func viewDidChangeBackingProperties() {
+        super.viewDidChangeBackingProperties()
+        clearBacking()
+    }
+
+    private func clearBacking() {
+        wantsLayer = true
+        layer?.isOpaque = false
+        layer?.backgroundColor = NSColor.clear.cgColor
+    }
+}
+
 private struct HUDPoseSample {
     var at: TimeInterval
     var cursors: [HandCursor]
@@ -41,7 +64,7 @@ private final class HUDLinkDriver: NSObject {
 @MainActor
 final class OverlayController {
     private var panels: [CGDirectDisplayID: HUDPanel] = [:]
-    private var hostings: [CGDirectDisplayID: NSHostingView<HUDRoot>] = [:]
+    private var hostings: [CGDirectDisplayID: ClearHostingView<HUDRoot>] = [:]
     private var markers: [CGDirectDisplayID: (left: HandMarkerView, right: HandMarkerView)] = [:]
     private weak var state: AppState?
     private var screenObs: NSObjectProtocol?
@@ -96,7 +119,7 @@ final class OverlayController {
                 existing.orderFrontRegardless()
                 continue
             }
-            let hosting = NSHostingView(rootView: root)
+            let hosting = ClearHostingView(rootView: root)
             hosting.wantsLayer = true
             hosting.layer?.isOpaque = false
             hosting.layer?.backgroundColor = NSColor.clear.cgColor
@@ -379,7 +402,13 @@ final class HandMarkerView: NSView {
             return
         }
         isHidden = false
-        let local = ScreenGeometry.local(quartz: q, on: screenFrame)
+        // Rand-nahe / kurz aus dem Rahmen gerutschte Hand: Marker an die Kante klemmen,
+        // statt ihn verschwinden zu lassen, solange die Hand erkannt ist.
+        let raw = ScreenGeometry.local(quartz: q, on: screenFrame)
+        let local = CGPoint(
+            x: min(max(raw.x, 6), max(6, bounds.width - 6)),
+            y: min(max(raw.y, 6), max(6, bounds.height - 6))
+        )
         lastLocal = local
         let grab = phase == .grab
         let hold = phase == .hold

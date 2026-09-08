@@ -359,8 +359,10 @@ final class SystemControl {
     }
 
     @discardableResult
-    func unhideFront() -> ActionResult {
-        if let t = TargetProbe.windowUnderCursor(skipSelf: true),
+    func unhideFront(at quartz: CGPoint? = nil) -> ActionResult {
+        // Ziel ist die Hand-Position (engine cursor), nicht die physische Maus.
+        let loc = quartz ?? lastPosted ?? NSEvent.mouseLocation.screenFlipped
+        if let t = TargetProbe.windowAt(quartz: loc, skipSelf: true),
            let app = NSRunningApplication(processIdentifier: t.pid)
         {
             app.unhide()

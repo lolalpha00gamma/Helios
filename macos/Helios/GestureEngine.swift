@@ -1865,7 +1865,8 @@ final class GestureEngine {
         if hand.pose == .thumbsUp, hand.poseProb >= 0.50 {
             if thumbsSince == nil { thumbsSince = now }
             if now - (thumbsSince ?? now) > GestureMath.thumbsHold {
-                perform("Hervorholen", need: .none, confidence: Float(hand.poseProb)) { system.unhideFront() }
+                let at = cursor ?? SpaceMap.linear(hand.palm)
+                perform("Hervorholen", need: .none, confidence: Float(hand.poseProb)) { system.unhideFront(at: at) }
                 thumbsSince = nil
                 cooldownUntil = now + 3
             }

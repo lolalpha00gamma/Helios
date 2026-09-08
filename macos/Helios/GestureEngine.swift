@@ -524,13 +524,8 @@ final class GestureEngine {
         // lastPalm nur mappedPoint / freezePalmPredict. Hier schreiben = Highpass dx 0.
         mousePaused = !system.allowsInjection && !system.fromInstallMedia
 
-        if system.fromInstallMedia {
-            lastAction = "Cursor frei — Helios nach Programme ziehen"
-            mode = .idle
-            if let cal = calibration, cal.active { cal.cancel() }
-            releasePointer()
-            if system.isDragging { system.endWindowDrag() }
-            return
+        if system.fromInstallMedia, lastAction == "—" || lastAction.hasPrefix("Cursor frei") {
+            lastAction = "Scharf — besser nach Programme ziehen"
         }
 
         if mousePaused {

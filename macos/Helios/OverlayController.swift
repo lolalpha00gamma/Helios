@@ -11,6 +11,7 @@ private struct HUDRoot: View {
         HUDView(screenFrame: screenFrame, isPrimary: isPrimary)
             .environmentObject(state)
             .ignoresSafeArea()
+            .background(Color.clear)
     }
 }
 
@@ -96,6 +97,9 @@ final class OverlayController {
                 continue
             }
             let hosting = NSHostingView(rootView: root)
+            hosting.wantsLayer = true
+            hosting.layer?.isOpaque = false
+            hosting.layer?.backgroundColor = NSColor.clear.cgColor
             hosting.frame = CGRect(origin: .zero, size: screen.frame.size)
             let box = CGRect(origin: .zero, size: screen.frame.size)
             let leftM = HandMarkerView(frame: box)
@@ -104,6 +108,8 @@ final class OverlayController {
             rightM.screenFrame = screen.frame
             let wrap = NSView(frame: box)
             wrap.wantsLayer = true
+            wrap.layer?.isOpaque = false
+            wrap.layer?.backgroundColor = NSColor.clear.cgColor
             wrap.addSubview(hosting)
             wrap.addSubview(leftM)
             wrap.addSubview(rightM)

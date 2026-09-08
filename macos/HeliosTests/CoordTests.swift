@@ -291,6 +291,10 @@ enum CoordTests {
             fputs("FAIL Clutch-Fenster gegen eigene Events zu kurz\n", stderr)
             fails += 1
         }
+        if GestureMath.clutchOwnNeed(dt: 0.125) < 0.40 {
+            fputs("FAIL Clutch-Fenster 8 fps\n", stderr)
+            fails += 1
+        }
         if GestureMath.hybridBand < 0.10 || GestureMath.hybridBand > 0.25 {
             fputs("FAIL Hybrid-Band 15 %\n", stderr)
             fails += 1

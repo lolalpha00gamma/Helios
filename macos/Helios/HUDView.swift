@@ -9,6 +9,7 @@ struct HUDView: View {
     var body: some View {
         GeometryReader { geo in
             ZStack(alignment: .topLeading) {
+                Color.clear
                 if state.killFlash {
                     HeliosTheme.danger.opacity(0.18)
                 }

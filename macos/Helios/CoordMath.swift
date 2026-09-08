@@ -163,7 +163,7 @@ enum GestureMath {
     static let calibCornerSep: CGFloat = 0.06
     static let hybridBand: CGFloat = 0.15
     static let clutchOwnRadius: CGFloat = 48
-    static let clutchOwnWindow: TimeInterval = 0.12
+    static let clutchOwnWindow: TimeInterval = 0.45
     /// Idle-Jiggler / 1-px Maus-Ticks. 0,5 hat Trackpads und eigene CGEvents durchgelassen.
     static let clutchJiggle: CGFloat = 1.2
     /// Zwei Kameras: gemappte Zeiger > so viele Pixel auseinander = Winkel-Unco, Lead gewinnt.
@@ -1000,6 +1000,11 @@ enum GestureMath {
 
     /// Freeze: Jiggler darf Geisterhand nicht wecken.
     static func clutchIgnoresFreeze(freezeLive: Bool) -> Bool { freezeLive }
+
+    /// 8 fps = 125 ms. 0,12 s Fenster seizes die eigene Hand.
+    static func clutchOwnNeed(dt: TimeInterval) -> TimeInterval {
+        max(clutchOwnWindow, min(0.90, max(0.008, dt) * 4))
+    }
 
     /// Ampel-Ring: 8 fps dicker, sonst 4 Frames unsichtbar.
     static func chromeDwellRingWidth(dt: TimeInterval, hot: Bool = true) -> CGFloat {

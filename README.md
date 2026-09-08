@@ -26,6 +26,8 @@ Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Da
 
 - **Pinch × live palmWidth.** `pinchStartsGrab` / `pinchHoldsGrab` / `pinchClosednessNeed`.
 - Predict bleibt 0. Mutex-Writer bleibt aus (1.6.66).
+- Overlay klar (kein Black Screen). Clutch 0,45 s — eigene Hand seizes nicht.
+- Injection auch aus der DMG. Klick/Zug/Greifen kommen durch.
 - Tests + MARKETING_VERSION 1.6.67 (Build 100).
 
 # Helios **1.6.65**

@@ -1074,7 +1074,7 @@ final class GestureEngine {
         }
         pinchLastHand = nil
         if let pinching = hands.filter({
-            ($0.pinchClosed || $0.pinchClosedness > GestureMath.pinchClosednessNeed(quality: $0.quality, start: true))
+            ($0.pinchClosed || $0.pinchClosedness > GestureMath.pinchClosednessNeed(quality: $0.quality, start: true, palmWidth: $0.palmWidth))
                 && GestureMath.pinchLooksLikePinch(
                     reach: $0.pinchReach,
                     index: $0.indexScore,
@@ -1544,7 +1544,8 @@ final class GestureEngine {
                 zSep: hand.pinchZSep,
                 quality: hand.quality,
                 approach: hand.pinchZApproach,
-                residual: hand.liftResidual
+                residual: hand.liftResidual,
+                palmWidth: hand.palmWidth
             ))
             : (fire && GestureMath.pinchStartsGrab(
                 gate: hand.pinchClosed,
@@ -1554,7 +1555,8 @@ final class GestureEngine {
                 zSep: hand.pinchZSep,
                 quality: hand.quality,
                 approach: hand.pinchZApproach,
-                residual: hand.liftResidual
+                residual: hand.liftResidual,
+                palmWidth: hand.palmWidth
             ))
         let advanced = GestureMath.pinchHoldAdvance(
             phase: pinchHoldPhase,

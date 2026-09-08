@@ -1,3 +1,33 @@
+# Helios **1.6.67**
+
+
+Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
+
+Privates Repo. Keine Open-Source-Lizenzdatei.
+
+Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Start
+
+**Nur die DMG-Datei laden, nicht Source code (zip):**
+
+[Helios.dmg](https://github.com/lolalpha00gamma/Helios/releases/latest/download/Helios.dmg)
+
+1. `Helios.dmg` doppelklicken (kein Entpacken)
+2. Helios nach **Programme** ziehen — nicht aus dem Image starten
+3. Erster Start (nicht notarisierte Ad-hoc-Signatur): **Systemeinstellungen → Datenschutz & Sicherheit → Trotzdem öffnen**
+4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
+
+Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.67
+
+1.6.66 hat Predict und Overlay-Coast aus, Klick kommt durch. Continuity-Palme 0,04 klickte trotzdem als Faust: Grab und Steuerhand-Filter nutzten Default-Palme 0,12.
+
+- **Pinch × live palmWidth.** `pinchStartsGrab` / `pinchHoldsGrab` / `pinchClosednessNeed`.
+- Predict bleibt 0. Mutex-Writer bleibt aus (1.6.66).
+- Tests + MARKETING_VERSION 1.6.67 (Build 100).
+
 # Helios **1.6.65**
 
 

@@ -2495,6 +2495,14 @@ enum CoordTests {
             fputs("FAIL PinchStart mittlere Palme 0,62 hält\n", stderr)
             fails += 1
         }
+        if GestureMath.pinchHoldsGrab(gate: false, closedness: 0.48, quality: 0.80, palmWidth: 0.04) {
+            fputs("FAIL PinchHold kleine Palme 0,48 tot\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinchHoldsGrab(gate: false, closedness: 0.48, quality: 0.80, palmWidth: 0.12) {
+            fputs("FAIL PinchHold mittlere Palme 0,48 hält\n", stderr)
+            fails += 1
+        }
         if GestureMath.sessionWatchdogEmpty(fps: 8, lastHand: 1, now: 8.9) {
             fputs("FAIL Watchdog 7,9 s tot\n", stderr)
             fails += 1

@@ -1,3 +1,37 @@
+# Helios Vorschläge — 2026-09-08 (Pass 28, 1.6.67)
+
+Stand 1.6.67. Pinch×Palme live. Predict bleibt 0, Mutex-Writer bleibt tot (1.6.66 Cursor-Fix).
+
+## Gelandet in 1.6.67
+
+- pinchStartsGrab / pinchHoldsGrab palmWidth = hand.palmWidth
+- pinchClosednessNeed palmWidth am Steuerhand-Filter
+
+## Erweiterung (neu)
+
+311. **Mutex-Write zurück.** 1.6.66 löschte `beatCameraMutex`. Aegis PTS-Fill und Palm-skipPrint tot. Ohne Cursor-Pfad, nur CameraSession. P0 für Duo.
+312. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+313. **VNTrackObjectRequest** echte Hand-Observation. P1.
+314. **Mission-Control Zwei-Palm-Spread.**
+315. **Aegis-Gaze Pinch-Confirm.**
+316. **Watch Double-Tap** destruktive Klicks.
+317. **Click-Tick Sound.**
+318. **JSONL Palm-Vel.**
+319. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+320. **iPhone Ultraweit FOV** statt Center-Stage-Crop.
+321. **DepthCapture an Continuity-LiDAR.**
+322. **Per-Display pointerGain Pref.**
+323. **Overlay CAMetalLayer.**
+324. **Air-Keyboard Shortcut-Overlay.**
+325. **Stereo Mac+iPhone Disparität.**
+326. **Continuity 15-fps Probe** gemessen, nicht claimed.
+327. **Pointer-Gain × Continuity-FOV.**
+328. **Deadman-Ring** Overlay.
+329. **Actor-Palm in Mutex**, nicht `hands.first`.
+330. **twoPinchZoomHolds wieder am Streak** — 1.6.66 setzte `ok: true`.
+
+P0: CameraBroker + Mutex-Write ohne Cursor. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
 # Helios Vorschläge — 2026-09-08 (Pass 26, 1.6.65)
 
 Stand 1.6.65. Mutex-Write, Predict×Schirm, Zoom-Sign, Bezel-Decay, RECAL→SpaceMap.

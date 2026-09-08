@@ -313,6 +313,48 @@ enum GestureMath {
         ((abs(thumbZ) + abs(indexZ)) * 0.5) / max(0.03, palmWidth)
     }
 
+    /// Lift-Residual hoch: z ist Rauschen. Veto/Approach sonst tot-Pinzette oder Faust-Klick.
+    static func pinch3DTrusts(residual: CGFloat, floor: CGFloat = 0.22) -> Bool {
+        residual < floor
+    }
+
+    /// Continuity oft nur 8 fps @ 1080p. 720p@24 schlägt 1080p@8. Unter 24 fps nicht verwerfen.
+    static func cameraFormatScore(width: Double, height: Double, maxFps: Double) -> Double {
+        guard width >= 640, height >= 360, width <= 1920, height <= 1088 else { return -1 }
+        let fps = max(0, maxFps)
+        let fpsTerm = min(fps, 30) * 8
+        let near1080 = 1.0 - min(abs(height - 1080) / 1080, 1)
+        let near720 = 1.0 - min(abs(height - 720) / 720, 1)
+        let resTerm: Double
+        if fps >= 24 {
+            resTerm = near1080 * 48 + near720 * 12
+        } else {
+            resTerm = near720 * 36 + near1080 * 8
+        }
+        return fpsTerm + resTerm
+    }
+
+    /// q < 0,55: Landmark tot. HUD sonst unsichtbare tot-Pinzette.
+    static func qualityChip(_ quality: Double, floor: Double = 0.55) -> String? {
+        quality < floor ? "q tot" : nil
+    }
+
+    /// One-Euro auf pinchRatio. 8 fps Gate-Jitter sonst Klick.
+    static func pinchRatioSmooth(prev: CGFloat, next: CGFloat, dt: TimeInterval, minCutoff: CGFloat = 1) -> CGFloat {
+        let t = CGFloat(max(0.008, dt))
+        let cutoff: CGFloat = dt >= 0.10 ? max(0.6, minCutoff * 0.85) : max(1.8, minCutoff * 2.2)
+        let tau = 1 / (2 * .pi * cutoff)
+        let a = t / (t + tau)
+        return prev + a * (next - prev)
+    }
+
+    /// Lift-z-Vorzeichen: Occlusion kippt previous[]. Kleines pred fällt auf Anatomie.
+    static func liftSignHolds(previousDz: CGFloat, mag: CGFloat, band: CGFloat = 0.15) -> CGFloat? {
+        if mag <= 0 { return 0 }
+        guard abs(previousDz) > mag * band else { return nil }
+        return previousDz >= 0 ? mag : -mag
+    }
+
     /// q < 0,55: Landmark tot, 2D-Closedness lügt. Tor hoch, sonst Faust-Klick.
     static func pinchClosednessNeed(quality: Double, start: Bool) -> Double {
         let base = start ? 0.58 : 0.42
@@ -832,8 +874,8 @@ enum GestureMath {
 
     /// Pinzette starten: Gate oder klare Closedness, und es muss wie Pinzette aussehen
     /// (Reach / Zeigefinger). Faust hat geschlossene Spitzen — das ist kein Klick.
-    static func pinchStartsGrab(gate: Bool, closedness: Double, reach: CGFloat = 1.2, index: Double = 1, zSep: CGFloat = 0, quality: Double = 1, approach: CGFloat = 0) -> Bool {
-        guard pinchLooksLikePinch(reach: reach, index: index, zSep: zSep, approach: approach) else { return false }
+    static func pinchStartsGrab(gate: Bool, closedness: Double, reach: CGFloat = 1.2, index: Double = 1, zSep: CGFloat = 0, quality: Double = 1, approach: CGFloat = 0, residual: CGFloat = 0) -> Bool {
+        guard pinchLooksLikePinch(reach: reach, index: index, zSep: zSep, approach: approach, closedness: closedness, residual: residual) else { return false }
         return gate || closedness > pinchClosednessNeed(quality: quality, start: true)
     }
 
@@ -846,14 +888,16 @@ enum GestureMath {
         allowFist: Bool = false,
         zSep: CGFloat = 0,
         quality: Double = 1,
-        approach: CGFloat = 0
+        approach: CGFloat = 0,
+        residual: CGFloat = 0
     ) -> Bool {
-        if !allowFist, !pinchLooksLikePinch(reach: reach, index: index, zSep: zSep, approach: approach) { return false }
+        if !allowFist, !pinchLooksLikePinch(reach: reach, index: index, zSep: zSep, approach: approach, closedness: closedness, residual: residual) { return false }
         return gate || closedness > pinchClosednessNeed(quality: quality, start: false)
     }
 
-    static func pinchLooksLikePinch(reach: CGFloat, index: Double = 1, zSep: CGFloat = 0, approach: CGFloat = 0) -> Bool {
-        if pinch3DVeto(sep: zSep, closedness2D: 0.70, approach: approach, reach: reach) { return false }
+    static func pinchLooksLikePinch(reach: CGFloat, index: Double = 1, zSep: CGFloat = 0, approach: CGFloat = 0, closedness: Double = 0.70, residual: CGFloat = 0) -> Bool {
+        let trust = pinch3DTrusts(residual: residual)
+        if pinch3DVeto(sep: trust ? zSep : 0, closedness2D: closedness, approach: trust ? approach : 0, reach: reach) { return false }
         return reach >= pinchReachNeed || index >= pinchIndexNeed
     }
 

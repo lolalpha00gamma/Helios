@@ -190,6 +190,16 @@ struct HUDView: View {
                     .overlay(Rectangle().stroke(HeliosTheme.amber, lineWidth: 1))
                     .help("Lock-ID hält einen Fehlframe — R1/R2 = Recover, P drop = Pinch tot nach Dropout")
             }
+            if !state.qualityChip.isEmpty {
+                Text(state.qualityChip.uppercased())
+                    .font(.system(size: 10, weight: .bold, design: .monospaced))
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .foregroundStyle(HeliosTheme.void)
+                    .background(HeliosTheme.amber)
+                    .overlay(Rectangle().stroke(HeliosTheme.amber, lineWidth: 1))
+                    .help("Landmark-Qualität < 0,55 — tot-Pinzette unsichtbar, Tor hoch")
+            }
             if !state.permissionBanner.isEmpty {
                 Text(state.permissionBanner.uppercased())
                     .font(.system(size: 11, weight: .bold, design: .monospaced))
@@ -541,9 +551,16 @@ struct HUDView: View {
                                     .stroke(hot ? HeliosTheme.amber : HeliosTheme.cyan.opacity(0.55), lineWidth: hot ? 3 : 1)
                             )
                         if hot, state.keyboardDwell > 0.02 {
+                            let dt = state.fps > 1 ? 1 / state.fps : 0.04
                             RoundedRectangle(cornerRadius: 8)
                                 .trim(from: 0, to: max(0.02, state.keyboardDwell))
-                                .stroke(HeliosTheme.cyan, lineWidth: 3)
+                                .stroke(
+                                    HeliosTheme.cyan,
+                                    style: StrokeStyle(
+                                        lineWidth: GestureMath.chromeDwellRingWidth(dt: dt),
+                                        lineCap: .round
+                                    )
+                                )
                         }
                         Text(key.label)
                             .font(.system(size: min(22, max(13, r.height * 0.42)), weight: .bold, design: .monospaced))

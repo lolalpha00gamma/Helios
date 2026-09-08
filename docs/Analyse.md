@@ -1,5 +1,24 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
+Stand: 2026-09-08. Helios **1.6.37** (Build 70). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+
+## 0. 1.6.37 — Format, Residual-Gate, Sign-Hysterese, q-Chip
+
+1.6.36: Approach-Veto, Recover-Sprung, Faust-Grace. Danach blieb Continuity auf 1080p@8 (`guard fps >= 24`). PinchGate ignorierte z. Lift3D-Sign kippte bei Occlusion. Residual-Veto ohne Trust. HUD ohne q. Tastatur-Ring 3 px.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | bestFormat wirft < 24 fps | `cameraFormatScore` 720p@24 vor 1080p@8 |
+| 2 | PinchGate / Looks ohne Residual | `pinch3DTrusts` nullt z, Gate bekommt zSep |
+| 3 | Lift-Sign previous[] kippt | `liftSignHolds` Optional, kleines pred → Anatomie |
+| 4 | pinchRatio Jitter 8 fps | `pinchRatioSmooth` One-Euro |
+| 5 | tot-Pinzette unsichtbar | HUD `qualityChip` |
+| 6 | Tastatur-Ring 3 px | `chromeDwellRingWidth(dt)` |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe-Sidecar.
+
+# Analyse, Fehlerbehebung, öffentlicher Abgleich
+
 Stand: 2026-09-08. Helios **1.6.36** (Build 69). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
 
 ## 0. 1.6.36 — Approach-Veto, Recover-Sprung, Faust-Grace

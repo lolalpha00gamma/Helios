@@ -69,6 +69,7 @@ final class GestureEngine {
     var clapWake = false
     var peaceProgress: CGFloat = 0
     var lockFreeze = ""
+    var qualityChip = ""
     var freezeLive = false
     var freezeGhostDelta: CGPoint = .zero
 
@@ -258,6 +259,7 @@ final class GestureEngine {
         lastAction = "Reset"
         peaceProgress = 0
         lockFreeze = ""
+        qualityChip = ""
         freezeLive = false
         freezeGhostDelta = .zero
         sampleDt = 0.04
@@ -271,6 +273,7 @@ final class GestureEngine {
         sampleDt = GestureMath.sampleDt(now: now, last: lastTickNow)
         lastTickNow = now
         lockFreeze = ""
+        qualityChip = ""
         freezeLive = false
         freezeGhostDelta = .zero
         let hands = incoming.filter { $0.joints.count >= 8 && $0.meanConfidence >= 0.18 }
@@ -410,7 +413,9 @@ final class GestureEngine {
                 reach: actor.pinchReach,
                 index: actor.indexScore,
                 zSep: actor.pinchZSep,
-                approach: actor.pinchZApproach
+                approach: actor.pinchZApproach,
+                closedness: actor.pinchClosedness,
+                residual: actor.liftResidual
             )
             if let done = cal.feed(palm: actor.palm, now: now, confirm: confirm) {
                 spaceMap = done
@@ -428,6 +433,9 @@ final class GestureEngine {
         }
 
         let primary = preferred(hands)
+        if let chip = GestureMath.qualityChip(primary.quality) {
+            qualityChip = chip
+        }
         let live = mode == .armed || testMode
 
         if protocolMode, now - lastPoseLog > 0.28 {
@@ -913,7 +921,9 @@ final class GestureEngine {
                     reach: $0.pinchReach,
                     index: $0.indexScore,
                     zSep: $0.pinchZSep,
-                    approach: $0.pinchZApproach
+                    approach: $0.pinchZApproach,
+                    closedness: $0.pinchClosedness,
+                    residual: $0.liftResidual
                 )
         }).min(by: { $0.pinchRatio < $1.pinchRatio }) {
             pinchLastHand = pinching
@@ -1011,7 +1021,9 @@ final class GestureEngine {
                     reach: $0.pinchReach,
                     index: $0.indexScore,
                     zSep: $0.pinchZSep,
-                    approach: $0.pinchZApproach
+                    approach: $0.pinchZApproach,
+                    closedness: $0.pinchClosedness,
+                    residual: $0.liftResidual
                 )
         }.sorted { $0.id < $1.id }
         guard pinches.count >= 2 else {
@@ -1275,7 +1287,8 @@ final class GestureEngine {
                 allowFist: pinchBecameDrag,
                 zSep: hand.pinchZSep,
                 quality: hand.quality,
-                approach: hand.pinchZApproach
+                approach: hand.pinchZApproach,
+                residual: hand.liftResidual
             )
             : (fire && GestureMath.pinchStartsGrab(
                 gate: hand.pinchClosed,
@@ -1284,7 +1297,8 @@ final class GestureEngine {
                 index: hand.indexScore,
                 zSep: hand.pinchZSep,
                 quality: hand.quality,
-                approach: hand.pinchZApproach
+                approach: hand.pinchZApproach,
+                residual: hand.liftResidual
             ))
         if isGrab && !pinchHeld {
             if GestureMath.pinchReleaseBlocks(now: now, releasedAt: pinchReleasedAt, dt: sampleDt) {

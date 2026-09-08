@@ -393,7 +393,10 @@ struct PinchGate {
     mutating func update(
         raw: [VNHumanHandPoseObservation.JointName: CGPoint],
         conf: [VNHumanHandPoseObservation.JointName: Float],
-        now: TimeInterval
+        now: TimeInterval,
+        zSep: CGFloat = 0,
+        approach: CGFloat = 0,
+        residual: CGFloat = 0
     ) -> (closed: Bool, ratio: CGFloat, distance: CGFloat, closedness: Double) {
         let scale = max(GestureClassifier.palmScale(raw, space: space), 0.04)
         let tipConf = min(conf[.thumbTip] ?? 0, conf[.indexTip] ?? 0)
@@ -406,19 +409,27 @@ struct PinchGate {
             dProx = space.dist(a, b)
         }
         let dist = dTips ?? ((dProx ?? 1) * 1.12)
-        let ratio = dist / scale
-        let proxRatio = (dProx ?? dist) / scale
+        let rawRatio = dist / scale
         let dt = lastT == 0 ? 0.016 : GestureMath.sampleDt(now: now, last: lastT)
+        let ratio = lastT == 0 ? rawRatio : GestureMath.pinchRatioSmooth(prev: lastRatio, next: rawRatio, dt: dt)
         let vel = (ratio - lastRatio) / CGFloat(dt)
         lastRatio = ratio
         lastT = now
-        let closedness = max(0, min(1, (0.52 - min(ratio, proxRatio)) / 0.40))
+        let closedness = max(0, min(1, (0.52 - min(ratio, (dProx ?? dist) / scale)) / 0.40))
+        let proxRatio = (dProx ?? dist) / scale
         let reach: CGFloat = {
             guard let w = raw[.wrist], let t = raw[.thumbTip], let i = raw[.indexTip] else { return 0 }
             return GestureMath.pinchReach(wrist: w, thumb: t, index: i, scale: scale)
         }()
         let indexScore = GestureClassifier.fingerExtension(raw, .index, space: space, conf: conf).score
-        let looksPinch = GestureMath.pinchLooksLikePinch(reach: reach, index: Double(indexScore))
+        let looksPinch = GestureMath.pinchLooksLikePinch(
+            reach: reach,
+            index: Double(indexScore),
+            zSep: zSep,
+            approach: approach,
+            closedness: Double(closedness),
+            residual: residual
+        )
 
         let wantClose = looksPinch && (closedness > 0.55 || (ratio < 0.44 && vel < GestureMath.pinchCloseVel(dt: dt)))
         var wantOpen = ratio > 0.56 && proxRatio > 0.50 && vel > GestureMath.pinchOpenVel(dt: dt)

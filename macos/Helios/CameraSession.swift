@@ -531,7 +531,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         }
     }
 
-    /// 1080p30 vor 720p60 — QuickTime/Preview sollen scharf sein, Vision kommt danach.
+    /// 720p@24 vor 1080p@8. Continuity ohne 24 fps nicht verwerfen — sonst Default = 8 fps.
     fileprivate static func bestFormat(on device: AVCaptureDevice) -> AVCaptureDevice.Format? {
         var best: AVCaptureDevice.Format?
         var bestScore = -1.0
@@ -539,13 +539,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             let dims = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
             let w = Double(dims.width)
             let h = Double(dims.height)
-            guard w >= 640, h >= 360, w <= 1920, h <= 1088 else { continue }
             let fps = format.videoSupportedFrameRateRanges.map(\.maxFrameRate).max() ?? 0
-            guard fps >= 24 else { continue }
-            let fpsTerm = min(fps, 60)
-            let near1080 = 1.0 - min(abs(h - 1080) / 1080, 1)
-            let near720 = 1.0 - min(abs(h - 720) / 720, 1)
-            let score = fpsTerm * 6 + near1080 * 48 + near720 * 12
+            let score = GestureMath.cameraFormatScore(width: w, height: h, maxFps: fps)
             if score > bestScore {
                 bestScore = score
                 best = format

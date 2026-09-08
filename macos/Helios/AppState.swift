@@ -92,6 +92,7 @@ final class AppState: ObservableObject {
     @Published var fusionTemperature: Double = 0.75
     @Published var peaceProgress: CGFloat = 0
     @Published var lockFreeze = ""
+    @Published var qualityChip = ""
     let calibSession = CalibrationSession()
     private var lastPanel: TimeInterval = 0
     private var didStart = false
@@ -724,6 +725,7 @@ final class AppState: ObservableObject {
         grabTargetName = engine.grabTargetName
         peaceProgress = engine.peaceProgress
         lockFreeze = engine.lockFreeze
+        qualityChip = engine.qualityChip
         if engine.freezeLive, hands.isEmpty, !self.hands.isEmpty {
             let d = engine.freezeGhostDelta
             if d.x != 0 || d.y != 0 {

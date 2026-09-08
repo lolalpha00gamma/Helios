@@ -1,6 +1,17 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.36**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen. Gelesen, nicht gemergt: IOHID Event-Tap, JSONL, AX-ein-Call.
+Stand: **1.6.37**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen. Gelesen, nicht gemergt: IOHID Event-Tap, JSONL, AX-ein-Call.
+
+## In 1.6.37 erledigt
+
+1.6.36 Approach-Veto / Recover-Sprung / Faust-Grace. Format-Lock warf Continuity < 24 fps. PinchGate 2D. Lift-Sign kippte. Residual tot. HUD ohne q. Tastatur-Ring 3 px.
+
+1. **cameraFormatScore** — 720p@24 vor 1080p@8.
+2. **pinch3DTrusts** + residual in Looks/Starts/Holds/Gate.
+3. **liftSignHolds** Optional — kleines pred → Anatomie.
+4. **pinchRatioSmooth** One-Euro.
+5. **qualityChip** HUD. **AirKeyboard** Ring × dt.
+6. Tests + MARKETING_VERSION 1.6.37 (Build 70).
 
 ## In 1.6.36 erledigt
 
@@ -27,21 +38,23 @@ Stand: **1.6.36**. Die Punkte unten sind Erweiterungen, kein Backlog der schon g
 1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC, eine Session. P0.
 2. **DisplayLink 90 Hz HUD**, Kamera 8–24 fps. Overlay-Lerp unabhängig.
 3. **HeliosAegisKit** gemeinsamer Broker + Mutex-PTS.
-4. **LiDAR-Pinch** (Depth) statt nur Landmark-z. Approach 1.6.36 ist Lift3D.
+4. **LiDAR-Pinch** (DepthCapture) statt nur Landmark-z. Residual-Gate 1.6.37 ist Lift3D.
 5. **IOHID Event-Tap / AX SetPosition / Per-App Gain** (`bugfix`, opt-in).
 6. **JSONL Session-Replay** Gesten-Regression.
 7. **Zwei-Hand Freeze-Predict** (beide Palmen, nicht nur Actor).
-8. **AirKeyboard Dwell-Ring × fps** analog chromeDwellRingWidth.
-9. **Kalman-Palme während Freeze** statt nur Vel-Decay (Predict 1.6.35).
-10. **Clutch vs Freeze** — Jiggler darf Geisterhand nicht wecken.
-11. **HUD-q-Chip** wenn Landmark-Qualität < 0,55 — tot-Pinzette sonst unsichtbar.
-12. **One-Euro auf pinchRatio** (minCutoff 1 Hz) — Gate-Jitter bei 8 fps.
-13. **Continuity 720p@24 Format-Lock anfragen** bevor 8 fps als Schicksal gilt.
-14. **Per-Finger Kontakt** (Daumen–Index / palmWidth) statt nur Closedness-Skalar.
-15. **Lift3D-Sign-Hysterese härter.** previous[] kippt bei Occlusion — Approach rettet, Residual-Gate fehlt.
-16. **HUD Freeze-Vel-Vektor** — Predict ist unsichtbar, ein Strich an der Geisterhand.
-17. **AX-Hit-Cache 1 Frame.** Continuity 8 fps sonst hitTest jeden Tick.
-18. **MediaPipe Hands Sidecar** — VNDetectHumanHandPose verliert Spitzen.
+8. **Kalman-Palme während Freeze** statt nur Vel-Decay (Predict 1.6.35).
+9. **Clutch vs Freeze** — Jiggler darf Geisterhand nicht wecken.
+10. **Per-Finger Kontakt** (Daumen–Index / palmWidth) statt nur Closedness-Skalar.
+11. **HUD Freeze-Vel-Vektor** — Predict ist unsichtbar, ein Strich an der Geisterhand.
+12. **AX-Hit-Cache 1 Frame.** Continuity 8 fps sonst hitTest jeden Tick.
+13. **MediaPipe Hands Sidecar** — VNDetectHumanHandPose verliert Spitzen.
+14. **Palm-Scale EMA** — 8 fps palmWidth-Jitter skaliert Reach/Gate.
+15. **Pointer-Gain × dt** — ein Continuity-Tick sonst Teleport trotz Freeze-Decay.
+16. **Per-Hand q-Chip** — qualityChip 1.6.37 nur Actor/primary.
+17. **Format nach Session neu verhandeln** wenn gemessene fps < 12 trotz Score.
+18. **Hand-ID über Continuity-Reconnect** — Slot stirbt, Pinch-Lock weg.
+19. **pinchBecameDrag × dt** — Click-vs-Zug-Schwelle ein 8-fps-Tick.
+20. **SpaceMap Re-Calib** wenn Palm-Aspect nach Drehung kippt.
 
 ## In 1.6.34 erledigt
 

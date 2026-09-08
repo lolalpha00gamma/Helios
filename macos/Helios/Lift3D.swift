@@ -44,9 +44,10 @@ enum Lift3D {
             child: VNHumanHandPoseObservation.JointName,
             mag: CGFloat
         ) -> CGFloat {
-            if let pz = previous[child], let pp = previous[parent] {
-                let pred = pz - pp
-                return pred >= 0 ? mag : -mag
+            if mag <= 0 { return 0 }
+            if let pz = previous[child], let pp = previous[parent],
+               let held = GestureMath.liftSignHolds(previousDz: pz - pp, mag: mag) {
+                return held
             }
             let curlIn: Set<VNHumanHandPoseObservation.JointName> = [
                 .indexPIP, .indexDIP, .indexTip,
@@ -81,6 +82,14 @@ enum Lift3D {
             )
         }
         let meanRes = nRes == 0 ? 1 : residual / CGFloat(nRes)
+        if !GestureMath.pinch3DTrusts(residual: meanRes) {
+            for tip: VNHumanHandPoseObservation.JointName in [.thumbTip, .indexTip] {
+                if var j = out[tip] {
+                    j.z = 0
+                    out[tip] = j
+                }
+            }
+        }
         return (out, meanRes, scale)
     }
 

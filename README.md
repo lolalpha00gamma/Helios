@@ -1,4 +1,4 @@
-# Helios **1.6.36**
+# Helios **1.6.37**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,18 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.37
+
+1.6.36 Approach-Veto, Recover-Sprung, Faust-Grace. Continuity wählte 1080p@8 weil `bestFormat` fps < 24 warf. PinchGate nur 2D. Lift3D-Sign kippte bei Occlusion. Residual-Veto tötete echte Pinzette oder ließ Faust durch. HUD ohne q-Chip. Tastatur-Ring 3 px bei 8 fps unsichtbar.
+
+- **cameraFormatScore.** 720p@24 vor 1080p@8. Unter 24 fps nicht verwerfen.
+- **pinch3DTrusts + residual** in pinchLooksLikePinch / Starts / Holds / Gate. z tot wenn Lift-Residual hoch.
+- **liftSignHolds.** Kleines previous[] fällt auf Anatomie, Occlusion kippt nicht.
+- **pinchRatioSmooth** One-Euro. Gate-Jitter bei 8 fps kein Klick.
+- **qualityChip** HUD `q tot` bei Landmark < 0,55.
+- **AirKeyboard-Ring** `chromeDwellRingWidth(dt)`.
+- Tests + MARKETING_VERSION 1.6.37 (Build 70).
 
 ## Neu in 1.6.36
 

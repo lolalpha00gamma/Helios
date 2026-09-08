@@ -1144,7 +1144,7 @@ enum CoordTests {
             fputs("FAIL Approach-Veto Faust-in-Kamera tot\n", stderr)
             fails += 1
         }
-        if GestureMath.pinchLooksLikePinch(reach: 1.1, index: 0.9, zSep: 0.10) {
+        if !GestureMath.pinchLooksLikePinch(reach: 1.1, index: 0.9, zSep: 0.10) {
             fputs("FAIL 3D klein Reach hält\n", stderr)
             fails += 1
         }
@@ -1244,6 +1244,62 @@ enum CoordTests {
         }
         if sparkBars.allSatisfy({ $0 == 0 }) {
             fputs("FAIL Spark Bars nicht leer\n", stderr)
+            fails += 1
+        }
+        if GestureMath.qualityChip(0.40) != "q tot" {
+            fputs("FAIL q tot Chip\n", stderr)
+            fails += 1
+        }
+        if GestureMath.qualityChip(0.80) != nil {
+            fputs("FAIL q scharf kein Chip\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinch3DTrusts(residual: 0.10) == false {
+            fputs("FAIL Residual klein vertraut z\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinch3DTrusts(residual: 0.40) {
+            fputs("FAIL Residual groß z tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.liftSignHolds(previousDz: 0.01, mag: 0.50) != nil {
+            fputs("FAIL kleines pred fällt auf Anatomie\n", stderr)
+            fails += 1
+        }
+        if GestureMath.liftSignHolds(previousDz: 0.40, mag: 0.50) != 0.50 {
+            fputs("FAIL Lift-Sign hält +\n", stderr)
+            fails += 1
+        }
+        if GestureMath.liftSignHolds(previousDz: -0.40, mag: 0.50) != -0.50 {
+            fputs("FAIL Lift-Sign hält −\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraFormatScore(width: 1920, height: 1080, maxFps: 8)
+            >= GestureMath.cameraFormatScore(width: 1280, height: 720, maxFps: 24) {
+            fputs("FAIL 720p24 schlägt 1080p8\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraFormatScore(width: 1920, height: 1080, maxFps: 8) < 0 {
+            fputs("FAIL 8 fps Format nicht verwerfen\n", stderr)
+            fails += 1
+        }
+        let smoothed = GestureMath.pinchRatioSmooth(prev: 0.50, next: 0.20, dt: 0.125)
+        if smoothed <= 0.20 || smoothed >= 0.50 {
+            fputs("FAIL One-Euro pinchRatio glättet\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchLooksLikePinch(reach: 1.1, index: 0.9, zSep: 0.10, approach: 1.4, residual: 1.0) == false {
+            fputs("FAIL Residual tot kein Approach-Veto\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchLooksLikePinch(reach: 1.1, index: 0.9, zSep: 0.10, approach: 1.4) {
+            fputs("FAIL Approach-Veto ohne Residual\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinchStartsGrab(
+            gate: true, closedness: 0.20, reach: 1.10, index: 0.70, residual: 1.0
+        ) {
+            fputs("FAIL Residual tot Start über 2D\n", stderr)
             fails += 1
         }
 

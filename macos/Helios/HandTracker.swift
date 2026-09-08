@@ -30,6 +30,7 @@ struct TrackedHand: Identifiable {
     var sourceID: String = ""
     /// 0…1 vom Classifier, nicht das 0,52-Set.
     var indexScore: Double = 0.15
+    var liftResidual: CGFloat = 0
 
     func point(_ name: VNHumanHandPoseObservation.JointName) -> CGPoint? {
         guard let j = joints[name], j.confidence > 0.22 else { return nil }
@@ -268,7 +269,24 @@ final class HandTracker: @unchecked Sendable {
             }
 
             let smoothed = slot.smoother.apply(obs.raw, now: now)
-            let pinchState = slot.pinch.update(raw: smoothed, conf: obs.conf, now: now)
+            let lifted = Lift3D.lift(joints: smoothed, conf: obs.conf, space: space, previous: slot.lastZ)
+            slot.lastZ = Dictionary(uniqueKeysWithValues: lifted.pts.map { ($0.key, $0.value.z) })
+            let zSep: CGFloat = {
+                guard let t = lifted.pts[.thumbTip], let i = lifted.pts[.indexTip] else { return 0 }
+                return GestureMath.pinch3DSep(thumbZ: t.z, indexZ: i.z, palmWidth: lifted.palmWidth)
+            }()
+            let approach: CGFloat = {
+                guard let t = lifted.pts[.thumbTip], let i = lifted.pts[.indexTip] else { return 0 }
+                return GestureMath.pinch3DApproach(thumbZ: t.z, indexZ: i.z, palmWidth: lifted.palmWidth)
+            }()
+            let pinchState = slot.pinch.update(
+                raw: smoothed,
+                conf: obs.conf,
+                now: now,
+                zSep: zSep,
+                approach: approach,
+                residual: lifted.residual
+            )
             let feat2D = GestureClassifier.features(
                 joints: smoothed,
                 pinch: pinchState.distance,
@@ -289,9 +307,8 @@ final class HandTracker: @unchecked Sendable {
                 palmWidth: feat2D.palmWidth
             )
 
-            let lifted = Lift3D.lift(joints: smoothed, conf: obs.conf, space: space, previous: slot.lastZ)
-            slot.lastZ = Dictionary(uniqueKeysWithValues: lifted.pts.map { ($0.key, $0.value.z) })
-            var e3 = Lift3D.estimate(pts: lifted.pts, residual: lifted.residual, palmWidth: lifted.palmWidth)
+            let liftedPts = lifted.pts
+            var e3 = Lift3D.estimate(pts: liftedPts, residual: lifted.residual, palmWidth: lifted.palmWidth)
             e3.palm = feat2D.palm
 
             var eDepth = HandEstimate.empty(.depth)
@@ -366,7 +383,8 @@ final class HandTracker: @unchecked Sendable {
                     fusion: dbg,
                     quality: fused.quality,
                     sourceID: "",
-                    indexScore: Double(feat2D.extensions["index"] ?? 0)
+                    indexScore: Double(feat2D.extensions["index"] ?? 0),
+                    liftResidual: lifted.residual
                 )
             )
         }

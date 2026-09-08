@@ -147,21 +147,16 @@ enum ScreenGeometry {
             if let host {
                 let vis = quartzRect(fromCocoa: host.visibleFrame)
                 if GestureMath.stageManagerOffspace(proposed: p, visible: vis) {
-                    let q = GestureMath.stageManagerClamp(proposed: p, visible: vis)
-                    noteCursorHop(q)
-                    return q
+                    return GestureMath.stageManagerClamp(proposed: p, visible: vis)
                 }
             }
-            noteCursorHop(p)
             return p
         }
         let other = NSScreen.screens.first { contains(quartz: p, screen: $0.frame, pad: 0) }
         if let other {
             let of = quartzRect(fromCocoa: other.frame)
             if GestureMath.bezelHopAllows(proposed: p, otherFrame: of) {
-                let q = clampQuartz(p)
-                noteCursorHop(q)
-                return q
+                return clampQuartz(p)
             }
             return CGPoint(
                 x: min(max(p.x, hostFrame.minX + 2), hostFrame.maxX - 2),

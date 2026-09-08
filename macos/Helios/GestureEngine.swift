@@ -1196,14 +1196,11 @@ final class GestureEngine {
                     sample: CGPoint(x: fx.value, y: fy.value),
                     vel: CGPoint(x: fx.deriv, y: fy.deriv),
                     dt: sampleDt,
-                    cap: GestureMath.pointerPredictCap(
-                        false,
-                        screenH: ScreenGeometry.height(quartz: CGPoint(x: fx.value, y: fy.value))
-                    )
+                    cap: GestureMath.pointerPredictCap(false)
                 )
             }
         }
-        let a: CGFloat = freezeGain < 0.99 ? 1 : 0.86
+        let a: CGFloat = freezeGain < 0.99 ? 1 : 0.48
         let s = CGPoint(x: a * stepped.x + (1 - a) * seed.x, y: a * stepped.y + (1 - a) * seed.y)
         cursorTracks[hand.id] = s
         if isActor {
@@ -1352,7 +1349,7 @@ final class GestureEngine {
             if abs(d) > need {
                 let frames = GestureMath.twoPinchConfirmFrames(dt: sampleDt)
                 twoPinchScaleStreak = GestureMath.twoPinchEdgeHold(
-                    ok: GestureMath.twoPinchZoomHolds(delta: d, lastSign: lastScaleSign),
+                    ok: true,
                     streak: twoPinchScaleStreak,
                     need: frames
                 )
@@ -1697,15 +1694,11 @@ final class GestureEngine {
                 guard hypot(at.x - knob.center.x, at.y - knob.center.y) < 26 else { return nil }
                 return knob
             }()
-            if wantsClick {
-                if GestureMath.clickHitchFromFreeze(freezeEnded: freezeEndedAt, now: now, dt: sampleDt) {
-                    lastAction = "Hitch"
-                } else {
-                    let at = cursor
-                    perform("Klick", need: .input, confidence: 1) {
-                        if let point = at { system.moveCursor(to: point) }
-                        return system.click()
-                    }
+            if wantsClick || (!wasDrag && peakClosed >= 0.50 && held >= 0.04 && held <= 1.2 && palmMoved < 0.80) {
+                let at = cursor
+                perform("Klick", need: .input, confidence: 1) {
+                    if let point = at { system.moveCursor(to: point) }
+                    return system.click()
                 }
             } else if wasDrag {
                 pinchTrail = trail

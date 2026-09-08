@@ -1805,8 +1805,8 @@ enum CoordTests {
             fputs("FAIL kein Drop kein Cancel\n", stderr)
             fails += 1
         }
-        if !GestureMath.hudLerpDrivesCursor() {
-            fputs("FAIL HUD coast Cursor\n", stderr)
+        if GestureMath.hudLerpDrivesCursor() {
+            fputs("FAIL HUD coast Cursor tot\n", stderr)
             fails += 1
         }
         let coastVel = GestureMath.hudCoastVel(prev: CGPoint(x: 0, y: 0), next: CGPoint(x: 10, y: 0), dt: 0.125)
@@ -2306,8 +2306,8 @@ enum CoordTests {
             fputs("FAIL Predict Cap clutch 0\n", stderr)
             fails += 1
         }
-        if GestureMath.pointerPredictCap(false) != 48 {
-            fputs("FAIL Predict Cap frei 48\n", stderr)
+        if GestureMath.pointerPredictCap(false) != 0 {
+            fputs("FAIL Predict Cap aus\n", stderr)
             fails += 1
         }
         if GestureMath.pointerPredictArmed(deadman: true, clutch: false) {
@@ -2515,8 +2515,8 @@ enum CoordTests {
             fputs("FAIL SizeChanged\n", stderr)
             fails += 1
         }
-        if GestureMath.pointerPredictCap(false, screenH: 1080) < 28 {
-            fputs("FAIL Predict-Cap × Höhe\n", stderr)
+        if GestureMath.pointerPredictCap(false, screenH: 1080) != 0 {
+            fputs("FAIL Predict-Cap aus auch mit Höhe\n", stderr)
             fails += 1
         }
         if GestureMath.pointerPredictCap(true, screenH: 1080) != 0 {

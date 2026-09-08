@@ -30,8 +30,6 @@ final class AppState: ObservableObject {
     @Published var fpsAmber = false
     @Published var fpsSparkBars: [CGFloat] = []
     @Published var watchdogChip = "—"
-    @Published var mutexChip = "—"
-    @Published var recalChip = "—"
     @Published var latencyMs: Double = 0
     @Published var latencyHistory: [Double] = []
     @Published var dwellEnabled = false
@@ -683,15 +681,6 @@ final class AppState: ObservableObject {
         lastAppliedCameraName = camName
         lastAppliedCameraRole = camRole
         engine.tick(hands: hands, now: now)
-        if ScreenGeometry.consumeBezelHopRecalib() {
-            reloadSpaceMap()
-            log.record("20 Bezel-Hops — Homographie für aktuellen Schirm, Palmen halten", kind: .info)
-        }
-        if let h = hands.first {
-            camera.setMutexPalm((h.palm.x, h.palm.y, max(0.04, h.palmWidth)))
-        } else {
-            camera.setMutexPalm(nil)
-        }
         if drill.running || drill.phase == .countdown || drill.phase == .capture || drill.phase == .rest {
             drill.tick(hands: hands, now: now)
         }
@@ -746,10 +735,6 @@ final class AppState: ObservableObject {
             } else if watchdogChip != "—" {
                 watchdogChip = "—"
             }
-            let mutex = camera.mutexChip
-            if mutex != mutexChip { mutexChip = mutex }
-            let recal = ScreenGeometry.bezelHopRecalibChip() ?? "—"
-            if recal != recalChip { recalChip = recal }
         }
         if protocolMode {
             recorder.push(

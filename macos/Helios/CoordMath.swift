@@ -456,9 +456,9 @@ enum GestureMath {
     }
 
     /// min-cutoff fällt mit Jitter — 8 Hz Rauschen glättet, Intent bleibt.
-    static func oneEuroMinCutoff(jitterRms: CGFloat, base: Double = 1.15, k: Double = 28) -> Double {
+    static func oneEuroMinCutoff(jitterRms: CGFloat, base: Double = 0.55, k: Double = 36) -> Double {
         let j = max(0, Double(jitterRms))
-        return max(0.35, base / (1 + k * j))
+        return max(0.18, base / (1 + k * j))
     }
 
     static func oneEuroFilter(
@@ -537,9 +537,8 @@ enum GestureMath {
     }
 
     static func pointerPredictCap(_ clutch: Bool = false, screenH: CGFloat = 0) -> CGFloat {
-        if clutch { return 0 }
-        if screenH <= 0 { return 48 }
-        return min(96, max(28, screenH * 0.044))
+        _ = screenH
+        return 0
     }
 
     /// Deadman/Zwei-Hand: Predict aus. Sonst coastet One-Euro-Deriv 48 pt trotz dx=0.
@@ -804,8 +803,8 @@ enum GestureMath {
         closed: Bool,
         heldFor: TimeInterval,
         dt: TimeInterval,
-        tentativeNeed: TimeInterval = 0.12,
-        releaseNeed: TimeInterval = 0.20
+        tentativeNeed: TimeInterval = 0.04,
+        releaseNeed: TimeInterval = 0.12
     ) -> (phase: PinchHoldPhase, heldFor: TimeInterval) {
         let t = max(0, dt)
         switch phase {
@@ -1293,7 +1292,7 @@ enum GestureMath {
     static func visionCancelOnDrop(dropped: Bool) -> Bool { dropped }
 
     /// DisplayLink 90 Hz darf den OS-Cursor treiben. Clutch dann Radius, nicht Zeitfenster.
-    static func hudLerpDrivesCursor() -> Bool { true }
+    static func hudLerpDrivesCursor() -> Bool { false }
 
     /// Accessibility: reduced-motion = HUD ohne Coast, Sample bleibt.
     static func hudCoastAllowed(reduceMotion: Bool) -> Bool { !reduceMotion }
@@ -1362,7 +1361,7 @@ enum GestureMath {
 
     /// Continuity-Miss ≠ Double-Click. 0,12 s < 1 Frame @ 8 fps.
     static func clickHitchNeed(dt: TimeInterval) -> TimeInterval {
-        max(0.22, min(0.45, max(0.008, dt) * 1.8))
+        max(0.08, min(0.18, max(0.008, dt) * 0.9))
     }
 
     static func clickHitchBlocks(lastClick: TimeInterval, now: TimeInterval, dt: TimeInterval) -> Bool {
@@ -1759,7 +1758,7 @@ enum GestureMath {
         let energy = clickEnergy(
             closedness: closedness, palmMovedHW: palmMovedHW, held: held, dt: dt
         )
-        if energy < 0.35 { return false }
+        if energy < 0.22 { return false }
         let minHold = pinchClickMinNeed(dt: dt) * (energy >= 0.62 ? 0.55 : 1)
         guard held >= minHold, held <= pinchClickMaxHold else { return false }
         return palmMovedHW < pinchDragNeedOf(dt: dt) && cursorMovedPx < pinchClickStillNeed(dt: dt)

@@ -44,6 +44,8 @@ final class AppState: ObservableObject {
     @Published var hudVisible = true
     @Published var showReticle = true
     @Published var showLoupe = true
+    @Published var beakGrab = true
+    @Published var folderOrbs: [FolderOrb] = []
     @Published var showPreviewChip = true
     @Published var showCheats = true
     @Published var testMode = false
@@ -146,6 +148,10 @@ final class AppState: ObservableObject {
         $hudVisible.sink { Prefs.hudVisible = $0 }.store(in: &cancellables)
         $showReticle.sink { Prefs.showReticle = $0 }.store(in: &cancellables)
         $showLoupe.sink { Prefs.showLoupe = $0 }.store(in: &cancellables)
+        $beakGrab.sink { [weak self] v in
+            Prefs.beakGrab = v
+            self?.engine.beakGrabEnabled = v
+        }.store(in: &cancellables)
         $showJointLabels.sink { Prefs.showJointLabels = $0 }.store(in: &cancellables)
         $showCheats.sink { Prefs.showCheats = $0 }.store(in: &cancellables)
         $showOutline.sink { Prefs.showOutline = $0 }.store(in: &cancellables)
@@ -420,6 +426,7 @@ final class AppState: ObservableObject {
         hudVisible = Prefs.hudVisible
         showReticle = Prefs.showReticle
         showLoupe = Prefs.showLoupe
+        beakGrab = Prefs.beakGrab
         showJointLabels = Prefs.showJointLabels
         showCheats = Prefs.showCheats
         showOutline = Prefs.showOutline
@@ -434,6 +441,7 @@ final class AppState: ObservableObject {
         engine.protocolMode = protocolMode
         engine.testMode = testMode
         engine.dwellEnabled = dwellEnabled
+        engine.beakGrabEnabled = beakGrab
         engine.hideConsoleWhenArmed = hideConsoleWhenArmed
         tracker.fusionTemperature = fusionTemperature
         coverTracker.fusionTemperature = fusionTemperature
@@ -803,6 +811,9 @@ final class AppState: ObservableObject {
             keyboardHots = engine.keyboardHots
             keyboardDwell = engine.keyboardDwell
         }
+        if engine.folderOrbs != folderOrbs {
+            folderOrbs = engine.folderOrbs
+        }
         if hideConsoleWhenArmed, engine.mode == .armed, !testMode {
             if lastArmedConsole != .armed {
                 ConsolePolicy.hide()
@@ -1072,6 +1083,10 @@ enum Prefs {
     static var showLoupe: Bool {
         get { UserDefaults.standard.object(forKey: "helios.loupe") as? Bool ?? true }
         set { UserDefaults.standard.set(newValue, forKey: "helios.loupe") }
+    }
+    static var beakGrab: Bool {
+        get { UserDefaults.standard.object(forKey: "helios.beak") as? Bool ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.beak") }
     }
     static var showJointLabels: Bool {
         get { UserDefaults.standard.object(forKey: "helios.joints") as? Bool ?? true }

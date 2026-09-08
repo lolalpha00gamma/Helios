@@ -81,6 +81,17 @@ struct ControlPanel: View {
             }
             .toggleStyle(.switch)
 
+            Toggle(isOn: $state.beakGrab) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Schnabel-Ziehen")
+                        .font(.system(size: 13, weight: .semibold))
+                    Text("Finger parallel zur Kamera = Fenster greifen. Aus, falls die Erkennung stört.")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .toggleStyle(.switch)
+
             Toggle(isOn: Binding(
                 get: { state.dwellEnabled },
                 set: { state.setDwellEnabled($0) }

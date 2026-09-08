@@ -221,6 +221,7 @@ final class OverlayController {
         let fillOn = (state?.calibActive == true)
             || (state?.keyboardVisible == true)
             || (state.map { $0.drill.phase != .idle } ?? false)
+            || !(state?.folderOrbs.isEmpty ?? true)
         let clickable = state?.calibActive == true
         for (id, h) in fillHostings {
             h.isHidden = !fillOn

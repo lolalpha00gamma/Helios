@@ -29,6 +29,7 @@ struct HUDView: View {
                         if isPrimary, state.drill.phase != .idle { drillOverlay }
                         chromeLoupe
                         if isPrimary { airKeyboard }
+                        if isPrimary, !state.folderOrbs.isEmpty { folderOrbs }
                         if state.showOutline, let target = state.focused,
                            (state.grabPhase == .hold || state.grabPhase == .grab),
                            target.quartzBounds.width > 40,
@@ -469,6 +470,39 @@ struct HUDView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private var folderOrbs: some View {
+        ZStack {
+            ForEach(state.folderOrbs, id: \.id) { orb in
+                let local = ScreenGeometry.local(quartz: orb.quartz, on: screenFrame)
+                let hot: Bool = {
+                    guard let c = state.engineCursor else { return false }
+                    return hypot(c.x - orb.quartz.x, c.y - orb.quartz.y) < 56
+                }()
+                VStack(spacing: 6) {
+                    ZStack {
+                        Circle()
+                            .fill(hot ? HeliosTheme.amber.opacity(0.92) : HeliosTheme.void.opacity(0.72))
+                            .overlay(Circle().stroke(hot ? HeliosTheme.amber : HeliosTheme.cyan, lineWidth: hot ? 4 : 2))
+                            .frame(width: hot ? 92 : 80, height: hot ? 92 : 80)
+                        Image(systemName: orb.id == "up" ? "arrow.uturn.backward" : "folder.fill")
+                            .font(.system(size: 22, weight: .bold))
+                            .foregroundStyle(hot ? HeliosTheme.void : HeliosTheme.cyan)
+                    }
+                    Text(orb.title)
+                        .font(.system(size: 11, weight: .bold, design: .monospaced))
+                        .foregroundStyle(hot ? HeliosTheme.amber : HeliosTheme.cyan)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(HeliosTheme.panel)
+                        .lineLimit(1)
+                }
+                .position(x: local.x, y: local.y)
+            }
+        }
+        .allowsHitTesting(false)
     }
 
     @ViewBuilder

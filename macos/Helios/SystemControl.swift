@@ -149,6 +149,12 @@ final class SystemControl {
     }
 
     @discardableResult
+    func openFolder(_ url: URL) -> ActionResult {
+        guard NSWorkspace.shared.open(url) else { return .fail("Finder") }
+        return .ok(url.lastPathComponent)
+    }
+
+    @discardableResult
     func rightClick() -> ActionResult {
         let now = CACurrentMediaTime()
         if GestureMath.clickHitchBlocks(lastClick: lastClick, now: now, dt: sampleDt) {

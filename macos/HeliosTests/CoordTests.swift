@@ -1606,6 +1606,45 @@ enum CoordTests {
             fputs("FAIL Meter Ruhepose\n", stderr)
             fails += 1
         }
+        if !GestureMath.okSign(closed: true, closedness: 0.4, middle: true, ring: true, little: false) {
+            fputs("FAIL OK-Zeichen\n", stderr)
+            fails += 1
+        }
+        if GestureMath.okSign(closed: true, closedness: 0.9, middle: false, ring: false, little: false) {
+            fputs("FAIL Pinch ist kein OK\n", stderr)
+            fails += 1
+        }
+        let palm = CGPoint(x: 0.5, y: 0.5)
+        let wrist = CGPoint(x: 0.5, y: 0.62)
+        let beakTips = [
+            CGPoint(x: 0.50, y: 0.38),
+            CGPoint(x: 0.51, y: 0.37),
+            CGPoint(x: 0.49, y: 0.39),
+            CGPoint(x: 0.50, y: 0.36)
+        ]
+        if !GestureMath.beakTowardCamera(palm: palm, wrist: wrist, tips: beakTips, palmWidth: 0.12) {
+            fputs("FAIL Schnabel zur Kamera\n", stderr)
+            fails += 1
+        }
+        let openTips = [
+            CGPoint(x: 0.35, y: 0.25),
+            CGPoint(x: 0.45, y: 0.20),
+            CGPoint(x: 0.55, y: 0.22),
+            CGPoint(x: 0.65, y: 0.28)
+        ]
+        if GestureMath.beakTowardCamera(palm: palm, wrist: wrist, tips: openTips, palmWidth: 0.12) {
+            fputs("FAIL offene Hand kein Schnabel\n", stderr)
+            fails += 1
+        }
+        let orbs = GestureMath.folderOrbCenters(origin: CGPoint(x: 100, y: 100), count: 5)
+        if orbs.count != 5 {
+            fputs("FAIL Ordner-Kreise Anzahl\n", stderr)
+            fails += 1
+        }
+        if GestureMath.folderOrbHit(point: CGPoint(x: 100, y: 100 - 170), orbs: [("desk", orbs[0])]) != "desk" {
+            fputs("FAIL Ordner-Treffer\n", stderr)
+            fails += 1
+        }
         if GestureMath.pinchMeterClosed(gate: true, closedness: 0.9, isFist: true) {
             fputs("FAIL Meter Faust\n", stderr)
             fails += 1

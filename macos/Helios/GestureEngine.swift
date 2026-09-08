@@ -37,6 +37,13 @@ struct HandCursor {
     var actor: Bool
 }
 
+struct FolderOrb: Equatable {
+    var id: String
+    var title: String
+    var path: String
+    var quartz: CGPoint
+}
+
 @MainActor
 final class GestureEngine {
     var mode: EngineMode = .idle
@@ -75,6 +82,8 @@ final class GestureEngine {
     var freezeEndedAt: TimeInterval?
     var freezeGhostDelta: CGPoint = .zero
     var freezeGhostDeltas: [String: CGPoint] = [:]
+    var beakGrabEnabled = true
+    var folderOrbs: [FolderOrb] = []
     private var freezePPos: CGFloat = 0.0004
     private var freezePVel: CGFloat = 0.008
     private var freezePByID: [String: (pPos: CGFloat, pVel: CGFloat)] = [:]
@@ -91,6 +100,8 @@ final class GestureEngine {
     private var pinchHoldPhase: GestureMath.PinchHoldPhase = .unseen
     private var pinchHoldFor: TimeInterval = 0
     private var pinchBecameDrag = false
+    private var pinchFromBeak = false
+    private var pinchWasOK = false
     private var pinchBeganAt: TimeInterval = 0
     private var pinchTrail: [(t: TimeInterval, x: CGFloat, y: CGFloat)] = []
     private var pinchSpan0: CGFloat?
@@ -223,7 +234,8 @@ final class GestureEngine {
         pinchHoldPhase = .unseen
         pinchHoldFor = 0
         pinchBecameDrag = false
-        pinchTrail.removeAll()
+        pinchFromBeak = false
+        pinchWasOK = false
         pinchSpan0 = nil
         pinchSpanW = nil
         pinchHandID = nil
@@ -687,6 +699,9 @@ final class GestureEngine {
         driveThumbs(actor, now: now)
         driveKeyboard(hands: hands, actor: actor, now: now)
         driveDwell(actor, now: now)
+        if !pinchHeld, actor.pose == .fist, !folderOrbs.isEmpty {
+            hideFolders()
+        }
         dragging = pinchHeld
         if system.isDragging {
             grabPhase = .grab
@@ -704,6 +719,7 @@ final class GestureEngine {
         mode = .idle
         mustRearm = true
         system.endWindowDrag()
+        hideFolders()
         lastAction = "Idle"
         onLog?(testMode ? "Idle (Test)" : "Manuell Idle", .info, nil)
     }
@@ -1521,12 +1537,13 @@ final class GestureEngine {
         let analogClosed = GestureMath.pinchAnalogClosed(
             GestureMath.pinchAnalog(closedness: hand.pinchClosedness, zSep: hand.pinchZSep)
         )
+        let beak = beakNow(hand)
         let closedWanted = GestureMath.pinchMeterClosed(
             gate: hand.pinchClosed || analogClosed,
             closedness: hand.pinchClosedness,
             isFist: hand.pose == .fist && !pinchBecameDrag,
             restPose: !pinchHeld && (hand.pose == .openPalm || hand.pose == .thumbsUp)
-        )
+        ) || (beakGrabEnabled && beak)
         let advanced = GestureMath.pinchHoldAdvance(
             phase: pinchHoldPhase,
             closed: closedWanted,
@@ -1539,6 +1556,14 @@ final class GestureEngine {
         if isGrab && !pinchHeld {
             pinchHeld = true
             pinchBecameDrag = false
+            pinchFromBeak = beakGrabEnabled && beak
+            pinchWasOK = GestureMath.okSign(
+                closed: hand.pinchClosed || analogClosed,
+                closedness: hand.pinchClosedness,
+                middle: hand.isExtended(.middle),
+                ring: hand.isExtended(.ring),
+                little: hand.isExtended(.little)
+            )
             pinchBeganAt = now
             pinchHandID = hand.id
             pinchLastHand = hand
@@ -1550,7 +1575,7 @@ final class GestureEngine {
             pinchSpan0 = hand.palm.y
             pinchSpanW = hand.palmWidth
             grabLogged = false
-            lastAction = testMode ? "Test: Halten" : "Halten"
+            lastAction = pinchFromBeak ? "Schnabel" : (pinchWasOK ? "OK" : (testMode ? "Test: Halten" : "Halten"))
         } else if isGrab && pinchHeld {
             pinchPeakClosed = max(pinchPeakClosed, hand.pinchClosedness)
             pinchTrail.append((now, hand.palm.x, hand.palm.y))
@@ -1569,7 +1594,7 @@ final class GestureEngine {
                     let d = space.dist(CGPoint(x: b.x, y: b.y), CGPoint(x: a.x, y: a.y)) / max(0.04, hand.palmWidth)
                     return GestureMath.pinchPalmVel(movedHW: d, dt: max(0.008, b.t - a.t))
                 }()
-                if GestureMath.pinchDragArmed(held: now - pinchBeganAt),
+                if (pinchFromBeak || GestureMath.pinchDragArmed(held: now - pinchBeganAt)),
                    GestureMath.isDrag(palmMovedHW: moved, cursorMovedPx: cursorPx, dt: sampleDt, palmVelHW: vel) {
                     if chromeHot.isEmpty || cursorPx >= 52 {
                         if !system.isDragging, !testMode, now - lastGrabTry > 0.20 {
@@ -1621,9 +1646,14 @@ final class GestureEngine {
             }
         } else if !isGrab && pinchHeld {
             let wasDrag = pinchBecameDrag
+            let wasBeak = pinchFromBeak
+            let wasOK = pinchWasOK
             let origin = pinchOriginCursor
+            let trail = pinchTrail
             dropPinchHold()
             pinchBecameDrag = false
+            pinchFromBeak = false
+            pinchWasOK = false
             pinchHandID = nil
             pinchLastHand = nil
             pinchOriginCursor = nil
@@ -1631,7 +1661,6 @@ final class GestureEngine {
             pinchPalmMoved = 0
             pinchMissSince = nil
             pinchReleasedAt = now
-            let trail = pinchTrail
             pinchTrail.removeAll()
             pinchSpan0 = nil
             pinchSpanW = nil
@@ -1639,12 +1668,19 @@ final class GestureEngine {
             trashHot = false
             if !testMode { system.endWindowDrag() }
             swipeMuteUntil = now + GestureMath.swipeMuteAfterPinch
-            if !fire, pinchBecameDrag {
+            if !fire, wasDrag {
                 lastAction = "Loslassen"
                 return
             }
             if !wasDrag {
-                fireTapClick(at: origin ?? cursor)
+                if wasBeak {
+                    lastAction = "Schnabel aus"
+                    onLog?("Schnabel aus — kein Klick", .info, Int(hand.poseProb * 100))
+                } else if fireFolderOrOK(at: origin ?? cursor, wasOK: wasOK) {
+                    ()
+                } else {
+                    fireTapClick(at: origin ?? cursor)
+                }
             } else {
                 pinchTrail = trail
                 let flung = resolveFling(
@@ -1686,6 +1722,96 @@ final class GestureEngine {
             onLog?("Klick — NICHT AUSGEFÜHRT: \(r.detail)", .failed, 100)
             Permissions.demand(.inputMonitoring)
         }
+    }
+
+    private func beakNow(_ hand: TrackedHand) -> Bool {
+        guard let wrist = hand.point(.wrist) else { return false }
+        let tips = [hand.point(.indexTip), hand.point(.middleTip), hand.point(.ringTip), hand.point(.littleTip)]
+            .compactMap { $0 }
+        return GestureMath.beakTowardCamera(palm: hand.palm, wrist: wrist, tips: tips, palmWidth: hand.palmWidth)
+    }
+
+    @discardableResult
+    private func fireFolderOrOK(at point: CGPoint?, wasOK: Bool) -> Bool {
+        let at = point ?? cursor
+        if let at, let id = GestureMath.folderOrbHit(
+            point: at,
+            orbs: folderOrbs.map { ($0.id, $0.quartz) }
+        ), let orb = folderOrbs.first(where: { $0.id == id })
+        {
+            return openFolderPath(orb.path, title: orb.title)
+        }
+        guard wasOK else { return false }
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        if testMode {
+            lastAction = "Test: Dateisystem"
+            onLog?("Dateisystem — Testmodus", .blocked, 100)
+            layoutFolderOrbs(at: home, around: at)
+            return true
+        }
+        let r = system.openFolder(home)
+        if r.ok {
+            lastAction = "Dateisystem"
+            onLog?("Dateisystem · \(r.detail)", .executed, 100)
+            layoutFolderOrbs(at: home, around: at)
+        } else {
+            lastAction = "Dateisystem — \(r.detail)"
+            onLog?("Dateisystem — NICHT AUSGEFÜHRT: \(r.detail)", .failed, 100)
+        }
+        return true
+    }
+
+    private func openFolderPath(_ path: String, title: String) -> Bool {
+        let url = URL(fileURLWithPath: path, isDirectory: true)
+        if testMode {
+            lastAction = "Test: \(title)"
+            layoutFolderOrbs(at: url, around: cursor)
+            return true
+        }
+        let r = system.openFolder(url)
+        lastAction = r.ok ? title : "\(title) — \(r.detail)"
+        onLog?(r.ok ? "Ordner · \(title)" : "Ordner — NICHT AUSGEFÜHRT: \(r.detail)", r.ok ? .executed : .failed, 100)
+        if r.ok { layoutFolderOrbs(at: url, around: cursor) }
+        return true
+    }
+
+    private func layoutFolderOrbs(at url: URL, around point: CGPoint?) {
+        let fm = FileManager.default
+        let home = fm.homeDirectoryForCurrentUser
+        var items: [(id: String, title: String, path: String)] = []
+        if url.standardizedFileURL.path == home.standardizedFileURL.path {
+            items = [
+                ("home", "Privat", home.path),
+                ("desk", "Schreibtisch", home.appendingPathComponent("Desktop").path),
+                ("docs", "Dokumente", home.appendingPathComponent("Documents").path),
+                ("down", "Downloads", home.appendingPathComponent("Downloads").path),
+                ("apps", "Programme", "/Applications")
+            ]
+        } else {
+            let parent = url.deletingLastPathComponent()
+            if parent.path != url.path, parent.path != "/" {
+                items.append(("up", "Zurück", parent.path))
+            }
+            let kids = (try? fm.contentsOfDirectory(
+                at: url,
+                includingPropertiesForKeys: [.isDirectoryKey],
+                options: [.skipsHiddenFiles]
+            )) ?? []
+            let dirs = kids.filter { (try? $0.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true }
+                .sorted { $0.lastPathComponent.localizedCaseInsensitiveCompare($1.lastPathComponent) == .orderedAscending }
+            for (i, d) in dirs.prefix(5).enumerated() {
+                items.append(("d\(i)", d.lastPathComponent, d.path))
+            }
+        }
+        let origin = point ?? cursor ?? CGPoint(x: 960, y: 540)
+        let pts = GestureMath.folderOrbCenters(origin: origin, count: items.count)
+        folderOrbs = zip(items, pts).map { item, p in
+            FolderOrb(id: item.id, title: item.title, path: item.path, quartz: p)
+        }
+    }
+
+    func hideFolders() {
+        folderOrbs = []
     }
 
     private func resolveFling(

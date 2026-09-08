@@ -1976,6 +1976,58 @@ enum GestureMath {
         return gate || closedness >= 0.24
     }
 
+    /// OK: Daumen+Zeigefinger zu, mindestens zwei andere Finger oben.
+    static func okSign(closed: Bool, closedness: Double, middle: Bool, ring: Bool, little: Bool) -> Bool {
+        let circle = closed || closedness >= 0.24
+        let others = (middle ? 1 : 0) + (ring ? 1 : 0) + (little ? 1 : 0)
+        return circle && others >= 2
+    }
+
+    /// Schnabel: Finger parallel, zur Kamera gestreckt. Spitzen eng, vor der Palme.
+    static func beakTowardCamera(palm: CGPoint, wrist: CGPoint, tips: [CGPoint], palmWidth: CGFloat) -> Bool {
+        guard tips.count >= 3 else { return false }
+        let w = max(0.03, palmWidth)
+        var sx: CGFloat = 0
+        var sy: CGFloat = 0
+        for t in tips {
+            sx += t.x
+            sy += t.y
+        }
+        let n = CGFloat(tips.count)
+        let mean = CGPoint(x: sx / n, y: sy / n)
+        var spread: CGFloat = 0
+        for t in tips {
+            spread = max(spread, hypot(t.x - mean.x, t.y - mean.y))
+        }
+        let cluster = spread / w
+        guard cluster <= 0.52 else { return false }
+        let ahead = hypot(mean.x - palm.x, mean.y - palm.y) / w
+        guard ahead >= 0.32, ahead <= 1.15 else { return false }
+        let wristPalm = hypot(palm.x - wrist.x, palm.y - wrist.y) / w
+        guard wristPalm <= 1.35 else { return false }
+        return true
+    }
+
+    static func folderOrbHit(point: CGPoint, orbs: [(id: String, quartz: CGPoint)], radius: CGFloat = 56) -> String? {
+        var best: (id: String, d: CGFloat)?
+        for o in orbs {
+            let d = hypot(point.x - o.quartz.x, point.y - o.quartz.y)
+            if d <= radius, best == nil || d < best!.d {
+                best = (o.id, d)
+            }
+        }
+        return best?.id
+    }
+
+    static func folderOrbCenters(origin: CGPoint, count: Int, radius: CGFloat = 170) -> [CGPoint] {
+        guard count > 0 else { return [] }
+        let n = max(1, count)
+        return (0..<n).map { i in
+            let a = -CGFloat.pi / 2 + CGFloat(i) * (2 * CGFloat.pi / CGFloat(n))
+            return CGPoint(x: origin.x + cos(a) * radius, y: origin.y + sin(a) * radius)
+        }
+    }
+
     /// 8-fps Tap: zu → auf = Klick. Faust zählt nicht.
     static func pinchTapWouldClick(closedness: [Double], gates: [Bool] = [], dt: TimeInterval = 0.125, isFist: [Bool] = []) -> Bool {
         var phase = PinchHoldPhase.unseen

@@ -116,6 +116,7 @@ final class SystemControl {
 
     func moveCursor(to point: CGPoint) {
         guard allowsInjection else { return }
+        guard GestureMath.pointerWarpAllowed(axTrusted: AXIsProcessTrusted()) else { return }
         let p = ScreenGeometry.clampQuartz(point)
         lastPosted = p
         lastPostAt = CACurrentMediaTime()

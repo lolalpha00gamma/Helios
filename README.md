@@ -1,4 +1,5 @@
-# Helios **1.6.42**
+# Helios **1.6.43**
+
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -19,7 +20,17 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
 
+## Neu in 1.6.43
+
+1.6.42 Fusion Source-Tag, Reliability-Decay, freezeKalmanQ. Format-Retry denselben 1080p@8. Pinch Bool. AX-Drop warf Cursor.
+
+- **Format-Leiter.** 1080p@8 → 720p@24 → 960p@15 → 640p@30, nicht denselben Retry.
+- **PinchHoldPhase.** Unseen / Tentative / Held / Released — Math, Engine folgt.
+- **Fail-closed AX.** Ohne Bedienungshilfen kein Cursor-Move.
+- Tests + MARKETING_VERSION 1.6.43 (Build 76).
+
 ## Neu in 1.6.42
+
 
 1.6.41 AX-TTL sampleDt, Drag×dt, Format-Score gemessen. Fusion stempelte immer `geometry2D`. Fehlende Quellen Reliability 1. Kalman-Q fest 0,94.
 

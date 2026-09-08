@@ -1515,6 +1515,56 @@ enum CoordTests {
             fputs("FAIL Kalman-Reibung 8 fps kleiner\n", stderr)
             fails += 1
         }
+        if GestureMath.cameraFormatLadderNext(height: 1080, measuredFps: 8)?.height != 720 {
+            fputs("FAIL Leiter 1080p@8 → 720p\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraFormatLadderNext(height: 720, measuredFps: 8)?.height != 540 {
+            fputs("FAIL Leiter 720p@8 → 960p/540\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraFormatLadderNext(height: 360, measuredFps: 8) != nil {
+            fputs("FAIL Leiter 640p Ende\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraFormatLadderNext(height: 1080, measuredFps: 24) != nil {
+            fputs("FAIL Leiter 24 fps tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraFormatLadderBias(height: 720, currentHeight: 1080, measuredFps: 8)
+            <= GestureMath.cameraFormatLadderBias(height: 1080, currentHeight: 1080, measuredFps: 8)
+        {
+            fputs("FAIL Leiter-Bias 720 vor 1080\n", stderr)
+            fails += 1
+        }
+        var pinch = GestureMath.pinchHoldAdvance(phase: .unseen, closed: true, heldFor: 0, dt: 0.04)
+        if pinch.phase != .tentative {
+            fputs("FAIL Pinch unseen→tentative\n", stderr)
+            fails += 1
+        }
+        pinch = GestureMath.pinchHoldAdvance(phase: pinch.phase, closed: true, heldFor: pinch.heldFor, dt: 0.10)
+        if pinch.phase != .held || !GestureMath.pinchHoldFire(pinch.phase) {
+            fputs("FAIL Pinch tentative→held\n", stderr)
+            fails += 1
+        }
+        pinch = GestureMath.pinchHoldAdvance(phase: .held, closed: false, heldFor: 0.4, dt: 0.04)
+        if pinch.phase != .released {
+            fputs("FAIL Pinch held→released\n", stderr)
+            fails += 1
+        }
+        pinch = GestureMath.pinchHoldAdvance(phase: .released, closed: false, heldFor: 0.04, dt: 0.20)
+        if pinch.phase != .unseen {
+            fputs("FAIL Pinch released→unseen\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pointerWarpAllowed(axTrusted: false) {
+            fputs("FAIL Warp ohne AX tot\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pointerWarpAllowed(axTrusted: true) {
+            fputs("FAIL Warp mit AX\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

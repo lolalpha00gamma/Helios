@@ -80,6 +80,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     let depthTap = DepthCapture()
     private var formatRenegotiated = false
     private var lastRenegotiateAt: TimeInterval = 0
+    /// Letzte aktive Höhe — Leiter sonst denselben 1080p-Retry.
+    private var lastFormatHeight: Double = 1080
     var latestDepth: DepthSample? { depthTap.latest }
     var hasDepth: Bool { depthTap.attached }
     private var keepAlive: NSObjectProtocol?
@@ -89,6 +91,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         pump.reset()
         formatRenegotiated = false
         lastRenegotiateAt = 0
+        lastFormatHeight = 1080
         cameraQueue.async { [weak self] in
             self?.configureAndRun()
         }
@@ -521,8 +524,10 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
                 return
             }
             locked = true
-            if let format = Self.bestFormat(on: device, measuredFps: measuredFps) {
+            if let format = Self.bestFormat(on: device, measuredFps: measuredFps, currentHeight: lastFormatHeight) {
                 device.activeFormat = format
+                let dims = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
+                lastFormatHeight = Double(dims.height)
             }
             self.depthTap.applyActiveFormat(device)
             if let range = device.activeFormat.videoSupportedFrameRateRanges.max(by: {
@@ -551,7 +556,12 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     }
 
     /// 720p@24 vor 1080p@8. Continuity ohne 24 fps nicht verwerfen — sonst Default = 8 fps.
-    fileprivate static func bestFormat(on device: AVCaptureDevice, measuredFps: Double = 0) -> AVCaptureDevice.Format? {
+    /// Leiter: nicht denselben 1080p-Retry wenn gemessen tot.
+    fileprivate static func bestFormat(
+        on device: AVCaptureDevice,
+        measuredFps: Double = 0,
+        currentHeight: Double = 0
+    ) -> AVCaptureDevice.Format? {
         var best: AVCaptureDevice.Format?
         var bestScore = -1.0
         for format in device.formats {
@@ -559,9 +569,14 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             let w = Double(dims.width)
             let h = Double(dims.height)
             let fps = format.videoSupportedFrameRateRanges.map(\.maxFrameRate).max() ?? 0
-            let score = measuredFps > 0 && measuredFps < 12
+            var score = measuredFps > 0 && measuredFps < 12
                 ? GestureMath.cameraFormatScoreMeasured(width: w, height: h, maxFps: fps, measuredFps: measuredFps)
                 : GestureMath.cameraFormatScore(width: w, height: h, maxFps: fps)
+            if measuredFps > 0 && measuredFps < 12 {
+                score += GestureMath.cameraFormatLadderBias(
+                    height: h, currentHeight: currentHeight, measuredFps: measuredFps
+                )
+            }
             if score > bestScore {
                 bestScore = score
                 best = format

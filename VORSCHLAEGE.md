@@ -1,6 +1,40 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.42**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen. Gelesen, nicht gemergt: IOHID Event-Tap, JSONL, AX-ein-Call.
+Stand: **1.6.43**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen. Gelesen, nicht gemergt: IOHID Event-Tap, JSONL, AX-ein-Call.
+
+## In 1.6.43 erledigt
+
+1.6.42 Fusion Source-Tag / Reliability-Decay / freezeKalmanQ. Format-Retry denselben 1080p@8. Pinch weiter Bool+Uhren. AX-Drop warf Cursor trotzdem.
+
+1. **cameraFormatLadder.** 1080p@8 → 720p@24 → 960p@15 → 640p@30. `cameraFormatLadderBias` in `bestFormat`.
+2. **PinchHoldPhase** Unseen / Tentative / Held / Released. `pinchHoldAdvance` / `pinchHoldFire`.
+3. **pointerWarpAllowed.** AX tot → kein CGEvent-Move (fail-closed).
+4. Tests + MARKETING_VERSION 1.6.43 (Build 76).
+
+## Erweiterung (neu, 1.6.43)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC, eine Session. P0.
+2. **DisplayLink 90 Hz HUD**, Kamera 8–24 fps. Overlay-Lerp unabhängig. P1.
+3. **PinchHoldPhase in GestureEngine verdrahten** — Math ist da, Gate/HMM lesen weiter Bool.
+4. **HeliosAegisKit** gemeinsamer Broker + Mutex-PTS.
+5. **Continuity uniqueID-Reconnect** — Slot stirbt, Pinch-Lock weg. Homographie nur wenn Cam wirklich wechselt.
+6. **Two-pinch vs scroll hysteresis** — offene Hand + Coast darf Pinch-Start nicht fressen.
+7. **mmap leftover-Boxen** Helios↔Aegis, nicht Datei-Poll. Palm-Occlusion.
+8. **Aegis-Yaw als Click-Lock** — Blick weg = kein Klick.
+9. **Per-Finger One-Euro**, nicht nur pinchRatio.
+10. **VoiceOver-Rotor** Peace-Hold mappt Rotor, nicht System-Cmd.
+11. **Cover-Lead Blend nur Quality-Gap.**
+12. **Stereo Mac+Phone z aus Disparität**, Lift-Gewicht dann wirklich 0,06.
+13. **On-Device Create ML** aus `gesten.jsonl` ohne Bundle-Modell.
+14. **Tests ohne Vision.framework** Fusion/HMM auf Linux-CI (reine Double-Math) — CoordTests bleibt der Einstieg.
+15. **Session-Watchdog** Idle nur fps>0 UND keine Aegis-Face UND 8 s leer.
+16. **Pointer-Accel × backingScaleFactor** je NSScreen, nicht 48 px universal.
+17. **HUD Pose-Chips am DisplayLink** auch wenn Detect 8 Hz friert.
+18. **Palm-Silhouette Click-Lock** Aspect Kante-an = kein Klick.
+19. **DepthCapture an Continuity LiDAR** wirklich verdrahten (Datei ist Stub).
+20. **JSONL Session-Replay** Gesten-Regression.
+
+P0 CameraBroker. P1 DisplayLink. P2 PinchHoldPhase in der Engine. Kein 1.6.44-dt-Pflaster ohne eines davon.
 
 ## In 1.6.42 erledigt
 

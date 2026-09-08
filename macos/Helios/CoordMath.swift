@@ -408,6 +408,82 @@ enum GestureMath {
         measuredFps > 0 && measuredFps < floor && lastAt > 0 && now - lastAt >= cooldown
     }
 
+    /// 720p@24 → 960p@15 → 640p@30. Nicht denselben 1080p@8-Retry.
+    struct CameraFormatStep: Equatable {
+        var width: Double
+        var height: Double
+        var fps: Double
+    }
+
+    static let cameraFormatLadder: [CameraFormatStep] = [
+        CameraFormatStep(width: 1280, height: 720, fps: 24),
+        CameraFormatStep(width: 960, height: 540, fps: 15),
+        CameraFormatStep(width: 640, height: 360, fps: 30)
+    ]
+
+    /// 1080p = −1, 720p = 0, 540p = 1, 360p = 2.
+    static func cameraFormatLadderIndex(height: Double) -> Int {
+        if height >= 1000 { return -1 }
+        if height >= 700 { return 0 }
+        if height >= 500 { return 1 }
+        return 2
+    }
+
+    static func cameraFormatLadderNext(height: Double, measuredFps: Double) -> CameraFormatStep? {
+        guard measuredFps > 0, measuredFps < 12 else { return nil }
+        let next = cameraFormatLadderIndex(height: height) + 1
+        guard next >= 0, next < cameraFormatLadder.count else { return nil }
+        return cameraFormatLadder[next]
+    }
+
+    /// bestFormat: Leiter-Höhe +90, aktuelle Höhe −50 wenn gemessen tot.
+    static func cameraFormatLadderBias(height: Double, currentHeight: Double, measuredFps: Double) -> Double {
+        guard let step = cameraFormatLadderNext(height: currentHeight, measuredFps: measuredFps) else { return 0 }
+        var b = 0.0
+        if abs(height - step.height) < 80 { b += 90 }
+        if currentHeight > 0, abs(height - currentHeight) < 40 { b -= 50 }
+        return b
+    }
+
+    /// Pinzette als Hold-SM. Sechs Uhren + Bool bleibt die Uhr.
+    enum PinchHoldPhase: String, Equatable {
+        case unseen, tentative, held, released
+    }
+
+    static func pinchHoldAdvance(
+        phase: PinchHoldPhase,
+        closed: Bool,
+        heldFor: TimeInterval,
+        dt: TimeInterval,
+        tentativeNeed: TimeInterval = 0.12,
+        releaseNeed: TimeInterval = 0.20
+    ) -> (phase: PinchHoldPhase, heldFor: TimeInterval) {
+        let t = max(0, dt)
+        switch phase {
+        case .unseen:
+            return closed ? (.tentative, t) : (.unseen, 0)
+        case .tentative:
+            if !closed { return (.unseen, 0) }
+            let h = heldFor + t
+            return h >= tentativeNeed ? (.held, h) : (.tentative, h)
+        case .held:
+            if closed { return (.held, heldFor + t) }
+            return (.released, t)
+        case .released:
+            if closed { return (.tentative, t) }
+            return heldFor + t >= releaseNeed ? (.unseen, 0) : (.released, heldFor + t)
+        }
+    }
+
+    static func pinchHoldFire(_ phase: PinchHoldPhase) -> Bool { phase == .held }
+
+    static func pinchHoldClosed(_ phase: PinchHoldPhase) -> Bool {
+        phase == .held || phase == .tentative
+    }
+
+    /// AX-Drop: freeze, nie Warp auf (0,0).
+    static func pointerWarpAllowed(axTrusted: Bool) -> Bool { axTrusted }
+
     /// 8 fps Palm-Jitter: kleineres α, sonst Reach/Gate skaliert mit einem Tick.
     static func palmWidthEMAAlpha(dt: TimeInterval, base: CGFloat = 0.22) -> CGFloat {
         dt >= 0.10 ? min(0.12, base * 0.55) : base

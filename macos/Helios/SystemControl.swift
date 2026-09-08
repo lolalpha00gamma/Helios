@@ -3,6 +3,7 @@ import AppKit
 import CoreGraphics
 import Foundation
 import ImageIO
+import QuartzCore
 import UniformTypeIdentifiers
 
 enum SnapEdge {
@@ -54,6 +55,9 @@ final class SystemControl {
     private(set) var mouseHasControl = false
     private let axQ = DispatchQueue(label: "helios.ax", qos: .userInteractive)
     private var chromeCache: (at: TimeInterval, point: CGPoint, knobs: [ChromeKnob])?
+    private var axHitAt: TimeInterval = 0
+    private var axHitKey = ""
+    private var axHitEl: AXUIElement?
     /// Freeze-Geisterhand: Jiggler seize tot.
     var freezeLive = false
 
@@ -508,11 +512,24 @@ final class SystemControl {
     }
 
     private func window(at point: CGPoint) -> AXUIElement? {
+        let now = CACurrentMediaTime()
+        let key = GestureMath.axHitCacheKey(cursor: point)
+        if GestureMath.axHitCacheFresh(cachedAt: axHitAt, now: now, dt: 0.04), key == axHitKey {
+            return axHitEl
+        }
         let sys = ax(AXUIElementCreateSystemWide())
         var ref: AXUIElement?
         let err = AXUIElementCopyElementAtPosition(sys, Float(point.x), Float(point.y), &ref)
-        guard err == .success, let start = ref else { return nil }
-        return ancestorWindow(start)
+        let found: AXUIElement?
+        if err == .success, let start = ref {
+            found = ancestorWindow(start)
+        } else {
+            found = nil
+        }
+        axHitAt = now
+        axHitKey = key
+        axHitEl = found
+        return found
     }
 
     private func ancestorWindow(_ el: AXUIElement) -> AXUIElement? {

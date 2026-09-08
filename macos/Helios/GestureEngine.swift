@@ -73,6 +73,9 @@ final class GestureEngine {
     var freezeLive = false
     var freezeGhostDelta: CGPoint = .zero
     var freezeGhostDeltas: [String: CGPoint] = [:]
+    private var freezePPos: CGFloat = 0.0004
+    private var freezePVel: CGFloat = 0.008
+    private var freezePByID: [String: (pPos: CGFloat, pVel: CGFloat)] = [:]
 
     private var fistSince: TimeInterval?
     private var fistLostAt: TimeInterval?
@@ -266,6 +269,9 @@ final class GestureEngine {
         freezeLive = false
         freezeGhostDelta = .zero
         freezeGhostDeltas = [:]
+        freezePPos = 0.0004
+        freezePVel = 0.008
+        freezePByID = [:]
         sampleDt = 0.04
         lastTickNow = 0
         lastFusionEntropy = 0
@@ -288,24 +294,33 @@ final class GestureEngine {
                 freezeLive = true
                 system.freezeLive = true
                 if let p = lastPalm {
-                    let pred = GestureMath.freezePalmPredict(
-                        palm: p, vx: lastPalmVel.x, vy: lastPalmVel.y, dt: sampleDt
+                    let pred = GestureMath.freezeKalmanPredict(
+                        palm: p, vx: lastPalmVel.x, vy: lastPalmVel.y,
+                        pPos: freezePPos, pVel: freezePVel, dt: sampleDt
                     )
                     freezeGhostDelta = CGPoint(x: pred.palm.x - p.x, y: pred.palm.y - p.y)
                     lastPalm = pred.palm
                     lastPalmVel = CGPoint(x: pred.vx, y: pred.vy)
+                    freezePPos = pred.pPos
+                    freezePVel = pred.pVel
                 }
-                let predHands = GestureMath.freezePalmsPredict(
-                    palms: lastHandsFreeze.map { ($0.id, $0.palm, $0.vel.x, $0.vel.y) },
+                let predHands = GestureMath.freezeKalmanPalms(
+                    palms: lastHandsFreeze.map {
+                        let p = freezePByID[$0.id] ?? (0.0004, 0.008)
+                        return ($0.id, $0.palm, $0.vel.x, $0.vel.y, p.pPos, p.pVel)
+                    },
                     dt: sampleDt
                 )
                 var deltas: [String: CGPoint] = [:]
+                var nextP: [String: (pPos: CGFloat, pVel: CGFloat)] = [:]
                 lastHandsFreeze = predHands.map { row in
                     let prev = lastHandsFreeze.first { $0.id == row.id }
                     let oldPalm = prev?.palm ?? row.palm
                     deltas[row.id] = CGPoint(x: row.palm.x - oldPalm.x, y: row.palm.y - oldPalm.y)
+                    nextP[row.id] = (row.pPos, row.pVel)
                     return (row.id, row.palm, CGPoint(x: row.vx, y: row.vy))
                 }
+                freezePByID = nextP
                 freezeGhostDeltas = deltas
                 if let chip = GestureMath.freezeVelChip(dx: freezeGhostDelta.x, dy: freezeGhostDelta.y) {
                     lockFreeze = chip
@@ -390,6 +405,17 @@ final class GestureEngine {
         if lastHandSeen > 0, now - lastHandSeen > sampleDt * 1.6 {
             recoverSpan = GestureMath.emptyHandsRecoverSpan(dt: sampleDt)
             recoverUntil = now + recoverSpan
+            if let pred = lastPalm, let meas = hands.first(where: { $0.id == pointerHandID })?.palm
+                ?? hands.max(by: { $0.palmWidth < $1.palmWidth })?.palm {
+                let u = GestureMath.freezeKalmanUpdate(pred: pred, meas: meas, pPos: freezePPos)
+                lastPalm = u.palm
+                freezePPos = u.pPos
+                freezePVel = 0.008
+            }
+        } else {
+            freezePPos = 0.0004
+            freezePVel = 0.008
+            freezePByID = [:]
         }
         let nextPalmW = hands.map(\.palmWidth).max() ?? lastPalmWidth
         let nextPalm = hands.first(where: { $0.id == pointerHandID })?.palm
@@ -456,9 +482,7 @@ final class GestureEngine {
         }
 
         let primary = preferred(hands)
-        if let chip = GestureMath.qualityChip(primary.quality) {
-            qualityChip = chip
-        }
+        qualityChip = GestureMath.qualityChips(hands.map { ($0.id, $0.quality) })
         let live = mode == .armed || testMode
 
         if protocolMode, now - lastPoseLog > 0.28 {
@@ -1019,7 +1043,11 @@ final class GestureEngine {
         dx = step.x
         dy = step.y
         let seed = from ?? ScreenGeometry.clampQuartz(NSEvent.mouseLocation.screenFlipped)
-        let stepped = ScreenGeometry.stepCursor(from: seed, dPalm: CGPoint(x: dx, y: dy), gain: pointerGain * freezeGain)
+        let stepped = ScreenGeometry.stepCursor(
+            from: seed,
+            dPalm: CGPoint(x: dx, y: dy),
+            gain: pointerGain * freezeGain * GestureMath.pointerGainDt(dt: sampleDt)
+        )
         let a: CGFloat = freezeGain < 0.99 ? 1 : 0.86
         let s = CGPoint(x: a * stepped.x + (1 - a) * seed.x, y: a * stepped.y + (1 - a) * seed.y)
         cursorTracks[hand.id] = s

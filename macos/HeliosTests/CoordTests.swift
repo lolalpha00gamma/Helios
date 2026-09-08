@@ -1370,6 +1370,103 @@ enum CoordTests {
             fputs("FAIL Approach Faust-Reach Veto tot\n", stderr)
             fails += 1
         }
+        let kal = GestureMath.freezeKalmanPredict(
+            palm: CGPoint(x: 0.4, y: 0.5), vx: 0.20, vy: 0, dt: 0.125
+        )
+        if kal.palm.x <= 0.40 {
+            fputs("FAIL Kalman Predict +x\n", stderr)
+            fails += 1
+        }
+        if kal.vx >= 0.20 {
+            fputs("FAIL Kalman Reibung\n", stderr)
+            fails += 1
+        }
+        if kal.pPos <= 0.0004 {
+            fputs("FAIL Kalman P wächst\n", stderr)
+            fails += 1
+        }
+        let decay = GestureMath.freezePalmPredict(
+            palm: CGPoint(x: 0.4, y: 0.5), vx: 0.20, vy: 0, dt: 0.125
+        )
+        var kx = 0.20 as CGFloat
+        var dx = 0.20 as CGFloat
+        for _ in 0..<3 {
+            kx = GestureMath.freezeKalmanPredict(
+                palm: CGPoint(x: 0.4, y: 0.5), vx: kx, vy: 0, dt: 0.125
+            ).vx
+            dx = GestureMath.freezePalmPredict(
+                palm: CGPoint(x: 0.4, y: 0.5), vx: dx, vy: 0, dt: 0.125
+            ).vx
+        }
+        if kx <= dx {
+            fputs("FAIL Kalman hält Vel länger als Decay 0,82\n", stderr)
+            fails += 1
+        }
+        let upd = GestureMath.freezeKalmanUpdate(
+            pred: CGPoint(x: 0.40, y: 0.50),
+            meas: CGPoint(x: 0.80, y: 0.50),
+            pPos: 0.04
+        )
+        if abs(upd.palm.x - 0.80) > abs(0.40 - 0.80) {
+            fputs("FAIL Kalman Update zieht zur Messung\n", stderr)
+            fails += 1
+        }
+        if GestureMath.qualityChipHand(id: "T2", quality: 0.40) != "T2 q tot" {
+            fputs("FAIL Per-Hand q-Chip T2\n", stderr)
+            fails += 1
+        }
+        if GestureMath.qualityChipHand(id: "T1", quality: 0.90) != nil {
+            fputs("FAIL Per-Hand q scharf tot\n", stderr)
+            fails += 1
+        }
+        let chips = GestureMath.qualityChips([("T1", 0.40), ("T2", 0.90)])
+        if chips != "T1 q tot" {
+            fputs("FAIL qualityChips nur tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pointerGainDt(dt: 0.04) < 0.99 {
+            fputs("FAIL Pointer-Gain 24 fps = 1\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pointerGainDt(dt: 0.125) >= 0.40 {
+            fputs("FAIL Pointer-Gain 8 fps dämpft\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.axHitCacheFresh(cachedAt: 1.00, now: 1.04, dt: 0.04) {
+            fputs("FAIL AX-Cache 1 Frame frisch\n", stderr)
+            fails += 1
+        }
+        if GestureMath.axHitCacheFresh(cachedAt: 1.00, now: 1.20, dt: 0.04) {
+            fputs("FAIL AX-Cache alt tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.axHitCacheKey(cursor: CGPoint(x: 12, y: 20), quant: 8)
+            != GestureMath.axHitCacheKey(cursor: CGPoint(x: 13, y: 18), quant: 8) {
+            fputs("FAIL AX-Cache Key Quant\n", stderr)
+            fails += 1
+        }
+        if GestureMath.palmWidthEMAAlpha(dt: 0.125) >= GestureMath.palmWidthEMAAlpha(dt: 0.04) {
+            fputs("FAIL Palm-EMA 8 fps kleineres α\n", stderr)
+            fails += 1
+        }
+        let emaFast = GestureMath.palmWidthEMA(prev: 0.10, next: 0.20, dt: 0.04)
+        let emaSlow = GestureMath.palmWidthEMA(prev: 0.10, next: 0.20, dt: 0.125)
+        if emaSlow >= emaFast {
+            fputs("FAIL Palm-EMA 8 fps glättet\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.cameraFormatRenegotiate(measuredFps: 8) {
+            fputs("FAIL Format neu bei 8 fps\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraFormatRenegotiate(measuredFps: 24) {
+            fputs("FAIL Format 24 fps hält\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraFormatRenegotiate(measuredFps: 8, already: true) {
+            fputs("FAIL Format already tot\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

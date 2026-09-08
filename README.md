@@ -1,4 +1,4 @@
-# Helios **1.6.39**
+# Helios **1.6.40**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,18 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.40
+
+1.6.39 Approach+Reach, Finger-Kontakt, q-Gate, Tip-Konfidenz. Freeze-Geist Vel-Decay 0,82 tot nach 3 Continuity-Ticks. AX hitTest jeden Tick. palmWidth α 0,22 Frame. Pointer-Gain ein Tick = Teleport. q-Chip nur Actor. Format-Score einmal, 8 fps bleibt.
+
+- **freezeKalmanPredict / Update / Palms.** Reibung 0,94, P wächst. Recover blendet Messung.
+- **axHitCacheFresh** 1 Frame. Continuity sonst AX jeden Tick.
+- **palmWidthEMA × dt.** 8 fps α 0,12 — Reach/Gate nicht mehr ein Jitter-Tick.
+- **pointerGainDt.** 8 fps × 0,32, 24 fps = 1.
+- **qualityChips** je Hand `T1 q tot · T2 q tot`.
+- **cameraFormatRenegotiate** gemessene fps < 12, einmal pro Session.
+- Tests + MARKETING_VERSION 1.6.40 (Build 73).
 
 ## Neu in 1.6.39
 

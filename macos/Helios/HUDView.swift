@@ -198,7 +198,7 @@ struct HUDView: View {
                     .foregroundStyle(HeliosTheme.void)
                     .background(HeliosTheme.amber)
                     .overlay(Rectangle().stroke(HeliosTheme.amber, lineWidth: 1))
-                    .help("Landmark-Qualität < 0,55 — tot-Pinzette unsichtbar, Tor hoch")
+                    .help("Landmark-Qualität < 0,55 je Hand — tot-Pinzette unsichtbar, Tor hoch")
             }
             if !state.permissionBanner.isEmpty {
                 Text(state.permissionBanner.uppercased())

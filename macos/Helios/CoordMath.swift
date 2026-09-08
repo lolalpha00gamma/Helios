@@ -347,6 +347,48 @@ enum GestureMath {
         quality < floor ? "q tot" : nil
     }
 
+    /// qualityChip 1.6.37 nur Actor. Zweite Hand tot unsichtbar.
+    static func qualityChipHand(id: String, quality: Double, floor: Double = 0.55) -> String? {
+        guard let chip = qualityChip(quality, floor: floor) else { return nil }
+        let short = id.count <= 3 ? id : String(id.prefix(2))
+        return "\(short) \(chip)"
+    }
+
+    static func qualityChips(_ hands: [(id: String, quality: Double)], floor: Double = 0.55) -> String {
+        hands.compactMap { qualityChipHand(id: $0.id, quality: $0.quality, floor: floor) }.joined(separator: " · ")
+    }
+
+    /// Continuity-Tick sonst Teleport: Gain × (ref/dt). 24 fps = 1, 8 fps ≈ 0,32.
+    static func pointerGainDt(dt: TimeInterval, ref: TimeInterval = 0.04) -> CGFloat {
+        let t = max(0.008, min(0.20, dt <= 0 ? ref : dt))
+        let r = max(0.008, ref)
+        return CGFloat(min(1, r / t))
+    }
+
+    /// AX-Hit 1 Frame. Continuity 8 fps sonst hitTest jeden Tick.
+    static func axHitCacheFresh(cachedAt: TimeInterval, now: TimeInterval, dt: TimeInterval) -> Bool {
+        guard cachedAt > 0, now >= cachedAt else { return false }
+        return now - cachedAt < max(0.04, dt) * 1.15
+    }
+
+    static func axHitCacheKey(cursor: CGPoint, quant: CGFloat = 8) -> String {
+        let q = max(1, quant)
+        let x = Int((cursor.x / q).rounded())
+        let y = Int((cursor.y / q).rounded())
+        return "\(x):\(y)"
+    }
+
+    /// Gemessene fps < 12 trotz cameraFormatScore → Format neu verhandeln.
+    static func cameraFormatRenegotiate(measuredFps: Double, floor: Double = 12, already: Bool = false) -> Bool {
+        !already && measuredFps > 0 && measuredFps < floor
+    }
+
+    /// 8 fps Palm-Jitter: kleineres α, sonst Reach/Gate skaliert mit einem Tick.
+    static func palmWidthEMAAlpha(dt: TimeInterval, base: CGFloat = 0.22) -> CGFloat {
+        dt >= 0.10 ? min(0.12, base * 0.55) : base
+    }
+
+
     /// One-Euro auf pinchRatio. 8 fps Gate-Jitter sonst Klick. q tot dämpft cutoff.
     static func pinchRatioSmooth(prev: CGFloat, next: CGFloat, dt: TimeInterval, minCutoff: CGFloat = 1, quality: Double = 1) -> CGFloat {
         let t = CGFloat(max(0.008, dt))
@@ -388,6 +430,59 @@ enum GestureMath {
         let nvy = vy * d
         return (CGPoint(x: palm.x + nvx * t, y: palm.y + nvy * t), nvx, nvy)
     }
+
+    /// Kalman-Palme während Freeze. Vel-Decay 0,82 stirbt in 3 Continuity-Ticks.
+    /// Reibung 0,94, P wächst — Recover blendet Messung, kein Teleport.
+    static func freezeKalmanPredict(
+        palm: CGPoint,
+        vx: CGFloat,
+        vy: CGFloat,
+        pPos: CGFloat = 0.0004,
+        pVel: CGFloat = 0.008,
+        dt: TimeInterval,
+        friction: CGFloat = 0.94,
+        qPos: CGFloat = 0.0008,
+        qVel: CGFloat = 0.004
+    ) -> (palm: CGPoint, vx: CGFloat, vy: CGFloat, pPos: CGFloat, pVel: CGFloat) {
+        let t = CGFloat(max(0, min(0.20, dt)))
+        let f = max(0.80, min(1, friction))
+        let nvx = vx * f
+        let nvy = vy * f
+        let next = CGPoint(x: palm.x + nvx * t, y: palm.y + nvy * t)
+        let npPos = max(0, pPos + t * t * max(0, pVel) + max(0, qPos))
+        let npVel = max(0, pVel * f * f + max(0, qVel))
+        return (next, nvx, nvy, npPos, npVel)
+    }
+
+    static func freezeKalmanUpdate(
+        pred: CGPoint,
+        meas: CGPoint,
+        pPos: CGFloat,
+        r: CGFloat = 0.002
+    ) -> (palm: CGPoint, pPos: CGFloat) {
+        let p = max(0, pPos)
+        let noise = max(1e-9, r)
+        let k = p / (p + noise)
+        let palm = CGPoint(
+            x: pred.x + k * (meas.x - pred.x),
+            y: pred.y + k * (meas.y - pred.y)
+        )
+        return (palm, (1 - k) * p)
+    }
+
+    /// Zwei-Hand Kalman. Actor-Δ auf die zweite Hand bleibt tot.
+    static func freezeKalmanPalms(
+        palms: [(id: String, palm: CGPoint, vx: CGFloat, vy: CGFloat, pPos: CGFloat, pVel: CGFloat)],
+        dt: TimeInterval
+    ) -> [(id: String, palm: CGPoint, vx: CGFloat, vy: CGFloat, pPos: CGFloat, pVel: CGFloat)] {
+        palms.map { row in
+            let p = freezeKalmanPredict(
+                palm: row.palm, vx: row.vx, vy: row.vy, pPos: row.pPos, pVel: row.pVel, dt: dt
+            )
+            return (row.id, p.palm, p.vx, p.vy, p.pPos, p.pVel)
+        }
+    }
+
 
     /// Zwei-Hand Freeze: jede Palme eigene Vel. Actor-Δ auf die zweite Hand = Teleport.
     static func freezePalmsPredict(
@@ -853,6 +948,11 @@ enum GestureMath {
         let a = min(1, max(0, alpha))
         return a * next + (1 - a) * prev
     }
+
+    static func palmWidthEMA(prev: CGFloat, next: CGFloat, dt: TimeInterval) -> CGFloat {
+        palmWidthEMA(prev: prev, next: next, alpha: palmWidthEMAAlpha(dt: dt))
+    }
+
 
     /// Shannon-Entropie der Softmax-Pose. Flach ≈ ln(n), spitz ≈ 0.
     static func fusionEntropy(_ probs: [Double]) -> Double {

@@ -78,6 +78,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     }
     private var frameHandler: ((CVPixelBuffer, NSImage?, CGFloat, TimeInterval) -> Void)?
     let depthTap = DepthCapture()
+    private var formatRenegotiated = false
     var latestDepth: DepthSample? { depthTap.latest }
     var hasDepth: Bool { depthTap.attached }
     private var keepAlive: NSObjectProtocol?
@@ -85,8 +86,21 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     func start() {
         DispatchQueue.main.async { self.errorMessage = nil }
         pump.reset()
+        formatRenegotiated = false
         cameraQueue.async { [weak self] in
             self?.configureAndRun()
+        }
+    }
+
+    /// Continuity 8 fps trotz Score → Format neu, einmal pro Session.
+    func renegotiateIfSlow(measuredFps: Double) {
+        guard GestureMath.cameraFormatRenegotiate(measuredFps: measuredFps, already: formatRenegotiated) else { return }
+        formatRenegotiated = true
+        cameraQueue.async { [weak self] in
+            guard let self else { return }
+            let device = self.session.inputs.compactMap { ($0 as? AVCaptureDeviceInput)?.device }.first
+            guard let device else { return }
+            self.configureDevice(device)
         }
     }
 

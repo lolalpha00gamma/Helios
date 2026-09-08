@@ -1,6 +1,46 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.39**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen. Gelesen, nicht gemergt: IOHID Event-Tap, JSONL, AX-ein-Call.
+Stand: **1.6.40**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen. Gelesen, nicht gemergt: IOHID Event-Tap, JSONL, AX-ein-Call.
+
+## In 1.6.40 erledigt
+
+1.6.39 Approach+Reach / Finger-Kontakt / q-Gate / Tip. Freeze-Vel-Decay 0,82 tot nach 3 Ticks. AX jeden Tick. palmWidth α Frame. Pointer-Gain Teleport. q-Chip nur Actor. Format einmal.
+
+1. **freezeKalmanPredict / Update / Palms.** Reibung 0,94, P wächst.
+2. **axHitCacheFresh** 1 Frame.
+3. **palmWidthEMA × dt.** 8 fps α 0,12.
+4. **pointerGainDt.** 8 fps 0,32.
+5. **qualityChips** je Hand.
+6. **cameraFormatRenegotiate** fps < 12.
+7. Tests + MARKETING_VERSION 1.6.40 (Build 73).
+
+## Erweiterung (neu)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC, eine Session. P0.
+2. **DisplayLink 90 Hz HUD**, Kamera 8–24 fps. Overlay-Lerp unabhängig.
+3. **HeliosAegisKit** gemeinsamer Broker + Mutex-PTS.
+4. **LiDAR-Pinch** (DepthCapture) statt nur Landmark-z. Residual-Gate 1.6.37 ist Lift3D.
+5. **IOHID Event-Tap / AX SetPosition / Per-App Gain** (`bugfix`, opt-in).
+6. **JSONL Session-Replay** Gesten-Regression.
+7. **MediaPipe Hands Sidecar** — VNDetectHumanHandPose verliert Spitzen.
+8. **Hand-ID über Continuity-Reconnect** — Slot stirbt, Pinch-Lock weg.
+9. **Zwei-Pinzetten Freeze-Span** — Zoom-Anker nicht tot nach einem Miss.
+10. **Helios liest Aegis leftover-Boxen** als Palm-Occlusion.
+11. **Aegis-Yaw als Helios Click-Lock** — Blick weg = kein Klick.
+12. **pinchBecameDrag × dt** — Click-vs-Zug-Schwelle ein 8-fps-Tick.
+13. **SpaceMap Re-Calib** wenn Palm-Aspect nach Drehung kippt.
+14. **Two-pinch vs scroll hysteresis** — offene Hand + Coast darf Pinch-Start nicht fressen.
+15. **Wrist-IMU via Watch** für Pinch-Confirm wenn Vision-Spitzen tot.
+16. **Homographie Online-Nachzug** 4 Anschläge unsichtbar nach 20 s Pointer-Clutch.
+17. **DepthCapture an Continuity LiDAR** wirklich verdrahten (Datei ist Stub).
+18. **One-Euro auf Cursor-Output**, nicht nur Palm-Highpass — 8 fps sonst Nachschwingen.
+19. **Pinch analog 0…1 als Scroll-Gain** statt Bool-Gate (Ultraleap-Stil).
+20. **Per-Display Freeze-Clamp** — Geisterhand darf nicht den Nachbarschirm teleportieren.
+21. **Vision-Revision-Fallback** wenn Continuity die gepinnte Revision droppt.
+22. **Gesture-Macros** 2 s aufnehmen, Peace+Faust replay.
+23. **ARKit Gaze Click-Lock** wenn Aegis-Yaw fehlt (Studio Display).
+24. **AX-Hit-Cache × Fenster-ID** nicht nur Punkt — Resize während Freeze sonst tot.
+25. **Kalman-Q an fps** — 24 fps weniger Process-Noise als 8 fps.
 
 ## In 1.6.39 erledigt
 

@@ -663,6 +663,7 @@ final class AppState: ObservableObject {
             fpsSpark.removeAll { wall - $0.t > GestureMath.fpsSparkSec }
             fpsAmber = GestureMath.fpsAmber(fps) || GestureMath.fpsSparkAmber(fpsSpark, now: wall)
             fpsSparkBars = GestureMath.fpsSparkBars(fpsSpark, now: wall)
+            camera.renegotiateIfSlow(measuredFps: fps)
         }
         if protocolMode {
             recorder.push(

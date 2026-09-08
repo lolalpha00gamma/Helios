@@ -1,5 +1,24 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
+Stand: 2026-09-08. Helios **1.6.40** (Build 73). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+
+## 0. 1.6.40 — Kalman-Palme, AX-Cache, Palm-EMA × dt, Gain × dt
+
+1.6.39: Approach+Reach, Finger-Kontakt, q-Gate, Tip. Freeze-Vel-Decay 0,82 tot nach 3 Continuity-Ticks. AX hitTest jeden Tick. palmWidth α 0,22 Frame. Pointer-Gain ein Tick = Teleport. q-Chip nur Actor. Format-Score einmal, 8 fps bleibt.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | Freeze-Geist tot nach 3 Ticks | `freezeKalmanPredict / Update / Palms` Reibung 0,94 |
+| 2 | AX hitTest jeden Tick | `axHitCacheFresh` 1 Frame |
+| 3 | palmWidth α Frame | `palmWidthEMA × dt` 8 fps 0,12 |
+| 4 | Pointer-Gain Teleport | `pointerGainDt` 8 fps 0,32 |
+| 5 | q-Chip nur Actor | `qualityChips` je Hand |
+| 6 | Format einmal, 8 fps bleibt | `cameraFormatRenegotiate` fps < 12 |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe, DisplayLink 90 Hz.
+
+# Analyse, Fehlerbehebung, öffentlicher Abgleich
+
 Stand: 2026-09-08. Helios **1.6.39** (Build 72). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
 
 ## 0. 1.6.39 — Approach+Reach, Finger-Kontakt, q-Gate, Tip-Konfidenz

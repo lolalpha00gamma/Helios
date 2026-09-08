@@ -359,9 +359,10 @@ final class HandTracker: @unchecked Sendable {
 
             slot.chirality = obs.chirality
             slot.lastPalm = fused.palm
+            let dt = slot.lastNow > 0 ? now - slot.lastNow : 0.04
             slot.lastSeen = now
             slot.lastNow = now
-            slot.palmWidthEma = GestureMath.palmWidthEMA(prev: slot.palmWidthEma, next: fused.palmWidth)
+            slot.palmWidthEma = GestureMath.palmWidthEMA(prev: slot.palmWidthEma, next: fused.palmWidth, dt: dt)
             if let ti = assigned[idx], ti < tracks.count {
                 tracks[ti] = slot
             } else {

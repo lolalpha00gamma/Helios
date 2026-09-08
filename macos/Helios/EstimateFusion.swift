@@ -27,6 +27,17 @@ final class EstimateFusion {
         }
     }
 
+    /// HUD/Debug sonst immer „2D“, auch wenn Tiefe führt.
+    static func dominantSource(_ weights: [EstimateSource: Double]) -> EstimateSource {
+        weights.max(by: { $0.value < $1.value })?.key ?? .geometry2D
+    }
+
+    /// Fehlende Quelle nicht bei 1 lassen — sonst taucht tot-Tiefe mit vollem Gewicht auf.
+    static func reliabilityDecay(prev: Double, present: Bool, rate: Double = 0.92, floor: Double = 0.02) -> Double {
+        if present { return max(floor, min(1.4, prev)) }
+        return max(floor, prev * rate)
+    }
+
     func fuse(_ estimates: [HandEstimate], dt: TimeInterval) -> (HandEstimate, FusionDebug) {
         let live = estimates.filter(\.available)
         if live.isEmpty {
@@ -62,6 +73,7 @@ final class EstimateFusion {
         let sumW = rawW.values.reduce(0, +)
         var w: [EstimateSource: Double] = [:]
         for (s, v) in rawW { w[s] = v / max(1e-9, sumW) }
+        let lead = Self.dominantSource(w)
 
         var logp: [HandPose: Double] = [:]
         for pose in HandPose.allCases {
@@ -104,7 +116,7 @@ final class EstimateFusion {
         }
 
         let fused = HandEstimate(
-            source: .geometry2D,
+            source: lead,
             probabilities: probs,
             pinchClosedness: max(0, min(1, pinch)),
             palm: CGPoint(x: palmX, y: palmY),
@@ -117,6 +129,7 @@ final class EstimateFusion {
         var dev: [String: Double] = [:]
         let winner = fused.argmax
         let alpha = 1 - exp(-dt / 5.0)
+        let present = Set(live.map(\.source))
         for e in live {
             let d = 1 - (e.probabilities[winner] ?? 0)
             dev[e.source.rawValue] = d
@@ -125,6 +138,9 @@ final class EstimateFusion {
             errEMA[e.source] = ema
             let rel = max(minW, min(1.4, 1.0 / max(0.25, 0.35 + ema)))
             reliability[e.source] = rel
+        }
+        for s in EstimateSource.allCases where !present.contains(s) {
+            reliability[s] = Self.reliabilityDecay(prev: reliability[s] ?? 1, present: false, floor: minW)
         }
 
         let dbg = FusionDebug(
@@ -135,7 +151,8 @@ final class EstimateFusion {
             pinchClosedness: fused.pinchClosedness,
             usedDepth: hasDepth,
             collapsed: collapsed,
-            entropy: GestureMath.fusionEntropy(Array(probs.values))
+            entropy: GestureMath.fusionEntropy(Array(probs.values)),
+            source: lead.rawValue
         )
         return (fused, dbg)
     }

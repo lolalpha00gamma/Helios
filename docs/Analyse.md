@@ -1,6 +1,18 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
-Stand: 2026-09-08. Helios **1.6.41** (Build 74). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+Stand: 2026-09-08. Helios **1.6.42** (Build 75). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+
+## 0. 1.6.42 — Fusion Source-Tag, Reliability-Decay, Kalman-Q(fps)
+
+1.6.41: AX-TTL sampleDt, Drag×dt, Format-Score gemessen. Fusion-Quelle immer 2D. Fehlende Tiefe Reliability 1. Kalman-Q fest 0,94.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | fused.source immer 2D | argmax Gewicht |
+| 2 | Reliability fehlend = 1 | × 0,92 / Frame |
+| 3 | Kalman-Q fest | freezeKalmanQ(dt) |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe, DisplayLink 90 Hz.
 
 ## 0. 1.6.41 — AX-TTL sampleDt, Drag×dt, Format-Score gemessen, Track-Dropout
 
@@ -14,10 +26,6 @@ Stand: 2026-09-08. Helios **1.6.41** (Build 74). Nur `main`. `bugfix` ist 1.5.7 
 | 4 | HMM-Reset während Freeze | `trackDropoutNeed(dt)` |
 
 Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe, DisplayLink 90 Hz, Hand-ID Reconnect.
-
-# Analyse, Fehlerbehebung, öffentlicher Abgleich
-
-Stand: 2026-09-08. Helios **1.6.40** (Build 73). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
 
 ## 0. 1.6.40 — Kalman-Palme, AX-Cache, Palm-EMA × dt, Gain × dt
 
@@ -33,10 +41,6 @@ Stand: 2026-09-08. Helios **1.6.40** (Build 73). Nur `main`. `bugfix` ist 1.5.7 
 | 6 | Format einmal, 8 fps bleibt | `cameraFormatRenegotiate` fps < 12 |
 
 Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe, DisplayLink 90 Hz.
-
-# Analyse, Fehlerbehebung, öffentlicher Abgleich
-
-Stand: 2026-09-08. Helios **1.6.39** (Build 72). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
 
 ## 0. 1.6.39 — Approach+Reach, Finger-Kontakt, q-Gate, Tip-Konfidenz
 

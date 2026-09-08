@@ -1,6 +1,15 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.41**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen. Gelesen, nicht gemergt: IOHID Event-Tap, JSONL, AX-ein-Call.
+Stand: **1.6.42**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen. Gelesen, nicht gemergt: IOHID Event-Tap, JSONL, AX-ein-Call.
+
+## In 1.6.42 erledigt
+
+1.6.41 AX-TTL / Drag×dt / Format-Score. Fusion-Quelle immer 2D. Reliability fehlender Quellen 1. Kalman-Q fest 0,94.
+
+1. **fused.source = argmax Gewicht.** HUD `führt`.
+2. **reliabilityDecay** fehlende Quelle × 0,92.
+3. **freezeKalmanQ(dt).**
+4. Tests + MARKETING_VERSION 1.6.42 (Build 75).
 
 ## In 1.6.41 erledigt
 
@@ -49,7 +58,7 @@ Stand: **1.6.41**. Die Punkte unten sind Erweiterungen, kein Backlog der schon g
 21. **Gesture-Macros** 2 s aufnehmen, Peace+Faust replay.
 22. **ARKit Gaze Click-Lock** wenn Aegis-Yaw fehlt (Studio Display).
 23. **AX-Hit-Cache × Fenster-ID** nicht nur Punkt — Resize während Freeze sonst tot.
-24. **Kalman-Q an fps** — 24 fps weniger Process-Noise als 8 fps.
+24. **Pose als Hold-SM** Unseen / Tentative / Held / Released — statt 12 Bools.
 25. **Format-Probe beim Start** vor dem ersten 8-fps-Sample, nicht erst Cooldown.
 26. **Clutch-Radius × dt** — Jiggler 1,2 px bei 8 fps ein Tick.
 27. **Pointer-SourceID sticky** — Continuity uniqueID-Wechsel ohne Homographie-Reset wenn dieselbe Cam.

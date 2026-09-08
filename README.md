@@ -1,4 +1,4 @@
-# Helios **1.6.41**
+# Helios **1.6.42**
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
 
@@ -18,6 +18,15 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.42
+
+1.6.41 AX-TTL sampleDt, Drag×dt, Format-Score gemessen. Fusion stempelte immer `geometry2D`. Fehlende Quellen Reliability 1. Kalman-Q fest 0,94.
+
+- **Fusion Source-Tag.** `fused.source` = argmax Gewicht, nicht immer 2D. HUD `führt`.
+- **Reliability-Decay.** Fehlende Quelle × 0,92 / Frame, Floor 0,02. tot-Tiefe nicht mit vollem Gewicht.
+- **freezeKalmanQ(dt).** 8 fps mehr Process-Noise, Reibung 0,90. 24 fps bleibt 0,94 / 0,0008.
+- Tests + MARKETING_VERSION 1.6.42 (Build 75).
 
 ## Neu in 1.6.41
 

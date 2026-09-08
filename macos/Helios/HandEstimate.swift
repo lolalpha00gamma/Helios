@@ -55,6 +55,7 @@ struct FusionDebug: Equatable {
     var usedDepth: Bool
     var collapsed: [String] = []
     var entropy: Double = 0
+    var source: String = "geometry2D"
 }
 
 struct Joint3: Equatable {

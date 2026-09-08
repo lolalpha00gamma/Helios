@@ -397,6 +397,17 @@ enum GestureMath {
         return s
     }
 
+    /// Einmal reicht nicht — zweiter Drop bleibt 8 fps. Nach cooldown erneut.
+    static func cameraFormatRenegotiateRetry(
+        measuredFps: Double,
+        lastAt: TimeInterval,
+        now: TimeInterval,
+        cooldown: TimeInterval = 3,
+        floor: Double = 12
+    ) -> Bool {
+        measuredFps > 0 && measuredFps < floor && lastAt > 0 && now - lastAt >= cooldown
+    }
+
     /// 8 fps Palm-Jitter: kleineres α, sonst Reach/Gate skaliert mit einem Tick.
     static func palmWidthEMAAlpha(dt: TimeInterval, base: CGFloat = 0.22) -> CGFloat {
         dt >= 0.10 ? min(0.12, base * 0.55) : base
@@ -446,7 +457,17 @@ enum GestureMath {
     }
 
     /// Kalman-Palme während Freeze. Vel-Decay 0,82 stirbt in 3 Continuity-Ticks.
-    /// Reibung 0,94, P wächst — Recover blendet Messung, kein Teleport.
+    /// Q folgt fps: 24 fps weniger Process-Noise als 8 fps.
+    static func freezeKalmanQ(dt: TimeInterval) -> (qPos: CGFloat, qVel: CGFloat, friction: CGFloat) {
+        let t = max(0.008, min(0.20, dt <= 0 ? 0.04 : dt))
+        let slow = CGFloat(min(1, max(0, (t - 0.04) / 0.085)))
+        return (
+            0.0008 + slow * 0.0012,
+            0.004 + slow * 0.006,
+            max(0.88, 0.94 - slow * 0.04)
+        )
+    }
+
     static func freezeKalmanPredict(
         palm: CGPoint,
         vx: CGFloat,
@@ -454,17 +475,18 @@ enum GestureMath {
         pPos: CGFloat = 0.0004,
         pVel: CGFloat = 0.008,
         dt: TimeInterval,
-        friction: CGFloat = 0.94,
-        qPos: CGFloat = 0.0008,
-        qVel: CGFloat = 0.004
+        friction: CGFloat? = nil,
+        qPos: CGFloat? = nil,
+        qVel: CGFloat? = nil
     ) -> (palm: CGPoint, vx: CGFloat, vy: CGFloat, pPos: CGFloat, pVel: CGFloat) {
+        let q = freezeKalmanQ(dt: dt)
         let t = CGFloat(max(0, min(0.20, dt)))
-        let f = max(0.80, min(1, friction))
+        let f = max(0.80, min(1, friction ?? q.friction))
         let nvx = vx * f
         let nvy = vy * f
         let next = CGPoint(x: palm.x + nvx * t, y: palm.y + nvy * t)
-        let npPos = max(0, pPos + t * t * max(0, pVel) + max(0, qPos))
-        let npVel = max(0, pVel * f * f + max(0, qVel))
+        let npPos = max(0, pPos + t * t * max(0, pVel) + max(0, qPos ?? q.qPos))
+        let npVel = max(0, pVel * f * f + max(0, qVel ?? q.qVel))
         return (next, nvx, nvy, npPos, npVel)
     }
 

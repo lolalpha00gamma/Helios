@@ -1493,6 +1493,28 @@ enum CoordTests {
             fputs("FAIL gemessen 8 fps 720p vor 1080p\n", stderr)
             fails += 1
         }
+        if !GestureMath.cameraFormatRenegotiateRetry(measuredFps: 8, lastAt: 1, now: 4.2) {
+            fputs("FAIL Format Retry nach 3 s\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraFormatRenegotiateRetry(measuredFps: 8, lastAt: 1, now: 2) {
+            fputs("FAIL Format Retry cooldown hält\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraFormatRenegotiateRetry(measuredFps: 24, lastAt: 1, now: 10) {
+            fputs("FAIL Format Retry 24 fps tot\n", stderr)
+            fails += 1
+        }
+        let q8 = GestureMath.freezeKalmanQ(dt: 0.125)
+        let q24 = GestureMath.freezeKalmanQ(dt: 0.04)
+        if q8.qPos <= q24.qPos {
+            fputs("FAIL Kalman-Q 8 fps größer\n", stderr)
+            fails += 1
+        }
+        if q8.friction >= q24.friction {
+            fputs("FAIL Kalman-Reibung 8 fps kleiner\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

@@ -96,7 +96,24 @@ enum GestureTests {
         let e3 = HandEstimate(source: .lift3D, probabilities: p3, pinchClosedness: 0.1, palm: CGPoint(x: 0.41, y: 0.4), palmVariance: 0.002, quality: 0.9, available: true, palmWidth: 0.12)
         let (fused, _) = fusion.fuse([e2, e3], dt: 0.016)
         ok(fused.available, "Fusion liefert Schätzung")
+        ok(fused.source == .geometry2D, "Fusion Quelle = argmax Gewicht (2D)")
         ok((fused.probabilities[.openPalm] ?? 0) > 0.45, "2D-Stimme bleibt führend")
+
+        let (onlyLift, _) = fusion.fuse([e3], dt: 0.016)
+        ok(onlyLift.source == .lift3D, "allein Lift führt")
+        ok(EstimateFusion.reliabilityDecay(prev: 1, present: false) < 0.93, "Reliability-Decay fehlt")
+        ok(EstimateFusion.reliabilityDecay(prev: 0.5, present: true) == 0.5, "Reliability anwesend hält")
+        let decayF = EstimateFusion()
+        for _ in 0..<24 { _ = decayF.fuse([e2], dt: 0.04) }
+        var pD0: [HandPose: Double] = [:]
+        for k in HandPose.allCases { pD0[k] = 0.02 }
+        pD0[.openPalm] = 0.75
+        let eDepth = HandEstimate(source: .depth, probabilities: pD0, pinchClosedness: 0.1, palm: CGPoint(x: 0.4, y: 0.4), palmVariance: 0.001, quality: 0.9, available: true, palmWidth: 0.12)
+        let (_, dbgDecayed) = decayF.fuse([e2, eDepth], dt: 0.04)
+        let freshF = EstimateFusion()
+        let (_, dbgFresh) = freshF.fuse([e2, eDepth], dt: 0.04)
+        ok((dbgDecayed.weights["depth"] ?? 1) + 0.02 < (dbgFresh.weights["depth"] ?? 0), "fehlende Tiefe Reliability-Decay")
+        ok(dbgDecayed.source == "geometry2D" || dbgFresh.source == "geometry2D", "Source-Tag gesetzt")
 
         var copy3 = p2
         let eCopy = HandEstimate(source: .lift3D, probabilities: copy3, pinchClosedness: 0.1, palm: CGPoint(x: 0.4, y: 0.4), palmVariance: 0.002, quality: 0.9, available: true, palmWidth: 0.12)

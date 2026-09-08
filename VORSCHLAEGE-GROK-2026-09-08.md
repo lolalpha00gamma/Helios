@@ -1,37 +1,27 @@
-# Helios Vorschläge — 2026-09-08
+# Helios Vorschläge — 2026-09-08 (Pass 2, 1.6.41)
 
-Stand 1.6.40 / Build 73. Ergänzung zu `VORSCHLAEGE.md`, keine Kopie der erledigten dt-Fixes.
+Stand 1.6.41 / Build 74. Ergänzung, keine Kopie der erledigten Fusion/Retry/Q/Drag-Fixes.
 
-## Warum poorly: Kurzform
+## Gelandet in 1.6.41 (dieser Pass)
 
-8 fps Continuity + Stub-Depth + korrelierte Fusion + HUD am Detect-Takt. Die 1.6.32–40-Serie hat die Uhr geflickt, nicht die Architektur.
+Source-Tag, Reliability-Decay, Format-Retry 3 s, Kalman-Q(fps), pinchBecameDrag × dt. Kein viertes `*Need(dt)` für dieselbe Pinch-Kante außer Drag — das war die offene 1.6.40-Liste #12/#47/#29.
 
-## Erweiterung (neu, nicht in der 1.6.40-Liste)
+## Erweiterung (neu, nicht in der 1.6.41-Liste)
 
-26. **Pose als Hold-SM** Unseen / Tentative / Held / Released — statt `pinchHeld` Bool + sechs Uhren.
-27. **Reliability-Decay** fehlender Fusion-Quellen (EstimateFusion Pass 1).
-28. **fused.source = argmax Gewicht**, nicht immer geometry2D.
-29. **Format-Renegotiate Retry** nach 3 s wenn fps wieder < 12 (einmal reicht nicht).
-30. **Track-ID über uniqueID-Wechsel** per Palm-Raum + letzte Homographie, nicht nur recenter.
-31. **Cover-Lead Blend nur bei Quality-Gap**, nicht sobald Lead einen Landmark-Tick verliert.
-32. **Clutch-Radius × dpi** — 48 px auf 5K ist ein anderes Totfeld als auf 1080p.
-33. **Peace/Kill/Scroll Prioritätstabelle** eine Datei, nicht verstreute `if` in GestureEngine.
-34. **Session-JSONL Replay** gegen CoordTests, nicht nur Live-HUD.
-35. **Vision revision unpin + Fallback** wenn Continuity die gepinnte Revision droppt.
-36. **Zwei-Session CPU-Budget** — Cover auf 12 fps hard-cap, Lead bekommt die Queue.
-37. **AX tree snapshot 200 ms**, nicht hitTest-Punkt-Cache 1 Frame.
-38. **Pinch analog 0…1 × Fensterhöhe** als Magnify-Gain, Bool-Zoom nur Lock.
-39. **Gaze-from-Aegis Click-Lock** Shared Memory / Mutex, nicht Poll-Datei.
-40. **HeliosAegisKit** IOSurface + flock v2 + PTS. P0 mit Aegis.
-41. **Watch-Kompass** nur Confirm, nie Cursor.
-42. **On-Device Create ML** aus `gesten.jsonl` ohne Bundle-Datei-Pflicht.
-43. **Stereo Mac+Phone** z aus Disparität, Lift-Gewicht dann wirklich 0,06.
-44. **Dead-Man sichtbar** HUD-Ring 8 s bevor Idle, nicht stiller Rearm.
-45. **Per-App Gain Profil Datei** `~/Library/Application Support/Helios/apps.json`, nicht nur Enum.
-46. **Overlay Metal Strip** Fusion-Gewichte 90 Hz, Detect 8–24.
-47. **Kalman-Q(fps)** 1.6.40 hat Reibung 0,94 fest.
-48. **Handedness Vote Körper nur bei zwei Handgelenken sichtbar**, sonst Vision-Label.
-49. **emptyHandsHold nicht Cursor und Gate gleichzeitig** — Gate drop, Cursor coast.
-50. **Tests ohne Vision.framework** für Fusion/HMM auf Linux-CI (reine Double-Math), Mac nur Golden-Frames.
+51. **Continuity-Format-Leiter** 720p@24 → 960p@15 → 640p@30, nicht ein Retry desselben 1080p@8.
+52. **Zwei-Hand Pinch als Enum** Unseen/Tentative/Held/Released — `pinchHeld` + sechs Uhren bleibt die Uhr.
+53. **Pointer-Accel × backingScaleFactor** je NSScreen, nicht 48 px universal.
+54. **HUD Pose-Chips am DisplayLink** auch wenn Detect 8 Hz friert.
+55. **Session-Watchdog** Idle nur fps>0 UND keine Aegis-Face UND 8 s leer.
+56. **mmap leftover-Boxen** Helios↔Aegis, nicht Datei-Poll.
+57. **Palm-Silhouette Click-Lock** Aspect Kante-an = kein Klick.
+58. **Per-Finger One-Euro**, nicht nur pinchRatio.
+59. **VoiceOver-Rotor** Peace-Hold mappt Rotor, nicht System-Cmd.
+60. **Fail-closed TCC** AX-Drop → freeze, nie CGWarp(0,0).
+61. **Cover-Lead Blend nur Quality-Gap** (Liste 31, noch offen).
+62. **Track-ID über uniqueID** Palm-Raum + letzte Homographie (Liste 30).
+63. **Stereo Mac+Phone z aus Disparität**, Lift-Gewicht dann wirklich 0,06.
+64. **On-Device Create ML** aus `gesten.jsonl` ohne Bundle-Modell.
+65. **Tests ohne Vision.framework** Fusion/HMM auf Linux-CI (reine Double-Math).
 
-P0 bleibt CameraBroker. P1 DisplayLink. P2 Fusion Source-Tag. Kein 1.6.41-dt-Pflaster ohne eines davon.
+P0 bleibt CameraBroker. P1 DisplayLink. P2 Pose-Hold-SM. Kein 1.6.42-dt-Pflaster ohne eines davon.

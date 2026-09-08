@@ -133,14 +133,15 @@ final class SystemControl {
     }
 
     @discardableResult
-    func click() -> ActionResult {
+    func click(force: Bool = false) -> ActionResult {
         let now = CACurrentMediaTime()
-        if GestureMath.clickHitchBlocks(lastClick: lastClick, now: now, dt: sampleDt) {
+        if !force, GestureMath.clickHitchBlocks(lastClick: lastClick, now: now, dt: sampleDt) {
             return .skip("Klick-Hitch")
         }
         lastClick = now
-        guard allowsInjection else { return .fail("Maus hat Vorrang") }
+        if !force, !allowsInjection { return .fail("Maus hat Vorrang") }
         let loc = lastPosted ?? NSEvent.mouseLocation.screenFlipped
+        lastPosted = loc
         guard postMouse(.leftMouseDown, at: loc), postMouse(.leftMouseUp, at: loc) else {
             return .fail("CGEvent Klick")
         }

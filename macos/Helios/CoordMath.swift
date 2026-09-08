@@ -1816,6 +1816,9 @@ enum GestureMath {
         return palmMovedHW < pinchDragNeedOf(dt: dt) && cursorMovedPx < pinchClickStillNeed(dt: dt)
     }
 
+    /// 8 fps Drift in den ersten Ticks ist kein Zug. Tap-Fenster.
+    static func pinchDragArmed(held: TimeInterval) -> Bool { held >= 0.22 }
+
     static func isDrag(
         palmMovedHW: CGFloat,
         cursorMovedPx: CGFloat,

@@ -1626,6 +1626,14 @@ enum CoordTests {
             fputs("FAIL Tap Gate-Zeiger\n", stderr)
             fails += 1
         }
+        if GestureMath.pinchDragArmed(held: 0.10) {
+            fputs("FAIL Zug vor 0,22 s\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinchDragArmed(held: 0.25) {
+            fputs("FAIL Zug nach 0,22 s\n", stderr)
+            fails += 1
+        }
         var pinch8 = GestureMath.pinchHoldAdvance(phase: .unseen, closed: true, heldFor: 0, dt: 0.125)
         if pinch8.phase != .held {
             fputs("FAIL 8 fps Tap unseen→held\n", stderr)

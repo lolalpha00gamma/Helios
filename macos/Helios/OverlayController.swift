@@ -209,9 +209,18 @@ final class OverlayController {
             || (state?.keyboardVisible == true)
             || (state.map { $0.drill.phase != .idle } ?? false)
         let clickable = state?.calibActive == true
-        for h in fillHostings.values { h.isHidden = !fillOn }
+        for (id, h) in fillHostings {
+            h.isHidden = !fillOn
+            if !fillOn, let panel = panels[id] {
+                polish(h, wrap: panel.contentView, panel: panel)
+            }
+        }
         for panel in panels.values {
             panel.ignoresMouseEvents = !clickable
+            if !fillOn {
+                panel.isOpaque = false
+                panel.backgroundColor = .clear
+            }
         }
         if posePrev == nil || freeze {
             paint(

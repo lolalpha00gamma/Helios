@@ -621,7 +621,7 @@ final class GestureEngine {
             return
         }
         handleArming(hands: hands, now: now)
-        if mode != .armed, !testMode, !mustRearm {
+        if mode != .armed, !testMode {
             if idleArmSince == nil { idleArmSince = now }
             let p = primary
             let pinch = GestureMath.pinchMeterClosed(
@@ -630,7 +630,7 @@ final class GestureEngine {
                 isFist: p.pose == .fist
             )
             let held = now - (idleArmSince ?? now)
-            if pinch || held >= GestureMath.idleHandArm {
+            if pinch || (!mustRearm && held >= GestureMath.idleHandArm) {
                 mode = .armed
                 mustRearm = false
                 idleArmSince = nil
@@ -644,12 +644,10 @@ final class GestureEngine {
         if !armed {
             placeCursors(hands, actor: primary)
             if let p = cursor { postSampleCursor(p) }
-            grabPhase = (primary.pose == .pinch || primary.pose == .fist) ? .hold : .follow
+            driveGrab(primary, now: now)
+            grabPhase = pinchHeld ? .hold : .follow
             grabTargetName = focused?.appName ?? ""
-            if hands.contains(where: { $0.pose == .pinch || $0.pose == .fist }) {
-                lastAction = mustRearm ? "Nach Not-Aus: Faust oder 2× Klatschen" : "Faust oder 2× Klatschen → Scharf"
-            }
-            dragging = false
+            dragging = pinchHeld
             return
         }
         let cooling = now < cooldownUntil || now < armedQuietUntil
@@ -676,11 +674,11 @@ final class GestureEngine {
         }
         magnetChrome(now: now)
         updateTrashHot()
+        driveGrab(actor, now: now)
         if scaling {
             dragging = pinchHeld
             return
         }
-        driveGrab(actor, now: now)
         driveSwipe(hands: hands, preferred: primary, now: now)
         driveScroll(hands: hands, preferred: primary, now: now)
         drivePeace(preferred: primary, hands: hands, now: now)
@@ -1479,7 +1477,6 @@ final class GestureEngine {
         if keyboardVisible, let c = cursor, AirLayout.hit(at: c, keys: keyboardHits) != nil {
             return
         }
-        if now < armedQuietUntil, !pinchHeld { return }
         if pinchHeld, let id = pinchHandID, hand.id != id {
             // Andere Hand ist nicht die Pinzette — kein Klick/Loslassen.
             if pinchMissSince == nil { pinchMissSince = now }
@@ -1537,9 +1534,6 @@ final class GestureEngine {
         pinchHoldFor = advanced.heldFor
         let isGrab = GestureMath.pinchHoldFire(pinchHoldPhase)
         if isGrab && !pinchHeld {
-            if GestureMath.pinchReleaseBlocks(now: now, releasedAt: pinchReleasedAt, dt: sampleDt) {
-                return
-            }
             pinchHeld = true
             pinchBecameDrag = false
             pinchBeganAt = now
@@ -1572,7 +1566,8 @@ final class GestureEngine {
                     let d = space.dist(CGPoint(x: b.x, y: b.y), CGPoint(x: a.x, y: a.y)) / max(0.04, hand.palmWidth)
                     return GestureMath.pinchPalmVel(movedHW: d, dt: max(0.008, b.t - a.t))
                 }()
-                if GestureMath.isDrag(palmMovedHW: moved, cursorMovedPx: cursorPx, dt: sampleDt, palmVelHW: vel) {
+                if GestureMath.pinchDragArmed(held: now - pinchBeganAt),
+                   GestureMath.isDrag(palmMovedHW: moved, cursorMovedPx: cursorPx, dt: sampleDt, palmVelHW: vel) {
                     if chromeHot.isEmpty || cursorPx >= 52 {
                         if !system.isDragging, !testMode, now - lastGrabTry > 0.20 {
                             lastGrabTry = now
@@ -1622,14 +1617,7 @@ final class GestureEngine {
                 cooldownUntil = now + 0.5
             }
         } else if !isGrab && pinchHeld {
-            let cursorPx: CGFloat = {
-                guard let a = pinchOriginCursor, let b = cursor else { return 0 }
-                return hypot(a.x - b.x, a.y - b.y)
-            }()
             let wasDrag = pinchBecameDrag
-            let held = now - pinchBeganAt
-            let palmMoved = pinchPalmMoved
-            let peakClosed = max(pinchPeakClosed, hand.pinchClosedness)
             let origin = pinchOriginCursor
             dropPinchHold()
             pinchBecameDrag = false
@@ -1646,32 +1634,15 @@ final class GestureEngine {
             pinchSpanW = nil
             grabLogged = false
             trashHot = false
-            let hotName = chromeHot
-            let knobsNow = chromeKnobs
             if !testMode { system.endWindowDrag() }
             swipeMuteUntil = now + GestureMath.swipeMuteAfterPinch
             if !fire, pinchBecameDrag {
                 lastAction = "Loslassen"
                 return
             }
-            let wantsClick = !wasDrag && GestureMath.isClick(
-                held: held, palmMovedHW: palmMoved, cursorMovedPx: cursorPx,
-                dt: sampleDt, closedness: peakClosed
-            )
-            let knobHit: ChromeKnob? = {
-                guard !wasDrag, !wantsClick, let name = Optional(hotName), !name.isEmpty else { return nil }
-                guard let knob = knobsNow.first(where: { $0.labelDE == name }) else { return nil }
-                let at = origin ?? cursor ?? knob.center
-                guard hypot(at.x - knob.center.x, at.y - knob.center.y) < 26 else { return nil }
-                return knob
-            }()
-            if wantsClick || (!wasDrag && held >= 0.04 && held <= 1.2 && palmMoved < 0.80) {
-                let at = cursor
-                perform("Klick", need: .input, confidence: 1) {
-                    if let point = at { system.moveCursor(to: point) }
-                    return system.click()
-                }
-            } else if wasDrag {
+            if !wasDrag {
+                fireTapClick(at: origin ?? cursor)
+            } else {
                 pinchTrail = trail
                 let flung = resolveFling(
                     now: now,
@@ -1688,15 +1659,29 @@ final class GestureEngine {
                 }
                 lastAction = testMode ? "Test: Loslassen" : "Loslassen"
                 onLog?("Loslassen", testMode ? .blocked : .executed, Int(hand.poseProb * 100))
-            } else if let knob = knobHit {
-                fireChrome(knob)
-            } else if held < GestureMath.pinchClickMinNeed(dt: sampleDt) {
-                lastAction = "zu kurz"
-            } else {
-                lastAction = "gehalten — kein Zug"
-                onLog?("Pinzette gehalten, keine Aktion", .info, Int(hand.poseProb * 100))
             }
             cooldownUntil = now + GestureMath.pinchReleaseNeed(dt: sampleDt)
+        }
+    }
+
+    private func fireTapClick(at point: CGPoint?) {
+        if testMode {
+            lastAction = "Test: Klick"
+            onLog?("Klick — Testmodus, System unberührt", .blocked, 100)
+            return
+        }
+        if let point { system.moveCursor(to: point) }
+        let r = system.click(force: true)
+        if r.ok {
+            lastAction = "Klick"
+            onLog?("Klick · \(r.detail)", .executed, 100)
+        } else if r.skipped {
+            lastAction = "Klick"
+            onLog?("Klick · \(r.detail)", .executed, 100)
+        } else {
+            lastAction = "Klick — \(r.detail)"
+            onLog?("Klick — NICHT AUSGEFÜHRT: \(r.detail)", .failed, 100)
+            Permissions.demand(.inputMonitoring)
         }
     }
 

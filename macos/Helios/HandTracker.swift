@@ -167,6 +167,7 @@ final class HandTracker: @unchecked Sendable {
     private var lastFreezeAt: TimeInterval = 0
     private var bodyTick = 0
     private var lastBodyPts: [VNHumanBodyPoseObservation.JointName: VNRecognizedPoint] = [:]
+    private var roiMiss = false
 
     func reset() {
         lock.lock()
@@ -178,6 +179,48 @@ final class HandTracker: @unchecked Sendable {
         lastFreezeAt = 0
         lastBodyPts = [:]
         bodyTick = 0
+        roiMiss = false
+    }
+
+    private func applyVisionRoi(now: TimeInterval) {
+        guard GestureMath.visionRoiEnabled(), !roiMiss else {
+            request.regionOfInterest = GestureMath.visionRoiFull()
+            return
+        }
+        let live = tracks.filter { now - $0.lastSeen < 0.8 }
+        guard !live.isEmpty else {
+            request.regionOfInterest = GestureMath.visionRoiFull()
+            return
+        }
+        let boxes = live.map {
+            GestureMath.visionRoiFromPalm(palm: $0.lastPalm, width: max(0.06, $0.palmWidthEma))
+        }
+        request.regionOfInterest = GestureMath.visionRoiUnion(boxes)
+    }
+
+    private func chiralityInt(_ c: VNChirality) -> Int {
+        switch c {
+        case .left: return 1
+        case .right: return 2
+        default: return 0
+        }
+    }
+
+    private func chiralityOf(_ v: Int) -> VNChirality {
+        switch v {
+        case 1: return .left
+        case 2: return .right
+        default: return .unknown
+        }
+    }
+
+    private func chiralityLocked(slot: TrackSlot, live: VNChirality, now: TimeInterval, dt: TimeInterval) -> VNChirality {
+        let dropped = slot.lastSeen > 0 && now - slot.lastSeen > GestureMath.trackDropoutNeed(dt: dt)
+        return chiralityOf(GestureMath.chiralityLock(
+            prev: chiralityInt(slot.chirality),
+            live: chiralityInt(live),
+            dropped: dropped
+        ))
     }
 
     func analyze(
@@ -194,6 +237,7 @@ final class HandTracker: @unchecked Sendable {
         let space = AspectSpace(width: CGFloat(max(1, w)), height: CGFloat(max(1, h)))
         lastSpace = space
 
+        applyVisionRoi(now: now)
         let handler = VNImageRequestHandler(
             cvPixelBuffer: pixelBuffer,
             orientation: orientation,
@@ -215,6 +259,7 @@ final class HandTracker: @unchecked Sendable {
             // almost never recovers and burns the rest of the tick.
         }
         let observations = request.results ?? []
+        roiMiss = observations.isEmpty
         if observations.isEmpty {
             let dtKeep = lastHandsAt > 0 ? GestureMath.sampleDt(now: now, last: lastHandsAt) : 0.125
             tracks.removeAll { now - $0.lastSeen > GestureMath.trackDropoutNeed(dt: dtKeep) }
@@ -402,7 +447,7 @@ final class HandTracker: @unchecked Sendable {
                 if (feat2D.extensions[f.rawValue] ?? 0) > 0.52 { ext.insert(f.rawValue) }
             }
 
-            slot.chirality = obs.chirality
+            slot.chirality = chiralityLocked(slot: slot, live: obs.chirality, now: now, dt: dt)
             if slot.lastNow > 0 {
                 let t = CGFloat(dt)
                 if t > 1e-4 {

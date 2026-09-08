@@ -365,6 +365,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     }
 
     private func configureAndRun() {
+        Self.applyCenterStage()
         session.beginConfiguration()
         session.inputs.forEach { session.removeInput($0) }
         session.outputs.forEach { session.removeOutput($0) }
@@ -607,6 +608,20 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         return .up
     }
 
+    /// Continuity Center Stage croppt aufs Gesicht — Palme fällt aus dem Frame.
+    static func applyCenterStage() {
+        guard GestureMath.centerStageOff else { return }
+        if #available(macOS 12.3, *) {
+            let modeRaw = Int(AVCaptureDevice.centerStageControlMode.rawValue)
+            if GestureMath.centerStageNeedsAppControl(currentModeRaw: modeRaw) {
+                AVCaptureDevice.centerStageControlMode = .app
+            }
+            if GestureMath.centerStageNeedsReassert(enabled: AVCaptureDevice.isCenterStageEnabled) {
+                AVCaptureDevice.isCenterStageEnabled = false
+            }
+        }
+    }
+
     /// Format + Framerate nur mit Werten aus dem unterstützten Bereich, plus NSException-Fang.
     private func configureDevice(_ device: AVCaptureDevice, measuredFps: Double = 0) {
         var locked = false
@@ -638,12 +653,21 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             if device.isFocusModeSupported(.continuousAutoFocus) {
                 device.focusMode = .continuousAutoFocus
             }
-            if device.isExposureModeSupported(.continuousAutoExposure) {
+            if GestureMath.cameraLocksExposure(role: lastDeviceRole) {
+                if device.isExposureModeSupported(.locked) {
+                    device.exposureMode = .locked
+                }
+            } else if device.isExposureModeSupported(.continuousAutoExposure) {
                 device.exposureMode = .continuousAutoExposure
             }
-            if device.isWhiteBalanceModeSupported(.continuousAutoWhiteBalance) {
+            if GestureMath.cameraLocksWhiteBalance(role: lastDeviceRole) {
+                if device.isWhiteBalanceModeSupported(.locked) {
+                    device.whiteBalanceMode = .locked
+                }
+            } else if device.isWhiteBalanceModeSupported(.continuousAutoWhiteBalance) {
                 device.whiteBalanceMode = .continuousAutoWhiteBalance
             }
+            Self.applyCenterStage()
         }, &err)
         if locked {
             HeliosCatch({ device.unlockForConfiguration() }, nil)
@@ -969,6 +993,14 @@ final class CoverCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
                 let dur = CMTime(seconds: sec, preferredTimescale: 600)
                 device.activeVideoMinFrameDuration = dur
                 device.activeVideoMaxFrameDuration = dur
+            }
+            CameraSession.applyCenterStage()
+            let role = CameraSession.role(device).rawValue
+            if GestureMath.cameraLocksExposure(role: role), device.isExposureModeSupported(.locked) {
+                device.exposureMode = .locked
+            }
+            if GestureMath.cameraLocksWhiteBalance(role: role), device.isWhiteBalanceModeSupported(.locked) {
+                device.whiteBalanceMode = .locked
             }
         }, nil)
         if locked {

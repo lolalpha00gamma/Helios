@@ -1,5 +1,24 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
+Stand: 2026-09-08. Helios **1.6.61** (Build 94). Nur `main`. `bugfix` ist 1.6.15 — nichts mergen.
+
+## 0. 1.6.61 — Center Stage, AE-Lock, Chirality, ROI, Pinch×Palme, Fling-Achse
+
+1.6.60: Klick am Cursor, keine Fremdaktionen. Danach blieb Continuity Center Stage an — iPhone croppt aufs Gesicht, Palme raus, Vision 8 Hz Full-Frame, AE-Jagd kippt Homographie, Dropout dreht L/R, kleine Palme klickt zu früh, Diagonale dockt.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | Center Stage croppt Palme | `centerStageOff` `.app` |
+| 2 | AE-Jagd = Homographie-Reset | `cameraLocksExposure` phone |
+| 3 | L/R-Tausch nach Miss | `chiralityLock` |
+| 4 | Full-Frame 8 Hz | `visionRoiFromPalm` 2× |
+| 5 | Kleine Palme = Faust-Klick | `pinchClosednessNeed` × width |
+| 6 | Dropout = Dock | `flingAxisDead` |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe.
+
+# Analyse, Fehlerbehebung, öffentlicher Abgleich
+
 Stand: 2026-09-08. Helios **1.6.59** (Build 92). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
 
 ## 0. 1.6.59 — Track-TTL, Pinch-Reset, Osmo-Rolle, USB-Promote gated

@@ -435,7 +435,7 @@ struct PinchGate {
             closedness: Double(closedness),
             residual: residual
         )
-        let closeNeed = GestureMath.pinchClosednessNeed(quality: quality, start: true)
+        let closeNeed = GestureMath.pinchClosednessNeed(quality: quality, start: true, palmWidth: scale)
 
         let wantClose = looksPinch && (closedness > closeNeed || (quality >= 0.55 && contact > 0.70) || (ratio < 0.44 && vel < GestureMath.pinchCloseVel(dt: dt)))
         var wantOpen = ratio > 0.56 && proxRatio > 0.50 && vel > GestureMath.pinchOpenVel(dt: dt)

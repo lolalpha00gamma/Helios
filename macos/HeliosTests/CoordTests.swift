@@ -2432,6 +2432,61 @@ enum CoordTests {
             fputs("FAIL Osmo Lock 30\n", stderr)
             fails += 1
         }
+        if !GestureMath.centerStageOff {
+            fputs("FAIL Center Stage aus\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.centerStageNeedsAppControl(currentModeRaw: 0) {
+            fputs("FAIL Center Stage user → app\n", stderr)
+            fails += 1
+        }
+        if GestureMath.centerStageNeedsAppControl(currentModeRaw: 1) {
+            fputs("FAIL Center Stage schon app\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.cameraLocksExposure(role: "phone") {
+            fputs("FAIL Phone AE-Lock\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraLocksExposure(role: "mac") {
+            fputs("FAIL Mac kein AE-Lock\n", stderr)
+            fails += 1
+        }
+        if GestureMath.chiralityLock(prev: 1, live: 2, dropped: true) != 1 {
+            fputs("FAIL Chirality Dropout hält Links\n", stderr)
+            fails += 1
+        }
+        if GestureMath.chiralityLock(prev: 1, live: 2, dropped: false) != 2 {
+            fputs("FAIL Chirality live wechselt\n", stderr)
+            fails += 1
+        }
+        if GestureMath.chiralityLock(prev: 1, live: 0, dropped: true) != 1 {
+            fputs("FAIL Chirality unknown hält\n", stderr)
+            fails += 1
+        }
+        let roi = GestureMath.visionRoiFromPalm(palm: CGPoint(x: 0.5, y: 0.5), width: 0.12)
+        if roi.width < 0.20 || roi.height < 0.20 {
+            fputs("FAIL ROI 2× Palme\n", stderr)
+            fails += 1
+        }
+        if GestureMath.visionRoiFull().width != 1 {
+            fputs("FAIL ROI full\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.flingAxisDead(dx: 1, dy: 1, palmWidth: 0.12) {
+            fputs("FAIL Fling Diagonale tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.flingAxisDead(dx: 1, dy: 0.1, palmWidth: 0.12) {
+            fputs("FAIL Fling Achse hält\n", stderr)
+            fails += 1
+        }
+        let smallNeed = GestureMath.pinchClosednessNeed(quality: 0.80, start: true, palmWidth: 0.04)
+        let midNeed = GestureMath.pinchClosednessNeed(quality: 0.80, start: true, palmWidth: 0.12)
+        if smallNeed <= midNeed {
+            fputs("FAIL Pinch kleine Palme höhere Schwelle\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

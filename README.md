@@ -1,4 +1,39 @@
+# Helios **1.6.61**
+
+
+Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
+
+Privates Repo. Keine Open-Source-Lizenzdatei.
+
+Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Start
+
+**Nur die DMG-Datei laden, nicht Source code (zip):**
+
+[Helios.dmg](https://github.com/lolalpha00gamma/Helios/releases/latest/download/Helios.dmg)
+
+1. `Helios.dmg` doppelklicken (kein Entpacken)
+2. Helios nach **Programme** ziehen — nicht aus dem Image starten
+3. Erster Start (nicht notarisierte Ad-hoc-Signatur): **Systemeinstellungen → Datenschutz & Sicherheit → Trotzdem öffnen**
+4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
+
+Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.61
+
+Warum der Cursor tot wirkte und Klicks fremd landeten: Continuity Center Stage croppt aufs Gesicht — die Palme fällt aus dem Frame, Vision sucht den ganzen 8-Hz-Frame, AE-Jagd kippt Homographie, Dropout dreht Links/Rechts.
+
+- **Center Stage aus.** Wie Aegis: `.app`-Mode, `isCenterStageEnabled = false`. Palme bleibt im Bild.
+- **AE/WB-Lock auf Phone.** Continuity nicht continuous. Mac bleibt Auto.
+- **Chirality-Lock nach Dropout.** Vision-Flicker hält die letzte Seite.
+- **Vision ROI 2× Palm-Box.** Miss → Full-Frame nächster Tick.
+- **Pinch-Hysterese × palmWidth.** Kleine Palme höhere Closedness.
+- **Fling-Achse × palmWidth.** Diagonale Dropout-Rucke docken nicht.
+- Tests + MARKETING_VERSION 1.6.61 (Build 94).
+
 # Helios **1.6.59**
+
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.

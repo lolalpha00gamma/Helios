@@ -1,4 +1,36 @@
+# Helios Vorschläge — 2026-09-08 (Pass 23, 1.6.61)
+
+Stand 1.6.61. Center Stage, AE-Lock, Chirality, ROI, Pinch×Palme, Fling-Achse.
+
+## Gelandet in 1.6.61
+
+- centerStageOff / NeedsAppControl — Palme nicht aus dem Continuity-Crop
+- cameraLocksExposure / WhiteBalance role phone
+- chiralityLock prev hält nach Dropout
+- visionRoiFromPalm 2×, Miss → Full
+- pinchClosednessNeed × palmWidth
+- flingAxisDead × palmWidth
+
+## Erweiterung (neu)
+
+236. **VNTrackObjectRequest** echte Hand-Observation, ROI-Miss ohne Full-Retry.
+237. **Display-Reconfig SpaceMap-Nudge** ohne Wipe.
+238. **Mission-Control Zwei-Palm-Spread.**
+239. **AVCapture Mutex-File** ohne XPC — Datei liegt, Claim-Race bleibt.
+240. **Aegis-Gaze Pinch-Confirm.**
+241. **Watch Double-Tap.**
+242. **Click-Tick Sound.**
+243. **Session-Watchdog** 8 s leer.
+244. **Per-Display pointerGain Pref.**
+245. **JSONL Palm-Vel** Predict-Tuning.
+246. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+247. **iPhone Ultraweit FOV** statt Center-Stage-Crop.
+248. **One-Euro + Predict** Fusion statt Oder.
+
+P0: CameraBroker. Kein neues *Need(dt). Branch `bugfix` (1.6.15) nicht mergen.
+
 # Helios Vorschläge — 2026-09-08 (Pass 22, 1.6.59)
+
 
 Stand 1.6.59. Track-TTL, Pinch-Reset, Osmo-Rolle, USB-Promote gated.
 

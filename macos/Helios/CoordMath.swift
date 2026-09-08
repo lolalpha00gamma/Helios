@@ -857,12 +857,20 @@ enum GestureMath {
     }
 
     /// q < 0,55: Landmark tot, 2D-Closedness lügt. Tor hoch, sonst Faust-Klick.
-    static func pinchClosednessNeed(quality: Double, start: Bool) -> Double {
+    /// Kleine Palme (weit weg) hebt die Schwelle — 8-Hz-Jitter schließt sonst.
+    static func pinchClosednessNeed(quality: Double, start: Bool, palmWidth: CGFloat = 0.12) -> Double {
         let base = start ? 0.58 : 0.42
         let q = max(0, min(1, quality))
-        if q >= 0.55 { return base }
-        let lift = (0.55 - q) * (start ? 0.55 : 0.45)
-        return min(start ? 0.84 : 0.70, base + lift)
+        var need = base
+        if q < 0.55 {
+            let lift = (0.55 - q) * (start ? 0.55 : 0.45)
+            need = min(start ? 0.84 : 0.70, base + lift)
+        }
+        let w = max(0.04, min(0.28, palmWidth))
+        let adj = (0.12 / w - 1) * (start ? 0.08 : 0.05)
+        let lo = start ? 0.50 : 0.36
+        let hi = start ? 0.88 : 0.76
+        return min(hi, max(lo, need + adj))
     }
 
     /// Freeze-Palme: Geisterhand folgt letzter Vel, decay. Recover sonst Teleport.
@@ -1213,6 +1221,52 @@ enum GestureMath {
     /// 8 fps: Body-Pose jedes 4. Frame = 500 ms tot + extra Vision.
     static func visionSkipsBody(dt: TimeInterval) -> Bool { dt >= 0.10 }
 
+    /// Continuity Center Stage croppt aufs Gesicht — Palme fällt raus. Wie Aegis.
+    static let centerStageOff = true
+
+    static func centerStageNeedsAppControl(currentModeRaw: Int) -> Bool {
+        centerStageOff && currentModeRaw != 1
+    }
+
+    static func centerStageNeedsReassert(enabled: Bool) -> Bool {
+        centerStageOff && enabled
+    }
+
+    /// iPhone-AE-Jagd kippt Homographie und Kalman. Built-in bleibt continuous.
+    static func cameraLocksExposure(role: String) -> Bool { role == "phone" }
+
+    static func cameraLocksWhiteBalance(role: String) -> Bool { role == "phone" }
+
+    /// 0 unknown, 1 left, 2 right. Dropout-Flicker hält die letzte Seite.
+    static func chiralityLock(prev: Int, live: Int, dropped: Bool) -> Int {
+        if live == 0 { return prev }
+        if dropped, prev != 0, live != prev { return prev }
+        return live
+    }
+
+    static func visionRoiEnabled() -> Bool { true }
+
+    static func visionRoiFromPalm(palm: CGPoint, width: CGFloat, scale: CGFloat = 2) -> CGRect {
+        let s = max(0.16, min(1, max(0.04, width) * max(1, scale)))
+        let x = min(1, max(0, palm.x - s / 2))
+        let y = min(1, max(0, palm.y - s / 2))
+        return CGRect(x: x, y: y, width: min(1 - x, s), height: min(1 - y, s))
+    }
+
+    static func visionRoiUnion(_ boxes: [CGRect]) -> CGRect {
+        guard var u = boxes.first else { return visionRoiFull() }
+        for b in boxes.dropFirst() { u = u.union(b) }
+        let x = min(1, max(0, u.origin.x))
+        let y = min(1, max(0, u.origin.y))
+        return CGRect(
+            x: x, y: y,
+            width: min(1 - x, max(0.16, u.width)),
+            height: min(1 - y, max(0.16, u.height))
+        )
+    }
+
+    static func visionRoiFull() -> CGRect { CGRect(x: 0, y: 0, width: 1, height: 1) }
+
     /// FramePump drop: alte Vision-Gen tot.
     static func visionCancelOnDrop(dropped: Bool) -> Bool { dropped }
 
@@ -1552,7 +1606,8 @@ enum GestureMath {
             dist: dist,
             speedNeed: speedNeed,
             distNeed: distNeed,
-            afterDrag: afterDrag
+            afterDrag: afterDrag,
+            palmWidth: unit
         )
     }
 
@@ -1602,7 +1657,8 @@ enum GestureMath {
             dist: dist,
             speedNeed: speedNeed,
             distNeed: distNeed,
-            afterDrag: afterDrag
+            afterDrag: afterDrag,
+            palmWidth: unit
         )
     }
 
@@ -1613,9 +1669,11 @@ enum GestureMath {
         dist: CGFloat,
         speedNeed: CGFloat = flingMinSpeed,
         distNeed: CGFloat = flingMinDist,
-        afterDrag: Bool = false
+        afterDrag: Bool = false,
+        palmWidth: CGFloat = 0.12
     ) -> FlingKind {
         guard speed > speedNeed, dist > distNeed else { return .none }
+        if flingAxisDead(dx: dx, dy: dy, palmWidth: palmWidth) { return .none }
         if afterDrag, abs(dx) > 0.28, abs(dy) > 0.28 {
             return .none
         }
@@ -1627,6 +1685,16 @@ enum GestureMath {
         if dx < -0.50 { return .dockLeft }
         if dx > 0.50 { return .dockRight }
         return .none
+    }
+
+    /// Diagonale Dropout-Rucke docken sonst. Kleine Palme → strengere Achse.
+    static func flingAxisDead(dx: CGFloat, dy: CGFloat, palmWidth: CGFloat) -> Bool {
+        let unit = max(0.04, palmWidth)
+        let major = max(abs(dx), abs(dy))
+        if major < 1e-6 { return true }
+        let ratio = min(abs(dx), abs(dy)) / major
+        let dead = min(0.72, 0.38 + (0.12 / unit) * 0.10)
+        return ratio > dead
     }
 
     /// Continuity-Dropout = Palme springt über den Schirm. Cap 42 % Höhe, nicht Dock.

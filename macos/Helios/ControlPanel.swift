@@ -179,7 +179,7 @@ struct ControlPanel: View {
                     Toggle("HUD-Overlay", isOn: $state.hudVisible)
                     Toggle("Fadenkreuz", isOn: $state.showReticle)
                     Toggle("Lupe am Cursor", isOn: $state.showLoupe)
-                    Text("2×-Kreis über dem Zeiger — kleiner kneifen reicht, Ziel wird größer.")
+                    Text("Großer Kreis um den Zeiger — Ziel sehen, klein kneifen.")
                         .font(.system(size: 10))
                         .foregroundStyle(.secondary)
                     Toggle("Kamera-Chip", isOn: $state.showPreviewChip)

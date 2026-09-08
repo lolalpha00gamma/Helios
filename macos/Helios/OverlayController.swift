@@ -515,12 +515,11 @@ final class HandMarkerView: NSView {
     }
 }
 
-/// 2×-Ausschnitt unter dem Zeiger. Dauerhafter Klick-Bereich, ohne Fullscreen-Fill.
+/// Großer Zielkreis am Zeiger. Ohne ScreenCapture (sonst Blackscreen-Rechte).
 final class CursorLoupeView: NSView {
-    private let glass = CALayer()
+    private let glass = CAShapeLayer()
     private let rim = CAShapeLayer()
     private let hair = CAShapeLayer()
-    private var lastCap: CFTimeInterval = 0
     private let side: CGFloat = 180
 
     override init(frame: NSRect) {
@@ -528,29 +527,30 @@ final class CursorLoupeView: NSView {
         wantsLayer = true
         layer?.backgroundColor = .clear
         isHidden = true
-        let inner = CGRect(x: 5, y: 5, width: side - 10, height: side - 10)
-        glass.frame = inner
-        glass.cornerRadius = inner.width / 2
-        glass.masksToBounds = true
-        glass.contentsGravity = .resizeAspectFill
-        rim.frame = CGRect(origin: .zero, size: CGSize(width: side, height: side))
+        let inner = CGRect(x: 8, y: 8, width: side - 16, height: side - 16)
+        glass.frame = CGRect(origin: .zero, size: CGSize(width: side, height: side))
+        glass.path = CGPath(ellipseIn: inner, transform: nil)
+        glass.fillColor = NSColor.black.withAlphaComponent(0.10).cgColor
+        glass.strokeColor = nil
+        rim.frame = glass.frame
         rim.path = CGPath(ellipseIn: CGRect(x: 2, y: 2, width: side - 4, height: side - 4), transform: nil)
-        rim.fillColor = NSColor.black.withAlphaComponent(0.18).cgColor
+        rim.fillColor = nil
         rim.strokeColor = CGColor(red: 0.25, green: 0.9, blue: 1, alpha: 0.95)
         rim.lineWidth = 2.5
         let mid = side / 2
         let p = CGMutablePath()
-        p.move(to: CGPoint(x: mid - 12, y: mid))
-        p.addLine(to: CGPoint(x: mid + 12, y: mid))
-        p.move(to: CGPoint(x: mid, y: mid - 12))
-        p.addLine(to: CGPoint(x: mid, y: mid + 12))
+        p.move(to: CGPoint(x: mid - 14, y: mid))
+        p.addLine(to: CGPoint(x: mid + 14, y: mid))
+        p.move(to: CGPoint(x: mid, y: mid - 14))
+        p.addLine(to: CGPoint(x: mid, y: mid + 14))
+        p.addEllipse(in: CGRect(x: mid - 5, y: mid - 5, width: 10, height: 10))
         hair.path = p
-        hair.strokeColor = CGColor(red: 1, green: 0.72, blue: 0.22, alpha: 0.9)
-        hair.lineWidth = 1.2
+        hair.strokeColor = CGColor(red: 1, green: 0.72, blue: 0.22, alpha: 0.95)
+        hair.lineWidth = 1.4
         hair.fillColor = nil
         let host = layer ?? CALayer()
-        host.addSublayer(rim)
         host.addSublayer(glass)
+        host.addSublayer(rim)
         host.addSublayer(hair)
         self.frame.size = CGSize(width: side, height: side)
     }
@@ -561,6 +561,7 @@ final class CursorLoupeView: NSView {
     override func hitTest(_ point: NSPoint) -> NSView? { nil }
 
     func apply(quartz: CGPoint?, screen: CGRect, windowID: CGWindowID, show: Bool) {
+        _ = windowID
         guard show, let q = quartz, ScreenGeometry.contains(quartz: q, screen: screen, pad: 12) else {
             isHidden = true
             return
@@ -568,16 +569,9 @@ final class CursorLoupeView: NSView {
         isHidden = false
         var local = ScreenGeometry.local(quartz: q, on: screen)
         local.x -= side / 2
-        local.y -= side + 16
+        local.y -= side / 2
         local.x = min(max(8, local.x), max(8, screen.width - side - 8))
         local.y = min(max(8, local.y), max(8, screen.height - side - 8))
         setFrameOrigin(local)
-        let now = CACurrentMediaTime()
-        guard now - lastCap >= 0.09 else { return }
-        lastCap = now
-        let src = CGRect(x: q.x - 40, y: q.y - 40, width: 80, height: 80)
-        if let img = CGWindowListCreateImage(src, .optionOnScreenBelowWindow, windowID, [.bestResolution]) {
-            glass.contents = img
-        }
     }
 }

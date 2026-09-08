@@ -37,10 +37,14 @@ struct PoseHMM {
         pinchClosedness: Double,
         now: TimeInterval,
         dt: TimeInterval,
-        quality: Double = 1
+        quality: Double = 1,
+        pinchHeld: Bool = false
     ) -> (pose: HandPose, prob: Double, pinch: Double) {
-        let emission = Self.qualityScale(emission, quality: quality)
-        let tauStay: Double = 0.07
+        var emission = Self.qualityScale(emission, quality: quality)
+        if pinchHeld {
+            emission = Self.pinchHoldBoost(emission)
+        }
+        let tauStay: Double = pinchHeld ? 0.11 : 0.07
         let pStay = exp(-dt / tauStay)
         let pLeave = 1 - pStay
         var next: [HandPose: Double] = [:]
@@ -67,8 +71,13 @@ struct PoseHMM {
         let a = 1 - exp(-dt / pinchTau)
         pinch = pinch * (1 - a) + pinchClosedness * a
 
-        // Unknown darf eine echte Pose nicht unter das Aktions-Tor drücken.
-        // next[current] ist verdünnt — perform() blockte sonst bei gehaltenem unknown.
+        if pinchHeld, current == .pinch || best.key == .pinch {
+            current = .pinch
+            holdSince = nil
+            lastRealProb = max(lastRealProb, next[.pinch] ?? 0.62)
+            return (.pinch, max(0.62, next[.pinch] ?? lastRealProb), pinch)
+        }
+
         if best.key == .unknown, current != .unknown {
             if current == .pinch, pinch < 0.40 {
                 holdSince = nil
@@ -97,7 +106,20 @@ struct PoseHMM {
         return (current, pCur, pinch)
     }
 
-    /// Schlechte Spitzen nicht 0,70 Faust. q < 0,55 mischt gegen Uniform — unknown führt.
+    static func pinchHoldBoost(_ emission: [HandPose: Double]) -> [HandPose: Double] {
+        var out = emission
+        let pinch = max(emission[.pinch] ?? 0, 0.55)
+        out[.pinch] = pinch
+        var sum = 0.0
+        for p in HandPose.allCases {
+            if p != .pinch { out[p] = (out[p] ?? 0) * 0.55 }
+            sum += out[p] ?? 0
+        }
+        guard sum > 1e-12 else { return emission }
+        for k in out.keys { out[k] = (out[k] ?? 0) / sum }
+        return out
+    }
+
     static func qualityScale(_ emission: [HandPose: Double], quality: Double) -> [HandPose: Double] {
         let q = max(0, min(1, quality))
         if q >= 0.55 { return emission }

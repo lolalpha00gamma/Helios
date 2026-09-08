@@ -1695,7 +1695,7 @@ final class GestureEngine {
                 let at = cursor
                 perform("Klick", need: .input, confidence: 1) {
                     if let point = at { system.moveCursor(to: point) }
-                    return system.click()
+                    return system.click(at: at)
                 }
             } else if wasDrag {
                 pinchTrail = trail
@@ -1928,8 +1928,9 @@ final class GestureEngine {
         if ringPinchSince == nil { ringPinchSince = now }
         let held = now - (ringPinchSince ?? now)
         if held >= 0.14 {
+            let at = cursor
             perform("Rechtsklick", need: .input, confidence: Float(max(hand.poseProb, hand.pinchClosedness))) {
-                system.rightClick()
+                system.rightClick(at: at)
             }
             ringPinchSince = nil
             cooldownUntil = now + 0.45
@@ -1959,7 +1960,8 @@ final class GestureEngine {
             return
         }
         if now - (dwellSince ?? now) >= 1.0 {
-            perform("Dwell-Klick", need: .input, confidence: Float(hand.poseProb)) { system.click() }
+            let at = cursor
+            perform("Dwell-Klick", need: .input, confidence: Float(hand.poseProb)) { system.click(at: at) }
             dwellSince = nil
             dwellPalm = nil
             cooldownUntil = now + 0.8

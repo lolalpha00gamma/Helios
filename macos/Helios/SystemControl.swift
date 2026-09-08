@@ -134,14 +134,16 @@ final class SystemControl {
     }
 
     @discardableResult
-    func click() -> ActionResult {
+    func click(at point: CGPoint? = nil) -> ActionResult {
         let now = CACurrentMediaTime()
         if GestureMath.clickHitchBlocks(lastClick: lastClick, now: now, dt: sampleDt) {
             return .skip("Klick-Hitch")
         }
         lastClick = now
         guard allowsInjection else { return .fail("Maus hat Vorrang") }
-        let loc = lastPosted ?? NSEvent.mouseLocation.screenFlipped
+        // An der Hand-Position klicken, nicht am evtl. veralteten lastPosted.
+        let loc = ScreenGeometry.clampQuartz(point ?? lastPosted ?? NSEvent.mouseLocation.screenFlipped)
+        lastPosted = loc
         guard postMouse(.leftMouseDown, at: loc), postMouse(.leftMouseUp, at: loc) else {
             return .fail("CGEvent Klick")
         }
@@ -149,14 +151,15 @@ final class SystemControl {
     }
 
     @discardableResult
-    func rightClick() -> ActionResult {
+    func rightClick(at point: CGPoint? = nil) -> ActionResult {
         let now = CACurrentMediaTime()
         if GestureMath.clickHitchBlocks(lastClick: lastClick, now: now, dt: sampleDt) {
             return .skip("Klick-Hitch")
         }
         lastClick = now
         guard allowsInjection else { return .fail("Maus hat Vorrang") }
-        let loc = lastPosted ?? NSEvent.mouseLocation.screenFlipped
+        let loc = ScreenGeometry.clampQuartz(point ?? lastPosted ?? NSEvent.mouseLocation.screenFlipped)
+        lastPosted = loc
         guard postMouse(.rightMouseDown, at: loc, button: .right),
               postMouse(.rightMouseUp, at: loc, button: .right)
         else {

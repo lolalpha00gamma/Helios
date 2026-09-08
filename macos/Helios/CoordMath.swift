@@ -809,7 +809,10 @@ enum GestureMath {
         let t = max(0, dt)
         switch phase {
         case .unseen:
-            return closed ? (.tentative, t) : (.unseen, 0)
+            if !closed { return (.unseen, 0) }
+            // ≤10 fps: ein solider geschlossener Frame ist Absicht. Zwei Frames
+            // Entprellung sind bei 8 fps 250 ms Totzeit — die Geste ist dann vorbei.
+            return dt >= 0.10 ? (.held, t) : (.tentative, t)
         case .tentative:
             if !closed { return (.unseen, 0) }
             let h = heldFor + t

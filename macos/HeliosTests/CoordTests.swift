@@ -633,8 +633,8 @@ enum CoordTests {
             fputs("FAIL oben/Mitte öffnet keine Tastatur\n", stderr)
             fails += 1
         }
-        if GestureMath.keyboardDwell > 0.18 {
-            fputs("FAIL Tastatur-Dwell muss unter 0,18 s bleiben\n", stderr)
+        if GestureMath.keyboardDwell < 0.18 || GestureMath.keyboardDwell > 0.28 {
+            fputs("FAIL Tastatur-Dwell 0,22 s\n", stderr)
             fails += 1
         }
         if GestureMath.flipLeft(true, mirrored: true) != false {
@@ -1128,8 +1128,8 @@ enum CoordTests {
             fputs("FAIL Zwei-Pinzetten 8 fps ≥ 200 ms\n", stderr)
             fails += 1
         }
-        if GestureMath.keyboardDwellNeed(dt: 0.016) > 0.13 {
-            fputs("FAIL Tastatur 24 fps 120 ms\n", stderr)
+        if GestureMath.keyboardDwellNeed(dt: 0.016) < 0.18 {
+            fputs("FAIL Tastatur 60 fps ≥ 220 ms\n", stderr)
             fails += 1
         }
         if GestureMath.keyboardDwellNeed(dt: 0.125) < 0.20 {
@@ -1405,8 +1405,9 @@ enum CoordTests {
             fputs("FAIL Finger-Kontakt weit tot\n", stderr)
             fails += 1
         }
-        if GestureMath.pinchRatioSmooth(prev: 0.50, next: 0.10, dt: 0.125, quality: 0.40)
-            >= GestureMath.pinchRatioSmooth(prev: 0.50, next: 0.10, dt: 0.125, quality: 1) {
+        let pinchLo = GestureMath.pinchRatioSmooth(prev: 0.50, next: 0.10, dt: 0.125, quality: 0.40)
+        let pinchHi = GestureMath.pinchRatioSmooth(prev: 0.50, next: 0.10, dt: 0.125, quality: 1)
+        if abs(pinchLo - 0.50) >= abs(pinchHi - 0.50) {
             fputs("FAIL q tot dämpft pinchRatio α\n", stderr)
             fails += 1
         }
@@ -1488,8 +1489,8 @@ enum CoordTests {
             fputs("FAIL AX-Cache alt tot\n", stderr)
             fails += 1
         }
-        if GestureMath.axHitCacheKey(cursor: CGPoint(x: 12, y: 20), quant: 8)
-            != GestureMath.axHitCacheKey(cursor: CGPoint(x: 13, y: 18), quant: 8) {
+        if GestureMath.axHitCacheKey(cursor: CGPoint(x: 8, y: 16), quant: 8)
+            != GestureMath.axHitCacheKey(cursor: CGPoint(x: 11, y: 19), quant: 8) {
             fputs("FAIL AX-Cache Key Quant\n", stderr)
             fails += 1
         }

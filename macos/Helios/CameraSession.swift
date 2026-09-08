@@ -544,7 +544,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         ]
         let types = output.availableVideoPixelFormatTypes
         guard let fmt = preferred.first(where: { types.contains($0) }) ?? types.first else { return }
-        var settings = output.videoSettings
+        var settings = output.videoSettings ?? [:]
         settings[kCVPixelBufferPixelFormatTypeKey as String] = fmt
         settings[kCVPixelBufferMetalCompatibilityKey as String] = true
         settings[kCVPixelBufferIOSurfacePropertiesKey as String] = [:] as CFDictionary

@@ -365,6 +365,11 @@ enum GestureMath {
         return CGFloat(min(1, r / t))
     }
 
+    /// UV bleibt. Gain in pt: Retina-Scale sonst Teleport (CGEvent-Echo in px).
+    static func pointerGainScaled(gain: CGFloat, scale: CGFloat) -> CGFloat {
+        gain / max(1, min(3, scale))
+    }
+
     /// AX-Hit 1 Frame. Continuity 8 fps sonst hitTest jeden Tick.
     static func axHitCacheFresh(cachedAt: TimeInterval, now: TimeInterval, dt: TimeInterval) -> Bool {
         guard cachedAt > 0, now >= cachedAt else { return false }
@@ -824,13 +829,14 @@ enum GestureMath {
         a: CGPoint,
         b: CGPoint,
         prevA: CGPoint,
-        prevB: CGPoint
+        prevB: CGPoint,
+        scale: CGFloat = 1
     ) -> Int32 {
         guard axis != .none else { return 0 }
         let mid = CGPoint(x: (a.x + b.x) / 2, y: (a.y + b.y) / 2)
         let prev = CGPoint(x: (prevA.x + prevB.x) / 2, y: (prevA.y + prevB.y) / 2)
         let d = axis == .horizontal ? (mid.x - prev.x) : (mid.y - prev.y)
-        let ticks = Int32((d * 0.42).rounded())
+        let ticks = Int32((d * 0.42 * max(1, min(3, scale))).rounded())
         return max(-24, min(24, ticks))
     }
 
@@ -985,6 +991,32 @@ enum GestureMath {
 
     static func spaceMapNeedsRecalib(stored: Double, live: Double, need: Double = 15) -> Bool {
         spaceMapRotationDelta(stored, live) >= need
+    }
+
+    /// 90/180/270°: Palmen halten, Homographie auf neue screenCorners. Wipe nur schräg.
+    static func spaceMapRotationNudge(stored: Double, live: Double, snap: Double = 15) -> Bool {
+        let d = spaceMapRotationDelta(stored, live)
+        guard d >= snap else { return false }
+        return [90.0, 180.0, 270.0].contains { abs(d - $0) < snap }
+    }
+
+    static func spaceMapRotationWipe(stored: Double, live: Double, snap: Double = 15) -> Bool {
+        spaceMapNeedsRecalib(stored: stored, live: live, need: snap)
+            && !spaceMapRotationNudge(stored: stored, live: live, snap: snap)
+    }
+
+    /// Continuity-Miss ≠ Double-Click. 0,12 s < 1 Frame @ 8 fps.
+    static func clickHitchNeed(dt: TimeInterval) -> TimeInterval {
+        max(0.22, min(0.45, max(0.008, dt) * 1.8))
+    }
+
+    static func clickHitchBlocks(lastClick: TimeInterval, now: TimeInterval, dt: TimeInterval) -> Bool {
+        lastClick > 0 && now - lastClick < clickHitchNeed(dt: dt)
+    }
+
+    static func clickHitchFromFreeze(freezeEnded: TimeInterval?, now: TimeInterval, dt: TimeInterval) -> Bool {
+        guard let t = freezeEnded else { return false }
+        return now - t >= 0 && now - t < clickHitchNeed(dt: dt)
     }
 
     static func spaceMapRotation(displayID: UInt32) -> Double {

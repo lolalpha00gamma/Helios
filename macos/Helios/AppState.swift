@@ -567,7 +567,13 @@ final class AppState: ObservableObject {
             ?? SpaceMap.load(displayID: ScreenGeometry.mainDisplayID)
         if let map = engine.spaceMap, map.displayID != 0 {
             let live = GestureMath.spaceMapRotation(displayID: map.displayID)
-            if GestureMath.spaceMapNeedsRecalib(stored: map.rotation, live: live) {
+            if GestureMath.spaceMapRotationNudge(stored: map.rotation, live: live) {
+                var nudged = map
+                nudged.nudgeRotation(live)
+                nudged.save()
+                engine.spaceMap = nudged
+                log.record("Display \(Int(GestureMath.spaceMapRotationDelta(map.rotation, live)))° — Homographie neu, Palmen halten", kind: .info)
+            } else if GestureMath.spaceMapRotationWipe(stored: map.rotation, live: live) {
                 engine.spaceMap = nil
                 log.record("Display gedreht — Homographie tot, neu kalibrieren", kind: .info)
             }

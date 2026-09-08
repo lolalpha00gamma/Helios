@@ -140,7 +140,9 @@ final class SystemControl {
     @discardableResult
     func click() -> ActionResult {
         let now = CACurrentMediaTime()
-        guard now - lastClick > 0.12 else { return .skip("Klick-Pause") }
+        if GestureMath.clickHitchBlocks(lastClick: lastClick, now: now, dt: sampleDt) {
+            return .skip("Klick-Hitch")
+        }
         lastClick = now
         guard allowsInjection else { return .fail("Maus hat Vorrang") }
         let loc = lastPosted ?? NSEvent.mouseLocation.screenFlipped
@@ -153,7 +155,9 @@ final class SystemControl {
     @discardableResult
     func rightClick() -> ActionResult {
         let now = CACurrentMediaTime()
-        guard now - lastClick > 0.12 else { return .skip("Klick-Pause") }
+        if GestureMath.clickHitchBlocks(lastClick: lastClick, now: now, dt: sampleDt) {
+            return .skip("Klick-Hitch")
+        }
         lastClick = now
         guard allowsInjection else { return .fail("Maus hat Vorrang") }
         let loc = lastPosted ?? NSEvent.mouseLocation.screenFlipped

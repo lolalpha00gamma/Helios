@@ -1,4 +1,4 @@
-# Helios **1.6.52**
+# Helios **1.6.53**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -19,6 +19,16 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.53
+
+1.6.52 Two-pinch Hysterese, Rotation-Recalib, CGEvent 90 Hz. Zeiger teleportierte auf Retina. 90° wischte die Map. Hitch = Doppelklick.
+
+- **Pointer-Gain × Scale.** UV bleibt, Gain / backingScaleFactor.
+- **Scroll-Ticks × Scale.** Two-pinch auf Retina.
+- **Rotation-Nudge.** 90/180/270 Palmen halten. Wipe nur schräg.
+- **Click-Hitch.** Continuity-Miss ≠ Double-Click.
+- Tests + MARKETING_VERSION 1.6.53 (Build 86).
 
 ## Neu in 1.6.52
 

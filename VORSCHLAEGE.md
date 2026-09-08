@@ -1,5 +1,47 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.53**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.53 erledigt
+
+1.6.52 Two-pinch Hysterese, Rotation-Recalib, CGEvent 90 Hz. Pointer teleportiert auf Retina. Scroll-Ticks 1×. 90° Wipe. Hitch = Double-Click.
+
+1. **Pointer-Accel × backingScaleFactor.** `pointerGainScaled` UV bleibt, Gain / scale.
+2. **Two-pinch Scroll-Ticks × backingScale.**
+3. **SpaceMap Rotation-Nudge** 90/180/270 — Palmen halten, H neu. Wipe nur schräg.
+4. **Click-Hitch Debounce.** Continuity-Miss ≠ Double-Click. `clickHitchNeed` ≥ 0,22 s.
+5. Tests + MARKETING_VERSION 1.6.53 (Build 86).
+
+## Erweiterung (neu, 1.6.53)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+2. **HeliosAegisKit** gemeinsamer Broker + Mutex-PTS.
+3. **Pair-Stereo-Tiefe** Mac+iPhone statt DepthCapture-Stub.
+4. **Watch Double-Tap** Click-Confirm.
+5. **App-Grammar** Safari-Scroll vs Finder-Drag vs Xcode-Caret.
+6. **JSONL Session-Replay** ohne Vision.
+7. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+8. **Slot-ID persist** über uniqueID-Flicker.
+9. **IOHID Force-Click vs Pinch.**
+10. **mmap leftover-Boxen** Helios↔Aegis Palm-Occlusion.
+11. **DepthCapture an Continuity-LiDAR.**
+12. **Overlay CAMetalLayer.**
+13. **Per-App Scroll-Gain.**
+14. **Pinch-Hold analog × Kalman-Q.**
+15. **VNTrack Hand-Box persist** bei Continuity 8 Hz.
+16. **Fling-Cap × Screen-Höhe.**
+17. **Per-Display backingScaleFactor** (Cursor auf 5K vs 1× Sidecar).
+18. **Two-pinch Scroll-Momentum** nach Loslassen coasten.
+19. **Homographie-Cache keyed by rotation** — Nudge ohne Store-Wipe.
+20. **Deadzone × Scale** analog Jiggle.
+21. **Session-Watchdog** Idle = fps>0 UND keine Aegis-Face UND 8 s leer.
+22. **Air-Keyboard Dwell × Scale.**
+23. **Click-Energy** (nicht nur Dauer) gegen Hitch-Klicks.
+
+P0 CameraBroker. Kein neues *Need(dt).
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.52**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
 
 ## In 1.6.52 erledigt

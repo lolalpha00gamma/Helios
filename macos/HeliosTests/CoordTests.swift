@@ -1998,6 +1998,70 @@ enum CoordTests {
             fputs("FAIL Rotation Delta wrap\n", stderr)
             fails += 1
         }
+        if abs(GestureMath.pointerGainScaled(gain: 1, scale: 1) - 1) > 0.01 {
+            fputs("FAIL Gain 1× = 1\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.pointerGainScaled(gain: 1, scale: 2) - 0.5) > 0.01 {
+            fputs("FAIL Gain 2× = 0,5\n", stderr)
+            fails += 1
+        }
+        let ticks1 = GestureMath.twoPinchScrollTicks(
+            axis: .vertical,
+            a: CGPoint(x: 100, y: 180),
+            b: CGPoint(x: 100, y: 80),
+            prevA: CGPoint(x: 100, y: 140),
+            prevB: CGPoint(x: 100, y: 40),
+            scale: 1
+        )
+        let ticks2 = GestureMath.twoPinchScrollTicks(
+            axis: .vertical,
+            a: CGPoint(x: 100, y: 180),
+            b: CGPoint(x: 100, y: 80),
+            prevA: CGPoint(x: 100, y: 140),
+            prevB: CGPoint(x: 100, y: 40),
+            scale: 2
+        )
+        if abs(ticks2) < abs(ticks1) {
+            fputs("FAIL Scroll-Ticks 2× ≥ 1×\n", stderr)
+            fails += 1
+        }
+        if GestureMath.spaceMapRotationNudge(stored: 0, live: 5) {
+            fputs("FAIL Nudge 5° tot\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.spaceMapRotationNudge(stored: 0, live: 90) {
+            fputs("FAIL Nudge 90°\n", stderr)
+            fails += 1
+        }
+        if GestureMath.spaceMapRotationWipe(stored: 0, live: 90) {
+            fputs("FAIL Wipe 90° nicht\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.spaceMapRotationWipe(stored: 0, live: 40) {
+            fputs("FAIL Wipe 40° schräg\n", stderr)
+            fails += 1
+        }
+        if GestureMath.clickHitchNeed(dt: 0.125) < 0.22 {
+            fputs("FAIL Hitch Need 8 fps ≥ 0,22\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.clickHitchBlocks(lastClick: 1.0, now: 1.10, dt: 0.125) {
+            fputs("FAIL Hitch blockt 100 ms\n", stderr)
+            fails += 1
+        }
+        if GestureMath.clickHitchBlocks(lastClick: 1.0, now: 1.40, dt: 0.125) {
+            fputs("FAIL Hitch 400 ms frei\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.clickHitchFromFreeze(freezeEnded: 1.0, now: 1.10, dt: 0.125) {
+            fputs("FAIL Hitch Freeze 100 ms\n", stderr)
+            fails += 1
+        }
+        if GestureMath.clickHitchFromFreeze(freezeEnded: nil, now: 1.10, dt: 0.125) {
+            fputs("FAIL Hitch ohne Freeze tot\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

@@ -1,5 +1,22 @@
 # Analyse, Fehlerbehebung, öffentlicher Abgleich
 
+Stand: 2026-09-08. Helios **1.6.53** (Build 86). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
+
+## 0. 1.6.53 — Pointer×Scale, Scroll-Ticks×Scale, Rotation-Nudge, Click-Hitch
+
+1.6.52: Two-pinch Hysterese, Rotation-Wipe, CGEvent 90 Hz. Danach teleportierte der Zeiger auf 5K. Scroll-Ticks zu dünn auf Retina. 90°-Drehung wischte die Kalibrierung. Continuity-Miss = Doppelklick.
+
+| # | Bug | Fix |
+|---|---|---|
+| 1 | Pointer-Gain unabhängig von Scale | `pointerGainScaled` / backingScaleFactor |
+| 2 | Scroll-Ticks 1× auf 5K | `twoPinchScrollTicks(scale:)` |
+| 3 | 90° Wipe | `spaceMapRotationNudge` + Palmen halten |
+| 4 | Hitch = Double-Click | `clickHitchNeed` / `clickHitchFromFreeze` |
+
+Nicht: CameraBroker, IOHID, Overlay-Metal, LiDAR-Pinch, MediaPipe.
+
+# Analyse, Fehlerbehebung, öffentlicher Abgleich
+
 Stand: 2026-09-08. Helios **1.6.52** (Build 85). Nur `main`. `bugfix` ist 1.5.7 — nichts mergen.
 
 ## 0. 1.6.52 — Two-pinch Hysterese, Rotation-Recalib, CGEvent 90 Hz

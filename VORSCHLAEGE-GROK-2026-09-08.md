@@ -1,3 +1,30 @@
+# Helios Vorschläge — 2026-09-08 (Pass 16, 1.6.53)
+
+Stand 1.6.53. Pointer-Gain×Scale, Scroll-Ticks×Scale, Rotation-Nudge, Click-Hitch.
+
+## Gelandet in 1.6.53
+
+- pointerGainScaled backingScaleFactor
+- twoPinchScrollTicks scale
+- spaceMapRotationNudge / Wipe
+- clickHitchNeed / FromFreeze
+
+## Erweiterung (neu)
+
+165. **Per-Display backingScaleFactor** Cursor auf 5K vs Sidecar.
+166. **Two-pinch Scroll-Momentum** nach Loslassen.
+167. **Homographie-Cache keyed by rotation.**
+168. **Deadzone × Scale.**
+169. **Click-Energy** statt nur Hold-Dauer.
+170. **VNTrack Hand-Box persist** bei Continuity 8 Hz.
+171. **Fling-Cap × Screen-Höhe.**
+172. **Session-Watchdog** Idle = fps>0 UND keine Aegis-Face UND 8 s leer.
+173. **Air-Keyboard Dwell × Scale.**
+174. **Overlay CAMetalLayer.**
+175. **MediaPipe Hands Fallback.**
+
+P0: CameraBroker. Kein neues *Need(dt).
+
 # Helios Vorschläge — 2026-09-08 (Pass 15, 1.6.52)
 
 Stand 1.6.52. Two-pinch Hysterese, Rotation-Recalib, CGEvent 90 Hz.

@@ -71,6 +71,7 @@ final class GestureEngine {
     var lockFreeze = ""
     var qualityChip = ""
     var freezeLive = false
+    var freezeEndedAt: TimeInterval?
     var freezeGhostDelta: CGPoint = .zero
     var freezeGhostDeltas: [String: CGPoint] = [:]
     private var freezePPos: CGFloat = 0.0004
@@ -293,6 +294,7 @@ final class GestureEngine {
         lockFreeze = ""
         qualityChip = ""
         freezeLive = false
+        freezeEndedAt = nil
         freezeGhostDelta = .zero
         freezeGhostDeltas = [:]
         freezePPos = 0.0004
@@ -317,6 +319,7 @@ final class GestureEngine {
         system.sampleDt = sampleDt
         lockFreeze = ""
         qualityChip = ""
+        let wasFrozen = freezeLive
         freezeLive = false
         freezeGhostDelta = .zero
         freezeGhostDeltas = [:]
@@ -448,6 +451,9 @@ final class GestureEngine {
                 mode = .idle
             }
             return
+        }
+        if wasFrozen {
+            freezeEndedAt = now
         }
         rememberHandsFreeze(hands)
         if lastHandSeen > 0, now - lastHandSeen > sampleDt * 1.6 {
@@ -1095,7 +1101,10 @@ final class GestureEngine {
         let stepped = ScreenGeometry.stepCursor(
             from: seed,
             dPalm: CGPoint(x: dx, y: dy),
-            gain: pointerGain * freezeGain * GestureMath.pointerGainDt(dt: sampleDt)
+            gain: GestureMath.pointerGainScaled(
+                gain: pointerGain * freezeGain * GestureMath.pointerGainDt(dt: sampleDt),
+                scale: NSScreen.main?.backingScaleFactor ?? 1
+            )
         )
         let a: CGFloat = freezeGain < 0.99 ? 1 : 0.86
         let s = CGPoint(x: a * stepped.x + (1 - a) * seed.x, y: a * stepped.y + (1 - a) * seed.y)
@@ -1218,7 +1227,8 @@ final class GestureEngine {
                 let ticks = GestureMath.twoPinchScrollTicks(
                     axis: twoPinchLockedAxis,
                     a: mapped[0], b: mapped[1],
-                    prevA: prev[0], prevB: prev[1]
+                    prevA: prev[0], prevB: prev[1],
+                    scale: NSScreen.main?.backingScaleFactor ?? 1
                 )
                 if ticks != 0 {
                     let conf = Float(pinches.map(\.poseProb).min() ?? 0)
@@ -1581,7 +1591,11 @@ final class GestureEngine {
             } else if let knob = knobsNow.first(where: { $0.labelDE == hotName }) {
                 fireChrome(knob)
             } else if GestureMath.isClick(held: held, palmMovedHW: palmMoved, cursorMovedPx: cursorPx, dt: sampleDt) {
-                perform("Klick", need: .input, confidence: Float(max(hand.poseProb, hand.pinchClosedness))) { system.click() }
+                if GestureMath.clickHitchFromFreeze(freezeEnded: freezeEndedAt, now: now, dt: sampleDt) {
+                    lastAction = "Hitch"
+                } else {
+                    perform("Klick", need: .input, confidence: Float(max(hand.poseProb, hand.pinchClosedness))) { system.click() }
+                }
             } else if held < GestureMath.pinchClickMinNeed(dt: sampleDt) {
                 lastAction = "zu kurz"
             } else {

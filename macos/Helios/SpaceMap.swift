@@ -246,6 +246,16 @@ struct SpaceMap: Codable {
         map.save()
     }
 
+    /// Display 90/180/270°: Palmen halten, H auf aktuelle screenCorners.
+    mutating func nudgeRotation(_ live: Double) {
+        rotation = live
+        HomographyStore.clear()
+    }
+
+    static func invalidateHomography() {
+        HomographyStore.clear()
+    }
+
     static func clear() {
         UserDefaults.standard.removeObject(forKey: "helios.spaceMap")
         for screen in NSScreen.screens {

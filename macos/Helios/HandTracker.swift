@@ -101,6 +101,12 @@ struct TrackedHand: Identifiable {
         return GestureMath.pinch3DSep(thumbZ: t.z, indexZ: i.z, palmWidth: palmWidth)
     }
 
+    /// Daumen–Index in Palmenbreiten. analogClosed sonst nur Closedness-Skalar.
+    var pinchFingerContact: CGFloat {
+        guard let t = point(.thumbTip), let i = point(.indexTip) else { return 0 }
+        return GestureMath.pinchFingerContact(thumb: t, index: i, palmWidth: palmWidth)
+    }
+
     /// Beide Spitzen auf die Kamera. Sep tot wenn Daumen und Zeigefinger gleich tief.
     var pinchZApproach: CGFloat {
         guard let t = joints[.thumbTip], let i = joints[.indexTip],

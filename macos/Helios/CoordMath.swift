@@ -1395,11 +1395,15 @@ enum GestureMath {
         arrived > 0 && now - arrived >= limit
     }
 
-    /// Analog-Pinch: Closedness × z-Nähe. Bool-Gate allein zittert bei 8 fps.
-    static func pinchAnalog(closedness: Double, zSep: CGFloat) -> Double {
+    /// Analog-Pinch: Closedness × z-Nähe × Finger-Kontakt. Bool-Gate allein zittert bei 8 fps.
+    /// contact 0 = alte 0,55/0,45-Mischung (Tests). Mini-Kontakt kein Cliff — mix lerp't.
+    static func pinchAnalog(closedness: Double, zSep: CGFloat, contact: CGFloat = 0) -> Double {
         let c = max(0, min(1, closedness))
         let z = max(0, min(1, 1 - Double(zSep) / 1.20))
-        return 0.55 * c + 0.45 * z
+        let k = max(0, min(1, Double(contact)))
+        let bare = 0.55 * c + 0.45 * z
+        let mixed = 0.40 * c + 0.35 * z + 0.25 * k
+        return (1 - k) * bare + k * mixed
     }
 
     static func pinchAnalogClosed(_ analog: Double, held: Bool = false) -> Bool {

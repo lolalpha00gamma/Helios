@@ -1,4 +1,4 @@
-# Helios **1.6.96**
+# Helios **1.6.97**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -6,6 +6,14 @@ Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HU
 Privates Repo. Keine Open-Source-Lizenzdatei.
 
 Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Neu in 1.6.97
+
+Warum analogClosed nach 1.6.96 weiter Faust-Jitter hielt: Mix war nur Closedness×z. `pinchFingerContact` saß im Classifier-Gate. Hartes `if contact>0` wäre Mini-Kontakt-Cliff.
+
+- **pinchAnalog contact.** Mix lerp't 0,55/0,45 → 0,40/0,35/0,25. GestureEngine analogClosed.
+- **TrackedHand.pinchFingerContact.** Live-Tick, nicht nur Classifier.
+- Tests + MARKETING_VERSION 1.6.97 (Build 130).
 
 ## Neu in 1.6.96
 

@@ -2040,6 +2040,21 @@ enum CoordTests {
             fputs("FAIL Coast-Cap 2× = 160\n", stderr)
             fails += 1
         }
+        let analogBare = GestureMath.pinchAnalog(closedness: 0.40, zSep: 0.20)
+        let analogTouch = GestureMath.pinchAnalog(closedness: 0.40, zSep: 0.20, contact: 0.95)
+        if analogTouch <= analogBare {
+            fputs("FAIL Analog Kontakt hebt\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.pinchAnalog(closedness: 0.40, zSep: 0.20, contact: 0) - analogBare) > 1e-9 {
+            fputs("FAIL Analog contact 0 bleibt Alt\n", stderr)
+            fails += 1
+        }
+        let analogTiny = GestureMath.pinchAnalog(closedness: 0.40, zSep: 0.20, contact: 0.05)
+        if analogTiny < analogBare - 0.04 {
+            fputs("FAIL Analog Mini-Kontakt kein Cliff\n", stderr)
+            fails += 1
+        }
         if abs(GestureMath.clutchJiggleScaled(scale: 2) - 2.4) > 0.01 {
             fputs("FAIL Jiggle 2× = 2,4\n", stderr)
             fails += 1

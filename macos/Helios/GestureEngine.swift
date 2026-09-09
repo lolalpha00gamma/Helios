@@ -1309,7 +1309,7 @@ final class GestureEngine {
                 isLeft: h.chirality == .left,
                 point: p,
                 actor: h.id == actor.id,
-                palmWidth: h.palmWidth
+                palmWidth: max(0.04, h.palmWidth)
             ))
         }
         handCursors = out
@@ -1659,7 +1659,11 @@ final class GestureEngine {
         )
         pinchClosedSmooth = closedSmooth
         let analogClosed = GestureMath.pinchAnalogClosed(
-            GestureMath.pinchAnalog(closedness: closedSmooth, zSep: hand.pinchZSep),
+            GestureMath.pinchAnalog(
+                closedness: closedSmooth,
+                zSep: hand.pinchZSep,
+                contact: hand.pinchFingerContact
+            ),
             held: pinchHeld
         )
         let beak = beakNow(hand)

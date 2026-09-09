@@ -1,5 +1,45 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.97**. Nur `main`. `bugfix` nicht mergen (1.6.15, 80 Versionen hinter main).
+
+## In 1.6.97 erledigt
+
+1.6.96 analogClosed ohne Finger-Kontakt. Coast-Cap palm sitzt.
+
+1. **pinchAnalog contact.** TrackedHand.pinchFingerContact → analogClosed. Mix lerp't, kein Cliff.
+2. Tests + MARKETING_VERSION 1.6.97 (Build 130).
+
+## Erweiterung (neu, 1.6.97)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. P0.
+2. **Continuity 15-fps Probe** nach inputPriority.
+3. **formatPromoted 720p24 → 1080p15.**
+4. **VNTrackObjectRequest.**
+5. **MediaPipe Hands.**
+6. **Overlay CAMetalLayer.**
+7. **LiDAR.**
+8. **Mission-Control Spread.**
+9. **Two-hand HUD-Lerp unabhängig.**
+10. **DisplayLink Pause bei Freeze.**
+11. **SpaceMap Recenter nach Wake.**
+12. **useCover Homographie.**
+13. **Cover-Lead Homographie Blend.**
+14. **Core Haptics** auf Pinch-Close.
+15. **Gaze-Click** ARKit FaceAnchor + Pinch AND.
+16. **Stage-Manager Space-Lock.**
+17. **Accessibility Switch-Control Bridge.**
+18. **Siri-Shortcut Pinch-Macro.**
+19. **ROI scale 1,6** Continuity (jetzt 3).
+20. **emptyHandsRecover(elapsed:)** Fold — recoverLive sitzt.
+21. **Overlay palmWidth Lerp** prev→next.
+22. **sampleCursorYieldsToCoast** — Coast ohne DisplayLink tot.
+23. **Vision joint-conf analog mix.**
+24. **Per-Finger 4-Tip-Gate** (Kontakt ist ein Skalar).
+
+P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.96**. Nur `main`. `bugfix` nicht mergen.
 
 ## In 1.6.96 erledigt

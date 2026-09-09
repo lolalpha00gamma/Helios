@@ -1,3 +1,41 @@
+# Helios Vorschläge — 2026-09-09 (Pass 46, 1.6.97)
+
+Stand 1.6.97. pinchAnalog contact Mix-Lerp. Coast-Cap palm sitzt (1.6.96).
+
+## Gelandet in 1.6.97
+
+- pinchAnalog(closedness, zSep, contact) Mix lerp't. GestureEngine analogClosed.
+- TrackedHand.pinchFingerContact live.
+
+## Erweiterung (neu)
+
+866. **CameraBroker XPC + IOSurface** mit Aegis. P0.
+867. **HeliosAegisKit.**
+868. **VNTrackObjectRequest.**
+869. **formatPromoted 720p24 → 1080p15.**
+870. **Continuity 15-fps Probe.**
+871. **ROI scale 1,6** Continuity.
+872. **Two-hand HUD-Lerp unabhängig.**
+873. **DisplayLink Pause bei Freeze.**
+874. **SpaceMap Recenter nach Wake.**
+875. **useCover Homographie.**
+876. **Cover-Lead Homographie Blend.**
+877. **MediaPipe Hands.**
+878. **Overlay CAMetalLayer.**
+879. **LiDAR.**
+880. **Mission-Control Spread.**
+881. **Core Haptics Pinch-Close.**
+882. **Gaze-Click ARKit + Pinch AND.**
+883. **emptyHandsRecover(elapsed:)** Fold.
+884. **CGEvent tapHold.**
+885. **Bezel-Hop Blend 200 ms.**
+886. **Overlay palmWidth Lerp** prev→next.
+887. **sampleCursorYieldsToCoast** immer false.
+888. **Vision joint-conf analog mix.**
+889. **Per-Finger 4-Tip-Gate.**
+
+P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
 # Helios Vorschläge — 2026-09-09 (Pass 45, 1.6.96)
 
 Stand 1.6.96. Closedness EMA. ROI Hysterese + Full/4. Coast-Cap palm. PinchGate ratio.

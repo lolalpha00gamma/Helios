@@ -907,6 +907,12 @@ enum GestureMath {
         return prev + a * (next - prev)
     }
 
+    /// Closedness 8 Hz: ein Sample 0,90 nach 0,20 startet analog. Erste Probe roh.
+    static func pinchClosednessSmooth(prev: Double?, next: Double, dt: TimeInterval, quality: Double = 1) -> Double {
+        guard let prev else { return next }
+        return Double(pinchRatioSmooth(prev: CGFloat(prev), next: CGFloat(next), dt: dt, quality: quality))
+    }
+
     /// Lift-z-Vorzeichen: Occlusion kippt previous[]. Kleines pred fällt auf Anatomie.
     static func liftSignHolds(previousDz: CGFloat, mag: CGFloat, band: CGFloat = 0.15) -> CGFloat? {
         if mag <= 0 { return 0 }
@@ -1328,6 +1334,16 @@ enum GestureMath {
 
     static func visionRoiEnabled() -> Bool { true }
 
+    /// 1 leerer Frame: letzte Palmen-ROI. 2. Miss → full. Sonst Rand-Steal.
+    static func visionRoiHolds(miss: Int, need: Int = 2) -> Bool {
+        miss > 0 && miss < need
+    }
+
+    /// Zweite Hand außerhalb des Crops. Jedes 4. Tick full.
+    static func visionRoiPeriodicFull(tick: Int, every: Int = 4) -> Bool {
+        every > 0 && tick % every == 0
+    }
+
     static func visionRoiFromPalm(palm: CGPoint, width: CGFloat, scale: CGFloat = 2) -> CGRect {
         let s = max(0.16, min(1, max(0.04, width) * max(1, scale)))
         let x = min(1, max(0, palm.x - s / 2))
@@ -1449,19 +1465,10 @@ enum GestureMath {
     }
 
     /// 5K / Retina: 80 pt Coast zu kurz, Sample warpt. Scale 1 bleibt 80, 2× = 160.
+    /// Fern (kleine Palme) kürzer, Nah länger — Default 0,12 hält die alten Tests.
     static func hudCoastCapScaled(scale: CGFloat, base: CGFloat = 80, palmWidth: CGFloat = 0.12) -> CGFloat {
         let w = max(0.04, min(0.28, palmWidth))
         return base * backingScaleClamped(scale) * max(0.45, min(1.8, w / 0.12))
-    }
-
-    /// 8-Hz-Closedness: gleiche EMA wie palmWidth. prev≤0 übernimmt next.
-    static func pinchClosednessEMA(prev: Double, next: Double, dt: TimeInterval) -> Double {
-        Double(palmWidthEMA(prev: CGFloat(max(0, prev)), next: CGFloat(max(0, min(1, next))), dt: dt))
-    }
-
-    /// ROI nach 1 leerem Frame halten. 8 Hz sonst Full → Rand-Palme stiehlt.
-    static func visionRoiMissHolds(miss: Int, hold: Int = 2) -> Bool {
-        miss > 0 && miss < max(1, hold)
     }
 
     /// Echo der eigenen CGEvents auf Retina größer als 1,2 pt.

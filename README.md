@@ -9,11 +9,12 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 
 ## Neu in 1.6.96
 
-Warum Pinch nach 1.6.95 weiter chatterte und Dropout den Actor stahl: analogClosed glättete Closedness nicht. ROI ging beim ersten leeren Frame auf Full.
+Warum Pinch nach 1.6.95 weiter chatterte und der HUD nach Dropout den Actor verlor: closedness = min(ratio, dProx/scale) — Prox-Spike. Keine Closedness-EMA. ROI nach 1 leerem Frame Full. Coast-Cap ignoriert palmWidth.
 
-- **pinchClosednessSmooth.** One-Euro vor pinchAnalog. 8-Hz-Jitter kein Hold-Flip.
-- **visionRoiHolds.** Ein Miss hält lastRoi. Zweiter Miss full.
-- **visionRoiPeriodicFull.** Jedes 4. Tick Full — zweite Palme.
+- **pinchClosednessEMA.** palmWidth-Tau, HandTracker Slot, TrackedHand smoothed.
+- **PinchGate ratio-only.** Prox-Spike öffnet den Hold nicht.
+- **visionRoiMissHolds.** 1 Miss hält lastRoi, 2 → Full.
+- **hudCoastCapScaled palmWidth.** Fern kürzer, Nah länger. Default 0,12 = 80.
 - Tests + MARKETING_VERSION 1.6.96 (Build 129).
 
 ## Neu in 1.6.95

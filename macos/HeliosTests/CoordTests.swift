@@ -3129,33 +3129,32 @@ enum CoordTests {
             fputs("FAIL trackIDPersist unknown tot\n", stderr)
             fails += 1
         }
-        let closedJump = GestureMath.pinchClosednessSmooth(prev: 0.20, next: 0.90, dt: 0.125, quality: 0.90)
-        if closedJump <= 0.20 || closedJump >= 0.90 {
-            fputs("FAIL Closedness EMA 8 Hz glättet\n", stderr)
+        if !GestureMath.visionRoiMissHolds(miss: 1) {
+            fputs("FAIL ROI-Miss 1 hält\n", stderr)
             fails += 1
         }
-        if abs(GestureMath.pinchClosednessSmooth(prev: nil, next: 0.90, dt: 0.125) - 0.90) > 0.001 {
-            fputs("FAIL Closedness erste Probe roh\n", stderr)
+        if GestureMath.visionRoiMissHolds(miss: 2) {
+            fputs("FAIL ROI-Miss 2 Full\n", stderr)
             fails += 1
         }
-        if !GestureMath.visionRoiHolds(miss: 1) {
-            fputs("FAIL ROI Hysterese Frame 1 hält\n", stderr)
+        if GestureMath.visionRoiMissHolds(miss: 0) {
+            fputs("FAIL ROI-Miss 0 tot\n", stderr)
             fails += 1
         }
-        if GestureMath.visionRoiHolds(miss: 2) {
-            fputs("FAIL ROI Hysterese Frame 2 full\n", stderr)
+        let emaFast = GestureMath.pinchClosednessEMA(prev: 0.20, next: 0.80, dt: 0.04)
+        let emaSlow = GestureMath.pinchClosednessEMA(prev: 0.20, next: 0.80, dt: 0.125)
+        if emaFast <= emaSlow {
+            fputs("FAIL Closedness-EMA 8 Hz langsamer\n", stderr)
             fails += 1
         }
-        if GestureMath.visionRoiHolds(miss: 0) {
-            fputs("FAIL ROI Hysterese miss 0 tot\n", stderr)
+        if abs(GestureMath.pinchClosednessEMA(prev: 0, next: 0.70, dt: 0.125) - 0.70) > 0.001 {
+            fputs("FAIL Closedness-EMA first = next\n", stderr)
             fails += 1
         }
-        if !GestureMath.visionRoiPeriodicFull(tick: 0) || GestureMath.visionRoiPeriodicFull(tick: 1) {
-            fputs("FAIL ROI full jedes 4. Tick\n", stderr)
-            fails += 1
-        }
-        if !GestureMath.visionRoiPeriodicFull(tick: 4) {
-            fputs("FAIL ROI Tick 4 full\n", stderr)
+        let capFar = GestureMath.hudCoastCapScaled(scale: 1, palmWidth: 0.04)
+        let capNear = GestureMath.hudCoastCapScaled(scale: 1, palmWidth: 0.24)
+        if capFar >= 80 || capNear <= 80 {
+            fputs("FAIL Coast-Cap palmWidth Fern < 80 < Nah\n", stderr)
             fails += 1
         }
 

@@ -1,18 +1,19 @@
 # Helios Vorschläge — 2026-09-09 (Pass 45, 1.6.96)
 
-Stand 1.6.96. Closedness EMA. ROI Hysterese + Full/4.
+Stand 1.6.96. Closedness-EMA, ROI-Miss-Hold, Coast-Cap palmWidth.
 
 ## Gelandet in 1.6.96
 
-- pinchClosednessSmooth vor pinchAnalog. GestureEngine analogClosed.
-- visionRoiHolds Miss 1. lastRoi bleibt.
-- visionRoiPeriodicFull jedes 4. Tick.
+- pinchClosednessEMA palmWidth-Tau. HandTracker Slot.
+- PinchGate closedness nur ratio, nicht dProx-min.
+- visionRoiMissHolds 1 Frame lastRoi.
+- hudCoastCapScaled palmWidth. Default 0,12 = 80.
 
 ## Erweiterung (neu)
 
 815. **CameraBroker XPC + IOSurface** mit Aegis. P0.
 816. **HeliosAegisKit.**
-817. **VNTrackObjectRequest.** ROI sitzt — Track lohnt.
+817. **VNTrackObjectRequest.** ROI-Miss-Hold sitzt — Track lohnt.
 818. **Per-Finger-Kontakt.**
 819. **palmHighpass auf UV-Position.**
 820. **Ampel-Ring Overlay.**
@@ -28,29 +29,31 @@ Stand 1.6.96. Closedness EMA. ROI Hysterese + Full/4.
 830. **Continuity 15-fps Probe** (inputPriority sitzt, Leiter 540 hält).
 831. **Mission-Control Spread.**
 832. **Two-pointer origin lock.**
-833. **Pinch-Hysterese palmWidth.**
+833. **Pinch-Hysterese palmWidth.** analog 0,48 fern zu hart.
 834. **Gesture-Macro.**
 835. **SpaceMap nur als Start.**
 836. **CGEvent tapHold.**
 837. **pinch3DVeto Depth-Reach.**
 838. **emptyHandsRecover(elapsed:)** Fold.
 839. **SpaceMap Recenter nach Wake.**
-840. **formatPromoted nach inputPriority.** 720p24 → 1080p15.
+840. **formatPromoted nach inputPriority.** 720p24 → 1080 nur wenn fps ≥ 12.
 841. **ROI scale 1,6** Continuity.
-842. **Cover-Lead Homographie Blend.**
-843. **Bezel-Hop Blend** 200 ms.
-844. **hudCoast Cap aus palmWidth.**
+842. **ROI full jedes 4. Tick.**
+843. **Cover-Lead Homographie Blend.**
+844. **Bezel-Hop Blend** 200 ms.
 845. **Two-hand HUD-Lerp unabhängig.**
 846. **pinchFingerContact analog mix.**
 847. **DisplayLink Pause bei Freeze.**
 848. **Vision joint-conf analog mix.**
 849. **pinchSpan palmWidth-EMA am Hold.**
-850. **useCover Homographie** Cover-Lead (tot).
-851. **Core Haptics** Pinch-Close.
-852. **Gaze-Click** ARKit + Pinch AND.
-853. **Stage-Manager Space-Lock.**
-854. **Accessibility Switch-Control Bridge.**
-855. **Siri-Shortcut Pinch-Macro.**
+850. **cameraMutexStampFresh Write.** Tests grün, CameraSession tot — Aegis liest den Stamp.
+851. **pinchClosedness EMA freeze** solange analog held — Loslassen nicht 2 Samples hinterher.
+852. **Continuity 420v luma lift** für Pinch-Kontrast (Aegis leftoverSharpnessOf-Pendant).
+853. **uniqueID persist über ROI-Miss.** Slot stirbt nicht wenn lastRoi hält.
+854. **Coast skip bei palmWidth-Sprung.** Overlay warpt nach Nähern.
+855. **pinchRatioSmooth quality-mix** auf Closedness (One-Euro statt nur EMA).
+856. **clutchJiggleScaled nach analog-Hysterese.** Echo 8 Hz größer als Hold-Fenster.
+857. **lastRoi clamp palm×1,6** bei Miss 1 — 3×-ROI zu weit, stiehlt Rand.
 
 P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
 

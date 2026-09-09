@@ -35,6 +35,7 @@ struct HandCursor {
     var isLeft: Bool
     var point: CGPoint
     var actor: Bool
+    var palmWidth: CGFloat = 0.12
 }
 
 struct FolderOrb: Equatable {
@@ -105,7 +106,6 @@ final class GestureEngine {
     private var pinchBeganAt: TimeInterval = 0
     private var pinchTrail: [(t: TimeInterval, x: CGFloat, y: CGFloat)] = []
     private var pinchClosedTrail: [Double] = []
-    private var pinchClosedSmooth: Double?
     private var pinchSpan0: CGFloat?
     private var pinchSpanW: CGFloat?
     private var pinchHandID: String?
@@ -285,7 +285,6 @@ final class GestureEngine {
         cursorTracks.removeAll()
         cursorAbsTracks.removeAll()
         pinchClosedTrail.removeAll()
-        pinchClosedSmooth = nil
         handCursors = []
         lastPalm = nil
         lastPalmVel = .zero
@@ -453,7 +452,6 @@ final class GestureEngine {
             killPalms = nil
             pinchTrail.removeAll()
             pinchClosedTrail.removeAll()
-            pinchClosedSmooth = nil
             swipeTrail.removeAll()
             swipeHandID = nil
             twoPinchEdgeStreak = 0
@@ -1307,7 +1305,8 @@ final class GestureEngine {
                 side: h.sideDE,
                 isLeft: h.chirality == .left,
                 point: p,
-                actor: h.id == actor.id
+                actor: h.id == actor.id,
+                palmWidth: h.palmWidth
             ))
         }
         handCursors = out
@@ -1649,15 +1648,8 @@ final class GestureEngine {
             swipeMuteUntil = now + GestureMath.swipeMuteAfterPinch
             return
         }
-        let closedSmooth = GestureMath.pinchClosednessSmooth(
-            prev: pinchClosedSmooth,
-            next: hand.pinchClosedness,
-            dt: sampleDt,
-            quality: hand.quality
-        )
-        pinchClosedSmooth = closedSmooth
         let analogClosed = GestureMath.pinchAnalogClosed(
-            GestureMath.pinchAnalog(closedness: closedSmooth, zSep: hand.pinchZSep),
+            GestureMath.pinchAnalog(closedness: hand.pinchClosedness, zSep: hand.pinchZSep),
             held: pinchHeld
         )
         let beak = beakNow(hand)

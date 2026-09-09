@@ -133,6 +133,7 @@ private struct TrackSlot {
     var lastZ: [VNHumanHandPoseObservation.JointName: CGFloat] = [:]
     var lastNow: TimeInterval = 0
     var palmWidthEma: CGFloat = 0
+    var pinchClosedEma: Double = 0
     var lastVel: CGPoint = .zero
     var freezePPos: CGFloat = 0.0004
     var freezePVel: CGFloat = 0.008
@@ -165,9 +166,9 @@ final class HandTracker: @unchecked Sendable {
     private var lastHands: [TrackedHand] = []
     private var lastHandsAt: TimeInterval = 0
     private var lastFreezeAt: TimeInterval = 0
-    private var bodyTick = 0
-    private var lastRoiBoxes: [CGRect] = []
+    private var lastRoi = CGRect.null
     private var roiMiss = 0
+    private var bodyTick = 0
     private var lastBodyPts: [VNHumanBodyPoseObservation.JointName: VNRecognizedPoint] = [:]
 
     func reset() {
@@ -178,10 +179,10 @@ final class HandTracker: @unchecked Sendable {
         lastHands = []
         lastHandsAt = 0
         lastFreezeAt = 0
+        lastRoi = .null
+        roiMiss = 0
         lastBodyPts = [:]
         bodyTick = 0
-        lastRoiBoxes = []
-        roiMiss = 0
     }
 
     func analyze(
@@ -198,30 +199,27 @@ final class HandTracker: @unchecked Sendable {
         let space = AspectSpace(width: CGFloat(max(1, w)), height: CGFloat(max(1, h)))
         lastSpace = space
 
-        if GestureMath.visionRoiPeriodicFull(tick: bodyTick) {
-            request.regionOfInterest = GestureMath.visionRoiFull()
-            bodyRequest.regionOfInterest = GestureMath.visionRoiFull()
-            roiMiss = 0
-        } else if GestureMath.visionRoiEnabled(),
+        if lastHands.isEmpty { roiMiss += 1 } else { roiMiss = 0 }
+        if GestureMath.visionRoiEnabled(),
            !lastHands.isEmpty,
            !GestureMath.visionCancelOnDrop(dropped: lastHands.isEmpty)
         {
-            roiMiss = 0
             let boxes = lastHands.map {
                 GestureMath.visionRoiFromPalm(palm: $0.palm, width: $0.palmWidth, scale: 3)
             }
-            lastRoiBoxes = boxes
-            request.regionOfInterest = GestureMath.visionRoiUnion(boxes)
-            bodyRequest.regionOfInterest = request.regionOfInterest
-        } else if GestureMath.visionRoiHolds(miss: roiMiss + 1), !lastRoiBoxes.isEmpty {
-            roiMiss += 1
-            request.regionOfInterest = GestureMath.visionRoiUnion(lastRoiBoxes)
-            bodyRequest.regionOfInterest = request.regionOfInterest
+            lastRoi = GestureMath.visionRoiUnion(boxes)
+            request.regionOfInterest = lastRoi
+            bodyRequest.regionOfInterest = lastRoi
+        } else if GestureMath.visionRoiEnabled(),
+                  GestureMath.visionRoiMissHolds(miss: roiMiss),
+                  lastRoi.width > 0
+        {
+            request.regionOfInterest = lastRoi
+            bodyRequest.regionOfInterest = lastRoi
         } else {
-            roiMiss += 1
-            lastRoiBoxes = []
             request.regionOfInterest = GestureMath.visionRoiFull()
             bodyRequest.regionOfInterest = GestureMath.visionRoiFull()
+            lastRoi = .null
         }
 
         let handler = VNImageRequestHandler(
@@ -474,6 +472,9 @@ final class HandTracker: @unchecked Sendable {
             slot.lastSeen = now
             slot.lastNow = now
             slot.palmWidthEma = GestureMath.palmWidthEMA(prev: slot.palmWidthEma, next: fused.palmWidth, dt: dtPalm)
+            slot.pinchClosedEma = GestureMath.pinchClosednessEMA(
+                prev: slot.pinchClosedEma, next: pinchState.closedness, dt: dtPalm
+            )
             if let ti = assigned[idx], ti < tracks.count {
                 tracks[ti] = slot
             } else if let persistIdx = tracks.firstIndex(where: { $0.id == slot.id }) {
@@ -499,7 +500,7 @@ final class HandTracker: @unchecked Sendable {
                     pinchDistance: pinchState.distance,
                     pinchRatio: feat2D.pinchRatio,
                     pinchClosed: pinchState.closed,
-                    pinchClosedness: pinchState.closedness,
+                    pinchClosedness: slot.pinchClosedEma,
                     palm: fused.palm,
                     palmWidth: slot.palmWidthEma,
                     openScore: feat2D.openScore,

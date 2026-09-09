@@ -423,7 +423,7 @@ struct PinchGate {
         let vel = (ratio - lastRatio) / CGFloat(dt)
         lastRatio = ratio
         lastT = now
-        let closedness = max(0, min(1, (0.52 - min(ratio, (dProx ?? dist) / scale)) / 0.40))
+        let closedness = max(0, min(1, (0.52 - ratio) / 0.40))
         let proxRatio = (dProx ?? dist) / scale
         let reach: CGFloat = {
             guard let w = raw[.wrist], let t = raw[.thumbTip], let i = raw[.indexTip] else { return 0 }

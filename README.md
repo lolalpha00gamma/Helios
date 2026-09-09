@@ -1,4 +1,4 @@
-# Helios **1.6.93**
+# Helios **1.6.94**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -6,6 +6,13 @@ Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HU
 Privates Repo. Keine Open-Source-Lizenzdatei.
 
 Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Neu in 1.6.94
+
+Warum der HUD-Cursor nach 1.6.93 weiter hinter dem Sample klebte: `hudLerpT` nahm `(now−nextAt)/span` — t=0 am Sample zeigt prev, zwischen 8-Hz-Ticks Freeze. Coast greift erst nach t=1.
+
+- **HUD-Lerp zwischen Samples.** t=(now−prevAt)/span. t=1 am Sample zeigt next. Coast weiter wenn now > next.at.
+- Tests + MARKETING_VERSION 1.6.94 (Build 127).
 
 ## Neu in 1.6.93
 

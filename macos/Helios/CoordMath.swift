@@ -863,7 +863,7 @@ enum GestureMath {
         phase == .held || phase == .tentative
     }
 
-    /// HUD zwischen Detect-Ticks. t=0 am Sample (zeigt prev), t=1 nach einem Intervall.
+    /// HUD zwischen Detect-Ticks. t=0 am prev-Sample, t=1 am next-Sample.
     static func hudLerpT(
         prevAt: TimeInterval,
         nextAt: TimeInterval,
@@ -873,7 +873,7 @@ enum GestureMath {
         if freeze { return 1 }
         let span = nextAt - prevAt
         if span <= 1e-6 { return 1 }
-        return CGFloat(max(0, min(1, (now - nextAt) / span)))
+        return CGFloat(max(0, min(1, (now - prevAt) / span)))
     }
 
     static func hudLerpPoint(prev: CGPoint, next: CGPoint, t: CGFloat) -> CGPoint {

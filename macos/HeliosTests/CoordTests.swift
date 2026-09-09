@@ -1723,8 +1723,13 @@ enum CoordTests {
             fails += 1
         }
         let lerp0 = GestureMath.hudLerpT(prevAt: 1.0, nextAt: 1.125, now: 1.125, freeze: false)
-        if abs(lerp0 - 0) > 0.02 {
-            fputs("FAIL HUD-Lerp t=0 am Sample\n", stderr)
+        if abs(lerp0 - 1) > 0.02 {
+            fputs("FAIL HUD-Lerp t=1 am Sample\n", stderr)
+            fails += 1
+        }
+        let lerpMid = GestureMath.hudLerpT(prevAt: 1.0, nextAt: 1.125, now: 1.0625, freeze: false)
+        if abs(lerpMid - 0.5) > 0.02 {
+            fputs("FAIL HUD-Lerp t=0,5 zwischen Samples\n", stderr)
             fails += 1
         }
         let lerp1 = GestureMath.hudLerpT(prevAt: 1.0, nextAt: 1.125, now: 1.25, freeze: false)

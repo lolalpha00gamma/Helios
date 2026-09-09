@@ -1,5 +1,29 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.94**. Nur `main`. `bugfix` nicht mergen.
+
+## In 1.6.94 erledigt
+
+1.6.93 inputPriority. HUD t=0 am Sample zeigte prev.
+
+1. **hudLerpT (now−prevAt)/span.** t=1 am Sample, Coast danach.
+2. Tests + MARKETING_VERSION 1.6.94 (Build 127).
+
+## Erweiterung (neu, 1.6.94)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. P0.
+2. **Continuity 15-fps Probe** nach inputPriority.
+3. **formatPromoted 720p24 → 1080p15.**
+4. **pinchHold analog Hysterese.**
+5. **VNTrackObjectRequest.**
+6. **MediaPipe Hands.**
+7. **Overlay CAMetalLayer.**
+8. **LiDAR.**
+9. **Mission-Control Spread.**
+10. **uniqueID persist nach Remint.**
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.93**. Nur `main`. `bugfix` nicht mergen.
 
 ## In 1.6.93 erledigt

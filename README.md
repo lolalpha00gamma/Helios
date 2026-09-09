@@ -1,4 +1,4 @@
-# Helios **1.6.92**
+# Helios **1.6.93**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -6,6 +6,14 @@ Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HU
 Privates Repo. Keine Open-Source-Lizenzdatei.
 
 Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Neu in 1.6.93
+
+Warum Continuity nach 1.6.92 weiter bei 8 fps klebte: AE-Reassert sitzt, sessionPreset blieb hart 720/.high. Continuity activeFormat 720p24 verliert gegen Preset — 8 fps clamp.
+
+- **applySessionPreset.** inputPriority vor 720 (Session + Cover).
+- **analog 3D-nah Test.** analogClosed ≥ 0,58 ohne pinchClosed startet nicht.
+- Tests + MARKETING_VERSION 1.6.93 (Build 126).
 
 ## Neu in 1.6.92
 

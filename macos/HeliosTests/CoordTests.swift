@@ -3071,6 +3071,17 @@ enum CoordTests {
             fputs("FAIL analog-Meter allein startet nicht\n", stderr)
             fails += 1
         }
+        let analogNear = GestureMath.pinchAnalog(closedness: 0.40, zSep: 0.10)
+        if analogNear < 0.58 {
+            fputs("FAIL analog 3D-nah ≥ 0,58\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchStartsGrab(
+            gate: false, closedness: 0.40, reach: 1.10, index: 0.80, zSep: 0.10, quality: 0.90
+        ) {
+            fputs("FAIL analogClosed startet nicht ohne pinchClosed\n", stderr)
+            fails += 1
+        }
         if GestureMath.chiralityLock(prev: 2, live: 1, dropped: true) != 2 {
             fputs("FAIL Chirality Dropout hält Rechts\n", stderr)
             fails += 1

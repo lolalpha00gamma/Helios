@@ -1,3 +1,53 @@
+# Helios Vorschläge — 2026-09-09 (Pass 42, 1.6.93)
+
+Stand 1.6.93. inputPriority. analog 3D-nah Test.
+
+## Gelandet in 1.6.93
+
+- applySessionPreset: inputPriority vor 720/.high (Session + Cover)
+- CoordTests analog-nah startet nicht ohne pinchClosed
+
+## Erweiterung (neu)
+
+705. **CameraBroker XPC + IOSurface** mit Aegis. P0.
+706. **HeliosAegisKit.**
+707. **VNTrackObjectRequest.** ROI sitzt — Track lohnt.
+708. **Per-Finger-Kontakt.**
+709. **HUD-Lerp zwischen Samples.**
+710. **palmHighpass auf UV-Position.**
+711. **Ampel-Ring Overlay.**
+712. **Rechtsklick-HUD.**
+713. **Click-Ring Overlay.**
+714. **uniqueID persist nach Remint.**
+715. **CGEventSource-State.**
+716. **Desk-View Crop.**
+717. **IOHIDEventSystemClient.**
+718. **Watch Double-Tap.**
+719. **MediaPipe Hands.**
+720. **Overlay CAMetalLayer.**
+721. **LiDAR.**
+722. **Continuity 15-fps Probe** (inputPriority sitzt, Leiter 720p24 bleibt).
+723. **Mission-Control Spread.**
+724. **Two-pointer origin lock.**
+725. **Pinch-Hysterese palmWidth.**
+726. **Gesture-Macro.**
+727. **SpaceMap nur als Start.**
+728. **CGEvent tapHold.**
+729. **pinch3DVeto Depth-Reach.**
+730. **emptyHandsRecover(elapsed:)** Fold.
+731. **SpaceMap Recenter nach Wake.**
+732. **ROI-Hysterese 2 Frames.**
+733. **formatPromoted nach inputPriority.** 720p24 → 1080p15.
+734. **pinchHold analog Hysterese.**
+735. **pinchClosedness EMA.**
+736. **VNDetectHumanHandPoseRequest maximumHandCount 2.**
+737. **ROI scale 1,6** Continuity.
+738. **ROI full jedes 4. Tick.**
+739. **Cover-Lead Homographie Blend.**
+740. **Bezel-Hop Blend** 200 ms.
+
+P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
 # Helios Vorschläge — 2026-09-09 (Pass 41, 1.6.92)
 
 Stand 1.6.92. Chirality live. AE reassert Wake.

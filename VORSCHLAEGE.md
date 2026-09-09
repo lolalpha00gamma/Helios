@@ -1,5 +1,30 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.93**. Nur `main`. `bugfix` nicht mergen.
+
+## In 1.6.93 erledigt
+
+1.6.92 AE-Reassert, Chirality live. sessionPreset hart 720.
+
+1. **applySessionPreset inputPriority.** Session + Cover. 8-fps-Clamp tot.
+2. **analog 3D-nah Test.**
+3. Tests + MARKETING_VERSION 1.6.93 (Build 126).
+
+## Erweiterung (neu, 1.6.93)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. P0.
+2. **Continuity 15-fps Probe** nach inputPriority.
+3. **formatPromoted 720p24 → 1080p15.**
+4. **HUD-Lerp zwischen Samples.**
+5. **VNTrackObjectRequest.**
+6. **MediaPipe Hands.**
+7. **Overlay CAMetalLayer.**
+8. **LiDAR.**
+9. **Mission-Control Spread.**
+10. **pinchHold analog Hysterese.**
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.92**. Nur `main`. `bugfix` nicht mergen.
 
 ## In 1.6.92 erledigt

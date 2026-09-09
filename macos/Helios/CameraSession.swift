@@ -394,11 +394,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         session.beginConfiguration()
         session.inputs.forEach { session.removeInput($0) }
         session.outputs.forEach { session.removeOutput($0) }
-        if session.canSetSessionPreset(.hd1280x720) {
-            session.sessionPreset = .hd1280x720
-        } else if session.canSetSessionPreset(.high) {
-            session.sessionPreset = .high
-        }
+        Self.applySessionPreset(session)
 
         guard let device = preferredDevice() else {
             DispatchQueue.main.async { self.errorMessage = "Keine Kamera gefunden." }
@@ -704,6 +700,23 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             }
         } else if device.isWhiteBalanceModeSupported(.continuousAutoWhiteBalance) {
             device.whiteBalanceMode = .continuousAutoWhiteBalance
+        }
+    }
+
+    /// 1080-Preset klemmt Continuity auf 8 fps. inputPriority lässt activeFormat (720p24) gewinnen.
+    static func applySessionPreset(_ session: AVCaptureSession) {
+        if GestureMath.capturePrefersInputPriority(), session.canSetSessionPreset(.inputPriority) {
+            session.sessionPreset = .inputPriority
+            return
+        }
+        if GestureMath.captureSessionPresetClamps1080(), session.canSetSessionPreset(.hd1280x720) {
+            session.sessionPreset = .hd1280x720
+            return
+        }
+        if session.canSetSessionPreset(.hd1280x720) {
+            session.sessionPreset = .hd1280x720
+        } else if session.canSetSessionPreset(.high) {
+            session.sessionPreset = .high
         }
     }
 
@@ -1105,11 +1118,7 @@ final class CoverCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         session.beginConfiguration()
         session.inputs.forEach { session.removeInput($0) }
         session.outputs.forEach { session.removeOutput($0) }
-        if session.canSetSessionPreset(.hd1280x720) {
-            session.sessionPreset = .hd1280x720
-        } else if session.canSetSessionPreset(.high) {
-            session.sessionPreset = .high
-        }
+        CameraSession.applySessionPreset(session)
         do {
             let input = try AVCaptureDeviceInput(device: device)
             guard session.canAddInput(input) else {

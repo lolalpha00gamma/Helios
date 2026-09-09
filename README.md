@@ -1,4 +1,4 @@
-# Helios **1.6.99**
+# Helios **1.6.100**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -6,6 +6,13 @@ Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HU
 Privates Repo. Keine Open-Source-Lizenzdatei.
 
 Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Neu in 1.6.100
+
+Warum Continuity nach 1.6.99 weiter L/R vertauschte: `visionSkipsBody` @ 8 Hz übersprang Body jedes Frame. `lastBodyPts` leer, `bodyChirality` tot.
+
+- **Body @ 8 Hz jedes 8. Tick.** Call-Site. visionSkipsBody bleibt (nicht jedes Frame). Built-in % 4.
+- Tests + MARKETING_VERSION 1.6.100 (Build 133).
 
 ## Neu in 1.6.99
 

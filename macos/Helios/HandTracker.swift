@@ -243,9 +243,8 @@ final class HandTracker: @unchecked Sendable {
         do {
             bodyTick += 1
             let dt = lastHandsAt > 0 ? now - lastHandsAt : 0.016
-            if GestureMath.visionSkipsBody(dt: dt) {
-                try handler.perform([request])
-            } else if bodyTick % 4 == 1 {
+            let bodyEvery = GestureMath.visionSkipsBody(dt: dt) ? 8 : 4
+            if bodyEvery > 0, bodyTick % bodyEvery == 1 {
                 try handler.perform([request, bodyRequest])
                 lastBodyPts = (try? bodyRequest.results?.first?.recognizedPoints(.all)) ?? lastBodyPts
             } else {

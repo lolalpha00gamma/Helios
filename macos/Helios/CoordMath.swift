@@ -1302,7 +1302,7 @@ enum GestureMath {
         cameraFormatUsbRole(role) && !already && measuredFps >= floor
     }
 
-    /// 8 fps: Body-Pose jedes 4. Frame = 500 ms tot + extra Vision.
+    /// 8 fps: nicht jedes Frame. HandTracker: bodyTick % 8 == 1. 24 fps % 4.
     static func visionSkipsBody(dt: TimeInterval) -> Bool { dt >= 0.10 }
 
     /// Continuity Center Stage croppt aufs Gesicht — Palme fällt raus. Wie Aegis.

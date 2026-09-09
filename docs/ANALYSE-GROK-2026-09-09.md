@@ -1,3 +1,34 @@
+# Analyse Helios 1.6.100 + Aegis 2.1.247 — 2026-09-09
+
+Kein Merge von `bugfix`. Predict bleibt 0. Kein neues *Need(dt). Kein neues leftover*-Flag.
+
+## Helios — warum Gesten schlecht wirken
+
+1. Continuity ~8 Hz. HUD-Lerp + palmWidth sitzen. Predict bleibt 0.
+2. analogClosed Mix lerp't Closedness×z×Kontakt. Faust/Schnabel/Pinzette teilen eine Achse.
+3. ROI Scale 1,6 + Full/2 sitzt. Body-Pose war **immer skip** @ 8 Hz — L/R tot. Pass 49: jedes 8. Tick.
+4. Zwei Apps, eine Kamera. Mutex sample-fresh. Ohne CameraBroker zwei Vision, zwei TCC.
+5. `bugfix` (1.6.15) ist 80 Versionen hinter main — Merge wäre ein Wipe.
+
+## Aegis — warum Identitäten schlecht wirken
+
+1. leftoverPick twinPair Live sitzt (2.1.246), Fallback war Gallery-Centroid. Ohne 32-d Vec (erstes Sample, skipPrints) → Ada+Bob Hard-Veto 0,88. Pass 49: nil statt Gallery.
+2. liveRoiPeriodicFull Default 8 = 1 s Walk-in. leftoverDetectSkipTick every 4 = Detect tot 3/4. Pass 49: both every 2.
+3. leftoverHoldsTrack yawAbs: nil bewusst. LiveCapture `@MainActor`. Gallery linear. CameraBroker fehlt. CGImage-Kopie.
+
+## Erweiterung (neu)
+
+943. **CameraBroker XPC + IOSurface.** P0. Spec `docs/CameraBroker.md`.
+944. **VNImageRequestHandler(cvPixelBuffer:)** Aegis.
+945. **LiveCapture off MainActor.**
+946. **HNSW Gallery.**
+947. **Adaptive skipDetect** visionMs + stillFor.
+948. **visionRoiScale lerp.**
+949. **Per-Finger 4-Tip-Gate.**
+950. **Wrist-Vel Pinch-Veto.**
+
+P0: CameraBroker. Branch `bugfix` nicht mergen.
+
 # Analyse Helios 1.6.99 + Aegis 2.1.246 — 2026-09-09
 
 Kein Merge von `bugfix`. Predict bleibt 0. Kein neues *Need(dt). Kein neues leftover*-Flag.

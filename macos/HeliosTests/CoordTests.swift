@@ -3214,6 +3214,14 @@ enum CoordTests {
             fputs("FAIL ROI full jedes 2. Tick\n", stderr)
             fails += 1
         }
+        if !GestureMath.visionSkipsBody(dt: 0.125) {
+            fputs("FAIL 8 fps skip Body jedes Frame\n", stderr)
+            fails += 1
+        }
+        if GestureMath.visionSkipsBody(dt: 0.04) {
+            fputs("FAIL 24 fps Body-Skip tot\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

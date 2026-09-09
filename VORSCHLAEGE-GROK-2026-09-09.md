@@ -1,3 +1,31 @@
+# Helios Vorschläge — 2026-09-09 (Pass 49, 1.6.100)
+
+Stand 1.6.100. Body @ 8 Hz jedes 8. Tick.
+
+## Gelandet in 1.6.100
+
+- HandTracker bodyEvery 8 @ Continuity / 4 Built-in. visionSkipsBody bleibt (nicht jedes Frame).
+
+## Erweiterung (neu)
+
+936. **CameraBroker XPC + IOSurface** mit Aegis. P0. Spec `docs/CameraBroker.md`.
+937. **Adaptive ROI full every aus dt.**
+938. **Pinch-Release aus Kontakt-Fall** (dK/dt).
+939. **Wrist-Vel Pinch-Veto.**
+940. **formatPromoted 720p24 → 1080p15.**
+941. **Continuity 15-fps Probe.**
+942. **VNTrackObjectRequest.**
+943. **Per-Finger 4-Tip-Gate.**
+944. **Hover-Dwell Click.**
+945. **Stereo Continuity+Built-in zSep.**
+946. **Gesture-Sequenzen Pinch+Flick.**
+947. **Overlay CAMetalLayer.**
+948. **HeliosAegisKit.**
+949. **visionRoiScale lerp.**
+950. **Mutex stamp+lock atomic.**
+
+P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
 # Helios Vorschläge — 2026-09-09 (Pass 48, 1.6.99)
 
 Stand 1.6.99. ROI Full every 2 nach Scale 1,6.

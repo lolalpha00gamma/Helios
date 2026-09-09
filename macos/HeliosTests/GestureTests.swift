@@ -53,6 +53,15 @@ enum GestureTests {
         let fist = hand(tipsY: 0.32)
         ok(GestureClassifier.classify(joints: fist, pinch: 0.10) == .fist, "Faust")
 
+        var pointJ = hand(tipsY: 0.32)
+        pointJ[.indexTip] = CGPoint(x: 0.44, y: 0.74)
+        pointJ[.indexPIP] = CGPoint(x: 0.45, y: 0.54)
+        pointJ[.indexMCP] = CGPoint(x: 0.46, y: 0.34)
+        pointJ[.middleTip] = CGPoint(x: 0.50, y: 0.34)
+        pointJ[.ringTip] = CGPoint(x: 0.56, y: 0.33)
+        pointJ[.littleTip] = CGPoint(x: 0.60, y: 0.32)
+        ok(GestureClassifier.classify(joints: pointJ, pinch: 0.18) == .point, "Zeigen")
+
         var pinchJ = hand(tipsY: 0.32)
         pinchJ[.indexTip] = CGPoint(x: 0.40, y: 0.62)
         pinchJ[.indexPIP] = CGPoint(x: 0.42, y: 0.48)

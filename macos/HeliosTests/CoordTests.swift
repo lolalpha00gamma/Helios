@@ -1606,8 +1606,8 @@ enum CoordTests {
             fputs("FAIL Meter Gate zu\n", stderr)
             fails += 1
         }
-        if !GestureMath.pinchMeterClosed(gate: true, closedness: 0.9, restPose: true) {
-            fputs("FAIL Meter trotz Ruhepose\n", stderr)
+        if GestureMath.pinchMeterClosed(gate: true, closedness: 0.9, restPose: true) {
+            fputs("FAIL Meter Ruhepose\n", stderr)
             fails += 1
         }
         if !GestureMath.pinchMeterClosed(gate: false, closedness: 0.30, isFist: false, restPose: false) {
@@ -1657,8 +1657,8 @@ enum CoordTests {
             fputs("FAIL Ordner-Treffer\n", stderr)
             fails += 1
         }
-        if !GestureMath.pinchMeterClosed(gate: true, closedness: 0.9, isFist: true) {
-            fputs("FAIL Meter trotz Faust\n", stderr)
+        if GestureMath.pinchMeterClosed(gate: true, closedness: 0.9, isFist: true) {
+            fputs("FAIL Meter Faust\n", stderr)
             fails += 1
         }
         if !GestureMath.pinchTapWouldClick(closedness: [0.05, 0.45, 0.55, 0.08]) {
@@ -1673,8 +1673,8 @@ enum CoordTests {
             fputs("FAIL Tap ohne Zu\n", stderr)
             fails += 1
         }
-        if !GestureMath.pinchTapWouldClick(closedness: [0.5, 0.6, 0.1], isFist: [true, true, false]) {
-            fputs("FAIL Tap Faust ist Pinch\n", stderr)
+        if GestureMath.pinchTapWouldClick(closedness: [0.5, 0.6, 0.1], isFist: [true, true, false]) {
+            fputs("FAIL Tap Faust kein Klick\n", stderr)
             fails += 1
         }
         if !GestureMath.pinchTapWouldClick(closedness: [0, 0, 0], gates: [false, true, false], dt: 0.125) {
@@ -3245,7 +3245,22 @@ enum CoordTests {
             fputs("FAIL Overlay Steuerhand tot\n", stderr)
             fails += 1
         }
-        pointEq(GestureMath.clampPalm(CGPoint(x: -0.2, y: 1.4)), CGPoint(x: 0, y: 1), "clampPalm")
+        if abs(GestureMath.visionU(0.2, mirrored: true) - 0.2) > 0.001 {
+            fputs("FAIL visionU mirrored\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.visionU(0.2, mirrored: false) - 0.8) > 0.001 {
+            fputs("FAIL visionU unmirrored\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinchStartsGrab(gate: true, closedness: 0.7, reach: 1.3, index: 0.8) {
+            fputs("FAIL pinchStartsGrab Pinzette\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchStartsGrab(gate: true, closedness: 0.9, reach: 0.2, index: 0.1) {
+            fputs("FAIL pinchStartsGrab Faust\n", stderr)
+            fails += 1
+        }
         if GestureMath.cameraFormatRenegotiate(measuredFps: 8, already: true) {
             fputs("FAIL Format nicht nochmal\n", stderr)
             fails += 1

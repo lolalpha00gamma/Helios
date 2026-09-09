@@ -95,6 +95,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     private var lastMutexClaimAt: TimeInterval = 0
     private var lastMutexSampleUnix: TimeInterval = 0
     private let mutexLock = NSLock()
+    private let mutexIO = DispatchQueue(label: "helios.mutex.io", qos: .utility)
+    private let previewQueue = DispatchQueue(label: "helios.preview", qos: .utility)
     private var mutexPalmUV: (x: CGFloat, y: CGFloat, w: CGFloat)?
     private var mutexPalmUVs: [(x: CGFloat, y: CGFloat, w: CGFloat)] = []
     private(set) var mutexChip: String = "—"
@@ -863,10 +865,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         let handler = frameHandler
         handlerLock.unlock()
         handler?(vision, nil, luma, arrived)
-        if now - lastPreview >= 0.033 {
+        if now - lastPreview >= 0.066 {
             lastPreview = now
-            // Render while the ring slot is still ours. Async makePreview after
-            // release() reads a buffer the camera may already have overwritten.
             if let img = makePreview(pb) {
                 DispatchQueue.main.async { [weak self] in self?.pushPreview(img) }
             }
@@ -946,6 +946,30 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             owner: owner, pid: pid, now: lastMutexSampleUnix, gen: 0, pts: pts, palm: palms.first, palms: palms
         )
         let sampleFresh = GestureMath.cameraMutexStampFresh(sampleProbe, now: now)
+        mutexIO.async { [weak self] in
+            self?.commitCameraMutex(
+                stampLine: stampLine,
+                sampleFresh: sampleFresh,
+                now: now,
+                pts: pts,
+                palms: palms,
+                url: url,
+                pid: pid,
+                owner: owner
+            )
+        }
+    }
+
+    private func commitCameraMutex(
+        stampLine: String,
+        sampleFresh: Bool,
+        now: TimeInterval,
+        pts: TimeInterval,
+        palms: [(x: CGFloat, y: CGFloat, w: CGFloat)],
+        url: URL,
+        pid: pid_t,
+        owner: String
+    ) {
         if sampleFresh {
             writeCameraMutexStamp(line: stampLine)
         }
@@ -972,7 +996,6 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
                             if let p = raw.baseAddress { _ = Darwin.write(fd, p, raw.count) }
                         }
                     }
-                    _ = fsync(fd)
                     wrote = line
                     writeCameraMutexStamp(line: line)
                 } else {
@@ -1259,7 +1282,7 @@ final class CoverCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         let buffer = onBuffer
         let preview = onPreview
         buffer?(pb, now, isMirrored, visionOrientation)
-        if lastPreview == 0 || now - lastPreview >= 0.033 {
+        if lastPreview == 0 || now - lastPreview >= 0.066 {
             lastPreview = now
             if let img = Self.preview(pb) {
                 DispatchQueue.main.async { preview?(img) }

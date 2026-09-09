@@ -283,7 +283,8 @@ final class HandTracker: @unchecked Sendable {
             var raw: [VNHumanHandPoseObservation.JointName: CGPoint] = [:]
             var conf: [VNHumanHandPoseObservation.JointName: Float] = [:]
             for (name, p) in pts where p.confidence > 0.18 {
-                raw[name] = CGPoint(x: p.location.x, y: p.location.y)
+                let x = GestureMath.visionU(p.location.x, mirrored: mirrored)
+                raw[name] = CGPoint(x: x, y: p.location.y)
                 conf[name] = p.confidence
             }
             guard raw.count >= 8 else { continue }
@@ -293,7 +294,7 @@ final class HandTracker: @unchecked Sendable {
                 else if chirality == .right { chirality = .left }
             }
             let palm = GestureClassifier.palmCenter(raw)
-            if let voted = bodyChirality(palm: palm, body: bodyPts, vision: chirality) {
+            if let voted = bodyChirality(palm: palm, body: bodyPts, vision: chirality, mirrored: mirrored) {
                 chirality = voted
             } else if chirality == .unknown {
                 let wx = raw[.wrist]?.x ?? 0.5
@@ -324,9 +325,11 @@ final class HandTracker: @unchecked Sendable {
                     default: return 0
                     }
                 }
+                let dtPersist = lastHandsAt > 0 ? GestureMath.sampleDt(now: now, last: lastHandsAt) : 0.125
                 let persist = GestureMath.trackIDPersist(
                     dropped: tracks.enumerated().compactMap { i, s -> (id: String, chirality: Int)? in
                         if assigned.values.contains(i) { return nil }
+                        if now - s.lastSeen < GestureMath.trackDropoutNeed(dt: dtPersist) { return nil }
                         return (s.id, chiralityCode(s.chirality))
                     },
                     liveChirality: chiralityCode(obs.chirality),
@@ -346,6 +349,13 @@ final class HandTracker: @unchecked Sendable {
                 slot.hmm.reset()
                 slot.fusion.reset()
                 slot.temporal.reset()
+                slot.smoother.reset()
+                slot.pinch.reset()
+                slot.lastPalm = .zero
+                slot.palmWidthEma = 0
+                slot.lastBox = .null
+                slot.lastZ = [:]
+                slot.lastVel = .zero
             }
 
             let smoothed = slot.smoother.apply(obs.raw, now: now)
@@ -378,7 +388,7 @@ final class HandTracker: @unchecked Sendable {
                 space: space
             )
             var q2 = feat2D.quality
-            q2 *= forearmGate(palm: feat2D.palm, wrist: smoothed[.wrist], chirality: obs.chirality, body: bodyPts, space: space)
+            q2 *= forearmGate(palm: feat2D.palm, wrist: smoothed[.wrist], chirality: obs.chirality, body: bodyPts, space: space, mirrored: mirrored)
 
             let e2 = HandEstimate(
                 source: .geometry2D,
@@ -405,7 +415,7 @@ final class HandTracker: @unchecked Sendable {
             let tFeat = TemporalNet.features(
                 ext: extArr,
                 pinchRatio: feat2D.pinchRatio,
-                thumbUp: feat2D.extensions["thumb"] ?? 0,
+                thumbUp: feat2D.thumbUp,
                 palmVel: vel
             )
             var eT = slot.temporal.push(features: tFeat, now: now)
@@ -505,8 +515,17 @@ final class HandTracker: @unchecked Sendable {
         return lastHands
     }
 
-    /// Eine Spur links, eine rechts. Zwei Kameras sonst zwei Cursor auf einer Hand.
+    /// Eine Spur links, eine rechts. Gleiche Chirality → per x aufteilen, nicht löschen.
     private func dedupChirality(_ hands: [TrackedHand]) -> [TrackedHand] {
+        if hands.count <= 1 { return hands }
+        if hands.count == 2, hands[0].chirality == hands[1].chirality || hands.contains(where: { $0.chirality == .unknown }) {
+            var a = hands[0]
+            var b = hands[1]
+            if a.palm.x > b.palm.x { swap(&a, &b) }
+            a.chirality = .right
+            b.chirality = .left
+            return [a, b]
+        }
         var left: TrackedHand?
         var right: TrackedHand?
         var unknown: TrackedHand?
@@ -524,6 +543,11 @@ final class HandTracker: @unchecked Sendable {
         if let left { out.append(left) }
         if let right { out.append(right) }
         if out.isEmpty, let unknown { out.append(unknown) }
+        if out.count == 1, let extra = hands.first(where: { $0.id != out[0].id }) {
+            var e = extra
+            e.chirality = out[0].chirality == .left ? .right : .left
+            out.append(e)
+        }
         return out
     }
 
@@ -562,16 +586,18 @@ final class HandTracker: @unchecked Sendable {
         wrist: CGPoint?,
         chirality: VNChirality,
         body: [VNHumanBodyPoseObservation.JointName: VNRecognizedPoint],
-        space: AspectSpace
+        space: AspectSpace,
+        mirrored: Bool
     ) -> Double {
         guard let wrist else { return 1 }
-        let elbowName: VNHumanBodyPoseObservation.JointName = chirality == .left ? .leftElbow : .rightElbow
-        let wristName: VNHumanBodyPoseObservation.JointName = chirality == .left ? .leftWrist : .rightWrist
+        let useLeft = (chirality == .left) != mirrored
+        let elbowName: VNHumanBodyPoseObservation.JointName = useLeft ? .leftElbow : .rightElbow
+        let wristName: VNHumanBodyPoseObservation.JointName = useLeft ? .leftWrist : .rightWrist
         guard let el = body[elbowName], el.confidence > 0.15,
               let bw = body[wristName], bw.confidence > 0.15
         else { return 1 }
-        let e = CGPoint(x: el.location.x, y: el.location.y)
-        let ww = CGPoint(x: bw.location.x, y: bw.location.y)
+        let e = CGPoint(x: GestureMath.visionU(el.location.x, mirrored: mirrored), y: el.location.y)
+        let ww = CGPoint(x: GestureMath.visionU(bw.location.x, mirrored: mirrored), y: bw.location.y)
         let forearm = space.vec(e, ww)
         let handAx = space.vec(wrist, palm)
         let nf = hypot(forearm.x, forearm.y)
@@ -589,13 +615,16 @@ final class HandTracker: @unchecked Sendable {
     private func bodyChirality(
         palm: CGPoint,
         body: [VNHumanBodyPoseObservation.JointName: VNRecognizedPoint],
-        vision: VNChirality
+        vision: VNChirality,
+        mirrored: Bool
     ) -> VNChirality? {
         func pt(_ name: VNHumanBodyPoseObservation.JointName) -> CGPoint? {
             guard let p = body[name], p.confidence > 0.20 else { return nil }
-            return CGPoint(x: p.location.x, y: p.location.y)
+            return CGPoint(x: GestureMath.visionU(p.location.x, mirrored: mirrored), y: p.location.y)
         }
-        guard let left = pt(.leftWrist), let right = pt(.rightWrist) else { return nil }
+        let leftN: VNHumanBodyPoseObservation.JointName = mirrored ? .rightWrist : .leftWrist
+        let rightN: VNHumanBodyPoseObservation.JointName = mirrored ? .leftWrist : .rightWrist
+        guard let left = pt(leftN), let right = pt(rightN) else { return nil }
         let dl = hypot(palm.x - left.x, palm.y - left.y)
         let dr = hypot(palm.x - right.x, palm.y - right.y)
         let nearest = min(dl, dr)

@@ -2060,10 +2060,9 @@ enum GestureMath {
         return palmsY.allSatisfy { $0 < tablePalmY } && stillHW < tableStillHW
     }
 
-    /// Abstandszeiger ist die Quelle. Pose darf einen echten Pinch nicht schlucken.
+    /// Faust/Ruhepose ist kein Pinch. Closedness allein startet sonst den Klick.
     static func pinchMeterClosed(gate: Bool, closedness: Double, isFist: Bool = false, restPose: Bool = false) -> Bool {
-        _ = isFist
-        _ = restPose
+        if isFist || restPose { return false }
         return gate || closedness >= 0.24
     }
 
@@ -2453,6 +2452,11 @@ enum GestureMath {
             if out.count >= 2 { break }
         }
         return out
+    }
+
+    /// Unspiegelte Quelle (Osmo, Desk View, Continuity-Rücken): x in Selfie-Konvention.
+    static func visionU(_ x: CGFloat, mirrored: Bool) -> CGFloat {
+        mirrored ? x : 1 - x
     }
 
     /// Overlay: nur Steuerhand. Zweite Hand kein zweiter Cursor.

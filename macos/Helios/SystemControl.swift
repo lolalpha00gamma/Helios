@@ -95,7 +95,6 @@ final class SystemControl {
 
     private func noteHardware(_ e: NSEvent) {
         let now = CACurrentMediaTime()
-        if lastPostAt > 0, now - lastPostAt < GestureMath.clutchOwnNeed(dt: sampleDt) { return }
         if GestureMath.clutchIgnoresFreeze(freezeLive: freezeLive) { return }
         if e.type == .keyDown {
             seize(now, hold: GestureMath.clutchKeyHold)
@@ -106,9 +105,11 @@ final class SystemControl {
             return
         }
         if e.type == .leftMouseDown || e.type == .rightMouseDown {
+            if lastPostAt > 0, now - lastPostAt < GestureMath.clutchOwnNeed(dt: sampleDt) { return }
             seize(now, hold: GestureMath.clutchKeyHold)
             return
         }
+        if lastPostAt > 0, now - lastPostAt < GestureMath.clutchOwnNeed(dt: sampleDt) { return }
         guard e.type == .leftMouseDragged || e.type == .mouseMoved else { return }
         let d = hypot(e.deltaX, e.deltaY)
         let nowLoc = NSEvent.mouseLocation.screenFlipped

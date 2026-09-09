@@ -203,6 +203,7 @@ final class GestureEngine {
 
     func coastCursor(_ p: CGPoint) {
         guard !testMode else { return }
+        if system.isPressed || system.isDragging { return }
         system.moveCursor(to: p)
     }
 
@@ -472,7 +473,7 @@ final class GestureEngine {
                 scrollCoast = nil
             }
             twoPinchLastTicks = 0
-            if system.isDragging { system.endWindowDrag() }
+            system.endWindowDrag()
             if pinchHeld {
                 swipeMuteUntil = now + GestureMath.swipeMuteAfterPinch
                 pinchReleasedAt = now
@@ -684,7 +685,6 @@ final class GestureEngine {
                 if !testMode { system.endWindowDrag() }
             }
             placeCursors(hands, actor: primary)
-            if let p = cursor { postSampleCursor(p) }
             grabPhase = .follow
             grabTargetName = ""
             dragging = false
@@ -696,7 +696,7 @@ final class GestureEngine {
                 dropPinchHold()
                 pinchBecameDrag = false
                 pinchFromBeak = false
-                if system.isDragging { system.endWindowDrag() }
+                system.endWindowDrag()
             }
             placeCursors(hands, actor: primary)
             grabPhase = .follow
@@ -730,11 +730,11 @@ final class GestureEngine {
         }
         magnetChrome(now: now)
         updateTrashHot()
-        driveGrab(actor, now: now)
         if driveRightClick(actor, now: now) {
             dragging = pinchHeld
             return
         }
+        driveGrab(actor, now: now)
         if scaling {
             dragging = pinchHeld
             return
@@ -860,7 +860,7 @@ final class GestureEngine {
             return
         }
         let floor = Float(GestureMath.entropyActionFloor(entropy: lastFusionEntropy))
-        if systemAction, confidence < floor, !testMode, !pinchHeld {
+        if systemAction, confidence < floor, !testMode, !pinchHeld, twoPinchSince == nil {
             lastAction = "\(name) — unsicher"
             onLog?(String(format: "%@ — Pose < %.0f %%", name, floor * 100), .blocked, Int(confidence * 100))
             return
@@ -1104,7 +1104,7 @@ final class GestureEngine {
                 mustRearm = true
                 lastAction = "Hände auf dem Tisch — Idle"
                 onLog?("Hände unten still → Idle", .info, nil)
-                if system.isDragging { system.endWindowDrag() }
+                system.endWindowDrag()
                 dropPinchHold()
                 pinchBecameDrag = false
                 pinchHandID = nil
@@ -1233,7 +1233,8 @@ final class GestureEngine {
         }
         let prev = from ?? q
         let dist = hypot(q.x - prev.x, q.y - prev.y)
-        let a = min(0.93, 0.58 + dist / 55) * freezeGain
+        let g = max(0.4, min(3.2, pointerGain))
+        let a = min(0.93, 0.58 + dist / 55) * freezeGain * g
         let s = CGPoint(x: a * q.x + (1 - a) * prev.x, y: a * q.y + (1 - a) * prev.y)
         cursorTracks[hand.id] = s
         cursorAbsTracks[hand.id] = q
@@ -1323,7 +1324,7 @@ final class GestureEngine {
             pinchPalmMoved = 0
             pinchTrail.removeAll()
             pinchClosedTrail.removeAll()
-            if system.isDragging { system.endWindowDrag() }
+            system.endWindowDrag()
         }
         // Tick belegen, sonst stiehlt Greifen die erste Pinzette.
         guard now - (twoPinchSince ?? now) >= GestureMath.twoPinchConfirmNeed(dt: sampleDt) else { return true }
@@ -1559,6 +1560,15 @@ final class GestureEngine {
     }
 
     private func driveGrab(_ hand: TrackedHand, now: TimeInterval, fire: Bool = true) {
+        if twoPinchSince != nil {
+            if pinchHeld {
+                dropPinchHold()
+                pinchBecameDrag = false
+                pinchFromBeak = false
+                if !testMode { system.endWindowDrag() }
+            }
+            return
+        }
         if keyboardVisible, let c = cursor, AirLayout.hit(at: c, keys: keyboardHits) != nil {
             return
         }
@@ -1623,7 +1633,9 @@ final class GestureEngine {
         let lineClosed = max(hand.pinchClosedness, closedSmooth)
         let meter = GestureMath.pinchMeterClosed(
             gate: hand.pinchClosed,
-            closedness: lineClosed
+            closedness: lineClosed,
+            isFist: hand.pose == .fist && !pinchBecameDrag,
+            restPose: !pinchHeld && (hand.pose == .openPalm || hand.pose == .thumbsUp)
         )
         let holdGrab = GestureMath.pinchHoldsGrab(
             gate: hand.pinchClosed || analogClosed,
@@ -1637,7 +1649,24 @@ final class GestureEngine {
             residual: hand.liftResidual,
             palmWidth: hand.palmWidth
         )
-        let startOk = meter || (beakGrabEnabled && beak)
+        let startOk = GestureMath.pinchStartsGrab(
+            gate: hand.pinchClosed,
+            closedness: lineClosed,
+            reach: hand.pinchReach,
+            index: hand.indexScore,
+            zSep: hand.pinchZSep,
+            quality: hand.quality,
+            approach: hand.pinchZApproach,
+            residual: hand.liftResidual,
+            palmWidth: hand.palmWidth
+        ) || (beakGrabEnabled && beak) || (meter && GestureMath.pinchLooksLikePinch(
+            reach: hand.pinchReach,
+            index: hand.indexScore,
+            zSep: hand.pinchZSep,
+            approach: hand.pinchZApproach,
+            closedness: lineClosed,
+            residual: hand.liftResidual
+        ))
         let holdOk = GestureMath.pinchHoldOk(
             hold: holdGrab,
             analogClosed: analogClosed,
@@ -1780,6 +1809,10 @@ final class GestureEngine {
                 lastAction = "Loslassen"
                 return
             }
+            if GestureMath.clickHitchFromFreeze(freezeEnded: freezeEndedAt, now: now, dt: sampleDt) {
+                lastAction = "Freeze"
+                return
+            }
             if !wasDrag {
                 if wasBeak {
                     lastAction = "Schnabel aus"
@@ -1806,7 +1839,11 @@ final class GestureEngine {
                     return hypot(a.x - b.x, a.y - b.y)
                 }()
                 if cursorPx < GestureMath.pinchDragCursorNeed(dt: sampleDt) {
-                    fireTapClick(at: cursor ?? origin)
+                    if !hadPress { fireTapClick(at: cursor ?? origin) }
+                    else {
+                        lastAction = "Klick"
+                        onLog?("Klick · Mini-Zug", .executed, 100)
+                    }
                     pinchTrail.removeAll()
                     pinchClosedTrail.removeAll()
                     cooldownUntil = now + GestureMath.pinchReleaseNeed(dt: sampleDt)
@@ -2066,9 +2103,15 @@ final class GestureEngine {
             return
         }
         onLog?("Wischen erkannt", .recognized, Int(hand.poseProb * 100))
+        let two = open.count >= 2
         let forward = dx < 0
-        let name = forward ? "Nächster Schreibtisch" : "Vorheriger Schreibtisch"
-        perform(name, need: .input, confidence: Float(hand.poseProb)) { system.switchDesktop(forward: forward) }
+        if two {
+            let name = forward ? "Nächster Schreibtisch" : "Vorheriger Schreibtisch"
+            perform(name, need: .input, confidence: Float(hand.poseProb)) { system.switchDesktop(forward: forward) }
+        } else {
+            let name = forward ? "Nächste App" : "Vorherige App"
+            perform(name, need: .input, confidence: Float(hand.poseProb)) { system.switchApp(forward: forward) }
+        }
         lastSwipeDx = dx
         lastSwipeAt = now
         swipeTrail.removeAll()
@@ -2151,6 +2194,10 @@ final class GestureEngine {
             return
         }
         let hand = open.first(where: { $0.id == preferred.id }) ?? open[0]
+        guard hand.pose == .openPalm, hand.poseProb >= 0.70 else {
+            scrollAnchor = nil
+            return
+        }
         let y = hand.palm.y
         let unit = max(0.04, hand.palmWidth)
         guard let a = scrollAnchor else {
@@ -2198,7 +2245,7 @@ final class GestureEngine {
             return true
         }
         lastAction = "Rechtsklick …"
-        return false
+        return true
     }
 
     /// Offene Hand 1 s still. Aus by default — Accessibility, nicht Alltags-Klick.

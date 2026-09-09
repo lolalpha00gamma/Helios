@@ -101,6 +101,7 @@ struct PoseFeatures {
     var quality: Double
     var extensions: [String: CGFloat]
     var openScore: Int
+    var thumbUp: CGFloat = 0
 }
 
 enum GestureClassifier {
@@ -203,11 +204,12 @@ enum GestureClassifier {
         var logits: [HandPose: Double] = [:]
         logits[.fist] = Double((1 - index.score) + (1 - middle.score) + (1 - ring.score) + (1 - little.score)) * 1.1
             - Double(closedness) * 0.4
+            - Double(index.score) * 2.0
         logits[.openPalm] = Double(index.score + middle.score + ring.score + little.score) * 1.15
         logits[.pinch] = Double(closedness) * 4.4 + Double(reach) * 0.8
             - Double(middle.score + ring.score) * 0.7
             - Double(1 - index.score) * 1.2
-        logits[.point] = Double(index.score) * 3.4 - Double(middle.score + ring.score + little.score) * 1.5
+        logits[.point] = Double(index.score) * 4.2 - Double(middle.score + ring.score + little.score) * 1.6
         logits[.peace] = Double(index.score + middle.score) * 2.1 - Double(ring.score + little.score) * 2.2
         logits[.thumbsUp] = Double(thumbUp) * 4.2
             + Double((1 - index.score) + (1 - middle.score) + (1 - ring.score) + (1 - little.score)) * 1.1
@@ -252,7 +254,8 @@ enum GestureClassifier {
                 "ring": ring.score,
                 "little": little.score
             ],
-            openScore: openScore
+            openScore: openScore,
+            thumbUp: thumbUp
         )
     }
 
@@ -418,7 +421,16 @@ struct PinchGate {
         let dist = dTips ?? ((dProx ?? 1) * 1.12)
         let rawRatio = dist / scale
         let dt = lastT == 0 ? 0.016 : GestureMath.sampleDt(now: now, last: lastT)
-        let quality = Double(((conf[.thumbTip] ?? 0) + (conf[.indexTip] ?? 0)) / 2)
+        let usedQ: [VNHumanHandPoseObservation.JointName] = [
+            .wrist, .thumbTip, .indexTip, .thumbIP, .indexPIP, .indexDIP, .indexMCP
+        ]
+        var wsum = 0.0
+        var csum = 0.0
+        for n in usedQ {
+            let c = Double(conf[n] ?? 0)
+            if c > 0.05 { wsum += 1; csum += c }
+        }
+        let quality = wsum > 0 ? min(1, csum / wsum) : Double(((conf[.thumbTip] ?? 0) + (conf[.indexTip] ?? 0)) / 2)
         let ratio = lastT == 0 ? rawRatio : GestureMath.pinchRatioSmooth(prev: lastRatio, next: rawRatio, dt: dt, quality: quality)
         let vel = (ratio - lastRatio) / CGFloat(dt)
         lastRatio = ratio
@@ -442,7 +454,7 @@ struct PinchGate {
             closedness: Double(closedness),
             residual: residual
         )
-        let closeNeed = GestureMath.pinchClosednessNeed(quality: quality, start: true, palmWidth: scale)
+        let closeNeed = min(0.62, GestureMath.pinchClosednessNeed(quality: quality, start: true, palmWidth: scale))
 
         let wantClose = looksPinch && (closedness > closeNeed || (quality >= 0.55 && contact > 0.70) || (ratio < 0.44 && vel < GestureMath.pinchCloseVel(dt: dt)))
         var wantOpen = ratio > 0.56 && proxRatio > 0.50 && vel > GestureMath.pinchOpenVel(dt: dt)

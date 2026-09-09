@@ -1649,7 +1649,7 @@ final class GestureEngine {
             residual: hand.liftResidual,
             palmWidth: hand.palmWidth
         ) || (beakGrabEnabled && beak)
-        let holdOk = GestureMath.pinchHoldsGrab(
+        let holdGrab = GestureMath.pinchHoldsGrab(
             gate: hand.pinchClosed || analogClosed,
             closedness: hand.pinchClosedness,
             reach: hand.pinchReach,
@@ -1660,7 +1660,12 @@ final class GestureEngine {
             approach: hand.pinchZApproach,
             residual: hand.liftResidual,
             palmWidth: hand.palmWidth
-        ) || analogClosed || (beakGrabEnabled && pinchFromBeak && beak)
+        )
+        let holdOk = GestureMath.pinchHoldOk(
+            hold: holdGrab,
+            analogClosed: analogClosed,
+            beak: beakGrabEnabled && pinchFromBeak && beak
+        )
         let closedWanted = pinchHeld ? holdOk : startOk
         let advanced = GestureMath.pinchHoldAdvance(
             phase: pinchHoldPhase,

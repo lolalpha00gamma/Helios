@@ -1,5 +1,52 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.87**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.87 erledigt
+
+1.6.86 relativer Zeiger/One-Euro/pinchTap. Faust analog ≥ 0,58 hielt Zug: `holdOk || analogClosed`.
+
+1. **pinchHoldOk.** analogClosed ist Gate, nicht Hold.
+2. **driveGrab Hold = pinchHoldOk.** Faust ohne Reach/allowFist gibt frei.
+3. Tests + MARKETING_VERSION 1.6.87 (Build 120).
+
+## Erweiterung (neu, 1.6.87)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+2. **HeliosAegisKit** SPM: Mutex-Protokoll einmal.
+3. **VNTrackObjectRequest** echte Hand-Observation statt IoU-Box.
+4. **VNImageRequestHandler(cvPixelBuffer:)** — 420f nicht über CGImage.
+5. **Per-Finger-Kontakt** statt Skalar-Closedness.
+6. **analogClosed Start härter.** analog 0,58 + pinchLooksLikePinch startet ohne Vision-Gate — Reach/Index optional härter.
+7. **Ampel-Ring Overlay** 80 ms vor fireChrome.
+8. **Rechtsklick-HUD** während 0,32 s Ring-Halt.
+9. **Tap-Cancel** offene Palme 200 ms bricht pending Hold.
+10. **Click-Ring Overlay** 80 ms vor Fire.
+11. **Hand-ID über uniqueID-Flicker** Chirality + Palm-UV, nicht Slot.
+12. **CGEventSource-State** OS-Maus-Steal schneller als Clutch-Radius.
+13. **Continuity Desk-View Crop-Kompensation.**
+14. **IOHIDEventSystemClient** Pointer statt CGEvent.
+15. **Watch Double-Tap** destruktive Klicks.
+16. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+17. **Overlay CAMetalLayer.**
+18. **DepthCapture an Continuity-LiDAR.**
+19. **Continuity 15-fps Probe** gemessen.
+20. **Mission-Control Zwei-Palm-Spread.**
+21. **Aegis-Gaze Pinch-Confirm.**
+22. **Per-Display pointerGain Pref.**
+23. **Bezel-Hop Homographie Blend** 200 ms.
+24. **Palm-UV Highpass** vor Gain, 8-Hz-Bias tot.
+25. **HUD-Coast** wenn Sample ausfällt statt Freeze-Kalman.
+26. **flingFromTrail** statt nur Vel-Tail.
+27. **ChiralityLock** bei ID-Flicker.
+28. **Gesture-Macro** 2-Schritt.
+29. **Chrome-Dwell nur auf focused AX.**
+30. **SpaceMap nur als Start, nicht als Delta-Quelle.**
+
+P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.86**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
 
 ## In 1.6.86 erledigt

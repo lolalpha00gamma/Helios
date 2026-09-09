@@ -1,4 +1,4 @@
-# Helios **1.6.86**
+# Helios **1.6.87**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -6,6 +6,14 @@ Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HU
 Privates Repo. Keine Open-Source-Lizenzdatei.
 
 Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Neu in 1.6.87
+
+Warum Faust analog ≥ 0,58 den Zug nach 1.6.84 weiter hielt: `driveGrab` verdrahtete `pinchHoldsGrab`, ORte danach `analogClosed` auf `holdOk`. analogClosed ist Gate in `pinchStartsGrab`/`pinchHoldsGrab` (Vision-Jitter), nicht Hold. Faust ohne Reach/allowFist blieb gegriffen.
+
+- **pinchHoldOk.** Hold oder Schnabel. analogClosed zählt nicht als Hold.
+- **driveGrab Hold = pinchHoldOk.** analogClosed bleibt Gate, Faust gibt frei.
+- Tests + MARKETING_VERSION 1.6.87 (Build 120).
 
 ## Neu in 1.6.86
 

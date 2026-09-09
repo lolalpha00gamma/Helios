@@ -2986,6 +2986,26 @@ enum CoordTests {
             fputs("FAIL Freeze-Hitch 400 ms tot\n", stderr)
             fails += 1
         }
+        if GestureMath.pinchHoldOk(hold: false, analogClosed: true) {
+            fputs("FAIL analogClosed allein hält nicht\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinchHoldOk(hold: true, analogClosed: true) {
+            fputs("FAIL Hold hält\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinchHoldOk(hold: true, analogClosed: false) {
+            fputs("FAIL Hold ohne analog hält\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinchHoldOk(hold: false, analogClosed: false, beak: true) {
+            fputs("FAIL Schnabel hält\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchHoldOk(hold: false, analogClosed: false, beak: false) {
+            fputs("FAIL offen tot\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

@@ -2062,6 +2062,13 @@ enum GestureMath {
         return gate || closedness > pinchClosednessNeed(quality: quality, start: true, palmWidth: palmWidth)
     }
 
+    /// analogClosed ist Gate für pinchStartsGrab/pinchHoldsGrab, nicht Hold.
+    /// Faust analog ≥ 0,58 hielt sonst den Zug nach 1.6.84 (`holdOk || analogClosed`).
+    static func pinchHoldOk(hold: Bool, analogClosed: Bool, beak: Bool = false) -> Bool {
+        _ = analogClosed
+        return hold || beak
+    }
+
     /// Pinzette halten: weicher, aber Faust (kein Reach) gibt frei — außer Zug darf Faust tragen.
     static func pinchHoldsGrab(
         gate: Bool,

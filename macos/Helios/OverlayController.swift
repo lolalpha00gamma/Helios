@@ -334,26 +334,32 @@ final class OverlayController {
             pair.right.screenFrame = panel.frame
             let left = cursors.first(where: { $0.isLeft }) ?? cursors.first(where: { $0.side == "Links" })
             let right = cursors.first(where: { !$0.isLeft && $0.side != "Links" })
+            pair.left.isHidden = left == nil || left?.actor != true
+            pair.right.isHidden = right == nil || right?.actor != true
+            if !pair.left.isHidden {
             pair.left.apply(
                 cursor: left?.point,
-                phase: left?.actor == true ? phase : (left == nil ? .none : .follow),
+                phase: phase,
                 hand: left?.side ?? "Links",
-                target: left?.actor == true ? target : "",
-                window: left?.actor == true ? window : nil,
+                target: target,
+                window: window,
                 isLeft: true,
-                showBeam: left?.actor == true,
+                showBeam: true,
                 dim: GestureMath.skeletonFreezeDim(freeze)
             )
+            }
+            if !pair.right.isHidden {
             pair.right.apply(
                 cursor: right?.point,
-                phase: right?.actor == true ? phase : (right == nil ? .none : .follow),
+                phase: phase,
                 hand: right?.side ?? "Rechts",
-                target: right?.actor == true ? target : "",
-                window: right?.actor == true ? window : nil,
+                target: target,
+                window: window,
                 isLeft: false,
-                showBeam: right?.actor == true,
+                showBeam: true,
                 dim: GestureMath.skeletonFreezeDim(freeze)
             )
+            }
             let actorPt = (left?.actor == true ? left?.point : nil) ?? (right?.actor == true ? right?.point : nil) ?? left?.point ?? right?.point
             loupes[id]?.apply(
                 quartz: actorPt,

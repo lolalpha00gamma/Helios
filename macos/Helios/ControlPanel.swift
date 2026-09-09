@@ -85,7 +85,7 @@ struct ControlPanel: View {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Schnabel-Ziehen")
                         .font(.system(size: 13, weight: .semibold))
-                    Text("Finger parallel zur Kamera = Fenster greifen. Aus, falls die Erkennung stört.")
+                    Text("Standard aus. Finger zur Kamera = Ziehen. Nur einschalten, wenn du das bewusst nutzt.")
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
                 }

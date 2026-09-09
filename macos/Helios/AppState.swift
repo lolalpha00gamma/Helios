@@ -44,7 +44,7 @@ final class AppState: ObservableObject {
     @Published var hudVisible = true
     @Published var showReticle = true
     @Published var showLoupe = true
-    @Published var beakGrab = true
+    @Published var beakGrab = false
     @Published var folderOrbs: [FolderOrb] = []
     @Published var showPreviewChip = true
     @Published var showCheats = true
@@ -1096,8 +1096,8 @@ enum Prefs {
         set { UserDefaults.standard.set(newValue, forKey: "helios.loupe") }
     }
     static var beakGrab: Bool {
-        get { UserDefaults.standard.object(forKey: "helios.beak") as? Bool ?? true }
-        set { UserDefaults.standard.set(newValue, forKey: "helios.beak") }
+        get { UserDefaults.standard.object(forKey: "helios.schnabel") as? Bool ?? false }
+        set { UserDefaults.standard.set(newValue, forKey: "helios.schnabel") }
     }
     static var showJointLabels: Bool {
         get { UserDefaults.standard.object(forKey: "helios.joints") as? Bool ?? true }

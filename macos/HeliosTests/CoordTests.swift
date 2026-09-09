@@ -1640,6 +1640,10 @@ enum CoordTests {
             fputs("FAIL offene Hand kein Schnabel\n", stderr)
             fails += 1
         }
+        if GestureMath.beakTowardCamera(palm: palm, wrist: wrist, tips: beakTips, palmWidth: 0.12, openScore: 3) {
+            fputs("FAIL Schnabel bei offener Hand\n", stderr)
+            fails += 1
+        }
         let orbs = GestureMath.folderOrbCenters(origin: CGPoint(x: 100, y: 100), count: 5)
         if orbs.count != 5 {
             fputs("FAIL Ordner-Kreise Anzahl\n", stderr)

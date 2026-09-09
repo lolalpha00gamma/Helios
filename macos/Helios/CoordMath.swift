@@ -2070,8 +2070,9 @@ enum GestureMath {
         return circle && others >= 2
     }
 
-    /// Schnabel: Finger parallel, zur Kamera gestreckt. Spitzen eng, vor der Palme.
-    static func beakTowardCamera(palm: CGPoint, wrist: CGPoint, tips: [CGPoint], palmWidth: CGFloat) -> Bool {
+    /// Schnabel: Finger parallel zur Kamera. Offene Hand / Faust-in-Kamera sind kein Schnabel.
+    static func beakTowardCamera(palm: CGPoint, wrist: CGPoint, tips: [CGPoint], palmWidth: CGFloat, openScore: Int = 0) -> Bool {
+        if openScore >= 2 { return false }
         guard tips.count >= 3 else { return false }
         let w = max(0.03, palmWidth)
         var sx: CGFloat = 0
@@ -2087,7 +2088,7 @@ enum GestureMath {
             spread = max(spread, hypot(t.x - mean.x, t.y - mean.y))
         }
         let cluster = spread / w
-        guard cluster <= 0.52 else { return false }
+        guard cluster <= 0.48 else { return false }
         let ahead = hypot(mean.x - palm.x, mean.y - palm.y) / w
         guard ahead >= 0.32, ahead <= 1.15 else { return false }
         let wristPalm = hypot(palm.x - wrist.x, palm.y - wrist.y) / w

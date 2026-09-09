@@ -83,7 +83,7 @@ final class GestureEngine {
     var freezeEndedAt: TimeInterval?
     var freezeGhostDelta: CGPoint = .zero
     var freezeGhostDeltas: [String: CGPoint] = [:]
-    var beakGrabEnabled = true
+    var beakGrabEnabled = false
     var folderOrbs: [FolderOrb] = []
     private var freezePPos: CGFloat = 0.0004
     private var freezePVel: CGFloat = 0.008
@@ -673,7 +673,7 @@ final class GestureEngine {
         if !armed {
             placeCursors(hands, actor: primary)
             if let p = cursor { postSampleCursor(p) }
-            driveGrab(primary, now: now)
+            driveGrab(primary, now: now, fire: false)
             grabPhase = pinchHeld ? .hold : .follow
             grabTargetName = focused?.appName ?? ""
             dragging = pinchHeld
@@ -1819,7 +1819,13 @@ final class GestureEngine {
         guard let wrist = hand.point(.wrist) else { return false }
         let tips = [hand.point(.indexTip), hand.point(.middleTip), hand.point(.ringTip), hand.point(.littleTip)]
             .compactMap { $0 }
-        return GestureMath.beakTowardCamera(palm: hand.palm, wrist: wrist, tips: tips, palmWidth: hand.palmWidth)
+        return GestureMath.beakTowardCamera(
+            palm: hand.palm,
+            wrist: wrist,
+            tips: tips,
+            palmWidth: hand.palmWidth,
+            openScore: hand.openScore
+        )
     }
 
     @discardableResult

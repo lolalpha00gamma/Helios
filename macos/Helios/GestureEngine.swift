@@ -1915,11 +1915,11 @@ final class GestureEngine {
         ]
         if url.standardizedFileURL.path == home.standardizedFileURL.path {
             items.append(contentsOf: [
-                ("home", "Privat", home.path),
-                ("desk", "Schreibtisch", home.appendingPathComponent("Desktop").path),
-                ("docs", "Dokumente", home.appendingPathComponent("Documents").path),
-                ("down", "Downloads", home.appendingPathComponent("Downloads").path),
-                ("apps", "Programme", "/Applications")
+                (id: "home", title: "Privat", path: home.path),
+                (id: "desk", title: "Schreibtisch", path: home.appendingPathComponent("Desktop").path),
+                (id: "docs", title: "Dokumente", path: home.appendingPathComponent("Documents").path),
+                (id: "down", title: "Downloads", path: home.appendingPathComponent("Downloads").path),
+                (id: "apps", title: "Programme", path: "/Applications")
             ])
         } else {
             let parent = url.deletingLastPathComponent()

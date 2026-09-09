@@ -2923,6 +2923,70 @@ enum CoordTests {
             fails += 1
         }
 
+        let g8 = GestureMath.pointerGainDt(dt: 0.125) * GestureMath.pointerGainAdaptive(gain: 1.6, jitterRms: 0.030)
+        if g8 > 0.22 {
+            fputs("FAIL 8 Hz laut Gain teleport\n", stderr)
+            fails += 1
+        }
+        let g24 = GestureMath.pointerGainDt(dt: 0.04) * GestureMath.pointerGainAdaptive(gain: 1.6, jitterRms: 0.003)
+        if g24 < 1.4 {
+            fputs("FAIL 24 Hz ruhig Gain voll\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoPinchAxisHolds(locked: .horizontal, next: .vertical) {
+            fputs("FAIL Achse hält nicht gegen Flip\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.twoPinchAxisHolds(locked: .horizontal, next: .horizontal) {
+            fputs("FAIL Achse hält gleich\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchFollowID(held: true, locked: "a", liveIDs: ["b", "c"]) != nil {
+            fputs("FAIL Follow fehlende ID freeze\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchFollowID(held: true, locked: "a", liveIDs: ["a", "b"]) != "a" {
+            fputs("FAIL Follow gleiche ID\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.inCornerRest(u: 0.01, v: 0.01) {
+            fputs("FAIL Ecke Rest\n", stderr)
+            fails += 1
+        }
+        if GestureMath.inCornerRest(u: 0.50, v: 0.50) {
+            fputs("FAIL Mitte kein Rest\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.palmDeadmanClutch(stillFor: 2.0) {
+            fputs("FAIL Deadman 2 s Clutch\n", stderr)
+            fails += 1
+        }
+        if GestureMath.palmDeadmanClutch(stillFor: 0.4) {
+            fputs("FAIL Deadman 0,4 s kein Clutch\n", stderr)
+            fails += 1
+        }
+        let dz = GestureMath.deadzone2D(dx: 0.4, dy: 0.3, dead: 1.6)
+        if dz.x != 0 || dz.y != 0 {
+            fputs("FAIL Totzone Mikro 0\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.twoHandClutch(livePalms: 2, twoPinch: false) {
+            fputs("FAIL 2HAND Clutch live\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoHandClutch(livePalms: 2, twoPinch: true) {
+            fputs("FAIL 2HAND während Zwei-Pinch tot\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.clickHitchFromFreeze(freezeEnded: 1.0, now: 1.05, dt: 0.125) {
+            fputs("FAIL Freeze-Hitch 50 ms\n", stderr)
+            fails += 1
+        }
+        if GestureMath.clickHitchFromFreeze(freezeEnded: 1.0, now: 1.40, dt: 0.125) {
+            fputs("FAIL Freeze-Hitch 400 ms tot\n", stderr)
+            fails += 1
+        }
+
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)
             exit(1)

@@ -1,5 +1,68 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.86**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.86 erledigt
+
+1.6.85 isClick/Ampel/Rechtsklick/Coast. Gain/One-Euro/Deadman/pinchTap tot in mappedPoint. twoHandClutchOn Flag ohne Delta. Freeze-Hitch tot hinter force:true.
+
+1. **Relativer Zeiger** Gain × Dt × Adaptive. Recenter = Clutch.
+2. **One-Euro + Totzone + Ecken-Rest + Deadman STILL.**
+3. **pinchTapWouldClick** Sequenz neben isClick.
+4. **twoPinchAxisHolds + pinchFollowID.**
+5. **twoHandClutchOn blockt Delta** (2HAND).
+6. **clickHitchFromFreeze** in fireTapClick + driveRightClick.
+7. Tests + MARKETING_VERSION 1.6.86 (Build 119).
+
+## Erweiterung (neu, 1.6.86)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+2. **HeliosAegisKit** SPM: Mutex-Protokoll einmal.
+3. **VNTrackObjectRequest** echte Hand-Observation statt IoU-Box.
+4. **VNImageRequestHandler(cvPixelBuffer:)** — 420f nicht über CGImage.
+5. **Per-Finger-Kontakt** statt Skalar-Closedness.
+6. **Ampel-Ring Overlay** 80 ms vor fireChrome.
+7. **Rechtsklick-HUD** während 0,32 s Ring-Halt.
+8. **Tap-Cancel** offene Palme 200 ms bricht pending Hold.
+9. **Click-Ring Overlay** 80 ms vor Fire.
+10. **Hand-ID über uniqueID-Flicker** Chirality + Palm-UV, nicht Slot.
+11. **CGEventSource-State** OS-Maus-Steal schneller als Clutch-Radius.
+12. **Continuity Desk-View Crop-Kompensation.**
+13. **IOHIDEventSystemClient** Pointer statt CGEvent.
+14. **Watch Double-Tap** destruktive Klicks.
+15. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+16. **Overlay CAMetalLayer.**
+17. **DepthCapture an Continuity-LiDAR.**
+18. **Continuity 15-fps Probe** gemessen.
+19. **Mission-Control Zwei-Palm-Spread.**
+20. **Aegis-Gaze Pinch-Confirm.**
+21. **Per-Display pointerGain Pref.**
+22. **Bezel-Hop Homographie Blend** 200 ms.
+23. **FramePump Vision-Cancel Token.**
+24. **Air-Keyboard Shortcut-Overlay.**
+25. **JSONL Palm-Vel** für späteres Predict (bleibt 0 bis gemessen).
+26. **iPhone Ultraweit FOV.**
+27. **Gesture-Macro** 2-Schritt.
+28. **Scroll-Coast Sign-Hold** nach Achsenwechsel kein Rest-Momentum.
+29. **Chrome-Dwell nur auf focused AX.**
+30. **SpaceMap nur als Start, nicht als Delta-Quelle** — Kalibrierung als Bias.
+31. **Palm-UV Highpass** (`palmHighpassAlpha`) vor Gain, 8-Hz-Bias tot.
+32. **HUD-Coast** `hudCoastPoint` wenn Sample ausfällt statt Freeze-Kalman.
+33. **Fling-Trail** `flingFromTrail` statt nur Vel-Tail — Wurf aus 8 Hz zu kurz.
+34. **ChiralityLock** bei uniqueID-Flicker, nicht nur pinchFollowID.
+35. **Bezel-Hop Recalib-Chip** live nach 20 Hops (`bezelHopRecalib`).
+36. **pointerGain je Continuity vs Built-in** — 8 Hz Default höher.
+37. **CGEvent tapHold** statt move+click Races mit System-Maus.
+38. **emptyHandsRecover** Gain nach Dropout statt Sprung.
+39. **stageManagerClamp** live vor CGEvent, nicht nur Tests.
+40. **clutchIgnores** Echo der eigenen CGEvents auf Retina.
+41. **pinch3DVeto** Depth-Sep vor 2D-Closedness.
+42. **axHitCacheFresh** AX-Hit nicht jedes 8-Hz-Tick.
+
+P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.85**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
 
 ## In 1.6.85 erledigt

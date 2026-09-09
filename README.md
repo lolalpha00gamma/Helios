@@ -1,4 +1,4 @@
-# Helios **1.6.85**
+# Helios **1.6.86**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -6,6 +6,18 @@ Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HU
 Privates Repo. Keine Open-Source-Lizenzdatei.
 
 Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Neu in 1.6.86
+
+Warum der Cursor zitterte, der Gain-Slider tot war und Klicks trotz isClick weiter rauschten: `mappedPoint` interpolierte 58–93 % des Absolutsamples — `pointerGain`, One-Euro, `pointerGainDt`, Deadman, Totzone lagen in CoordMath ohne Call-Site. 8-Hz-Continuity = Teleport. `pinchTapWouldClick` nur Tests.
+
+- **Relativer Zeiger.** Delta × Gain × `pointerGainDt` (8 Hz ≈ 0,32) × Adaptive-Jitter. Slider wirkt. Recenter ist Trackpad-Clutch, kein Sprung.
+- **One-Euro live.** `euroInited` glättet den Actor. Totzone + Ecken-Rest + 2 s Deadman-Clutch (STILL).
+- **pinchTapWouldClick** zweite Sequenz-Gate neben isClick (zu→auf).
+- **twoPinchAxisHolds** und **pinchFollowID** live.
+- **twoHandClutchOn** blockt Actor-Delta (HUD 2HAND). Zweite Palme stiehlt nicht.
+- **clickHitchFromFreeze** in fireTapClick / Rechtsklick. Freeze-Ende kein Sofort-Klick (`force: true` umgeht hitch nicht).
+- Tests + MARKETING_VERSION 1.6.86 (Build 119).
 
 ## Start
 

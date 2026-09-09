@@ -1,4 +1,50 @@
+# Helios Vorschläge — 2026-09-09 (Pass 39, 1.6.90)
+
+Stand 1.6.90. AE/WB-Lock Phone, Center Stage aus.
+
+## Gelandet in 1.6.90
+
+- cameraLocksExposure / cameraLocksWhiteBalance in CameraSession + Cover
+- centerStageNeedsReassert live (App-Modus, dann aus)
+
+## Erweiterung (neu)
+
+605. **CameraBroker XPC + IOSurface** mit Aegis. P0.
+606. **HeliosAegisKit.**
+607. **VNTrackObjectRequest.** P1.
+608. **VNImageRequestHandler(cvPixelBuffer:).**
+609. **Per-Finger-Kontakt.**
+610. **analogClosed Start härter.**
+611. **HUD-Lerp zwischen Samples.**
+612. **palmHighpass auf UV-Position.**
+613. **Ampel-Ring Overlay.**
+614. **Rechtsklick-HUD.**
+615. **Tap-Cancel.**
+616. **Click-Ring Overlay.**
+617. **Hand-ID uniqueID-Flicker.**
+618. **CGEventSource-State.**
+619. **Desk-View Crop.**
+620. **IOHIDEventSystemClient.**
+621. **Watch Double-Tap.**
+622. **MediaPipe Hands.**
+623. **Overlay CAMetalLayer.**
+624. **LiDAR.**
+625. **Continuity 15-fps Probe.**
+626. **Mission-Control Spread.**
+627. **Two-pointer origin lock.**
+628. **Pinch-Hysterese palmWidth.**
+629. **Gesture-Macro.**
+630. **SpaceMap nur als Start.**
+631. **CGEvent tapHold.**
+632. **pinch3DVeto Depth-Reach.**
+633. **emptyHandsRecover(elapsed:)** Fold.
+634. **visionRoiEnabled** Continuity 8 Hz.
+635. **AE-Lock nach Sleep reassert.**
+
+P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
 # Helios Vorschläge — 2026-09-09 (Pass 38, 1.6.89)
+
 
 Stand 1.6.89. Highpass nach Clutch. HUD-Coast am Sample-Dropout.
 

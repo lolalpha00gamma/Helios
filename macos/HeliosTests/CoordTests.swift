@@ -2583,6 +2583,22 @@ enum CoordTests {
             fputs("FAIL Mac kein AE-Lock\n", stderr)
             fails += 1
         }
+        if !GestureMath.cameraLocksWhiteBalance(role: "phone") {
+            fputs("FAIL Phone WB-Lock\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraLocksWhiteBalance(role: "mac") {
+            fputs("FAIL Mac kein WB-Lock\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.centerStageNeedsReassert(enabled: true) {
+            fputs("FAIL Center Stage an → reassert\n", stderr)
+            fails += 1
+        }
+        if GestureMath.centerStageNeedsReassert(enabled: false) {
+            fputs("FAIL Center Stage aus kein reassert\n", stderr)
+            fails += 1
+        }
         if GestureMath.chiralityLock(prev: 1, live: 2, dropped: true) != 1 {
             fputs("FAIL Chirality Dropout hält Links\n", stderr)
             fails += 1

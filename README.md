@@ -1,4 +1,4 @@
-# Helios **1.6.89**
+# Helios **1.6.90**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -6,6 +6,14 @@ Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HU
 Privates Repo. Keine Open-Source-Lizenzdatei.
 
 Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Neu in 1.6.90
+
+Warum Cursor und Homographie bei Continuity weiter rutschten: `cameraLocksExposure` / `cameraLocksWhiteBalance` / `centerStageNeedsReassert` lagen in CoordMath, Tests grün — **CameraSession setzte immer continuous AE/WB** und ließ Center Stage den Crop jagen. Aegis lockt beides, Helios nicht.
+
+- **AE/WB-Lock auf Phone.** `applyCaptureLocks` — Continuity locked, Mac bleibt continuous.
+- **Center Stage aus.** `centerStageNeedsAppControl` + `centerStageNeedsReassert` in Session und Cover.
+- Tests + MARKETING_VERSION 1.6.90 (Build 123).
 
 ## Neu in 1.6.89
 

@@ -466,6 +466,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
 
         configureDevice(device)
         applyCaptureGeometry()
+        Self.applyCenterStage(force: true)
 
         var startErr: NSError?
         _ = HeliosCatch({ self.session.startRunning() }, &startErr)
@@ -667,6 +668,36 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         return .up
     }
 
+    /// Continuity Center Stage croppt die Palme. Wie Aegis: App-Modus, dann aus.
+    static func applyCenterStage(force: Bool = false) {
+        guard GestureMath.centerStageOff else { return }
+        let modeRaw = Int(AVCaptureDevice.centerStageControlMode.rawValue)
+        if GestureMath.centerStageNeedsAppControl(currentModeRaw: modeRaw) {
+            AVCaptureDevice.centerStageControlMode = .app
+        }
+        if force || GestureMath.centerStageNeedsReassert(enabled: AVCaptureDevice.isCenterStageEnabled) {
+            AVCaptureDevice.isCenterStageEnabled = false
+        }
+    }
+
+    /// iPhone-AE-Jagd kippt Homographie. Built-in bleibt continuous.
+    static func applyCaptureLocks(_ device: AVCaptureDevice, role: String) {
+        if GestureMath.cameraLocksExposure(role: role) {
+            if device.isExposureModeSupported(.locked) {
+                device.exposureMode = .locked
+            }
+        } else if device.isExposureModeSupported(.continuousAutoExposure) {
+            device.exposureMode = .continuousAutoExposure
+        }
+        if GestureMath.cameraLocksWhiteBalance(role: role) {
+            if device.isWhiteBalanceModeSupported(.locked) {
+                device.whiteBalanceMode = .locked
+            }
+        } else if device.isWhiteBalanceModeSupported(.continuousAutoWhiteBalance) {
+            device.whiteBalanceMode = .continuousAutoWhiteBalance
+        }
+    }
+
     /// Format + Framerate nur mit Werten aus dem unterstützten Bereich, plus NSException-Fang.
     private func configureDevice(_ device: AVCaptureDevice, measuredFps: Double = 0) {
         var locked = false
@@ -698,12 +729,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             if device.isFocusModeSupported(.continuousAutoFocus) {
                 device.focusMode = .continuousAutoFocus
             }
-            if device.isExposureModeSupported(.continuousAutoExposure) {
-                device.exposureMode = .continuousAutoExposure
-            }
-            if device.isWhiteBalanceModeSupported(.continuousAutoWhiteBalance) {
-                device.whiteBalanceMode = .continuousAutoWhiteBalance
-            }
+            Self.applyCaptureLocks(device, role: lastDeviceRole)
         }, &err)
         if locked {
             HeliosCatch({ device.unlockForConfiguration() }, nil)
@@ -1095,6 +1121,7 @@ final class CoverCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         }
         session.commitConfiguration()
         Self.tuneDevice(device)
+        CameraSession.applyCenterStage(force: true)
         var err: NSError?
         _ = HeliosCatch({ self.session.startRunning() }, &err)
         if let err { return err.localizedDescription }
@@ -1143,6 +1170,7 @@ final class CoverCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
                 device.activeVideoMinFrameDuration = dur
                 device.activeVideoMaxFrameDuration = dur
             }
+            CameraSession.applyCaptureLocks(device, role: CameraSession.role(device).rawValue)
         }, nil)
         if locked {
             HeliosCatch({ device.unlockForConfiguration() }, nil)

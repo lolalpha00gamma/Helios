@@ -1,5 +1,57 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.90**. Nur `main`. `bugfix` nicht mergen.
+
+## In 1.6.90 erledigt
+
+1.6.89 Highpass/HUD. `cameraLocksExposure` / Center Stage tot in CameraSession — Continuity AE-Jagd + Crop.
+
+1. **applyCaptureLocks.** Phone AE/WB locked, Mac continuous.
+2. **applyCenterStage.** App-Modus + reassert aus. Session + Cover.
+3. Tests + MARKETING_VERSION 1.6.90 (Build 123).
+
+## Erweiterung (neu, 1.6.90)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. P0.
+2. **HeliosAegisKit.**
+3. **VNTrackObjectRequest.**
+4. **VNImageRequestHandler(cvPixelBuffer:).**
+5. **Per-Finger-Kontakt.**
+6. **analogClosed Start härter.**
+7. **HUD-Lerp zwischen Samples** (now−prev)/span.
+8. **palmHighpass auf UV-Position.**
+9. **Ampel-Ring Overlay.**
+10. **Rechtsklick-HUD.**
+11. **Tap-Cancel** 200 ms.
+12. **Click-Ring Overlay.**
+13. **Hand-ID uniqueID-Flicker** (chiralityLock sitzt).
+14. **CGEventSource-State.**
+15. **Desk-View Crop-Kompensation.**
+16. **IOHIDEventSystemClient.**
+17. **Watch Double-Tap.**
+18. **MediaPipe Hands Fallback.**
+19. **Overlay CAMetalLayer.**
+20. **LiDAR DepthCapture.**
+21. **Continuity 15-fps Probe.**
+22. **Mission-Control Spread.**
+23. **Aegis-Gaze Pinch-Confirm.**
+24. **Two-pointer origin lock.**
+25. **Pinch-Hysterese nach palmWidth.**
+26. **Gesture-Macro.**
+27. **Chrome-Dwell nur focused AX.**
+28. **SpaceMap nur als Start.**
+29. **CGEvent tapHold.**
+30. **pinch3DVeto Depth-Reach in driveGrab.**
+31. **emptyHandsRecover(elapsed:)** Fold in Live.
+32. **visionRoiEnabled** Continuity 8 Hz.
+33. **Two-pinch zoom hysteresis.**
+34. **Idle-Palm dwell** 400 ms nach Dropout.
+35. **AE-Lock nach Wake reassert** (applyCenterStage force sitzt, Exposure nach Sleep?).
+
+P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.89**. Nur `main`. `bugfix` nicht mergen.
 
 ## In 1.6.89 erledigt

@@ -2476,7 +2476,7 @@ enum ActionReplay {
     }
 
     struct State {
-        var phase: PinchHoldPhase = .unseen
+        var phase: GestureMath.PinchHoldPhase = .unseen
         var heldFor: TimeInterval = 0
         var pinchHeld = false
         var fromBeak = false

@@ -1195,18 +1195,10 @@ final class GestureEngine {
             let prevPalm = lastPalm ?? palm
             let velDt = CGFloat(max(0.008, sampleDt))
             lastPalmVel = CGPoint(x: (palm.x - prevPalm.x) / velDt, y: (palm.y - prevPalm.y) / velDt)
-            let jump = hypot(palm.x - prevPalm.x, palm.y - prevPalm.y)
-            palmJitter.append(jump)
-            if palmJitter.count > 8 { palmJitter.removeFirst() }
-            if GestureMath.palmDeadmanStill(delta: jump, dead: GestureMath.palmDeadZone(dt: sampleDt)) {
-                palmStillFor += sampleDt
-            } else {
-                palmStillFor = 0
-            }
-            palmDeadman = GestureMath.palmDeadmanClutch(stillFor: palmStillFor)
             lastPalm = palm
         }
-        if !GestureMath.palmInFrame(palm), let held = cursorTracks[hand.id] ?? (isActor ? cursorSmooth : nil) {
+        let from = cursorTracks[hand.id]
+        if !GestureMath.palmInFrame(palm), let held = from ?? (isActor ? cursorSmooth : nil) {
             return held
         }
         let q: CGPoint
@@ -1215,77 +1207,17 @@ final class GestureEngine {
         } else {
             q = SpaceMap.linear(palm)
         }
-        let prevOut = cursorTracks[hand.id] ?? (isActor ? cursorSmooth : nil)
-        let prevAbs = cursorAbsTracks[hand.id]
+        let prev = from ?? q
+        let dist = hypot(q.x - prev.x, q.y - prev.y)
+        let a = min(0.93, 0.58 + dist / 55) * freezeGain
+        let s = CGPoint(x: a * q.x + (1 - a) * prev.x, y: a * q.y + (1 - a) * prev.y)
+        cursorTracks[hand.id] = s
         cursorAbsTracks[hand.id] = q
-        let rms = GestureMath.jitterRms(palmJitter)
-        let scale = ScreenGeometry.backingScale(quartz: prevOut ?? q)
-        let gain = GestureMath.pointerGainAdaptive(
-            gain: GestureMath.pointerGainScaled(gain: pointerGain, scale: scale),
-            jitterRms: rms
-        ) * GestureMath.pointerGainDt(dt: sampleDt)
-        let clutch = isActor && (palmDeadman || twoHandClutchOn) && !pinchHeld && !system.isDragging
-        let corner = GestureMath.inCornerRest(u: palm.x, v: palm.y)
-        var next: CGPoint
-        if let prevAbs, let prevOut {
-            var dx = q.x - prevAbs.x
-            var dy = q.y - prevAbs.y
-            if clutch || (corner && hypot(dx, dy) < 12) {
-                dx = 0
-                dy = 0
-            }
-            if isActor {
-                let a = GestureMath.palmHighpassAlpha(dt: sampleDt)
-                if let slow = palmSlow {
-                    let hx = GestureMath.palmHighpassDelta(lp: slow.x, sample: dx, alpha: a)
-                    let hy = GestureMath.palmHighpassDelta(lp: slow.y, sample: dy, alpha: a)
-                    palmSlow = CGPoint(x: hx.lp, y: hy.lp)
-                    dx = hx.hp
-                    dy = hy.hp
-                } else {
-                    palmSlow = .zero
-                }
-            }
-            let dead = GestureMath.deadzoneScaled(dead: 1.6, scale: scale)
-            let dz = GestureMath.deadzone2D(dx: dx, dy: dy, dead: dead)
-            next = CGPoint(
-                x: prevOut.x + dz.x * gain * freezeGain,
-                y: prevOut.y + dz.y * gain * freezeGain
-            )
-        } else {
-            next = prevOut ?? q
-        }
         if isActor {
-            if !euroInited {
-                euroX = next.x
-                euroY = next.y
-                euroDx = 0
-                euroDy = 0
-                euroInited = true
-            } else {
-                let cut = GestureMath.oneEuroMinCutoff(jitterRms: rms)
-                let fx = GestureMath.oneEuroFilter(
-                    prev: euroX, sample: next.x, dt: sampleDt, minCutoff: cut, dPrev: euroDx
-                )
-                let fy = GestureMath.oneEuroFilter(
-                    prev: euroY, sample: next.y, dt: sampleDt, minCutoff: cut, dPrev: euroDy
-                )
-                euroX = fx.value
-                euroY = fy.value
-                euroDx = fx.deriv
-                euroDy = fy.deriv
-                next = CGPoint(x: fx.value, y: fy.value)
-            }
-            let dist = hypot(next.x - (prevOut?.x ?? next.x), next.y - (prevOut?.y ?? next.y))
             cursorDidMove = dist > 1.4
-            cursorSmooth = next
-            if clutch {
-                let tag = twoHandClutchOn ? "2HAND" : "STILL"
-                lockFreeze = lockFreeze.isEmpty ? tag : "\(lockFreeze) \(tag)"
-            }
+            cursorSmooth = s
         }
-        cursorTracks[hand.id] = next
-        return next
+        return s
     }
 
     private func placeCursors(_ hands: [TrackedHand], actor: TrackedHand) {

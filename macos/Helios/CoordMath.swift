@@ -1229,9 +1229,13 @@ enum GestureMath {
         return 360
     }
 
-    /// Continuity: 720 zuerst, nicht claimed 1080@30. Mac nicht auf 720 der Phone-Session kleben.
+    /// Continuity: 720 zuerst, nicht claimed 1080@30. Leiter 540/360 halten — configureAndRun sonst wieder 720.
     static func cameraFormatHeightPrefers720(role: String, stored: Double) -> Double {
-        if role == "phone" || role == "continuity" { return 720 }
+        if role == "phone" || role == "continuity" {
+            if stored >= 500, stored < 700 { return 540 }
+            if stored >= 360, stored < 500 { return 360 }
+            return 720
+        }
         if role == "mac" { return 1080 }
         return stored >= 360 ? stored : 1080
     }
@@ -1312,6 +1316,16 @@ enum GestureMath {
         return live
     }
 
+    /// Dropout remint: gleiche Chirality hält T1, nicht T3. pinchHandID sonst tot.
+    static func trackIDPersist(
+        dropped: [(id: String, chirality: Int)],
+        liveChirality: Int,
+        taken: Set<String>
+    ) -> String? {
+        guard liveChirality != 0 else { return nil }
+        return dropped.first { $0.chirality == liveChirality && !taken.contains($0.id) }?.id
+    }
+
     static func visionRoiEnabled() -> Bool { true }
 
     static func visionRoiFromPalm(palm: CGPoint, width: CGFloat, scale: CGFloat = 2) -> CGRect {
@@ -1372,7 +1386,9 @@ enum GestureMath {
         return 0.55 * c + 0.45 * z
     }
 
-    static func pinchAnalogClosed(_ analog: Double) -> Bool { analog >= 0.58 }
+    static func pinchAnalogClosed(_ analog: Double, held: Bool = false) -> Bool {
+        analog >= (held ? 0.48 : 0.58)
+    }
 
     /// Immer Sample posten. Coast allein war tot wenn DisplayLink nicht feuert.
     static func sampleCursorYieldsToCoast(coastDrives: Bool, dragging: Bool, freeze: Bool) -> Bool {

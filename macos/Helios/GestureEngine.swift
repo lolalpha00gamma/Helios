@@ -1647,7 +1647,8 @@ final class GestureEngine {
             return
         }
         let analogClosed = GestureMath.pinchAnalogClosed(
-            GestureMath.pinchAnalog(closedness: hand.pinchClosedness, zSep: hand.pinchZSep)
+            GestureMath.pinchAnalog(closedness: hand.pinchClosedness, zSep: hand.pinchZSep),
+            held: pinchHeld
         )
         let beak = beakNow(hand)
         let releaseBlocks = GestureMath.pinchReleaseBlocks(

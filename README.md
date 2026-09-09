@@ -1,4 +1,4 @@
-# Helios **1.6.94**
+# Helios **1.6.95**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -6,6 +6,15 @@ Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HU
 Privates Repo. Keine Open-Source-Lizenzdatei.
 
 Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Neu in 1.6.95
+
+Warum Pinch nach 1.6.94 weiter chatterte und Dropout den Zug riss: analogClosed hart 0,58. Remint mint T3, pinchHandID tot. configureAndRun setzt Leiter 540/360 über prefers720 immer auf 720.
+
+- **pinchAnalogClosed Hold-Hysterese.** Start 0,58, Hold 0,48. GestureEngine held: pinchHeld.
+- **trackIDPersist.** Dropout gleiche Chirality hält T1. HandTracker schreibt Slot in-place.
+- **cameraFormatHeightPrefers720.** Phone 540/360 bleiben. 1080→720 bleibt.
+- Tests + MARKETING_VERSION 1.6.95 (Build 128).
 
 ## Neu in 1.6.94
 

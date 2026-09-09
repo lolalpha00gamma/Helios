@@ -1,5 +1,36 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.95**. Nur `main`. `bugfix` nicht mergen.
+
+## In 1.6.95 erledigt
+
+1.6.94 HUD-Lerp Sample. analogClosed 0,58 chattert. Remint mint T3. Leiter 540 → 720.
+
+1. **pinchAnalogClosed Hold-Hysterese.** Start 0,58 / Hold 0,48 live.
+2. **trackIDPersist.** Dropout Chirality hält uniqueID.
+3. **cameraFormatHeightPrefers720.** 540/360 Leiter hält.
+4. Tests + MARKETING_VERSION 1.6.95 (Build 128).
+
+## Erweiterung (neu, 1.6.95)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. P0.
+2. **Continuity 15-fps Probe** nach inputPriority.
+3. **formatPromoted 720p24 → 1080p15.**
+4. **pinchClosedness EMA** in PinchGate.
+5. **VNTrackObjectRequest.**
+6. **MediaPipe Hands.**
+7. **Overlay CAMetalLayer.**
+8. **LiDAR.**
+9. **Mission-Control Spread.**
+10. **ROI-Hysterese 2 Frames.**
+11. **hudCoast Cap aus palmWidth.**
+12. **Two-hand HUD-Lerp unabhängig.**
+13. **pinchFingerContact analog mix.**
+14. **DisplayLink Pause bei Freeze.**
+15. **SpaceMap Recenter nach Wake.**
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.94**. Nur `main`. `bugfix` nicht mergen.
 
 ## In 1.6.94 erledigt

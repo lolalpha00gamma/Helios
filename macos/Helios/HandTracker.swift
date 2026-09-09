@@ -314,8 +314,31 @@ final class HandTracker: @unchecked Sendable {
             if let ti = assigned[idx], ti < tracks.count {
                 slot = tracks[ti]
             } else {
-                slot = TrackSlot(id: "T\(nextID)", chirality: obs.chirality)
-                nextID += 1
+                let taken = Set(
+                    assigned.values.compactMap { $0 < tracks.count ? tracks[$0].id : nil }
+                    + hands.map(\.id)
+                )
+                func chiralityCode(_ c: VNChirality) -> Int {
+                    switch c {
+                    case .left: return 1
+                    case .right: return 2
+                    default: return 0
+                    }
+                }
+                let persist = GestureMath.trackIDPersist(
+                    dropped: tracks.enumerated().compactMap { i, s -> (id: String, chirality: Int)? in
+                        if assigned.values.contains(i) { return nil }
+                        return (s.id, chiralityCode(s.chirality))
+                    },
+                    liveChirality: chiralityCode(obs.chirality),
+                    taken: taken
+                )
+                if let id = persist, let existing = tracks.first(where: { $0.id == id }) {
+                    slot = existing
+                } else {
+                    slot = TrackSlot(id: persist ?? "T\(nextID)", chirality: obs.chirality)
+                    if persist == nil { nextID += 1 }
+                }
             }
             slot.smoother.space = space
             slot.pinch.setSpace(space)
@@ -437,6 +460,8 @@ final class HandTracker: @unchecked Sendable {
             slot.palmWidthEma = GestureMath.palmWidthEMA(prev: slot.palmWidthEma, next: fused.palmWidth, dt: dtPalm)
             if let ti = assigned[idx], ti < tracks.count {
                 tracks[ti] = slot
+            } else if let persistIdx = tracks.firstIndex(where: { $0.id == slot.id }) {
+                tracks[persistIdx] = slot
             } else {
                 tracks.append(slot)
             }

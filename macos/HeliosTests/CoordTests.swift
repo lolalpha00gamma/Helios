@@ -1882,6 +1882,14 @@ enum CoordTests {
             fputs("FAIL Continuity hält 720\n", stderr)
             fails += 1
         }
+        if GestureMath.cameraFormatHeightPrefers720(role: "phone", stored: 540) != 540 {
+            fputs("FAIL Continuity Leiter 540 hält\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraFormatHeightPrefers720(role: "phone", stored: 360) != 360 {
+            fputs("FAIL Continuity Leiter 360 hält\n", stderr)
+            fails += 1
+        }
         if GestureMath.cameraFormatHeightPrefers720(role: "mac", stored: 1080) != 1080 {
             fputs("FAIL Mac darf 1080\n", stderr)
             fails += 1
@@ -2010,6 +2018,18 @@ enum CoordTests {
         }
         if GestureMath.pinchAnalogClosed(GestureMath.pinchAnalog(closedness: 0.20, zSep: 1.10)) {
             fputs("FAIL Analog offen\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchAnalogClosed(0.52) {
+            fputs("FAIL Analog 0,52 startet nicht\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinchAnalogClosed(0.52, held: true) {
+            fputs("FAIL Analog Hold 0,52 hält\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchAnalogClosed(0.45, held: true) {
+            fputs("FAIL Analog Hold 0,45 frei\n", stderr)
             fails += 1
         }
         if abs(GestureMath.hudCoastCapScaled(scale: 1) - 80) > 0.5 {
@@ -3089,6 +3109,24 @@ enum CoordTests {
         }
         if GestureMath.chiralityLock(prev: 2, live: 1, dropped: true) != 2 {
             fputs("FAIL Chirality Dropout hält Rechts\n", stderr)
+            fails += 1
+        }
+        if GestureMath.trackIDPersist(
+            dropped: [("T1", 2), ("T2", 1)], liveChirality: 2, taken: []
+        ) != "T1" {
+            fputs("FAIL trackIDPersist Rechts T1\n", stderr)
+            fails += 1
+        }
+        if GestureMath.trackIDPersist(
+            dropped: [("T1", 2)], liveChirality: 2, taken: ["T1"]
+        ) != nil {
+            fputs("FAIL trackIDPersist taken tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.trackIDPersist(
+            dropped: [("T1", 2)], liveChirality: 0, taken: []
+        ) != nil {
+            fputs("FAIL trackIDPersist unknown tot\n", stderr)
             fails += 1
         }
 

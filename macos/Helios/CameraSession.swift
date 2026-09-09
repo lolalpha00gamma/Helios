@@ -136,11 +136,10 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         }
     }
 
-    /// Continuity 8 fps trotz Score. Erster Drop + Leiter-Retry nach 3 s, nicht 8 s tot.
+    /// Continuity 8 fps ist normal. Einmal Leiter, dann Ruhe — kein 3-s-Loop.
     func renegotiateIfSlow(measuredFps: Double) {
         let now = CACurrentMediaTime()
-        let cooling = formatRenegotiated && now - lastRenegotiateAt < 8
-        let first = GestureMath.cameraFormatRenegotiate(measuredFps: measuredFps, already: cooling)
+        let first = GestureMath.cameraFormatRenegotiate(measuredFps: measuredFps, already: formatRenegotiated)
         let retry = GestureMath.cameraFormatRenegotiateRetry(
             measuredFps: measuredFps,
             lastAt: lastRenegotiateAt,

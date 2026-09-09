@@ -1546,15 +1546,19 @@ enum CoordTests {
             fputs("FAIL gemessen 8 fps 720p vor 1080p\n", stderr)
             fails += 1
         }
-        if !GestureMath.cameraFormatRenegotiateRetry(measuredFps: 8, lastAt: 1, now: 4.2) {
-            fputs("FAIL Format Retry nach 3 s\n", stderr)
+        if GestureMath.cameraFormatRenegotiateRetry(measuredFps: 8, lastAt: 1, now: 4.2) {
+            fputs("FAIL Format Retry 8 fps tot\n", stderr)
             fails += 1
         }
-        if GestureMath.cameraFormatRenegotiateRetry(measuredFps: 8, lastAt: 1, now: 2) {
+        if !GestureMath.cameraFormatRenegotiateRetry(measuredFps: 3, lastAt: 1, now: 70) {
+            fputs("FAIL Format Retry Stall 60 s\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraFormatRenegotiateRetry(measuredFps: 3, lastAt: 1, now: 2) {
             fputs("FAIL Format Retry cooldown hält\n", stderr)
             fails += 1
         }
-        if GestureMath.cameraFormatRenegotiateRetry(measuredFps: 24, lastAt: 1, now: 10) {
+        if GestureMath.cameraFormatRenegotiateRetry(measuredFps: 24, lastAt: 1, now: 90) {
             fputs("FAIL Format Retry 24 fps tot\n", stderr)
             fails += 1
         }
@@ -3097,8 +3101,8 @@ enum CoordTests {
             fputs("FAIL Highpass nach Clutch-Zero klingt aus\n", stderr)
             fails += 1
         }
-        if !GestureMath.visionRoiEnabled() {
-            fputs("FAIL ROI live\n", stderr)
+        if GestureMath.visionRoiEnabled() {
+            fputs("FAIL ROI aus (Crop klaut Palme)\n", stderr)
             fails += 1
         }
         if GestureMath.visionCancelOnDrop(dropped: true) == false {
@@ -3231,6 +3235,11 @@ enum CoordTests {
         }
         if !GestureMath.overlayMarkerVisible(isActor: true) {
             fputs("FAIL Overlay Steuerhand tot\n", stderr)
+            fails += 1
+        }
+        pointEq(GestureMath.clampPalm(CGPoint(x: -0.2, y: 1.4)), CGPoint(x: 0, y: 1), "clampPalm")
+        if GestureMath.cameraFormatRenegotiate(measuredFps: 8, already: true) {
+            fputs("FAIL Format nicht nochmal\n", stderr)
             fails += 1
         }
         if abs(GestureMath.visionRoiScale(dt: 0.10) - 1.6) > 0.01 {

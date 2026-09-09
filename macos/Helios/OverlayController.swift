@@ -332,15 +332,15 @@ final class OverlayController {
             }
             pair.left.screenFrame = panel.frame
             pair.right.screenFrame = panel.frame
-            let left = cursors.first(where: { $0.isLeft }) ?? cursors.first(where: { $0.side == "Links" })
-            let right = cursors.first(where: { !$0.isLeft && $0.side != "Links" })
-            pair.left.isHidden = left == nil || !GestureMath.overlayMarkerVisible(isActor: left?.actor == true)
-            pair.right.isHidden = right == nil || !GestureMath.overlayMarkerVisible(isActor: right?.actor == true)
+            let actor = cursors.first(where: { $0.actor }) ?? cursors.first
+            let leftHand = actor?.isLeft == true || actor?.side == "Links"
+            pair.left.isHidden = actor == nil || !leftHand
+            pair.right.isHidden = actor == nil || leftHand
             if !pair.left.isHidden {
             pair.left.apply(
-                cursor: left?.point,
+                cursor: actor?.point,
                 phase: phase,
-                hand: left?.side ?? "Links",
+                hand: actor?.side ?? "Links",
                 target: target,
                 window: window,
                 isLeft: true,
@@ -350,9 +350,9 @@ final class OverlayController {
             }
             if !pair.right.isHidden {
             pair.right.apply(
-                cursor: right?.point,
+                cursor: actor?.point,
                 phase: phase,
-                hand: right?.side ?? "Rechts",
+                hand: actor?.side ?? "Rechts",
                 target: target,
                 window: window,
                 isLeft: false,
@@ -360,12 +360,11 @@ final class OverlayController {
                 dim: GestureMath.skeletonFreezeDim(freeze)
             )
             }
-            let actorPt = (left?.actor == true ? left?.point : nil) ?? (right?.actor == true ? right?.point : nil) ?? left?.point ?? right?.point
             loupes[id]?.apply(
-                quartz: actorPt,
+                quartz: actor?.point,
                 screen: panel.frame,
                 windowID: CGWindowID(panel.windowNumber),
-                show: showReticle && (state?.showLoupe ?? true)
+                show: false
             )
         }
     }

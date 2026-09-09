@@ -1201,7 +1201,7 @@ final class GestureEngine {
     }
 
     private func mappedPoint(_ hand: TrackedHand, isActor: Bool) -> CGPoint {
-        let palm = hand.palm
+        let palm = GestureMath.clampPalm(hand.palm)
         if isActor {
             let prevPalm = lastPalm ?? palm
             let velDt = CGFloat(max(0.008, sampleDt))
@@ -1209,9 +1209,6 @@ final class GestureEngine {
             lastPalm = palm
         }
         let from = cursorTracks[hand.id]
-        if !GestureMath.palmInFrame(palm), let held = from ?? (isActor ? cursorSmooth : nil) {
-            return held
-        }
         let q: CGPoint
         if let map = spaceMap, map.isReady {
             q = map.apply(palm)

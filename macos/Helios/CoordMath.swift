@@ -686,12 +686,13 @@ enum GestureMath {
     }
 
     /// Einmal reicht nicht — zweiter Drop bleibt 8 fps. Nach cooldown erneut.
+    /// Continuity bleibt bei 8 fps. Nicht alle 3 s das Gerät neu konfigurieren.
     static func cameraFormatRenegotiateRetry(
         measuredFps: Double,
         lastAt: TimeInterval,
         now: TimeInterval,
-        cooldown: TimeInterval = 3,
-        floor: Double = 12
+        cooldown: TimeInterval = 60,
+        floor: Double = 5
     ) -> Bool {
         measuredFps > 0 && measuredFps < floor && lastAt > 0 && now - lastAt >= cooldown
     }
@@ -1357,7 +1358,7 @@ enum GestureMath {
         return dropped.first { $0.chirality == liveChirality && !taken.contains($0.id) }?.id
     }
 
-    static func visionRoiEnabled() -> Bool { true }
+    static func visionRoiEnabled() -> Bool { false }
 
     /// 1 leerer Frame: letzte Palmen-ROI. 2. Miss → full. Sonst Rand-Steal.
     static func visionRoiHolds(miss: Int, need: Int = 2) -> Bool {
@@ -1406,7 +1407,10 @@ enum GestureMath {
     static func hudLerpDrivesCursor() -> Bool { true }
 
     /// Accessibility: reduced-motion = HUD ohne Coast, Sample bleibt.
-    /// Kamera-UV. palmY −0,34 (Protokoll 19:26) ist außerhalb — Zeiger nicht an den Rand klemmen.
+    /// Palme am Rand nicht einfrieren — sonst liegt der Zeiger neben der Hand.
+    static func clampPalm(_ palm: CGPoint) -> CGPoint {
+        CGPoint(x: min(1, max(0, palm.x)), y: min(1, max(0, palm.y)))
+    }
     static func palmInFrame(_ palm: CGPoint, pad: CGFloat = 0.04) -> Bool {
         palm.x + pad >= 0 && palm.x - pad <= 1 && palm.y + pad >= 0 && palm.y - pad <= 1
     }

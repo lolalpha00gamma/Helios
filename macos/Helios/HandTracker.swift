@@ -263,36 +263,8 @@ final class HandTracker: @unchecked Sendable {
                 dt: lastHandsAt > 0 ? GestureMath.sampleDt(now: now, last: lastHandsAt) : 0.125
             )
             if !lastHands.isEmpty, lastHandsAt > 0, now - lastHandsAt < hold {
-                let dt = lastFreezeAt > 0
-                    ? GestureMath.sampleDt(now: now, last: lastFreezeAt)
-                    : 0.04
                 lastFreezeAt = now
-                var shifted: [TrackedHand] = []
-                for h in lastHands {
-                    guard let idx = tracks.firstIndex(where: { $0.id == h.id }) else {
-                        shifted.append(h)
-                        continue
-                    }
-                    var slot = tracks[idx]
-                    let pred = GestureMath.freezeKalmanPredict(
-                        palm: slot.lastPalm,
-                        vx: slot.lastVel.x,
-                        vy: slot.lastVel.y,
-                        pPos: slot.freezePPos,
-                        pVel: slot.freezePVel,
-                        dt: dt
-                    )
-                    let delta = CGPoint(x: pred.palm.x - h.palm.x, y: pred.palm.y - h.palm.y)
-                    slot.lastPalm = pred.palm
-                    slot.lastVel = CGPoint(x: pred.vx, y: pred.vy)
-                    slot.freezePPos = pred.pPos
-                    slot.freezePVel = pred.pVel
-                    tracks[idx] = slot
-                    shifted.append(h.shifted(by: delta))
-                }
-                lastHands = shifted
-                lastFusion = nil
-                return shifted
+                return lastHands
             }
             lastHands = []
             lastFusion = nil
@@ -528,9 +500,31 @@ final class HandTracker: @unchecked Sendable {
         for i in tracks.indices where now - tracks[i].lastSeen > GestureMath.emptyHandsHold(dt: dtKeep) {
             tracks[i].pinch.reset()
         }
-        lastHands = hands
+        lastHands = dedupChirality(hands)
         lastHandsAt = now
-        return hands
+        return lastHands
+    }
+
+    /// Eine Spur links, eine rechts. Zwei Kameras sonst zwei Cursor auf einer Hand.
+    private func dedupChirality(_ hands: [TrackedHand]) -> [TrackedHand] {
+        var left: TrackedHand?
+        var right: TrackedHand?
+        var unknown: TrackedHand?
+        for h in hands {
+            switch h.chirality {
+            case .left:
+                if left == nil || h.quality > (left?.quality ?? 0) { left = h }
+            case .right:
+                if right == nil || h.quality > (right?.quality ?? 0) { right = h }
+            default:
+                if unknown == nil || h.quality > (unknown?.quality ?? 0) { unknown = h }
+            }
+        }
+        var out: [TrackedHand] = []
+        if let left { out.append(left) }
+        if let right { out.append(right) }
+        if out.isEmpty, let unknown { out.append(unknown) }
+        return out
     }
 
     private func assign(_ obs: [RawObs], space: AspectSpace, now: TimeInterval) -> [Int: Int] {

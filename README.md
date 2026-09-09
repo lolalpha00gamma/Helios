@@ -1,4 +1,4 @@
-# Helios **1.6.95**
+# Helios **1.6.96**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -6,6 +6,15 @@ Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HU
 Privates Repo. Keine Open-Source-Lizenzdatei.
 
 Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Neu in 1.6.96
+
+Warum Pinch nach 1.6.95 weiter chatterte und Dropout den Actor stahl: analogClosed glättete Closedness nicht. ROI ging beim ersten leeren Frame auf Full.
+
+- **pinchClosednessSmooth.** One-Euro vor pinchAnalog. 8-Hz-Jitter kein Hold-Flip.
+- **visionRoiHolds.** Ein Miss hält lastRoi. Zweiter Miss full.
+- **visionRoiPeriodicFull.** Jedes 4. Tick Full — zweite Palme.
+- Tests + MARKETING_VERSION 1.6.96 (Build 129).
 
 ## Neu in 1.6.95
 

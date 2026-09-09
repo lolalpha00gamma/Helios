@@ -907,6 +907,12 @@ enum GestureMath {
         return prev + a * (next - prev)
     }
 
+    /// Closedness 8 Hz: ein Sample 0,90 nach 0,20 startet analog. Erste Probe roh.
+    static func pinchClosednessSmooth(prev: Double?, next: Double, dt: TimeInterval, quality: Double = 1) -> Double {
+        guard let prev else { return next }
+        return Double(pinchRatioSmooth(prev: CGFloat(prev), next: CGFloat(next), dt: dt, quality: quality))
+    }
+
     /// Lift-z-Vorzeichen: Occlusion kippt previous[]. Kleines pred fällt auf Anatomie.
     static func liftSignHolds(previousDz: CGFloat, mag: CGFloat, band: CGFloat = 0.15) -> CGFloat? {
         if mag <= 0 { return 0 }
@@ -1327,6 +1333,16 @@ enum GestureMath {
     }
 
     static func visionRoiEnabled() -> Bool { true }
+
+    /// 1 leerer Frame: letzte Palmen-ROI. 2. Miss → full. Sonst Rand-Steal.
+    static func visionRoiHolds(miss: Int, need: Int = 2) -> Bool {
+        miss > 0 && miss < need
+    }
+
+    /// Zweite Hand außerhalb des Crops. Jedes 4. Tick full.
+    static func visionRoiPeriodicFull(tick: Int, every: Int = 4) -> Bool {
+        every > 0 && tick % every == 0
+    }
 
     static func visionRoiFromPalm(palm: CGPoint, width: CGFloat, scale: CGFloat = 2) -> CGRect {
         let s = max(0.16, min(1, max(0.04, width) * max(1, scale)))

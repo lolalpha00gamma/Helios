@@ -166,6 +166,8 @@ final class HandTracker: @unchecked Sendable {
     private var lastHandsAt: TimeInterval = 0
     private var lastFreezeAt: TimeInterval = 0
     private var bodyTick = 0
+    private var lastRoiBoxes: [CGRect] = []
+    private var roiMiss = 0
     private var lastBodyPts: [VNHumanBodyPoseObservation.JointName: VNRecognizedPoint] = [:]
 
     func reset() {
@@ -178,6 +180,8 @@ final class HandTracker: @unchecked Sendable {
         lastFreezeAt = 0
         lastBodyPts = [:]
         bodyTick = 0
+        lastRoiBoxes = []
+        roiMiss = 0
     }
 
     func analyze(
@@ -194,16 +198,28 @@ final class HandTracker: @unchecked Sendable {
         let space = AspectSpace(width: CGFloat(max(1, w)), height: CGFloat(max(1, h)))
         lastSpace = space
 
-        if GestureMath.visionRoiEnabled(),
+        if GestureMath.visionRoiPeriodicFull(tick: bodyTick) {
+            request.regionOfInterest = GestureMath.visionRoiFull()
+            bodyRequest.regionOfInterest = GestureMath.visionRoiFull()
+            roiMiss = 0
+        } else if GestureMath.visionRoiEnabled(),
            !lastHands.isEmpty,
            !GestureMath.visionCancelOnDrop(dropped: lastHands.isEmpty)
         {
+            roiMiss = 0
             let boxes = lastHands.map {
                 GestureMath.visionRoiFromPalm(palm: $0.palm, width: $0.palmWidth, scale: 3)
             }
+            lastRoiBoxes = boxes
             request.regionOfInterest = GestureMath.visionRoiUnion(boxes)
             bodyRequest.regionOfInterest = request.regionOfInterest
+        } else if GestureMath.visionRoiHolds(miss: roiMiss + 1), !lastRoiBoxes.isEmpty {
+            roiMiss += 1
+            request.regionOfInterest = GestureMath.visionRoiUnion(lastRoiBoxes)
+            bodyRequest.regionOfInterest = request.regionOfInterest
         } else {
+            roiMiss += 1
+            lastRoiBoxes = []
             request.regionOfInterest = GestureMath.visionRoiFull()
             bodyRequest.regionOfInterest = GestureMath.visionRoiFull()
         }

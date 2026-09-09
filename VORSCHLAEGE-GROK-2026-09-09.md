@@ -1,3 +1,59 @@
+# Helios Vorschläge — 2026-09-09 (Pass 45, 1.6.96)
+
+Stand 1.6.96. Closedness EMA. ROI Hysterese + Full/4.
+
+## Gelandet in 1.6.96
+
+- pinchClosednessSmooth vor pinchAnalog. GestureEngine analogClosed.
+- visionRoiHolds Miss 1. lastRoi bleibt.
+- visionRoiPeriodicFull jedes 4. Tick.
+
+## Erweiterung (neu)
+
+815. **CameraBroker XPC + IOSurface** mit Aegis. P0.
+816. **HeliosAegisKit.**
+817. **VNTrackObjectRequest.** ROI sitzt — Track lohnt.
+818. **Per-Finger-Kontakt.**
+819. **palmHighpass auf UV-Position.**
+820. **Ampel-Ring Overlay.**
+821. **Rechtsklick-HUD.**
+822. **Click-Ring Overlay.**
+823. **CGEventSource-State.**
+824. **Desk-View Crop.**
+825. **IOHIDEventSystemClient.**
+826. **Watch Double-Tap.**
+827. **MediaPipe Hands.**
+828. **Overlay CAMetalLayer.**
+829. **LiDAR.**
+830. **Continuity 15-fps Probe** (inputPriority sitzt, Leiter 540 hält).
+831. **Mission-Control Spread.**
+832. **Two-pointer origin lock.**
+833. **Pinch-Hysterese palmWidth.**
+834. **Gesture-Macro.**
+835. **SpaceMap nur als Start.**
+836. **CGEvent tapHold.**
+837. **pinch3DVeto Depth-Reach.**
+838. **emptyHandsRecover(elapsed:)** Fold.
+839. **SpaceMap Recenter nach Wake.**
+840. **formatPromoted nach inputPriority.** 720p24 → 1080p15.
+841. **ROI scale 1,6** Continuity.
+842. **Cover-Lead Homographie Blend.**
+843. **Bezel-Hop Blend** 200 ms.
+844. **hudCoast Cap aus palmWidth.**
+845. **Two-hand HUD-Lerp unabhängig.**
+846. **pinchFingerContact analog mix.**
+847. **DisplayLink Pause bei Freeze.**
+848. **Vision joint-conf analog mix.**
+849. **pinchSpan palmWidth-EMA am Hold.**
+850. **useCover Homographie** Cover-Lead (tot).
+851. **Core Haptics** Pinch-Close.
+852. **Gaze-Click** ARKit + Pinch AND.
+853. **Stage-Manager Space-Lock.**
+854. **Accessibility Switch-Control Bridge.**
+855. **Siri-Shortcut Pinch-Macro.**
+
+P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
 # Helios Vorschläge — 2026-09-09 (Pass 44, 1.6.95)
 
 Stand 1.6.95. analog Hysterese, uniqueID persist, Leiter 540/360.

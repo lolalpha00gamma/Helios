@@ -1,5 +1,43 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.96**. Nur `main`. `bugfix` nicht mergen.
+
+## In 1.6.96 erledigt
+
+1.6.95 analog Hysterese roh. ROI ein Miss → Full. Zweite Palme tot.
+
+1. **pinchClosednessSmooth.** Closedness EMA vor analogClosed.
+2. **visionRoiHolds.** 1 Frame lastRoi.
+3. **visionRoiPeriodicFull** Tick 0/4.
+4. Tests + MARKETING_VERSION 1.6.96 (Build 129).
+
+## Erweiterung (neu, 1.6.96)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. P0.
+2. **Continuity 15-fps Probe** nach inputPriority.
+3. **formatPromoted 720p24 → 1080p15.**
+4. **VNTrackObjectRequest.**
+5. **MediaPipe Hands.**
+6. **Overlay CAMetalLayer.**
+7. **LiDAR.**
+8. **Mission-Control Spread.**
+9. **pinchFingerContact analog mix.**
+10. **hudCoast Cap aus palmWidth.**
+11. **Two-hand HUD-Lerp unabhängig.**
+12. **DisplayLink Pause bei Freeze.**
+13. **SpaceMap Recenter nach Wake.**
+14. **useCover Homographie.**
+15. **Cover-Lead Homographie Blend.**
+16. **Core Haptics** auf Pinch-Close (Trackpad-Klick ersetzen).
+17. **Gaze-Click** ARKit FaceAnchor + Pinch AND.
+18. **Stage-Manager Space-Lock** Pointer bleibt im sichtbaren Space.
+19. **Accessibility Switch-Control Bridge.**
+20. **Siri-Shortcut Pinch-Macro.**
+
+
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.95**. Nur `main`. `bugfix` nicht mergen.
 
 ## In 1.6.95 erledigt

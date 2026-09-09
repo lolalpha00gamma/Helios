@@ -3129,6 +3129,35 @@ enum CoordTests {
             fputs("FAIL trackIDPersist unknown tot\n", stderr)
             fails += 1
         }
+        let closedJump = GestureMath.pinchClosednessSmooth(prev: 0.20, next: 0.90, dt: 0.125, quality: 0.90)
+        if closedJump <= 0.20 || closedJump >= 0.90 {
+            fputs("FAIL Closedness EMA 8 Hz glättet\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.pinchClosednessSmooth(prev: nil, next: 0.90, dt: 0.125) - 0.90) > 0.001 {
+            fputs("FAIL Closedness erste Probe roh\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.visionRoiHolds(miss: 1) {
+            fputs("FAIL ROI Hysterese Frame 1 hält\n", stderr)
+            fails += 1
+        }
+        if GestureMath.visionRoiHolds(miss: 2) {
+            fputs("FAIL ROI Hysterese Frame 2 full\n", stderr)
+            fails += 1
+        }
+        if GestureMath.visionRoiHolds(miss: 0) {
+            fputs("FAIL ROI Hysterese miss 0 tot\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.visionRoiPeriodicFull(tick: 0) || GestureMath.visionRoiPeriodicFull(tick: 1) {
+            fputs("FAIL ROI full jedes 4. Tick\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.visionRoiPeriodicFull(tick: 4) {
+            fputs("FAIL ROI Tick 4 full\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

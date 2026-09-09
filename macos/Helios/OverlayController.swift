@@ -334,8 +334,8 @@ final class OverlayController {
             pair.right.screenFrame = panel.frame
             let left = cursors.first(where: { $0.isLeft }) ?? cursors.first(where: { $0.side == "Links" })
             let right = cursors.first(where: { !$0.isLeft && $0.side != "Links" })
-            pair.left.isHidden = left == nil || left?.actor != true
-            pair.right.isHidden = right == nil || right?.actor != true
+            pair.left.isHidden = left == nil || !GestureMath.overlayMarkerVisible(isActor: left?.actor == true)
+            pair.right.isHidden = right == nil || !GestureMath.overlayMarkerVisible(isActor: right?.actor == true)
             if !pair.left.isHidden {
             pair.left.apply(
                 cursor: left?.point,

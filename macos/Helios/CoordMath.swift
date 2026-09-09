@@ -2451,6 +2451,102 @@ enum GestureMath {
         return out
     }
 
+    /// Overlay: nur Steuerhand. Zweite Hand kein zweiter Cursor.
+    static func overlayMarkerVisible(isActor: Bool) -> Bool { isActor }
+
+    /// Idle (BEREIT) injiziert nichts. Auto-Scharf passiert vor driveGrab.
+    static func idleInjects() -> Bool { false }
+
+}
+
+/// Replay der Pinch-Maschine ohne AppKit. Fixtures = Protokoll-Frames.
+enum ActionReplay {
+    struct Tick {
+        var pose: String
+        var closedness: Double
+        var pinchClosed: Bool
+        var openScore: Int
+        var palm: CGPoint
+        var wrist: CGPoint
+        var tips: [CGPoint]
+        var palmWidth: CGFloat
+        var dt: TimeInterval
+        var armed: Bool
+        var beakEnabled: Bool
+    }
+
+    struct State {
+        var phase: PinchHoldPhase = .unseen
+        var heldFor: TimeInterval = 0
+        var pinchHeld = false
+        var fromBeak = false
+        var becameDrag = false
+        var origin: CGPoint?
+        var events: [String] = []
+        var last = ""
+    }
+
+    static func isRest(_ pose: String) -> Bool {
+        pose == "Offene Hand" || pose == "Daumen hoch" || pose == "openPalm" || pose == "thumbsUp"
+    }
+
+    static func isFist(_ pose: String) -> Bool { pose == "Faust" || pose == "fist" }
+
+    static func step(_ s: inout State, _ t: Tick) {
+        let rest = !s.pinchHeld && isRest(t.pose)
+        let meter = GestureMath.pinchMeterClosed(
+            gate: t.pinchClosed,
+            closedness: t.closedness,
+            isFist: isFist(t.pose) && !s.becameDrag,
+            restPose: rest
+        )
+        let beak = t.beakEnabled && GestureMath.beakTowardCamera(
+            palm: t.palm, wrist: t.wrist, tips: t.tips, palmWidth: t.palmWidth, openScore: t.openScore
+        )
+        let startOk = meter || (t.beakEnabled && beak)
+        let closedWanted = s.pinchHeld ? (startOk || meter) : startOk
+        let adv = GestureMath.pinchHoldAdvance(phase: s.phase, closed: closedWanted, heldFor: s.heldFor, dt: t.dt)
+        s.phase = adv.phase
+        s.heldFor = adv.heldFor
+        let isGrab = GestureMath.pinchHoldFire(s.phase)
+        if isGrab && !s.pinchHeld {
+            s.pinchHeld = true
+            s.fromBeak = t.beakEnabled && beak
+            s.becameDrag = false
+            s.origin = t.palm
+            s.last = s.fromBeak ? "Schnabel" : "Halten"
+        } else if isGrab && s.pinchHeld {
+            if t.armed, let o = s.origin {
+                let moved = hypot(t.palm.x - o.x, t.palm.y - o.y) / max(0.04, t.palmWidth)
+                let dragGo = s.fromBeak || GestureMath.pinchDragArmed(held: s.heldFor)
+                if dragGo, GestureMath.isDrag(
+                    palmMovedHW: moved, cursorMovedPx: moved * 120, dt: t.dt, palmVelHW: moved / max(0.008, t.dt)
+                ) {
+                    s.becameDrag = true
+                    s.last = "Ziehen"
+                    s.events.append("Ziehen")
+                }
+            }
+        } else if !isGrab && s.pinchHeld {
+            let wasDrag = s.becameDrag
+            let wasBeak = s.fromBeak
+            s.pinchHeld = false
+            s.becameDrag = false
+            s.fromBeak = false
+            s.origin = nil
+            s.phase = .unseen
+            s.heldFor = 0
+            if t.armed, !wasDrag, !wasBeak {
+                s.last = "Klick"
+                s.events.append("Klick")
+            } else if wasBeak {
+                s.last = "Schnabel aus"
+                s.events.append("Schnabel aus")
+            } else {
+                s.last = "Loslassen"
+            }
+        }
+    }
 }
 
 /// Safari nur Klick/Scroll, Finder Werfen, Xcode aus. Sonst voll.

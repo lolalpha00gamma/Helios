@@ -3217,6 +3217,22 @@ enum CoordTests {
             fputs("FAIL ROI Scale Continuity 1,6\n", stderr)
             fails += 1
         }
+
+        replayProtocol0943()
+        replaySyntheticTap()
+        replayIdleOpenPalm()
+        if GestureMath.idleInjects() {
+            fputs("FAIL Idle injiziert\n", stderr)
+            fails += 1
+        }
+        if GestureMath.overlayMarkerVisible(isActor: false) {
+            fputs("FAIL Overlay zweite Hand\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.overlayMarkerVisible(isActor: true) {
+            fputs("FAIL Overlay Steuerhand tot\n", stderr)
+            fails += 1
+        }
         if abs(GestureMath.visionRoiScale(dt: 0.10) - 1.6) > 0.01 {
             fputs("FAIL ROI Scale 100ms 1,6\n", stderr)
             fails += 1
@@ -3285,5 +3301,95 @@ enum CoordTests {
             exit(1)
         }
         print("CoordTests OK")
+    }
+
+    /// Protokoll 09:43 — offene Hand, pinchClosedness 0. Darf kein Ziehen/Schnabel.
+    static func replayProtocol0943() {
+        let frames: [(pose: String, c: Double, open: Int, palm: CGPoint, wrist: CGPoint, tips: [CGPoint], w: CGFloat, armed: Bool)] = [
+            ("Offene Hand", 0, 3, CGPoint(x: 0.310, y: 0.420), CGPoint(x: 0.084, y: 0.040), [
+                CGPoint(x: 0.413, y: 0.609), CGPoint(x: 0.375, y: 0.746),
+                CGPoint(x: 0.327, y: 0.777), CGPoint(x: 0.238, y: 0.792)
+            ], 0.23, false),
+            ("Offene Hand", 0, 4, CGPoint(x: 0.433, y: 0.418), CGPoint(x: 0.427, y: 0.265), [
+                CGPoint(x: 0.482, y: 0.592), CGPoint(x: 0.487, y: 0.606),
+                CGPoint(x: 0.489, y: 0.596), CGPoint(x: 0.485, y: 0.556)
+            ], 0.249, false),
+            ("Offene Hand", 0, 4, CGPoint(x: 0.433, y: 0.418), CGPoint(x: 0.427, y: 0.265), [
+                CGPoint(x: 0.482, y: 0.592), CGPoint(x: 0.487, y: 0.606),
+                CGPoint(x: 0.489, y: 0.596), CGPoint(x: 0.485, y: 0.556)
+            ], 0.249, false),
+            ("Offene Hand", 0, 4, CGPoint(x: 0.433, y: 0.418), CGPoint(x: 0.427, y: 0.265), [
+                CGPoint(x: 0.482, y: 0.592), CGPoint(x: 0.487, y: 0.606),
+                CGPoint(x: 0.489, y: 0.596), CGPoint(x: 0.485, y: 0.556)
+            ], 0.249, true),
+        ]
+        var s = ActionReplay.State()
+        for f in frames {
+            if GestureMath.beakTowardCamera(palm: f.palm, wrist: f.wrist, tips: f.tips, palmWidth: f.w, openScore: f.open) {
+                fputs("FAIL Protokoll Schnabel openScore \(f.open)\n", stderr)
+                fails += 1
+            }
+            if GestureMath.pinchMeterClosed(gate: false, closedness: f.c, restPose: true) {
+                fputs("FAIL Protokoll Meter offene Hand\n", stderr)
+                fails += 1
+            }
+            ActionReplay.step(&s, ActionReplay.Tick(
+                pose: f.pose, closedness: f.c, pinchClosed: false, openScore: f.open,
+                palm: f.palm, wrist: f.wrist, tips: f.tips, palmWidth: f.w,
+                dt: 0.125, armed: f.armed, beakEnabled: false
+            ))
+        }
+        if s.events.contains("Ziehen") || s.events.contains("Schnabel") || s.events.contains("Schnabel aus") {
+            fputs("FAIL Protokoll 09:43 Events \(s.events)\n", stderr)
+            fails += 1
+        }
+        if s.pinchHeld {
+            fputs("FAIL Protokoll 09:43 hält noch\n", stderr)
+            fails += 1
+        }
+    }
+
+    /// Kneifen zu/auf bei 8 fps, SCHARF, Palme still → ein Klick, kein Ziehen.
+    static func replaySyntheticTap() {
+        let palm = CGPoint(x: 0.50, y: 0.50)
+        let wrist = CGPoint(x: 0.50, y: 0.62)
+        let tips = [
+            CGPoint(x: 0.52, y: 0.38), CGPoint(x: 0.48, y: 0.36),
+            CGPoint(x: 0.45, y: 0.40), CGPoint(x: 0.42, y: 0.44)
+        ]
+        var s = ActionReplay.State()
+        let seq: [Double] = [0.05, 0.55, 0.60, 0.58, 0.08]
+        for c in seq {
+            ActionReplay.step(&s, ActionReplay.Tick(
+                pose: "Pinzette", closedness: c, pinchClosed: c >= 0.24, openScore: 0,
+                palm: palm, wrist: wrist, tips: tips, palmWidth: 0.12,
+                dt: 0.125, armed: true, beakEnabled: false
+            ))
+        }
+        if s.events != ["Klick"] {
+            fputs("FAIL Tap-Replay \(s.events) last=\(s.last)\n", stderr)
+            fails += 1
+        }
+    }
+
+    /// Offene Hand in BEREIT, Palme bewegt sich → nichts.
+    static func replayIdleOpenPalm() {
+        var s = ActionReplay.State()
+        for i in 0..<8 {
+            let y = 0.40 + CGFloat(i) * 0.02
+            ActionReplay.step(&s, ActionReplay.Tick(
+                pose: "Offene Hand", closedness: 0, pinchClosed: false, openScore: 4,
+                palm: CGPoint(x: 0.4, y: y), wrist: CGPoint(x: 0.4, y: y + 0.12),
+                tips: [
+                    CGPoint(x: 0.40, y: y - 0.10), CGPoint(x: 0.45, y: y - 0.12),
+                    CGPoint(x: 0.50, y: y - 0.11), CGPoint(x: 0.55, y: y - 0.09)
+                ],
+                palmWidth: 0.20, dt: 0.125, armed: false, beakEnabled: false
+            ))
+        }
+        if !s.events.isEmpty {
+            fputs("FAIL Idle offene Hand \(s.events)\n", stderr)
+            fails += 1
+        }
     }
 }

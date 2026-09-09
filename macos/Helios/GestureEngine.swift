@@ -671,12 +671,23 @@ final class GestureEngine {
         let armed = mode == .armed || testMode
 
         if !armed {
+            if pinchHeld {
+                dropPinchHold()
+                pinchBecameDrag = false
+                pinchFromBeak = false
+                pinchWasOK = false
+                pinchHandID = nil
+                pinchLastHand = nil
+                pinchOriginCursor = nil
+                pinchTrail.removeAll()
+                pinchClosedTrail.removeAll()
+                if !testMode { system.endWindowDrag() }
+            }
             placeCursors(hands, actor: primary)
             if let p = cursor { postSampleCursor(p) }
-            driveGrab(primary, now: now, fire: false)
-            grabPhase = pinchHeld ? .hold : .follow
-            grabTargetName = focused?.appName ?? ""
-            dragging = pinchHeld
+            grabPhase = .follow
+            grabTargetName = ""
+            dragging = false
             return
         }
         let cooling = now < cooldownUntil || now < armedQuietUntil
@@ -1677,7 +1688,7 @@ final class GestureEngine {
                 if (pinchFromBeak || GestureMath.pinchDragArmed(held: now - pinchBeganAt)),
                    GestureMath.isDrag(palmMovedHW: moved, cursorMovedPx: cursorPx, dt: sampleDt, palmVelHW: vel) {
                     if chromeHot.isEmpty || cursorPx >= 52 {
-                        if !system.isDragging, !testMode, now - lastGrabTry > 0.20 {
+                        if fire, !system.isDragging, !testMode, now - lastGrabTry > 0.20 {
                             lastGrabTry = now
                             let profile = AppInjectProfile.of(bundleId: focused?.bundleId ?? "")
                             if !profile.allowsWindowDrag {
@@ -1705,14 +1716,14 @@ final class GestureEngine {
                     }
                 }
             }
-            if !testMode, system.isDragging {
+            if fire, !testMode, system.isDragging {
                 let at = cursor ?? SpaceMap.linear(hand.palm)
                 system.updateWindowDrag(to: at)
                 lastAction = trashHot ? "Papierkorb" : "Ziehen"
             } else if testMode, pinchBecameDrag {
                 lastAction = trashHot ? "Test: Papierkorb" : "Test: Ziehen"
             }
-            if pinchBecameDrag,
+            if fire, pinchBecameDrag,
                system.isDragging,
                now - pinchBeganAt > 0.45,
                let y0 = pinchSpan0,
@@ -1749,7 +1760,7 @@ final class GestureEngine {
             trashHot = false
             if !testMode { system.endWindowDrag() }
             swipeMuteUntil = now + GestureMath.swipeMuteAfterPinch
-            if !fire, wasDrag {
+            if !fire {
                 lastAction = "Loslassen"
                 return
             }

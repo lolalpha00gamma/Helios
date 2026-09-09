@@ -1,4 +1,4 @@
-# Helios **1.6.84**
+# Helios **1.6.85**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -19,6 +19,16 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.85
+
+Warum 8-Hz-Jitter weiter klickte, Scroll nach Mini-Streak coaste und Ampel/Rechtsklick tot waren: `isClick` / `chromeDwellFires` / `twoPinchScrollCoastTicks` / `driveRightClick` / `fireChrome` lagen in CoordMath, `driveGrab` feuerte `fireTapClick` bedingungslos. Coast las `twoPinchLastTicks` nach Streak-Reset 0 oder nach Jitter.
+
+- **isClick vor fireTapClick.** Ruhende Palme / zu kurzer Halt / Drift ist kein Klick.
+- **Ampel-Dwell feuert.** Loslassen auf voller Dwell klickt die Knob, nicht den Desktop. Unvollständige Dwell kein Durchklick.
+- **Rechtsklick vor driveGrab.** Ring+Pinzette zählt 0,32 s, startet kein Ziehen.
+- **Scroll-Coast nur nach Streak.** Jitter-Ticks nach Loslassen tot.
+- Tests + MARKETING_VERSION 1.6.85 (Build 118).
 
 ## Neu in 1.6.84
 

@@ -1,5 +1,54 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.85**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.85 erledigt
+
+1.6.84 pinchStartsGrab. isClick tot, Ampel tot, Rechtsklick tot, Scroll-Coast nach Jitter.
+
+1. **isClick vor fireTapClick.**
+2. **Ampel chromeHotKnob + chromeDwellFires → fireChrome.**
+3. **driveRightClick vor driveGrab**, Zählfenster blockt Grab.
+4. **twoPinchScrollCoastTicks** vor Streak-Reset.
+5. Tests + MARKETING_VERSION 1.6.85 (Build 118).
+
+## Erweiterung (neu, 1.6.85)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+2. **HeliosAegisKit** SPM: Mutex-Protokoll einmal, nicht Copy-Paste CoordMath/MatchMath.
+3. **VNTrackObjectRequest** echte Hand-Observation statt IoU-Box zwischen 8-Hz-Detect.
+4. **VNImageRequestHandler(cvPixelBuffer:)** — 420f nicht über CGImage.
+5. **Per-Finger-Kontakt** statt Skalar-Closedness (Daumen-Index Distanz + Finger-Curl).
+6. **pinchTapWouldClick live** als zweite Sequenz-Gate neben isClick (zu→auf über 2 Frames).
+7. **Ampel-Ring Overlay** 80 ms vor fireChrome, gleicher Click-Ring wie Tap.
+8. **Rechtsklick-HUD** während 0,32 s Ring-Halt (Chip „R-Klick …“).
+9. **Tap-Cancel** offene Palme 200 ms bricht pending Hold vor Fire.
+10. **Click-Ring Overlay** 80 ms vor Fire, damit man den Tap sieht.
+11. **Hand-ID über uniqueID-Flicker** Chirality + Palm-UV, nicht Slot.
+12. **CGEventSource-State** OS-Maus-Steal schneller als Clutch-Radius.
+13. **Continuity Desk-View Crop-Kompensation** (zweite Cam, andere Homographie).
+14. **IOHIDEventSystemClient** Pointer statt CGEvent (weniger Hitch).
+15. **Watch Double-Tap** destruktive Klicks.
+16. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+17. **Overlay CAMetalLayer.**
+18. **DepthCapture an Continuity-LiDAR.**
+19. **Continuity 15-fps Probe** gemessen.
+20. **Mission-Control Zwei-Palm-Spread.**
+21. **Aegis-Gaze Pinch-Confirm.**
+22. **Per-Display pointerGain Pref.**
+23. **Bezel-Hop Homographie Blend** 200 ms.
+24. **FramePump Vision-Cancel Token.**
+25. **Air-Keyboard Shortcut-Overlay.**
+26. **JSONL Palm-Vel** für späteres Predict (bleibt 0 bis gemessen).
+27. **iPhone Ultraweit FOV.**
+28. **Gesture-Macro** 2-Schritt (Pinzette halten + Wisch = App-Switch).
+29. **Scroll-Coast Sign-Hold** nach Achsenwechsel kein Rest-Momentum.
+30. **Chrome-Dwell nur auf focused AX** — fremde Ampel hinter Vollbild tot.
+
+P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.84**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
 
 ## In 1.6.84 erledigt

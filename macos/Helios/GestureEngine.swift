@@ -176,6 +176,7 @@ final class GestureEngine {
     private var chromeDwellSince: TimeInterval?
     private var chromeDwellKind: ChromeKnob.Kind?
     private var chromeDwellAt: CGPoint?
+    private var chromeHotKnob: ChromeKnob?
     private var pointSince: TimeInterval?
     private var kbDwellID: String?
     private var kbDwellAt: TimeInterval?
@@ -312,6 +313,7 @@ final class GestureEngine {
         grabTargetName = ""
         chromeKnobs = []
         chromeHot = ""
+        chromeHotKnob = nil
         chromeDwell = 0
         chromeDwellSince = nil
         chromeDwellKind = nil
@@ -448,11 +450,14 @@ final class GestureEngine {
             swipeHandID = nil
             twoPinchEdgeStreak = 0
             twoPinchScaleStreak = 0
-            twoPinchScrollStreak = 0
             twoPinchLockedAxis = .none
             twoPinchLastMapped = nil
             freezeGain = 1
-            if twoPinchSince != nil, let m = GestureMath.twoPinchScrollMomentum(ticks: twoPinchLastTicks, now: now) {
+            let coastTicks = GestureMath.twoPinchScrollCoastTicks(
+                streak: twoPinchScrollStreak, lastTicks: twoPinchLastTicks
+            )
+            twoPinchScrollStreak = 0
+            if twoPinchSince != nil, let m = GestureMath.twoPinchScrollMomentum(ticks: coastTicks, now: now) {
                 scrollCoast = m
             } else {
                 scrollCoast = nil
@@ -488,6 +493,7 @@ final class GestureEngine {
             grabTargetName = ""
             chromeKnobs = []
             chromeHot = ""
+            chromeHotKnob = nil
             chromeDwell = 0
             peaceProgress = 0
             if mode == .armed, lastHandSeen > 0, now - lastHandSeen >= GestureMath.deadMan {
@@ -693,6 +699,10 @@ final class GestureEngine {
         }
         magnetChrome(now: now)
         updateTrashHot()
+        if driveRightClick(actor, now: now) {
+            dragging = pinchHeld
+            return
+        }
         driveGrab(actor, now: now)
         if scaling {
             dragging = pinchHeld
@@ -1245,7 +1255,10 @@ final class GestureEngine {
                 cooldownUntil = max(cooldownUntil, now + 0.25)
                 pinchTrail.removeAll()
                 twoPinchEndedAt = now
-                if let m = GestureMath.twoPinchScrollMomentum(ticks: twoPinchLastTicks, now: now) {
+                let coastTicks = GestureMath.twoPinchScrollCoastTicks(
+                    streak: twoPinchScrollStreak, lastTicks: twoPinchLastTicks
+                )
+                if let m = GestureMath.twoPinchScrollMomentum(ticks: coastTicks, now: now) {
                     scrollCoast = m
                 }
             }
@@ -1394,6 +1407,7 @@ final class GestureEngine {
         guard !system.isDragging else {
             chromeKnobs = []
             chromeHot = ""
+            chromeHotKnob = nil
             chromeDwell = 0
             chromeDwellSince = nil
             chromeDwellKind = nil
@@ -1409,6 +1423,7 @@ final class GestureEngine {
                     if !chromeKnobs.isEmpty {
                         chromeKnobs = []
                         chromeHot = ""
+                        chromeHotKnob = nil
                         chromeDwell = 0
                         chromeDwellSince = nil
                         chromeDwellKind = nil
@@ -1422,6 +1437,7 @@ final class GestureEngine {
         chromeKnobs = knobs
         guard !knobs.isEmpty else {
             chromeHot = ""
+            chromeHotKnob = nil
             chromeDwell = 0
             chromeDwellSince = nil
             chromeDwellKind = nil
@@ -1433,6 +1449,7 @@ final class GestureEngine {
         }
         guard near else {
             chromeHot = ""
+            chromeHotKnob = nil
             chromeDwell = 0
             chromeDwellSince = nil
             chromeDwellKind = nil
@@ -1443,6 +1460,7 @@ final class GestureEngine {
             hypot($0.center.x - c.x, $0.center.y - c.y) < hypot($1.center.x - c.x, $1.center.y - c.y)
         }), hypot(hot.center.x - c.x, hot.center.y - c.y) < GestureMath.chromeMagnet else {
             chromeHot = ""
+            chromeHotKnob = nil
             chromeDwell = 0
             chromeDwellSince = nil
             chromeDwellKind = nil
@@ -1452,6 +1470,7 @@ final class GestureEngine {
         // Nur Anzeige. Aktion nur bei Pinzette-Loslassen direkt auf der Ampel.
         guard pinchHeld, !pinchBecameDrag else {
             chromeHot = ""
+            chromeHotKnob = nil
             chromeDwell = 0
             chromeDwellSince = nil
             chromeDwellKind = nil
@@ -1459,6 +1478,7 @@ final class GestureEngine {
             return
         }
         chromeHot = hot.labelDE
+        chromeHotKnob = hot
         if chromeDwellKind != hot.kind {
             chromeDwellKind = hot.kind
             chromeDwellSince = now
@@ -1673,6 +1693,13 @@ final class GestureEngine {
             let wasOK = pinchWasOK
             let origin = pinchOriginCursor
             let trail = pinchTrail
+            let heldFor = now - pinchBeganAt
+            let movedHW = pinchPalmMoved
+            let peakClosed = pinchPeakClosed
+            let cursorPx: CGFloat = {
+                guard let a = origin, let b = cursor else { return 0 }
+                return hypot(a.x - b.x, a.y - b.y)
+            }()
             dropPinchHold()
             pinchBecameDrag = false
             pinchFromBeak = false
@@ -1701,8 +1728,27 @@ final class GestureEngine {
                     onLog?("Schnabel aus — kein Klick", .info, Int(hand.poseProb * 100))
                 } else if fireFolderOrOK(at: origin ?? cursor, wasOK: wasOK) {
                     ()
-                } else {
+                } else if let knob = chromeHotKnob, GestureMath.chromeDwellFires(chromeDwell) {
+                    fireChrome(knob)
+                    chromeHot = ""
+                    chromeHotKnob = nil
+                    chromeDwell = 0
+                } else if chromeHotKnob != nil {
+                    lastAction = chromeHot.isEmpty ? "Ampel" : chromeHot
+                    chromeHot = ""
+                    chromeHotKnob = nil
+                    chromeDwell = 0
+                } else if GestureMath.isClick(
+                    held: heldFor,
+                    palmMovedHW: movedHW,
+                    cursorMovedPx: cursorPx,
+                    dt: sampleDt,
+                    closedness: peakClosed
+                ) {
                     fireTapClick(at: origin ?? cursor)
+                } else {
+                    lastAction = "Loslassen"
+                    onLog?("Loslassen — kein Klick", .info, Int(hand.poseProb * 100))
                 }
             } else {
                 pinchTrail = trail
@@ -1717,6 +1763,7 @@ final class GestureEngine {
                     cooldownUntil = now + 0.4
                     chromeKnobs = []
                     chromeHot = ""
+                    chromeHotKnob = nil
                     return
                 }
                 lastAction = testMode ? "Test: Loslassen" : "Loslassen"
@@ -2062,7 +2109,7 @@ final class GestureEngine {
             return true
         }
         lastAction = "Rechtsklick …"
-        return false
+        return true
     }
 
     /// Offene Hand 1 s still. Aus by default — Accessibility, nicht Alltags-Klick.

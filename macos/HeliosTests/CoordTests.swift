@@ -2902,6 +2902,27 @@ enum CoordTests {
             fails += 1
         }
 
+        if GestureMath.twoPinchScrollCoastTicks(streak: 0, lastTicks: 8) != 0 {
+            fputs("FAIL Scroll-Coast Jitter-Streak 0\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoPinchScrollCoastTicks(streak: 2, lastTicks: 8) != 0 {
+            fputs("FAIL Scroll-Coast unter Need\n", stderr)
+            fails += 1
+        }
+        if GestureMath.twoPinchScrollCoastTicks(streak: 3, lastTicks: 8) != 8 {
+            fputs("FAIL Scroll-Coast nach Streak\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.chromeDwellFires(1) {
+            fputs("FAIL Ampel-Dwell voll feuert\n", stderr)
+            fails += 1
+        }
+        if GestureMath.chromeDwellFires(0.99) {
+            fputs("FAIL Ampel-Dwell 0,99 kein Fire\n", stderr)
+            fails += 1
+        }
+
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)
             exit(1)

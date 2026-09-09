@@ -290,6 +290,9 @@ enum GestureMath {
         max(pinchClickStillPx, min(56, CGFloat(max(0.008, dt) * 380)))
     }
 
+    /// Ampel-Dwell voll. Loslassen klickt die Chrome-Knob, nicht den Desktop.
+    static func chromeDwellFires(_ dwell: CGFloat) -> Bool { dwell >= 1 }
+
     /// 24 fps 120 ms. 8 fps zwei Frames, sonst ein Tick startet Zoom.
     static func twoPinchConfirmNeed(dt: TimeInterval) -> TimeInterval {
         max(twoPinchConfirm, min(0.32, max(0.008, dt) * 1.6))
@@ -1534,6 +1537,11 @@ enum GestureMath {
 
     static func twoPinchEdgeReady(streak: Int, need: Int = twoPinchEdgeNeed) -> Bool {
         streak >= need
+    }
+
+    /// Coast nur nach echtem Scroll-Streak. Jitter-Ticks sonst Momentum nach Loslassen.
+    static func twoPinchScrollCoastTicks(streak: Int, lastTicks: Int32, need: Int = twoPinchEdgeNeed) -> Int32 {
+        twoPinchEdgeReady(streak: streak, need: need) ? lastTicks : 0
     }
 
     /// Continuity-Jitter dreht das Vorzeichen — Streak darf nur gleichsinnig zählen.

@@ -1673,8 +1673,8 @@ enum CoordTests {
             fputs("FAIL Tap ohne Zu\n", stderr)
             fails += 1
         }
-        if GestureMath.pinchTapWouldClick(closedness: [0.5, 0.6, 0.1], isFist: [true, true, false]) {
-            fputs("FAIL Tap Faust kein Klick\n", stderr)
+        if !GestureMath.pinchTapWouldClick(closedness: [0.5, 0.6, 0.1], isFist: [true, true, false]) {
+            fputs("FAIL Tap Faust ist Pinch\n", stderr)
             fails += 1
         }
         if !GestureMath.pinchTapWouldClick(closedness: [0, 0, 0], gates: [false, true, false], dt: 0.125) {

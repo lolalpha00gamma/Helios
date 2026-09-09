@@ -2061,9 +2061,10 @@ enum GestureMath {
         return palmsY.allSatisfy { $0 < tablePalmY } && stillHW < tableStillHW
     }
 
-    /// Dieselbe Anzeige wie der Abstandszeiger: Finger nah = zu. Ohne Reach/3D/Pose.
+    /// Abstandszeiger ist die Quelle. Pose darf einen echten Pinch nicht schlucken.
     static func pinchMeterClosed(gate: Bool, closedness: Double, isFist: Bool = false, restPose: Bool = false) -> Bool {
-        if isFist || restPose { return false }
+        _ = isFist
+        _ = restPose
         return gate || closedness >= 0.24
     }
 

@@ -714,11 +714,11 @@ final class GestureEngine {
         }
         magnetChrome(now: now)
         updateTrashHot()
+        driveGrab(actor, now: now)
         if driveRightClick(actor, now: now) {
             dragging = pinchHeld
             return
         }
-        driveGrab(actor, now: now)
         if scaling {
             dragging = pinchHeld
             return
@@ -844,7 +844,7 @@ final class GestureEngine {
             return
         }
         let floor = Float(GestureMath.entropyActionFloor(entropy: lastFusionEntropy))
-        if systemAction, confidence < floor, !testMode {
+        if systemAction, confidence < floor, !testMode, !pinchHeld {
             lastAction = "\(name) — unsicher"
             onLog?(String(format: "%@ — Pose < %.0f %%", name, floor * 100), .blocked, Int(confidence * 100))
             return
@@ -1694,7 +1694,7 @@ final class GestureEngine {
                                 grabLogged = true
                             } else {
                                 let at = cursor ?? SpaceMap.linear(hand.palm)
-                                let r = system.beginWindowDrag(at: at)
+                                let r = system.beginWindowDrag(at: at, force: true)
                                 if r.ok {
                                     pinchBecameDrag = true
                                     lastAction = r.detail == "Ziehen" ? "Ziehen" : "Greifen"
@@ -2147,7 +2147,7 @@ final class GestureEngine {
             if GestureMath.clickHitchFromFreeze(freezeEnded: freezeEndedAt, now: now, dt: sampleDt) {
                 lastAction = "Freeze"
                 ringPinchSince = nil
-                return true
+                return false
             }
             perform("Rechtsklick", need: .input, confidence: Float(max(hand.poseProb, hand.pinchClosedness))) {
                 system.rightClick()
@@ -2158,7 +2158,7 @@ final class GestureEngine {
             return true
         }
         lastAction = "Rechtsklick …"
-        return true
+        return false
     }
 
     /// Offene Hand 1 s still. Aus by default — Accessibility, nicht Alltags-Klick.

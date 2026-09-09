@@ -246,8 +246,8 @@ final class SystemControl {
     private var pointerDrag = false
 
     @discardableResult
-    func beginWindowDrag(at quartz: CGPoint? = nil) -> ActionResult {
-        guard allowsInjection else { return .fail("Maus hat Vorrang — Steuerung pausiert") }
+    func beginWindowDrag(at quartz: CGPoint? = nil, force: Bool = false) -> ActionResult {
+        if !force, !allowsInjection { return .fail("Maus hat Vorrang — Steuerung pausiert") }
         let loc = quartz ?? lastPosted ?? NSEvent.mouseLocation.screenFlipped
         lastPosted = loc
         guard postMouse(.leftMouseDown, at: loc) else { return .fail("CGEvent Down") }
@@ -256,7 +256,7 @@ final class SystemControl {
     }
 
     func updateWindowDrag(to quartz: CGPoint? = nil) {
-        guard allowsInjection else {
+        if !allowsInjection, !pointerDrag {
             endWindowDrag()
             return
         }

@@ -1606,8 +1606,8 @@ enum CoordTests {
             fputs("FAIL Meter Gate zu\n", stderr)
             fails += 1
         }
-        if GestureMath.pinchMeterClosed(gate: true, closedness: 0.9, restPose: true) {
-            fputs("FAIL Meter Ruhepose\n", stderr)
+        if !GestureMath.pinchMeterClosed(gate: true, closedness: 0.9, restPose: true) {
+            fputs("FAIL Meter trotz Ruhepose\n", stderr)
             fails += 1
         }
         if !GestureMath.pinchMeterClosed(gate: false, closedness: 0.30, isFist: false, restPose: false) {
@@ -1657,8 +1657,8 @@ enum CoordTests {
             fputs("FAIL Ordner-Treffer\n", stderr)
             fails += 1
         }
-        if GestureMath.pinchMeterClosed(gate: true, closedness: 0.9, isFist: true) {
-            fputs("FAIL Meter Faust\n", stderr)
+        if !GestureMath.pinchMeterClosed(gate: true, closedness: 0.9, isFist: true) {
+            fputs("FAIL Meter trotz Faust\n", stderr)
             fails += 1
         }
         if !GestureMath.pinchTapWouldClick(closedness: [0.05, 0.45, 0.55, 0.08]) {
@@ -3227,6 +3227,10 @@ enum CoordTests {
         replayIdleOpenPalm()
         if GestureMath.idleInjects() {
             fputs("FAIL Idle injiziert\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.rightClickArms(closedness: 0.7, ringOut: true, middleOut: false, pinchHeld: false) {
+            fputs("FAIL Rechtsklick arm\n", stderr)
             fails += 1
         }
         if GestureMath.overlayMarkerVisible(isActor: false) {

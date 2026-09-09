@@ -101,6 +101,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     private var mutexBeat: DispatchSourceTimer?
     private var interruptObs: NSObjectProtocol?
     private var interruptEndObs: NSObjectProtocol?
+    private var sessionInterrupted = false
 
     func setMutexPalm(_ palm: (x: CGFloat, y: CGFloat, w: CGFloat)?) {
         setMutexPalms(palm.map { [$0] } ?? [])
@@ -618,7 +619,10 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             object: session,
             queue: nil
         ) { [weak self] _ in
-            self?.cameraQueue.async { self?.releaseCameraMutex() }
+            self?.cameraQueue.async {
+                self?.sessionInterrupted = true
+                self?.releaseCameraMutex()
+            }
         }
         interruptEndObs = NotificationCenter.default.addObserver(
             forName: .AVCaptureSessionInterruptionEnded,
@@ -626,6 +630,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             queue: nil
         ) { [weak self] _ in
             self?.cameraQueue.async {
+                self?.sessionInterrupted = false
                 self?.reassertCaptureLocks()
                 self?.beatCameraMutex()
             }
@@ -703,12 +708,14 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         }
     }
 
-    /// 1080-Preset klemmt Continuity auf 8 fps. inputPriority lässt activeFormat (720p24) gewinnen.
+    /// 1080-Preset klemmt Continuity auf 8 fps. inputPriority ist iOS-only.
     static func applySessionPreset(_ session: AVCaptureSession) {
+        #if os(iOS)
         if GestureMath.capturePrefersInputPriority(), session.canSetSessionPreset(.inputPriority) {
             session.sessionPreset = .inputPriority
             return
         }
+        #endif
         if GestureMath.captureSessionPresetClamps1080(), session.canSetSessionPreset(.hd1280x720) {
             session.sessionPreset = .hd1280x720
             return
@@ -922,7 +929,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     }
 
     private func beatCameraMutex() {
-        guard GestureMath.cameraMutexBeatAllowed(interrupted: session.isInterrupted) else { return }
+        guard GestureMath.cameraMutexBeatAllowed(interrupted: sessionInterrupted) else { return }
         let now = Date().timeIntervalSince1970
         guard GestureMath.cameraMutexClaimDue(last: lastMutexClaimAt, now: now) else { return }
         lastMutexClaimAt = now

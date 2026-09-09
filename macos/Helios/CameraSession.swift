@@ -852,6 +852,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
     }
 
     private func beatCameraMutex() {
+        guard GestureMath.cameraMutexBeatAllowed(interrupted: session.isInterrupted) else { return }
         let now = Date().timeIntervalSince1970
         guard GestureMath.cameraMutexClaimDue(last: lastMutexClaimAt, now: now) else { return }
         lastMutexClaimAt = now
@@ -917,6 +918,10 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             try? FileManager.default.removeItem(at: url)
         }
         try? FileManager.default.removeItem(at: cameraMutexStampURL())
+        mutexLock.lock()
+        mutexPalmUVs = []
+        mutexPalmUV = nil
+        mutexLock.unlock()
         mutexChip = "MUTEX —"
         lastMutexClaimAt = 0
         lastMutexSampleUnix = 0

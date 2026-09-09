@@ -636,11 +636,16 @@ final class GestureEngine {
         if mode != .armed, !testMode {
             if idleArmSince == nil { idleArmSince = now }
             let p = primary
-            let pinch = GestureMath.pinchMeterClosed(
+            let pinch = GestureMath.pinchStartsGrab(
                 gate: p.pinchClosed,
                 closedness: p.pinchClosedness,
-                isFist: p.pose == .fist,
-                restPose: p.pose == .openPalm || p.pose == .thumbsUp
+                reach: p.pinchReach,
+                index: p.indexScore,
+                zSep: p.pinchZSep,
+                quality: p.quality,
+                approach: p.pinchZApproach,
+                residual: p.liftResidual,
+                palmWidth: p.palmWidth
             )
             let held = now - (idleArmSince ?? now)
             if pinch || (!mustRearm && held >= GestureMath.idleHandArm) {
@@ -1538,12 +1543,30 @@ final class GestureEngine {
             GestureMath.pinchAnalog(closedness: hand.pinchClosedness, zSep: hand.pinchZSep)
         )
         let beak = beakNow(hand)
-        let closedWanted = GestureMath.pinchMeterClosed(
+        let startOk = GestureMath.pinchStartsGrab(
             gate: hand.pinchClosed || analogClosed,
             closedness: hand.pinchClosedness,
-            isFist: hand.pose == .fist && !pinchBecameDrag,
-            restPose: !pinchHeld && (hand.pose == .openPalm || hand.pose == .thumbsUp)
+            reach: hand.pinchReach,
+            index: hand.indexScore,
+            zSep: hand.pinchZSep,
+            quality: hand.quality,
+            approach: hand.pinchZApproach,
+            residual: hand.liftResidual,
+            palmWidth: hand.palmWidth
         ) || (beakGrabEnabled && beak)
+        let holdOk = GestureMath.pinchHoldsGrab(
+            gate: hand.pinchClosed || analogClosed,
+            closedness: hand.pinchClosedness,
+            reach: hand.pinchReach,
+            index: hand.indexScore,
+            allowFist: pinchBecameDrag || pinchFromBeak,
+            zSep: hand.pinchZSep,
+            quality: hand.quality,
+            approach: hand.pinchZApproach,
+            residual: hand.liftResidual,
+            palmWidth: hand.palmWidth
+        ) || analogClosed || (beakGrabEnabled && pinchFromBeak && beak)
+        let closedWanted = pinchHeld ? holdOk : startOk
         let advanced = GestureMath.pinchHoldAdvance(
             phase: pinchHoldPhase,
             closed: closedWanted,

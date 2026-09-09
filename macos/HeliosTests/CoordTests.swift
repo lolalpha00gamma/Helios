@@ -2830,6 +2830,45 @@ enum CoordTests {
             fputs("FAIL Mutex PTS dropout now \(stalePts)\n", stderr)
             fails += 1
         }
+        let freshLine = GestureMath.cameraMutexLine(
+            owner: "helios", pid: 1, now: 1_700_000_000.08, gen: 1, pts: 1_700_000_000
+        )
+        if !GestureMath.cameraMutexStampFresh(freshLine, now: 1_700_000_000.20) {
+            fputs("FAIL Stamp Fresh 120 ms\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraMutexStampFresh(freshLine, now: 1_700_000_000.50) {
+            fputs("FAIL Stamp Stale 420 ms tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraMutexStampFresh("helios 1 12.4 0 12.4 v2", now: 20) {
+            fputs("FAIL Stamp Media-Zeit tot\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.cameraMutexStampTtl() - 0.25) > 1e-9 {
+            fputs("FAIL Stamp TTL 250 ms\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraMutexBeatAllowed(interrupted: true) {
+            fputs("FAIL Beat Interrupt tot\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.cameraMutexBeatAllowed(interrupted: false) {
+            fputs("FAIL Beat Live hält\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchStartsGrab(
+            gate: true, closedness: 0.90, reach: 0.40, index: 0.10, palmWidth: 0.12
+        ) {
+            fputs("FAIL PinchStart Faust-Reach tot\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinchStartsGrab(
+            gate: false, closedness: 0.70, reach: 1.10, index: 0.70, quality: 0.80, palmWidth: 0.12
+        ) {
+            fputs("FAIL PinchStart echte Pinzette hält\n", stderr)
+            fails += 1
+        }
         if GestureMath.twoPinchEdgeHold(ok: true, streak: 0, need: 2) != 1 {
             fputs("FAIL Scroll-Streak analog Zoom Tick 1\n", stderr)
             fails += 1

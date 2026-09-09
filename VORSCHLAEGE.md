@@ -1,6 +1,51 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.84**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.84 erledigt
+
+1.6.83 Schnabel/OK. `pinchStartsGrab` tot in driveGrab. Meter 0,24 = Jitter-Klick. Stamp ohne TTL. Interrupt-Release, Beat 80 ms reclaimte.
+
+1. **driveGrab Start/Hold verdrahtet** (`pinchStartsGrab` / `pinchHoldsGrab`).
+2. **Idle-Arm echte Pinzette.**
+3. **Stamp-TTL 250 ms** (`cameraMutexStampFresh`).
+4. **Interrupt-Beat tot** (`cameraMutexBeatAllowed`). Palmen leer nach Release.
+5. Tests + MARKETING_VERSION 1.6.84 (Build 117).
+
+## Erweiterung (neu, 1.6.84)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+2. **HeliosAegisKit** SPM: Mutex-Protokoll einmal, nicht Copy-Paste CoordMath/MatchMath.
+3. **VNTrackObjectRequest** echte Hand-Observation statt IoU-Box zwischen 8-Hz-Detect.
+4. **VNImageRequestHandler(cvPixelBuffer:)** — 420f nicht über CGImage.
+5. **Per-Finger-Kontakt** statt Skalar-Closedness (Daumen-Index Distanz + Finger-Curl).
+6. **Tap-Cancel** offene Palme 200 ms bricht pending Hold vor Fire.
+7. **Click-Ring Overlay** 80 ms vor Fire, damit man den Tap sieht.
+8. **Hand-ID über uniqueID-Flicker** Chirality + Palm-UV, nicht Slot.
+9. **CGEventSource-State** OS-Maus-Steal schneller als Clutch-Radius.
+10. **Continuity Desk-View Crop-Kompensation** (zweite Cam, andere Homographie).
+11. **IOHIDEventSystemClient** Pointer statt CGEvent (weniger Hitch).
+12. **Watch Double-Tap** destruktive Klicks.
+13. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+14. **Overlay CAMetalLayer.**
+15. **DepthCapture an Continuity-LiDAR.**
+16. **Continuity 15-fps Probe** gemessen.
+17. **Mission-Control Zwei-Palm-Spread.**
+18. **Aegis-Gaze Pinch-Confirm.**
+19. **Per-Display pointerGain Pref.**
+20. **Bezel-Hop Homographie Blend** 200 ms.
+21. **FramePump Vision-Cancel Token.**
+22. **Air-Keyboard Shortcut-Overlay.**
+23. **JSONL Palm-Vel** für späteres Predict (bleibt 0 bis gemessen).
+24. **iPhone Ultraweit FOV.**
+25. **Gesture-Macro** 2-Schritt (Pinzette halten + Wisch = App-Switch).
+
+P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.75**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
 
 ## In 1.6.75 erledigt
 

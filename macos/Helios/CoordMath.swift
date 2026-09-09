@@ -2199,6 +2199,20 @@ enum GestureMath {
         }
     }
 
+    /// Palmen/PTS aus der Stamp-Datei. 12 s Parse-Stale ließ tote UV skipPrinten.
+    static func cameraMutexStampTtl() -> TimeInterval { 0.25 }
+
+    static func cameraMutexStampFresh(_ text: String, now: TimeInterval, ttl: TimeInterval = 0.25) -> Bool {
+        let parts = text.split(whereSeparator: { $0 == " " || $0 == "\n" }).map(String.init)
+        guard parts.count >= 3, let stamp = TimeInterval(parts[2]), stamp.isFinite, stamp > 1_000_000 else {
+            return false
+        }
+        return now - stamp <= ttl
+    }
+
+    /// 1.6.73 Release bei Interrupt. Heartbeat 80 ms schrieb Stamp+Claim sofort wieder.
+    static func cameraMutexBeatAllowed(interrupted: Bool) -> Bool { !interrupted }
+
     /// Heartbeat ohne Sample darf nicht Date() als neuen Continuity-PTS schreiben.
     static func cameraMutexPtsFromSample(
         now: TimeInterval,

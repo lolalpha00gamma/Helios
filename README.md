@@ -1,4 +1,4 @@
-# Helios **1.6.83**
+# Helios **1.6.84**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -19,6 +19,16 @@ Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 4. Rechte: Kamera, Bedienungshilfen, Eingabeüberwachung. Nach jedem Update Schalter **aus und wieder an**.
 
 Auf der Release-Seite stehen automatisch auch *Source code (zip)* / *tar.gz*. Das ist GitHub-Quelltext, **nicht** die App.
+
+## Neu in 1.6.84
+
+Warum Klicks bei ruhender Hand und Continuity-Jitter weiter feuerten: `pinchStartsGrab` / `pinchHoldsGrab` lagen seit 1.6.67 in CoordMath, `driveGrab` nahm den Meter `closedness ≥ 0,24` ohne Reach. Faust und offene Palme mit 8-Hz-Rauschen wurden Tap.
+
+- **Pinch-Start/Hold verdrahtet.** Start braucht Reach/Zeigefinger oder Schnabel. Hold weicher, Faust nur während Zug.
+- **Idle-Arm nur echte Pinzette.** Jitter 0,24 schärft nicht.
+- **Stamp-TTL 250 ms.** Aegis darf tote Palmen-UV nicht 12 s skipPrinten.
+- **Interrupt-Beat tot.** Heartbeat reclaime nach Continuity-Drop nicht. Palmen leer.
+- Tests + MARKETING_VERSION 1.6.84 (Build 117).
 
 ## Neu in 1.6.83
 

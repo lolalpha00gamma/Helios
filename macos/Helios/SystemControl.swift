@@ -77,14 +77,15 @@ final class SystemControl {
 
     func startClutch() {
         guard monitors.isEmpty else { return }
-        let mask: NSEvent.EventTypeMask = [.leftMouseDragged]
+        let mask: NSEvent.EventTypeMask = [
+            .leftMouseDragged, .leftMouseDown, .rightMouseDown, .scrollWheel, .keyDown
+        ]
         let note: (NSEvent) -> Void = { [weak self] e in
             Task { @MainActor in self?.noteHardware(e) }
         }
         if let g = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: note) {
             monitors.append(g)
         }
-        // Nur global. Der Local-Monitor sieht eigene CGEvents und hat Helios selbst pausiert.
     }
 
     func stopClutch() {
@@ -93,12 +94,22 @@ final class SystemControl {
     }
 
     private func noteHardware(_ e: NSEvent) {
-        guard e.type == .leftMouseDragged || e.type == .mouseMoved else { return }
         let now = CACurrentMediaTime()
-        // Eigene CGEvents (moveCursor) kommen als mouseMoved zurück — bei <12 fps
-        // war der Sprung > 10 px und hat Helios selbst pausiert.
         if lastPostAt > 0, now - lastPostAt < GestureMath.clutchOwnNeed(dt: sampleDt) { return }
         if GestureMath.clutchIgnoresFreeze(freezeLive: freezeLive) { return }
+        if e.type == .keyDown {
+            seize(now, hold: GestureMath.clutchKeyHold)
+            return
+        }
+        if e.type == .scrollWheel {
+            seize(now, hold: GestureMath.clutchScrollHold)
+            return
+        }
+        if e.type == .leftMouseDown || e.type == .rightMouseDown {
+            seize(now, hold: GestureMath.clutchKeyHold)
+            return
+        }
+        guard e.type == .leftMouseDragged || e.type == .mouseMoved else { return }
         let d = hypot(e.deltaX, e.deltaY)
         let nowLoc = NSEvent.mouseLocation.screenFlipped
         let scale = ScreenGeometry.backingScale(quartz: nowLoc)
@@ -110,8 +121,8 @@ final class SystemControl {
         seize(now)
     }
 
-    private func seize(_ now: TimeInterval) {
-        pauseUntil = now + 0.85
+    private func seize(_ now: TimeInterval, hold: TimeInterval = 0.85) {
+        pauseUntil = now + hold
         mouseHasControl = true
     }
 
@@ -133,15 +144,20 @@ final class SystemControl {
     }
 
     @discardableResult
-    func click(force: Bool = false) -> ActionResult {
+    func click(force: Bool = false, at point: CGPoint? = nil) -> ActionResult {
         let now = CACurrentMediaTime()
         if !force, GestureMath.clickHitchBlocks(lastClick: lastClick, now: now, dt: sampleDt) {
             return .skip("Klick-Hitch")
         }
         lastClick = now
         if !force, !allowsInjection { return .fail("Maus hat Vorrang") }
-        let loc = lastPosted ?? NSEvent.mouseLocation.screenFlipped
+        let loc = ScreenGeometry.clampQuartz(point ?? lastPosted ?? NSEvent.mouseLocation.screenFlipped)
         lastPosted = loc
+        lastPostAt = now
+        _ = postMouse(.mouseMoved, at: loc)
+        if axPress(at: loc) {
+            return .ok("Klick")
+        }
         guard postMouse(.leftMouseDown, at: loc), postMouse(.leftMouseUp, at: loc) else {
             return .fail("CGEvent Klick")
         }
@@ -478,15 +494,34 @@ final class SystemControl {
     @discardableResult
     private func postMouse(_ type: CGEventType, at point: CGPoint, button: CGMouseButton = .left) -> Bool {
         let src = CGEventSource(stateID: .hidSystemState)
+        let loc = ScreenGeometry.clampQuartz(point)
         guard let e = CGEvent(
             mouseEventSource: src,
             mouseType: type,
-            mouseCursorPosition: ScreenGeometry.clampQuartz(point),
+            mouseCursorPosition: loc,
             mouseButton: button
         ) else { return false }
         e.setIntegerValueField(.mouseEventClickState, value: 1)
         e.post(tap: .cghidEventTap)
         return true
+    }
+
+    /// Button/Feld unter dem Punkt. CGEvent allein trifft oft das Overlay-Fenster.
+    private func axPress(at loc: CGPoint) -> Bool {
+        guard AXIsProcessTrusted() else { return false }
+        let sys = AXUIElementCreateSystemWide()
+        var ref: AXUIElement?
+        let err = AXUIElementCopyElementAtPosition(sys, Float(loc.x), Float(loc.y), &ref)
+        guard err == .success, let el = ref else { return false }
+        if pid(of: el) == TargetProbe.selfPID { return false }
+        var actions: CFTypeRef?
+        if AXUIElementCopyActionNames(el, &actions) == .success,
+           let names = actions as? [String],
+           names.contains(kAXPressAction as String)
+        {
+            return AXUIElementPerformAction(el, kAXPressAction as CFString) == .success
+        }
+        return AXUIElementPerformAction(el, kAXPressAction as CFString) == .success
     }
 
     private func targetWindow(at point: CGPoint? = nil) -> AXUIElement? {

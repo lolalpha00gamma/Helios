@@ -1528,8 +1528,8 @@ enum CoordTests {
             fputs("FAIL Drag-Need 8 fps höher\n", stderr)
             fails += 1
         }
-        if !GestureMath.isDrag(palmMovedHW: 0.50, cursorMovedPx: 3, dt: 0.04) {
-            fputs("FAIL Drag 24 fps 0,50 HW\n", stderr)
+        if GestureMath.isDrag(palmMovedHW: 0.50, cursorMovedPx: 3, dt: 0.04) {
+            fputs("FAIL Drag ohne Cursorweg tot\n", stderr)
             fails += 1
         }
         if GestureMath.isDrag(palmMovedHW: 0.50, cursorMovedPx: 3, dt: 0.125) {
@@ -1970,8 +1970,12 @@ enum CoordTests {
             fails += 1
         }
         let flick = GestureMath.pinchPalmVel(movedHW: 0.30, dt: 0.125)
-        if !GestureMath.isDrag(palmMovedHW: 0.30, cursorMovedPx: 8, dt: 0.125, palmVelHW: flick) {
-            fputs("FAIL Flick ist Drag\n", stderr)
+        if GestureMath.isDrag(palmMovedHW: 0.30, cursorMovedPx: 8, dt: 0.125, palmVelHW: flick) {
+            fputs("FAIL Flick ohne Cursorweg kein Drag\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.isDrag(palmMovedHW: 0.30, cursorMovedPx: 50, dt: 0.125, palmVelHW: flick) {
+            fputs("FAIL Flick mit Cursorweg ist Drag\n", stderr)
             fails += 1
         }
         if !GestureMath.isDrag(palmMovedHW: 0.80, cursorMovedPx: 50, dt: 0.125) {

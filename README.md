@@ -1,4 +1,4 @@
-# Helios **1.6.109**
+# Helios **1.6.110**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -6,6 +6,10 @@ Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HU
 Privates Repo. Keine Open-Source-Lizenzdatei.
 
 Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Neu in 1.6.110
+
+Tastatur/Maus pausieren Helios 1,6 s. Klick auf den aktuellen Zeiger (AX-Press + CGEvent). Zug nur bei echtem Cursorweg, Mini-Zug wird Klick.
 
 ## Neu in 1.6.109
 

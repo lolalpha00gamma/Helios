@@ -184,6 +184,8 @@ enum GestureMath {
     static let hybridBand: CGFloat = 0.15
     static let clutchOwnRadius: CGFloat = 48
     static let clutchOwnWindow: TimeInterval = 0.45
+    static let clutchKeyHold: TimeInterval = 1.60
+    static let clutchScrollHold: TimeInterval = 0.90
     /// Idle-Jiggler / 1-px Maus-Ticks. 0,5 hat Trackpads und eigene CGEvents durchgelassen.
     static let clutchJiggle: CGFloat = 1.2
     /// Zwei Kameras: gemappte Zeiger > so viele Pixel auseinander = Winkel-Unco, Lead gewinnt.
@@ -1909,13 +1911,10 @@ enum GestureMath {
         dt: TimeInterval = 0.016,
         palmVelHW: CGFloat? = nil
     ) -> Bool {
-        if let v = palmVelHW {
-            if v < pinchDragVelClick(dt: dt) {
-                return cursorMovedPx >= max(80, pinchDragCursorNeed(dt: dt) * 2)
-            }
-            if v >= pinchDragVelNeed(dt: dt) { return true }
-        }
-        return palmMovedHW >= pinchDragNeedOf(dt: dt) || cursorMovedPx >= pinchDragCursorNeed(dt: dt)
+        let needPx = pinchDragCursorNeed(dt: dt)
+        if cursorMovedPx < needPx { return false }
+        if let v = palmVelHW, v >= pinchDragVelNeed(dt: dt) { return true }
+        return palmMovedHW >= pinchDragNeedOf(dt: dt) || cursorMovedPx >= needPx
     }
 
     /// Nach Pinzette-Öffnen und Gegenwischen in derselben Sekunde nicht schalten.

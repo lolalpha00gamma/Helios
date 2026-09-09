@@ -691,6 +691,19 @@ final class GestureEngine {
             return
         }
         let cooling = now < cooldownUntil || now < armedQuietUntil
+        if !testMode, !system.allowsInjection {
+            if pinchHeld {
+                dropPinchHold()
+                pinchBecameDrag = false
+                pinchFromBeak = false
+                if system.isDragging { system.endWindowDrag() }
+            }
+            placeCursors(hands, actor: primary)
+            grabPhase = .follow
+            dragging = false
+            lastAction = "Maus/Tastatur"
+            return
+        }
         if cooling {
             placeCursors(hands, actor: primary)
             if !system.isDragging, let p = cursor {
@@ -706,8 +719,7 @@ final class GestureEngine {
         let scaling = handleTwoPinchScale(hands: hands, now: now)
         let actor = pinchActor(hands, primary: primary)
         lastFusionEntropy = actor.fusion?.entropy ?? lastFusionEntropy
-        let freezePointer = (pinchHeld && !pinchBecameDrag)
-            || !hands.contains(where: { $0.id == actor.id })
+        let freezePointer = !hands.contains(where: { $0.id == actor.id })
         placeCursors(hands, actor: actor)
         if !freezePointer, !system.isDragging, let p = cursor {
             postSampleCursor(p)
@@ -1765,7 +1777,7 @@ final class GestureEngine {
                 if wasBeak {
                     lastAction = "Schnabel aus"
                     onLog?("Schnabel aus — kein Klick", .info, Int(hand.poseProb * 100))
-                } else if fireFolderOrOK(at: origin ?? cursor, wasOK: wasOK) {
+                } else if fireFolderOrOK(at: cursor ?? origin, wasOK: wasOK) {
                     ()
                 } else if let knob = chromeHotKnob, GestureMath.chromeDwellFires(chromeDwell) {
                     fireChrome(knob)
@@ -1776,9 +1788,20 @@ final class GestureEngine {
                     chromeHot = ""
                     chromeHotKnob = nil
                     chromeDwell = 0
-                    fireTapClick(at: origin ?? cursor)
+                    fireTapClick(at: cursor ?? origin)
                 }
             } else {
+                let cursorPx: CGFloat = {
+                    guard let a = origin, let b = cursor else { return 999 }
+                    return hypot(a.x - b.x, a.y - b.y)
+                }()
+                if cursorPx < GestureMath.pinchDragCursorNeed(dt: sampleDt) {
+                    fireTapClick(at: cursor ?? origin)
+                    pinchTrail.removeAll()
+                    pinchClosedTrail.removeAll()
+                    cooldownUntil = now + GestureMath.pinchReleaseNeed(dt: sampleDt)
+                    return
+                }
                 pinchTrail = trail
                 let flung = resolveFling(
                     now: now,
@@ -1808,8 +1831,7 @@ final class GestureEngine {
             onLog?("Klick — Testmodus, System unberührt", .blocked, 100)
             return
         }
-        if let point { system.moveCursor(to: point) }
-        let r = system.click(force: true)
+        let r = system.click(force: true, at: point)
         if r.ok {
             lastAction = "Klick"
             onLog?("Klick · \(r.detail)", .executed, 100)

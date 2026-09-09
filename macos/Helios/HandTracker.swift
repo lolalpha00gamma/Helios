@@ -205,7 +205,8 @@ final class HandTracker: @unchecked Sendable {
         lastSpace = space
 
         let dtRoi = lastHandsAt > 0 ? now - lastHandsAt : 0.016
-        if GestureMath.visionRoiPeriodicFull(tick: bodyTick, every: 2) {
+        let roiEvery = dtRoi >= 0.10 ? 2 : 6
+        if GestureMath.visionRoiPeriodicFull(tick: bodyTick, every: roiEvery) {
             request.regionOfInterest = GestureMath.visionRoiFull()
             bodyRequest.regionOfInterest = GestureMath.visionRoiFull()
             roiMiss = 0

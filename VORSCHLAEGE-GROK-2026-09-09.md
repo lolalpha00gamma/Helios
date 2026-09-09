@@ -1,3 +1,39 @@
+# Helios Vorschläge — 2026-09-09 (Pass 50, 1.6.101)
+
+Stand 1.6.101. Closedness held freeze. ROI Scale lerp. formatPromoted 720→1080@≥12. ROI every aus dt.
+
+## Gelandet in 1.6.101
+
+- pinchClosednessSmooth held: analog hält, 8-Hz-Drop leak't langsam. GestureEngine pinchHeld.
+- visionRoiScale lerp 40–100 ms. Endpunkte 1,6 / 3 bleiben.
+- cameraFormatPromoted Bias +320 auf 1080 wenn 720 ≥12 fps liefert und Format ≥12. 1080@8 tot.
+- HandTracker roiEvery 8 Hz /2, 24 Hz /6 (250 ms Wand).
+
+## Erweiterung (neu)
+
+951. **CameraBroker XPC + IOSurface** mit Aegis. P0. Spec `docs/CameraBroker.md`.
+952. **Wrist-Vel Pinch-Veto.** Palme fliegt, analog 0,58 — kein Grab.
+953. **Per-Finger 4-Tip-Gate.** Kontakt je Finger, nicht Skalar.
+954. **Pinch-Release aus Kontakt-Fall** (dK/dt).
+955. **Hover-Dwell Click.** Cursor still 0,45 s → Click ohne Pinch.
+956. **Body-Chirality EMA.** lastBodyPts roh nach Dropout L/R-Flip.
+957. **Cover+Continuity Stereo-z.** zSep ohne LiDAR.
+958. **One-Euro cutoff aus palmWidth.** Fern weicher, Nah spitzer.
+959. **DisplayLink Pause bei Freeze.** HUD-Coast ohne Extra-VSync.
+960. **VNTrackObjectRequest.** ROI sitzt — Track lohnt.
+961. **MediaPipe Hands Fallback.** Vision uniqueID-Flicker.
+962. **Overlay CAMetalLayer.**
+963. **Mission-Control Spread.**
+964. **Gesture-Sequenzen Pinch+Flick.**
+965. **HeliosAegisKit.** Mutex einmal.
+966. **Desk-View Crop-Kompensation.**
+967. **Watch Double-Tap** als Confirm.
+968. **CGEvent tapHold** statt move+click.
+969. **Ampel-Ring Overlay** vor fireChrome.
+970. **Bezel-Hop Homographie Blend** 200 ms.
+
+P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
 # Helios Vorschläge — 2026-09-09 (Pass 49, 1.6.100)
 
 Stand 1.6.100. Body @ 8 Hz jedes 8. Tick.

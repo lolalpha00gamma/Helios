@@ -806,6 +806,9 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             score += GestureMath.cameraFormatColdStartBias(
                 height: h, currentHeight: currentHeight, role: role
             )
+            score += GestureMath.cameraFormatPromoted(
+                height: h, maxFps: fps, currentHeight: currentHeight, measuredFps: measuredFps
+            )
             if score > bestScore {
                 bestScore = score
                 best = format

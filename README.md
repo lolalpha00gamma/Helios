@@ -1,4 +1,4 @@
-# Helios **1.6.100**
+# Helios **1.6.101**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -6,6 +6,16 @@ Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HU
 Privates Repo. Keine Open-Source-Lizenzdatei.
 
 Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Neu in 1.6.101
+
+Warum analog nach 1.6.100 weiter den Zug verlor und 720@24 nie 1080@15 gewann: Closedness-EMA leak't während Hold. Scale Hart 3 bei 12 fps. Cold-Start −90 auf 1080 immer. ROI Full every 2 @ 24 fps = 83 ms.
+
+- **pinchClosednessSmooth held.** GestureEngine pinchHeld. 8-Hz-Drop öffnet analog nicht.
+- **visionRoiScale lerp.** 40–100 ms. Endpunkte 1,6 / 3.
+- **cameraFormatPromoted.** 720≥12 fps + Format ≥12 → 1080. 1080@8 tot. bestFormat live.
+- **ROI every aus dt.** 8 Hz /2, 24 Hz /6 (250 ms).
+- Tests + MARKETING_VERSION 1.6.101 (Build 134).
 
 ## Neu in 1.6.100
 

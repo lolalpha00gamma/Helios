@@ -2509,6 +2509,18 @@ enum CoordTests {
             fputs("FAIL Promote already tot\n", stderr)
             fails += 1
         }
+        if GestureMath.cameraFormatPromoted(height: 1080, maxFps: 8, currentHeight: 720, measuredFps: 24) != 0 {
+            fputs("FAIL Promoted 1080@8 tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraFormatPromoted(height: 1080, maxFps: 15, currentHeight: 720, measuredFps: 8) != 0 {
+            fputs("FAIL Promoted gemessen 8 tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.cameraFormatPromoted(height: 1080, maxFps: 15, currentHeight: 720, measuredFps: 24) < 300 {
+            fputs("FAIL Promoted 720→1080@15\n", stderr)
+            fails += 1
+        }
         let lock24 = GestureMath.cameraLockDuration(maxFps: 30, minFps: 1, measuredFps: 8)
         if abs(lock24 - 1.0 / 24.0) > 0.001 {
             fputs("FAIL Lock 8 Hz bleibt 24\n", stderr)
@@ -3153,6 +3165,16 @@ enum CoordTests {
             fputs("FAIL Closedness erste Probe roh\n", stderr)
             fails += 1
         }
+        let heldDrop = GestureMath.pinchClosednessSmooth(prev: 0.80, next: 0.40, dt: 0.125, quality: 0.90, held: true)
+        if heldDrop < 0.62 {
+            fputs("FAIL Closedness held freeze\n", stderr)
+            fails += 1
+        }
+        let openDrop = GestureMath.pinchClosednessSmooth(prev: 0.80, next: 0.40, dt: 0.125, quality: 0.90, held: false)
+        if openDrop >= heldDrop {
+            fputs("FAIL Closedness open droppt tiefer als held\n", stderr)
+            fails += 1
+        }
         if !GestureMath.visionRoiHolds(miss: 1) {
             fputs("FAIL ROI Hysterese Frame 1 hält\n", stderr)
             fails += 1
@@ -3193,6 +3215,11 @@ enum CoordTests {
         }
         if abs(GestureMath.visionRoiScale(dt: 0.04) - 3) > 0.01 {
             fputs("FAIL ROI Scale Built-in 3\n", stderr)
+            fails += 1
+        }
+        let midScale = GestureMath.visionRoiScale(dt: 0.07)
+        if midScale <= 1.6 || midScale >= 3 {
+            fputs("FAIL ROI Scale lerp mid\n", stderr)
             fails += 1
         }
         if GestureMath.spaceMapSizeChanged(stored: 0, live: 19201080) {

@@ -1,6 +1,10 @@
 # Helios — Vorschlagsliste
 
-Stand: **1.6.100**. Nur `main`. `bugfix` nicht mergen (1.6.15, 80 Versionen hinter main).
+Stand: **1.6.101**. Nur `main`. `bugfix` nicht mergen (1.6.15, 80 Versionen hinter main).
+
+## In 1.6.101 erledigt
+
+pinchClosednessSmooth held. visionRoiScale lerp. cameraFormatPromoted 720→1080@≥12. ROI every aus dt (8 Hz /2, 24 Hz /6).
 
 ## In 1.6.100 erledigt
 

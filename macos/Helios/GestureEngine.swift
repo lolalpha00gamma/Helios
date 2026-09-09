@@ -1655,7 +1655,8 @@ final class GestureEngine {
             prev: pinchClosedSmooth,
             next: hand.pinchClosedness,
             dt: sampleDt,
-            quality: hand.quality
+            quality: hand.quality,
+            held: pinchHeld
         )
         pinchClosedSmooth = closedSmooth
         let analogClosed = GestureMath.pinchAnalogClosed(

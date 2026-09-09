@@ -1,3 +1,60 @@
+# Analyse Helios 1.6.101 + Aegis 2.1.248 — 2026-09-09 (Pass 50)
+
+Kein Merge von `bugfix`. Predict bleibt 0. Kein neues *Need(dt). Kein neues leftover*-Flag.
+
+## Helios — warum Gesten schlecht wirken
+
+1. Continuity ~8 Hz. HUD-Lerp + palmWidth + Body/8 sitzen. Predict bleibt 0.
+2. analogClosed Mix lerp't Closedness×z×Kontakt. Pass 50: Closedness **held freeze** — 8-Hz-Drop öffnet den Zug nicht.
+3. ROI Scale lerp (Pass 50) statt Hart 1,6/3. Full every aus dt: 250 ms Wand bei 8 und 24 Hz.
+4. 720@24 konnte 1080@15 nicht gewinnen (Cold-Start −90). Pass 50: `cameraFormatPromoted` +320 wenn gemessen ≥12 und Format ≥12. 1080@8 tot.
+5. Zwei Apps, eine Kamera. Mutex sample-fresh. Ohne CameraBroker zwei Vision, zwei TCC.
+6. `bugfix` (~85 Versionen hinter main) — Merge wäre ein Wipe.
+
+## Aegis — warum Identitäten schlecht wirken
+
+1. leftoverPick twinPair nil ohne Live-Paar (2.1.247). Ada+Bob ohne Prints leftover darf.
+2. leftoverGhostAspectLock linear W/H dehnte die Box. Pass 50: hypot-Aspect, last Ratio, Size-Blend.
+3. leftoverTrailWriteHash tot — leftoverLiveHash rief Hold-Hash. Pass 50: Trail-Hash live (Alias).
+4. ROI/skipDetect every 2 @ 24 fps = Hitch. Pass 50: every aus dt (8 Hz /2, 24 Hz /4).
+5. leftoverHoldsTrack yawAbs: nil bewusst. leftoverPrintBudgetYawDelta **Of je UUID** — global würde Ada still mit Twin-Drehung mitdrucken.
+6. leftoverScore Twin-Penalty ist frame-global (ein twinPair) — Argmax ändert sich nicht. Kein Bug.
+7. LiveCapture `@MainActor`. Gallery linear. CameraBroker fehlt. CGImage-Kopie.
+
+## Ineffizienzen (beide)
+
+- Aegis: CGImage-Kopie statt `VNImageRequestHandler(cvPixelBuffer:)`. Helios sitzt auf PixelBuffer.
+- SwiftUI Overlay-Rows statt Metal.
+- Mutex-Datei statt XPC/IOSurface.
+- Aegis Gallery linear leftoverHoldXMatch, skaliert nicht über Haushalts-Größe.
+
+## Bugfix-Protokoll (Pass 50)
+
+Pass 1 — Helios analog Hold droppt 8 Hz. Fix: pinchClosednessSmooth held.
+
+Pass 2 — Scale Hart-Cliff 12 fps. Fix: visionRoiScale lerp.
+
+Pass 3 — 720@24 nie 1080@15. Fix: cameraFormatPromoted in bestFormat.
+
+Pass 4 — Full-ROI 83 ms @ 24 fps. Fix: every aus dt, 250 ms Wand.
+
+Pass 5 — Ghost-Box Stretch. Fix: leftoverGhostAspectLock hypot-Aspect.
+
+Pass 6 — Trail-Hash tot. Fix: leftoverTrailWriteHash leftoverLiveHash.
+
+Pass 7 — Detect 12 Hz @ 24 fps. Fix: roiEvery aus dt.
+
+## Nächster sinnvoller Code-Pass
+
+1. CameraBroker XPC + IOSurface (Spec `docs/CameraBroker.md`). P0.
+2. VNImageRequestHandler(cvPixelBuffer:) Aegis LiveCapture.
+3. LiveCapture off MainActor.
+4. HNSW Gallery.
+5. Wrist-Vel Pinch-Veto / Per-Finger 4-Tip-Gate.
+6. Overlay CAMetalLayer.
+
+P0: CameraBroker. Branch `bugfix` nicht mergen.
+
 # Analyse Helios 1.6.100 + Aegis 2.1.247 — 2026-09-09
 
 Kein Merge von `bugfix`. Predict bleibt 0. Kein neues *Need(dt). Kein neues leftover*-Flag.

@@ -914,9 +914,14 @@ enum GestureMath {
     }
 
     /// Closedness 8 Hz: ein Sample 0,90 nach 0,20 startet analog. Erste Probe roh.
-    static func pinchClosednessSmooth(prev: Double?, next: Double, dt: TimeInterval, quality: Double = 1) -> Double {
+    /// held: analog hält — 8-Hz-Jitter nach unten öffnet den Hold nicht. Echter Drop leak't.
+    static func pinchClosednessSmooth(prev: Double?, next: Double, dt: TimeInterval, quality: Double = 1, held: Bool = false) -> Double {
         guard let prev else { return next }
-        return Double(pinchRatioSmooth(prev: CGFloat(prev), next: CGFloat(next), dt: dt, quality: quality))
+        let mixed = Double(pinchRatioSmooth(prev: CGFloat(prev), next: CGFloat(next), dt: dt, quality: quality))
+        if held {
+            return max(mixed, prev * 0.78 + next * 0.22)
+        }
+        return mixed
     }
 
     /// Lift-z-Vorzeichen: Occlusion kippt previous[]. Kleines pred fällt auf Anatomie.
@@ -1302,6 +1307,20 @@ enum GestureMath {
         cameraFormatUsbRole(role) && !already && measuredFps >= floor
     }
 
+    /// 720p@24 liefert ≥12 fps → 1080 nur wenn das Format selbst ≥12 kann. 1080@8 bleibt tot.
+    /// Cold-Start −90 auf 1080 sonst nie. bestFormat addiert den Bias.
+    static func cameraFormatPromoted(
+        height: Double,
+        maxFps: Double,
+        currentHeight: Double,
+        measuredFps: Double
+    ) -> Double {
+        guard measuredFps >= 12 else { return 0 }
+        guard currentHeight >= 700, currentHeight < 1000 else { return 0 }
+        guard height >= 1000, maxFps >= 12 else { return 0 }
+        return 320
+    }
+
     /// 8 fps: nicht jedes Frame. HandTracker: bodyTick % 8 == 1. 24 fps % 4.
     static func visionSkipsBody(dt: TimeInterval) -> Bool { dt >= 0.10 }
 
@@ -1351,9 +1370,12 @@ enum GestureMath {
     }
 
     /// Continuity 8 Hz: Scale 3 fraß die Palme am Rand (ROI-Steal). 1,6 hält den Actor.
-    /// Built-in 24/30 fps: 3 für Motion zwischen Samples.
+    /// Built-in 24/30 fps: 3 für Motion zwischen Samples. Dazwischen lerp — kein Hart-Cliff.
     static func visionRoiScale(dt: TimeInterval) -> CGFloat {
-        dt >= 0.10 ? 1.6 : 3
+        if dt >= 0.10 { return 1.6 }
+        if dt <= 0.04 { return 3 }
+        let u = (dt - 0.04) / 0.06
+        return 3 - CGFloat(u) * (3 - 1.6)
     }
 
     static func visionRoiFromPalm(palm: CGPoint, width: CGFloat, scale: CGFloat = 2) -> CGRect {

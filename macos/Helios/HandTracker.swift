@@ -450,7 +450,7 @@ final class HandTracker: @unchecked Sendable {
             hands.append(
                 TrackedHand(
                     id: slot.id,
-                    chirality: obs.chirality,
+                    chirality: slot.chirality,
                     joints: joints,
                     displayJoints: display,
                     pose: poseOut,

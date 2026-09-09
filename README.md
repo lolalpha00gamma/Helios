@@ -1,4 +1,4 @@
-# Helios **1.6.91**
+# Helios **1.6.92**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -6,6 +6,14 @@ Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HU
 Privates Repo. Keine Open-Source-Lizenzdatei.
 
 Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Neu in 1.6.92
+
+Warum L/R nach Dropout weiter flackerte und Sleep Continuity riss: `chiralityLock` saß auf TrackSlot, TrackedHand nahm `obs.chirality`. Wake rief `start()` — 1.6.91 lockt AE nach Start, reißt die Session trotzdem.
+
+- **Chirality live.** TrackedHand = slot.chirality. Dropout kein L/R-Tausch im HUD.
+- **AE reassert.** Wake/Interrupt setzt Locks, reißt Continuity nicht.
+- Tests + MARKETING_VERSION 1.6.92 (Build 125).
 
 ## Neu in 1.6.91
 

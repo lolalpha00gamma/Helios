@@ -1,3 +1,52 @@
+# Helios Vorschläge — 2026-09-09 (Pass 41, 1.6.92)
+
+Stand 1.6.92. Chirality live. AE reassert Wake.
+
+## Gelandet in 1.6.92
+
+- TrackedHand.chirality = slot.chirality
+- reassertCaptureLocks Wake/Interrupt statt start()
+
+## Erweiterung (neu)
+
+670. **CameraBroker XPC + IOSurface** mit Aegis. P0.
+671. **HeliosAegisKit.**
+672. **VNTrackObjectRequest.** ROI sitzt — Track lohnt.
+673. **Per-Finger-Kontakt.**
+674. **HUD-Lerp zwischen Samples.**
+675. **palmHighpass auf UV-Position.**
+676. **Ampel-Ring Overlay.**
+677. **Rechtsklick-HUD.**
+678. **Click-Ring Overlay.**
+679. **uniqueID persist nach Remint.**
+680. **CGEventSource-State.**
+681. **Desk-View Crop.**
+682. **IOHIDEventSystemClient.**
+683. **Watch Double-Tap.**
+684. **MediaPipe Hands.**
+685. **Overlay CAMetalLayer.**
+686. **LiDAR.**
+687. **Continuity 15-fps Probe.**
+688. **Mission-Control Spread.**
+689. **Two-pointer origin lock.**
+690. **Pinch-Hysterese palmWidth.**
+691. **Gesture-Macro.**
+692. **SpaceMap nur als Start.**
+693. **CGEvent tapHold.**
+694. **pinch3DVeto Depth-Reach.**
+695. **emptyHandsRecover(elapsed:)** Fold.
+696. **SpaceMap Recenter nach Wake.**
+697. **ROI-Hysterese 2 Frames.**
+698. **Continuity Format/FPS nach Interrupt.**
+699. **pinchClosedness EMA.**
+700. **VNDetectHumanHandPoseRequest maximumHandCount 2.**
+701. **ROI scale 1,6** Continuity.
+702. **ROI full jedes 4. Tick.**
+703. **Cover-Lead Homographie Blend.**
+704. **Bezel-Hop Blend** 200 ms.
+
+P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
 # Helios Vorschläge — 2026-09-09 (Pass 40, 1.6.91)
 
 Stand 1.6.91. AE nach Start. ROI live. analogClosed nur Hold. Release-Block.

@@ -607,7 +607,11 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             queue: .main
         ) { [weak self] _ in
             guard let self, GestureMath.cameraRecoversOnWake() else { return }
-            if self.isRunning { self.start() }
+            if self.isRunning {
+                self.cameraQueue.async { self.reassertCaptureLocks() }
+            } else {
+                self.start()
+            }
         }
     }
 
@@ -625,7 +629,10 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
             object: session,
             queue: nil
         ) { [weak self] _ in
-            self?.cameraQueue.async { self?.beatCameraMutex() }
+            self?.cameraQueue.async {
+                self?.reassertCaptureLocks()
+                self?.beatCameraMutex()
+            }
         }
     }
 
@@ -698,6 +705,25 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         } else if device.isWhiteBalanceModeSupported(.continuousAutoWhiteBalance) {
             device.whiteBalanceMode = .continuousAutoWhiteBalance
         }
+    }
+
+    /// Sleep / Interrupt: Session steht, AE/WB und Center Stage fallen auf Auto zurück.
+    /// start() reißt Continuity 2–3 s ab — nur Locks + Center Stage neu setzen.
+    private func reassertCaptureLocks() {
+        Self.applyCenterStage(force: true)
+        let devices = session.inputs.compactMap { ($0 as? AVCaptureDeviceInput)?.device }
+        for device in devices {
+            var locked = false
+            HeliosCatch({
+                do { try device.lockForConfiguration() } catch { return }
+                locked = true
+                Self.applyCaptureLocks(device, role: Self.role(device).rawValue)
+            }, nil)
+            if locked {
+                HeliosCatch({ device.unlockForConfiguration() }, nil)
+            }
+        }
+        coverPipe.reassertLocks()
     }
 
     /// Format + Framerate nur mit Werten aus dem unterstützten Bereich, plus NSException-Fang.
@@ -1134,6 +1160,14 @@ final class CoverCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         }
         lastPreview = 0
         return nil
+    }
+
+    func reassertLocks() {
+        let devices = session.inputs.compactMap { ($0 as? AVCaptureDeviceInput)?.device }
+        for device in devices {
+            Self.tuneDevice(device)
+        }
+        CameraSession.applyCenterStage(force: true)
     }
 
     private static func applyNativePixelFormat(_ videoOut: AVCaptureVideoDataOutput) {

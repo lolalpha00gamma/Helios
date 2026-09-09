@@ -3071,6 +3071,10 @@ enum CoordTests {
             fputs("FAIL analog-Meter allein startet nicht\n", stderr)
             fails += 1
         }
+        if GestureMath.chiralityLock(prev: 2, live: 1, dropped: true) != 2 {
+            fputs("FAIL Chirality Dropout hält Rechts\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

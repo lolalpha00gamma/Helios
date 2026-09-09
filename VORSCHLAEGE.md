@@ -1,5 +1,61 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.92**. Nur `main`. `bugfix` nicht mergen.
+
+## In 1.6.92 erledigt
+
+1.6.91 AE nach Start, ROI, analog Start tot, Release-Block. TrackedHand nahm Vision-Chirality. Wake riss Continuity.
+
+1. **TrackedHand.chirality = slot.chirality.**
+2. **reassertCaptureLocks** Wake/Interrupt statt start().
+3. Tests + MARKETING_VERSION 1.6.92 (Build 125).
+
+## Erweiterung (neu, 1.6.92)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. P0.
+2. **HeliosAegisKit.**
+3. **VNTrackObjectRequest.** ROI sitzt — Track lohnt.
+4. **Per-Finger-Kontakt.**
+5. **HUD-Lerp zwischen Samples** (now−prev)/span.
+6. **palmHighpass auf UV-Position.**
+7. **Ampel-Ring Overlay.**
+8. **Rechtsklick-HUD.**
+9. **Click-Ring Overlay.**
+10. **uniqueID persist nach Remint** (chirality live, ID neu).
+11. **CGEventSource-State.**
+12. **Desk-View Crop-Kompensation.**
+13. **IOHIDEventSystemClient.**
+14. **Watch Double-Tap.**
+15. **MediaPipe Hands Fallback.**
+16. **Overlay CAMetalLayer.**
+17. **LiDAR DepthCapture.**
+18. **Continuity 15-fps Probe.**
+19. **Mission-Control Spread.**
+20. **Aegis-Gaze Pinch-Confirm.**
+21. **Two-pointer origin lock.**
+22. **Pinch-Hysterese nach palmWidth.**
+23. **Gesture-Macro.**
+24. **Chrome-Dwell nur focused AX.**
+25. **SpaceMap nur als Start.**
+26. **CGEvent tapHold.**
+27. **pinch3DVeto Depth-Reach in driveGrab.**
+28. **emptyHandsRecover(elapsed:)** Fold in Live.
+29. **Two-pinch zoom hysteresis.**
+30. **Idle-Palm dwell** 400 ms nach Dropout.
+31. **SpaceMap Recenter nach Wake.**
+32. **ROI-Hysterese 2 Frames.**
+33. **Continuity Format/FPS nach Interrupt.**
+34. **pinchClosedness EMA.**
+35. **VNDetectHumanHandPoseRequest maximumHandCount 2.**
+36. **ROI scale 1,6** bei Continuity.
+37. **ROI full jedes 4. Tick.**
+38. **Cover useCover** Blend wenn Cover-Q > Lead.
+39. **Bezel-Hop Blend** 200 ms.
+
+P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.91**. Nur `main`. `bugfix` nicht mergen.
 
 ## In 1.6.91 erledigt

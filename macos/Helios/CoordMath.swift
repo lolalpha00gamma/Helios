@@ -1949,6 +1949,13 @@ enum GestureMath {
         return min(0.42, max(0.04, base * scale))
     }
 
+    /// DC-Bias (Continuity-Crop / AE) aus dem gemappten Delta.
+    static func palmHighpassDelta(lp: CGFloat, sample: CGFloat, alpha: CGFloat) -> (hp: CGFloat, lp: CGFloat) {
+        let a = min(1, max(0, alpha))
+        let next = lp + a * (sample - lp)
+        return (sample - next, next)
+    }
+
     static func palmDeadZone(dt: TimeInterval, base: CGFloat = palmDead) -> CGFloat {
         dt >= 0.10 ? base * 1.55 : base
     }

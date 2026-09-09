@@ -3006,6 +3006,21 @@ enum CoordTests {
             fputs("FAIL offen tot\n", stderr)
             fails += 1
         }
+        let hp = GestureMath.palmHighpassDelta(lp: 0, sample: 1, alpha: 0.08)
+        if abs(hp.lp - 0.08) > 0.001 || abs(hp.hp - 0.92) > 0.001 {
+            fputs("FAIL Highpass Delta 0,08\n", stderr)
+            fails += 1
+        }
+        let dc = GestureMath.palmHighpassDelta(lp: 1, sample: 1, alpha: 0.25)
+        if abs(dc.hp) > 0.001 {
+            fputs("FAIL Highpass DC tot\n", stderr)
+            fails += 1
+        }
+        let clutchHp = GestureMath.palmHighpassDelta(lp: 0.02, sample: 0, alpha: 0.25)
+        if abs(clutchHp.hp) < 0.001 {
+            fputs("FAIL Highpass nach Clutch-Zero klingt aus\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

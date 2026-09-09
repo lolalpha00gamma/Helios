@@ -1,3 +1,49 @@
+# Helios Vorschläge — 2026-09-09 (Pass 38, 1.6.89)
+
+Stand 1.6.89. Highpass nach Clutch. HUD-Coast am Sample-Dropout.
+
+## Gelandet in 1.6.89
+
+- palmHighpassDelta nach Clutch (DC trainiert LP nicht während STILL)
+- HUD-Coast wenn now > next.at vom Sample
+- Tests + MARKETING 1.6.89 (Build 122)
+
+## Erweiterung (neu)
+
+574. **CameraBroker XPC + IOSurface** mit Aegis. P0.
+575. **HeliosAegisKit.**
+576. **VNTrackObjectRequest.** P1.
+577. **VNImageRequestHandler(cvPixelBuffer:).**
+578. **Per-Finger-Kontakt.**
+579. **analogClosed Start härter.**
+580. **HUD-Lerp zwischen Samples.**
+581. **palmHighpass auf UV-Position.**
+582. **Ampel-Ring Overlay.**
+583. **Rechtsklick-HUD.**
+584. **Tap-Cancel.**
+585. **Click-Ring Overlay.**
+586. **Hand-ID uniqueID-Flicker.**
+587. **CGEventSource-State.**
+588. **Desk-View Crop.**
+589. **IOHIDEventSystemClient.**
+590. **Watch Double-Tap.**
+591. **MediaPipe Hands.**
+592. **Overlay CAMetalLayer.**
+593. **LiDAR.**
+594. **Continuity 15-fps Probe.**
+595. **Mission-Control Spread.**
+596. **Two-pointer origin lock.**
+597. **Pinch-Hysterese palmWidth.**
+598. **Gesture-Macro.**
+599. **SpaceMap nur als Start.**
+600. **CGEvent tapHold.**
+601. **pinch3DVeto.**
+602. **axHitCacheFresh.**
+603. **Per-Display pointerGain.**
+604. **Bezel-Hop Blend.**
+
+P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
 # Helios Vorschläge — 2026-09-09 (Pass 37, 1.6.88)
 
 Stand 1.6.88. palmHighpass / HUD-Coast / flingFromTrail / chiralityLock live.

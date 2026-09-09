@@ -1,4 +1,4 @@
-# Helios **1.6.88**
+# Helios **1.6.89**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -6,6 +6,14 @@ Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HU
 Privates Repo. Keine Open-Source-Lizenzdatei.
 
 Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Neu in 1.6.89
+
+Warum STILL den Highpass auf AE-Creep trainierte und das HUD erst ein Extra-Intervall nach dem Sample coastete: 1.6.88 Highpass vor Clutch, Coast bei t≥1 plus extra span.
+
+- **Highpass nach Clutch.** DC trainiert LP nicht während STILL.
+- **HUD-Coast am Dropout.** now > next.at, vom Sample.
+- Tests + MARKETING_VERSION 1.6.89 (Build 122).
 
 ## Neu in 1.6.88
 

@@ -296,15 +296,14 @@ final class OverlayController {
                     next: cursors[i].point,
                     t: snap ? 1 : t
                 )
-                if !snap, t >= 1, span > 1e-6 {
-                    let extra = now - next.at - span
-                    if extra > 0 {
-                        let vel = GestureMath.hudCoastVel(prev: old.point, next: cursors[i].point, dt: span)
-                        let cap = GestureMath.hudCoastCapScaled(
-                            scale: ScreenGeometry.backingScale(quartz: p)
-                        )
-                        p = GestureMath.hudCoastPoint(sample: p, vel: vel, elapsed: extra, cap: cap)
-                    }
+                if !snap, now > next.at, span > 1e-6 {
+                    let vel = GestureMath.hudCoastVel(prev: old.point, next: cursors[i].point, dt: span)
+                    let cap = GestureMath.hudCoastCapScaled(
+                        scale: ScreenGeometry.backingScale(quartz: cursors[i].point)
+                    )
+                    p = GestureMath.hudCoastPoint(
+                        sample: cursors[i].point, vel: vel, elapsed: now - next.at, cap: cap
+                    )
                 }
                 cursors[i].point = p
             }

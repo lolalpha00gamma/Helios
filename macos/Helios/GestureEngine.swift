@@ -1231,23 +1231,21 @@ final class GestureEngine {
         if let prevAbs, let prevOut {
             var dx = q.x - prevAbs.x
             var dy = q.y - prevAbs.y
-            if isActor {
-                let a = GestureMath.palmHighpassAlpha(dt: sampleDt)
-                if let slow = palmSlow {
-                    let lp = CGPoint(
-                        x: slow.x + a * (dx - slow.x),
-                        y: slow.y + a * (dy - slow.y)
-                    )
-                    palmSlow = lp
-                    dx -= lp.x
-                    dy -= lp.y
-                } else {
-                    palmSlow = .zero
-                }
-            }
             if clutch || (corner && hypot(dx, dy) < 12) {
                 dx = 0
                 dy = 0
+            }
+            if isActor {
+                let a = GestureMath.palmHighpassAlpha(dt: sampleDt)
+                if let slow = palmSlow {
+                    let hx = GestureMath.palmHighpassDelta(lp: slow.x, sample: dx, alpha: a)
+                    let hy = GestureMath.palmHighpassDelta(lp: slow.y, sample: dy, alpha: a)
+                    palmSlow = CGPoint(x: hx.lp, y: hy.lp)
+                    dx = hx.hp
+                    dy = hy.hp
+                } else {
+                    palmSlow = .zero
+                }
             }
             let dead = GestureMath.deadzoneScaled(dead: 1.6, scale: scale)
             let dz = GestureMath.deadzone2D(dx: dx, dy: dy, dead: dead)

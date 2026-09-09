@@ -514,13 +514,6 @@ final class SystemControl {
         let err = AXUIElementCopyElementAtPosition(sys, Float(loc.x), Float(loc.y), &ref)
         guard err == .success, let el = ref else { return false }
         if pid(of: el) == TargetProbe.selfPID { return false }
-        var actions: CFTypeRef?
-        if AXUIElementCopyActionNames(el, &actions) == .success,
-           let names = actions as? [String],
-           names.contains(kAXPressAction as String)
-        {
-            return AXUIElementPerformAction(el, kAXPressAction as CFString) == .success
-        }
         return AXUIElementPerformAction(el, kAXPressAction as CFString) == .success
     }
 

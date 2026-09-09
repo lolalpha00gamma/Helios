@@ -109,6 +109,7 @@ final class AppState: ObservableObject {
     private var lastAppliedCameraID = ""
     private var lastAppliedCameraName = ""
     private var lastAppliedCameraRole = ""
+    private var lastSpaceMapSize = 0
     private var mapMemo: [String: SpaceMap] = [:]
     private var cancellables: Set<AnyCancellable> = []
     private var didShutdown = false
@@ -719,6 +720,16 @@ final class AppState: ObservableObject {
         lastAppliedCameraID = camID
         lastAppliedCameraName = camName
         lastAppliedCameraRole = camRole
+        let mainFrame = (NSScreen.main ?? NSScreen.screens.first)?.frame ?? .zero
+        let liveSize = GestureMath.spaceMapSizeKey(width: mainFrame.width, height: mainFrame.height)
+        if GestureMath.spaceMapSizeChanged(stored: lastSpaceMapSize, live: liveSize) {
+            invalidateMaps()
+            engine.recenterPointer()
+            engine.spaceMap = SpaceMap.load(cameraID: camID, displayID: ScreenGeometry.mainDisplayID)
+                ?? SpaceMap.load(displayID: ScreenGeometry.mainDisplayID)
+            mapReady = engine.spaceMap?.isReady == true
+        }
+        lastSpaceMapSize = liveSize
         engine.tick(hands: hands, now: now)
         camera.setMutexPalms(engine.mutexActorPalms())
         if let p = engine.cursor {

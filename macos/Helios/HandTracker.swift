@@ -204,6 +204,7 @@ final class HandTracker: @unchecked Sendable {
         let space = AspectSpace(width: CGFloat(max(1, w)), height: CGFloat(max(1, h)))
         lastSpace = space
 
+        let dtRoi = lastHandsAt > 0 ? now - lastHandsAt : 0.016
         if GestureMath.visionRoiPeriodicFull(tick: bodyTick) {
             request.regionOfInterest = GestureMath.visionRoiFull()
             bodyRequest.regionOfInterest = GestureMath.visionRoiFull()
@@ -214,7 +215,11 @@ final class HandTracker: @unchecked Sendable {
         {
             roiMiss = 0
             let boxes = lastHands.map {
-                GestureMath.visionRoiFromPalm(palm: $0.palm, width: $0.palmWidth, scale: 3)
+                GestureMath.visionRoiFromPalm(
+                    palm: $0.palm,
+                    width: $0.palmWidth,
+                    scale: GestureMath.visionRoiScale(dt: dtRoi)
+                )
             }
             lastRoiBoxes = boxes
             request.regionOfInterest = GestureMath.visionRoiUnion(boxes)

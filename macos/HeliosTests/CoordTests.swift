@@ -3183,6 +3183,30 @@ enum CoordTests {
             fputs("FAIL Coast-Cap Default 80\n", stderr)
             fails += 1
         }
+        if abs(GestureMath.visionRoiScale(dt: 0.125) - 1.6) > 0.01 {
+            fputs("FAIL ROI Scale Continuity 1,6\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.visionRoiScale(dt: 0.10) - 1.6) > 0.01 {
+            fputs("FAIL ROI Scale 100ms 1,6\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.visionRoiScale(dt: 0.04) - 3) > 0.01 {
+            fputs("FAIL ROI Scale Built-in 3\n", stderr)
+            fails += 1
+        }
+        if GestureMath.spaceMapSizeChanged(stored: 0, live: 19201080) {
+            fputs("FAIL SizeChanged First 0 tot\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.hudLerp(0.04, 0.24, t: 0.5) - 0.14) > 0.01 {
+            fputs("FAIL HUD Lerp palm mid\n", stderr)
+            fails += 1
+        }
+        if abs(GestureMath.hudLerp(0.04, 0.24, t: 2) - 0.24) > 0.01 {
+            fputs("FAIL HUD Lerp palm Coast clamp\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

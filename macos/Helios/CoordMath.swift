@@ -884,6 +884,12 @@ enum GestureMath {
         )
     }
 
+    /// Overlay palmWidth. t>1 (Coast) sonst Cap aus überzogener Palme.
+    static func hudLerp(_ prev: CGFloat, _ next: CGFloat, t: CGFloat) -> CGFloat {
+        let u = max(0, min(1, t))
+        return prev + (next - prev) * u
+    }
+
     /// AX-Drop: freeze, nie Warp auf (0,0).
     static func pointerWarpAllowed(axTrusted: Bool) -> Bool {
         _ = axTrusted
@@ -1342,6 +1348,12 @@ enum GestureMath {
     /// Zweite Hand außerhalb des Crops. Jedes 4. Tick full.
     static func visionRoiPeriodicFull(tick: Int, every: Int = 4) -> Bool {
         every > 0 && tick % every == 0
+    }
+
+    /// Continuity 8 Hz: Scale 3 fraß die Palme am Rand (ROI-Steal). 1,6 hält den Actor.
+    /// Built-in 24/30 fps: 3 für Motion zwischen Samples.
+    static func visionRoiScale(dt: TimeInterval) -> CGFloat {
+        dt >= 0.10 ? 1.6 : 3
     }
 
     static func visionRoiFromPalm(palm: CGPoint, width: CGFloat, scale: CGFloat = 2) -> CGRect {

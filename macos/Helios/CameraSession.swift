@@ -933,7 +933,13 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         let stampLine = GestureMath.cameraMutexLine(
             owner: owner, pid: pid, now: now, gen: 0, pts: pts, palm: palms.first, palms: palms
         )
-        writeCameraMutexStamp(line: stampLine)
+        let sampleProbe = GestureMath.cameraMutexLine(
+            owner: owner, pid: pid, now: lastMutexSampleUnix, gen: 0, pts: pts, palm: palms.first, palms: palms
+        )
+        let sampleFresh = GestureMath.cameraMutexStampFresh(sampleProbe, now: now)
+        if sampleFresh {
+            writeCameraMutexStamp(line: stampLine)
+        }
         let fd = open(url.path, O_RDWR | O_CREAT, 0o644)
         var wrote: String?
         if fd >= 0 {
@@ -947,7 +953,7 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
                 let existing = buf.isEmpty ? nil : String(bytes: buf, encoding: .utf8)
                 let holderPid = existing.flatMap { GestureMath.cameraMutexPid($0) }
                 let pidLive: Bool? = holderPid.map { p in p > 0 && (kill(p, 0) == 0 || errno == EPERM) }
-                if let line = GestureMath.cameraMutexLockedLine(
+                if sampleFresh, let line = GestureMath.cameraMutexLockedLine(
                     existing: existing, owner: owner, pid: pid, now: now, pidLive: pidLive, pts: pts, palm: palms.first, palms: palms
                 ) {
                     _ = ftruncate(fd, 0)
@@ -960,17 +966,21 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
                     _ = fsync(fd)
                     wrote = line
                     writeCameraMutexStamp(line: line)
+                } else {
+                    wrote = existing
                 }
                 _ = flock(fd, LOCK_UN)
             }
             close(fd)
         } else {
             let existing = try? String(contentsOf: url, encoding: .utf8)
-            if let line = GestureMath.cameraMutexLockedLine(
+            if sampleFresh, let line = GestureMath.cameraMutexLockedLine(
                 existing: existing, owner: owner, pid: pid, now: now, pts: pts, palm: palms.first, palms: palms
             ) {
                 try? line.write(to: url, atomically: true, encoding: .utf8)
                 wrote = line
+            } else {
+                wrote = existing
             }
         }
         let holder = wrote.flatMap { GestureMath.cameraMutexParse($0, now: now) }

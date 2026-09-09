@@ -1,4 +1,4 @@
-# Helios **1.6.97**
+# Helios **1.6.98**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -6,6 +6,16 @@ Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HU
 Privates Repo. Keine Open-Source-Lizenzdatei.
 
 Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Neu in 1.6.98
+
+Warum Continuity nach 1.6.97 weiter den Actor stahl und Aegis skipPrints während Hitch hielt: ROI Scale 3 fraß die Palme am Rand. HUD interpolierte die Palme nicht — Coast-Cap sprang. Heartbeat schrieb Stamp+Lock mit Date() ohne Sample. SpaceMap nach Display-Wechsel tot.
+
+- **visionRoiScale(dt).** Continuity ≥100 ms → 1,6. Built-in 3. HandTracker live.
+- **hudLerp palmWidth.** Overlay prev→next, t>1 clamp. Coast-Cap aus interpolierter Palme.
+- **cameraMutexStampFresh Write.** Stamp+Lock nur bei frischem Sample. Hitch: Aegis lockFresh fällt, skipPrints frei.
+- **spaceMapSizeChanged.** Display-Größe → invalidateMaps + recenterPointer.
+- Tests + MARKETING_VERSION 1.6.98 (Build 131).
 
 ## Neu in 1.6.97
 

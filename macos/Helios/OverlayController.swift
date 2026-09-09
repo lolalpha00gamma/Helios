@@ -291,11 +291,13 @@ final class OverlayController {
         for i in cursors.indices {
             let id = cursors[i].id
             if let old = prev.cursors.first(where: { $0.id == id }) {
+                let lerpT = snap ? CGFloat(1) : t
                 var p = GestureMath.hudLerpPoint(
                     prev: old.point,
                     next: cursors[i].point,
-                    t: snap ? 1 : t
+                    t: lerpT
                 )
+                cursors[i].palmWidth = GestureMath.hudLerp(old.palmWidth, cursors[i].palmWidth, t: lerpT)
                 if !snap, now > next.at, span > 1e-6 {
                     let vel = GestureMath.hudCoastVel(prev: old.point, next: cursors[i].point, dt: span)
                     let cap = GestureMath.hudCoastCapScaled(

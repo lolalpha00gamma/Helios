@@ -1,3 +1,45 @@
+# Helios Vorschläge — 2026-09-09 (Pass 47, 1.6.98)
+
+Stand 1.6.98. ROI Scale Continuity 1,6. Overlay palmWidth Lerp clamp. Mutex Stamp+Lock sample-fresh. SpaceMap Recenter Display.
+
+## Gelandet in 1.6.98
+
+- visionRoiScale(dt) Continuity 1,6 / Built-in 3. HandTracker live.
+- hudLerp palmWidth. Overlay clamp t>1. Coast-Cap interpoliert.
+- cameraMutexStampFresh Write. Stamp+Lock nur frisches Sample.
+- spaceMapSizeChanged lastSpaceMapSize → invalidateMaps + recenter.
+
+## Erweiterung (neu)
+
+890. **CameraBroker XPC + IOSurface** mit Aegis. P0.
+891. **HeliosAegisKit.**
+892. **VNTrackObjectRequest.** ROI sitzt — Track lohnt.
+893. **formatPromoted 720p24 → 1080p15.**
+894. **Continuity 15-fps Probe.**
+895. **DisplayLink Pause bei Freeze.**
+896. **Cover-Lead Homographie Blend.**
+897. **Bezel-Hop Blend 200 ms.**
+898. **visionRoiScale lerp** 1,6↔3 statt Hart-Schwelle 0,10 s.
+899. **Mutex stamp+lock atomic** ein Write, kein Stamp-ohne-Lock.
+900. **SpaceMap Recenter NSApplicationDidChangeScreenParameters** nicht nur Tick.
+901. **Per-Finger 4-Tip-Gate.** Kontakt ist ein Skalar.
+902. **Two-hand HUD-Lerp unabhängig.**
+903. **sampleCursorYieldsToCoast** immer false — DisplayLink-Coast.
+904. **MediaPipe Hands.**
+905. **Overlay CAMetalLayer.**
+906. **LiDAR.**
+907. **Core Haptics Pinch-Close.**
+908. **Gaze-Click ARKit + Pinch AND.**
+909. **Continuity 420v luma lift** Pinch-Kontrast.
+910. **format ladder skip 1080** wenn fps < 12.
+911. **lastRoi clamp palm×1,6** bei Miss 1.
+912. **pinchClosedness freeze** solange analog held.
+913. **emptyHandsRecover(elapsed:)** Fold — recoverLive sitzt.
+914. **useCover Homographie** Cover-Lead (tot).
+915. **Continuity sessionPreset-Watchdog** nach 3 s bei 8 fps Leiter fallen.
+
+P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
 # Helios Vorschläge — 2026-09-09 (Pass 46, 1.6.97)
 
 Stand 1.6.97. pinchAnalog contact Mix-Lerp. Coast-Cap palm sitzt (1.6.96).

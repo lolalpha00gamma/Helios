@@ -1,4 +1,4 @@
-# Helios **1.6.98**
+# Helios **1.6.99**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -6,6 +6,13 @@ Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HU
 Privates Repo. Keine Open-Source-Lizenzdatei.
 
 Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Neu in 1.6.99
+
+Warum die zweite Hand nach 1.6.98 weiter 500 ms tot blieb: visionRoiScale 1,6 verkleinerte den Crop, Full blieb jedes 4. Tick.
+
+- **visionRoiPeriodicFull every: 2.** Call-Site. 250 ms zweite Palme. Default 4 bleibt.
+- Tests + MARKETING_VERSION 1.6.99 (Build 132).
 
 ## Neu in 1.6.98
 

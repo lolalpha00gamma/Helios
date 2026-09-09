@@ -3207,6 +3207,13 @@ enum CoordTests {
             fputs("FAIL HUD Lerp palm Coast clamp\n", stderr)
             fails += 1
         }
+        if !GestureMath.visionRoiPeriodicFull(tick: 0, every: 2)
+            || GestureMath.visionRoiPeriodicFull(tick: 1, every: 2)
+            || !GestureMath.visionRoiPeriodicFull(tick: 2, every: 2)
+        {
+            fputs("FAIL ROI full jedes 2. Tick\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

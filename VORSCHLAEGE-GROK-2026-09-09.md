@@ -1,3 +1,31 @@
+# Helios Vorschläge — 2026-09-09 (Pass 48, 1.6.99)
+
+Stand 1.6.99. ROI Full every 2 nach Scale 1,6.
+
+## Gelandet in 1.6.99
+
+- visionRoiPeriodicFull every: 2 Call-Site. Default 4 bleibt.
+
+## Erweiterung (neu)
+
+921. **CameraBroker XPC + IOSurface** mit Aegis. P0.
+922. **Adaptive ROI full every aus dt.** 8 Hz every 2 sitzt, 24 Hz every 6.
+923. **Pinch-Release aus Kontakt-Fall** (dK/dt).
+924. **Body-Pose @ 8 Hz jedes 8. Tick.**
+925. **Wrist-Vel Pinch-Veto.**
+926. **formatPromoted 720p24 → 1080p15.**
+927. **Continuity 15-fps Probe.**
+928. **VNTrackObjectRequest.**
+929. **Per-Finger 4-Tip-Gate.**
+930. **Hover-Dwell Click.**
+931. **Stereo Continuity+Built-in zSep.**
+932. **Gesture-Sequenzen Pinch+Flick.**
+933. **Overlay CAMetalLayer.**
+934. **HeliosAegisKit.**
+935. **visionRoiScale lerp** statt Hart-Schwelle.
+
+P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
 # Helios Vorschläge — 2026-09-09 (Pass 47, 1.6.98)
 
 Stand 1.6.98. ROI Scale Continuity 1,6. Overlay palmWidth Lerp clamp. Mutex Stamp+Lock sample-fresh. SpaceMap Recenter Display.

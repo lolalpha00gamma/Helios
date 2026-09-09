@@ -1,5 +1,41 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.99**. Nur `main`. `bugfix` nicht mergen (1.6.15, 80 Versionen hinter main).
+
+## In 1.6.99 erledigt
+
+1.6.98 Scale 1,6, Full/4 = 500 ms. Zweite Palme tot.
+
+1. **visionRoiPeriodicFull every: 2.** 250 ms. Default 4 bleibt.
+2. Tests + MARKETING_VERSION 1.6.99 (Build 132).
+
+## Erweiterung (neu, 1.6.99)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. P0.
+2. **Adaptive ROI full every aus dt.** 8 Hz every 2 sitzt, 24 Hz every 6.
+3. **Pinch-Release aus Kontakt-Fall** (dK/dt).
+4. **Body-Pose @ 8 Hz jedes 8. Tick** statt immer skip.
+5. **Wrist-Vel Pinch-Veto.**
+6. **formatPromoted 720p24 → 1080p15.**
+7. **Continuity 15-fps Probe.**
+8. **VNTrackObjectRequest.**
+9. **MediaPipe Hands.**
+10. **Overlay CAMetalLayer.**
+11. **LiDAR.**
+12. **Per-Finger 4-Tip-Gate.**
+13. **Hover-Dwell Click** aus analogClosed Hold.
+14. **Stereo Continuity+Built-in zSep.**
+15. **Gesture-Sequenzen Pinch+Flick.**
+16. **Watch Digital Crown analog Zoom.**
+17. **HeliosAegisKit.**
+18. **DisplayLink Pause bei Freeze.**
+19. **Cover-Lead Homographie Blend.**
+20. **visionRoiScale lerp** statt Hart-Schwelle.
+
+P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.98**. Nur `main`. `bugfix` nicht mergen (1.6.15, 80 Versionen hinter main).
 
 ## In 1.6.98 erledigt

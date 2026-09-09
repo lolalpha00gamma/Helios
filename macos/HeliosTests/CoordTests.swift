@@ -3037,6 +3037,40 @@ enum CoordTests {
             fputs("FAIL Highpass nach Clutch-Zero klingt aus\n", stderr)
             fails += 1
         }
+        if !GestureMath.visionRoiEnabled() {
+            fputs("FAIL ROI live\n", stderr)
+            fails += 1
+        }
+        if GestureMath.visionCancelOnDrop(dropped: true) == false {
+            fputs("FAIL ROI Drop full\n", stderr)
+            fails += 1
+        }
+        if GestureMath.visionCancelOnDrop(dropped: false) {
+            fputs("FAIL ROI Hold tight\n", stderr)
+            fails += 1
+        }
+        let twoRoi = GestureMath.visionRoiUnion([
+            GestureMath.visionRoiFromPalm(palm: CGPoint(x: 0.30, y: 0.40), width: 0.12, scale: 3),
+            GestureMath.visionRoiFromPalm(palm: CGPoint(x: 0.70, y: 0.50), width: 0.12, scale: 3),
+        ])
+        if twoRoi.width < 0.30 {
+            fputs("FAIL ROI Union zwei Palmen\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.pinchReleaseBlocks(now: 1.10, releasedAt: 1.0, dt: 0.125) {
+            fputs("FAIL Release-Block 8 Hz\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchReleaseBlocks(now: 1.40, releasedAt: 1.0, dt: 0.125) {
+            fputs("FAIL Release-Block nach Fenster tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.pinchStartsGrab(
+            gate: false, closedness: 0.24, reach: 1.10, index: 0.70, quality: 0.80, palmWidth: 0.12
+        ) {
+            fputs("FAIL analog-Meter allein startet nicht\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

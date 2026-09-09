@@ -1,3 +1,53 @@
+# Helios Vorschläge — 2026-09-09 (Pass 40, 1.6.91)
+
+Stand 1.6.91. AE nach Start. ROI live. analogClosed nur Hold. Release-Block.
+
+## Gelandet in 1.6.91
+
+- applyCaptureLocks nach startRunning (Session + Cover)
+- visionRoiEnabled true, HandTracker ROI ×3 / Drop full
+- pinchStartsGrab Start ohne analogClosed
+- pinchReleaseBlocks vor startOk
+
+## Erweiterung (neu)
+
+636. **CameraBroker XPC + IOSurface** mit Aegis. P0.
+637. **HeliosAegisKit.**
+638. **VNTrackObjectRequest.** P1.
+639. **VNImageRequestHandler(cvPixelBuffer:)** ohne CGImage.
+640. **Per-Finger-Kontakt** statt Skalar-Closedness.
+641. **HUD-Lerp zwischen Samples** (now−prev)/span, nicht Sample→Sample.
+642. **palmHighpass auf UV-Position** nicht nur Delta.
+643. **Ampel-Ring Overlay** vor fireChrome.
+644. **Rechtsklick-HUD** 0,32 s.
+645. **Click-Ring Overlay** 80 ms vor Fire.
+646. **Hand-ID uniqueID-Flicker** (chiralityLock sitzt, uniqueID nicht).
+647. **CGEventSource-State** Steal.
+648. **Desk-View Crop-Kompensation.**
+649. **IOHIDEventSystemClient** Pointer.
+650. **Watch Double-Tap.**
+651. **MediaPipe Hands Fallback.**
+652. **Overlay CAMetalLayer.**
+653. **LiDAR DepthCapture.**
+654. **Continuity 15-fps Probe.**
+655. **Mission-Control Spread.**
+656. **Two-pointer origin lock.**
+657. **Pinch-Hysterese palmWidth.**
+658. **Gesture-Macro** 2-Schritt.
+659. **SpaceMap nur als Start**, dann relativ.
+660. **CGEvent tapHold** statt move+click.
+661. **emptyHandsRecover(elapsed:)** Fold.
+662. **Bezel-Hop Blend** 200 ms.
+663. **Per-Display pointerGain.**
+664. **axHitCacheFresh** AX nicht jedes Tick (SystemControl sitzt, Engine?).
+665. **Idle-Palm dwell** 400 ms nach Dropout.
+666. **ROI full jedes 4. Tick** zweite Hand einfangen.
+667. **Cover-Lead Homographie Blend** useCover bleibt false.
+668. **pinch3DVeto Depth-Reach** in driveGrab extra.
+669. **Vision uniqueID** statt chiralityLock allein.
+
+P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
 # Helios Vorschläge — 2026-09-09 (Pass 39, 1.6.90)
 
 Stand 1.6.90. AE/WB-Lock Phone, Center Stage aus.

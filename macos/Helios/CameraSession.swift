@@ -471,6 +471,8 @@ final class CameraSession: NSObject, ObservableObject, @unchecked Sendable {
         var startErr: NSError?
         _ = HeliosCatch({ self.session.startRunning() }, &startErr)
         applyCaptureGeometry()
+        Self.applyCaptureLocks(device, role: lastDeviceRole)
+        Self.applyCenterStage(force: true)
         if let startErr {
             DispatchQueue.main.async { self.errorMessage = startErr.localizedDescription }
         }
@@ -1125,6 +1127,8 @@ final class CoverCapture: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate
         var err: NSError?
         _ = HeliosCatch({ self.session.startRunning() }, &err)
         if let err { return err.localizedDescription }
+        CameraSession.applyCaptureLocks(device, role: CameraSession.role(device).rawValue)
+        CameraSession.applyCenterStage(force: true)
         if !session.isRunning {
             return "Zweite Session läuft nicht. Osmo: Webcam-Modus, USB-C. Continuity blockt oft die Mac-Kamera."
         }

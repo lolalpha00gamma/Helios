@@ -1,4 +1,4 @@
-# Helios **1.6.90**
+# Helios **1.6.91**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -6,6 +6,16 @@ Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HU
 Privates Repo. Keine Open-Source-Lizenzdatei.
 
 Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Neu in 1.6.91
+
+Warum Cursor nach Sleep und nach Loslassen weiter rutschte: 1.6.90 setzte AE-Lock **vor** `startRunning` — Continuity überschreibt nach Start. `visionRoiEnabled` blieb false. analogClosed (Faust 0,58) startete den Zug. `pinchReleaseBlocks` hatte keine Call-Site.
+
+- **AE/WB nach startRunning.** Session + Cover, Sleep hält Lock.
+- **Vision-ROI um die Palmen.** Drop → voller Frame.
+- **Start ohne analogClosed.** Faust-Jitter kein Zug.
+- **Release-Block 8 Hz.** Ein Frame nach Loslassen kein Re-Grab.
+- Tests + MARKETING_VERSION 1.6.91 (Build 124).
 
 ## Neu in 1.6.90
 

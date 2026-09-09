@@ -194,6 +194,20 @@ final class HandTracker: @unchecked Sendable {
         let space = AspectSpace(width: CGFloat(max(1, w)), height: CGFloat(max(1, h)))
         lastSpace = space
 
+        if GestureMath.visionRoiEnabled(),
+           !lastHands.isEmpty,
+           !GestureMath.visionCancelOnDrop(dropped: lastHands.isEmpty)
+        {
+            let boxes = lastHands.map {
+                GestureMath.visionRoiFromPalm(palm: $0.palm, width: $0.palmWidth, scale: 3)
+            }
+            request.regionOfInterest = GestureMath.visionRoiUnion(boxes)
+            bodyRequest.regionOfInterest = request.regionOfInterest
+        } else {
+            request.regionOfInterest = GestureMath.visionRoiFull()
+            bodyRequest.regionOfInterest = GestureMath.visionRoiFull()
+        }
+
         let handler = VNImageRequestHandler(
             cvPixelBuffer: pixelBuffer,
             orientation: orientation,

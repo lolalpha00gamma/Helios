@@ -1650,8 +1650,11 @@ final class GestureEngine {
             GestureMath.pinchAnalog(closedness: hand.pinchClosedness, zSep: hand.pinchZSep)
         )
         let beak = beakNow(hand)
-        let startOk = GestureMath.pinchStartsGrab(
-            gate: hand.pinchClosed || analogClosed,
+        let releaseBlocks = GestureMath.pinchReleaseBlocks(
+            now: now, releasedAt: pinchReleasedAt, dt: sampleDt
+        )
+        let startOk = !releaseBlocks && (GestureMath.pinchStartsGrab(
+            gate: hand.pinchClosed,
             closedness: hand.pinchClosedness,
             reach: hand.pinchReach,
             index: hand.indexScore,
@@ -1660,7 +1663,7 @@ final class GestureEngine {
             approach: hand.pinchZApproach,
             residual: hand.liftResidual,
             palmWidth: hand.palmWidth
-        ) || (beakGrabEnabled && beak)
+        ) || (beakGrabEnabled && beak))
         let holdGrab = GestureMath.pinchHoldsGrab(
             gate: hand.pinchClosed || analogClosed,
             closedness: hand.pinchClosedness,

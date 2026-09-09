@@ -1312,7 +1312,7 @@ enum GestureMath {
         return live
     }
 
-    static func visionRoiEnabled() -> Bool { false }
+    static func visionRoiEnabled() -> Bool { true }
 
     static func visionRoiFromPalm(palm: CGPoint, width: CGFloat, scale: CGFloat = 2) -> CGRect {
         let s = max(0.16, min(1, max(0.04, width) * max(1, scale)))
@@ -2069,8 +2069,8 @@ enum GestureMath {
         return gate || closedness > pinchClosednessNeed(quality: quality, start: true, palmWidth: palmWidth)
     }
 
-    /// analogClosed ist Gate für pinchStartsGrab/pinchHoldsGrab, nicht Hold.
-    /// Faust analog ≥ 0,58 hielt sonst den Zug nach 1.6.84 (`holdOk || analogClosed`).
+    /// analogClosed ist Gate für pinchHoldsGrab, nicht Start.
+    /// Faust analog ≥ 0,58 startete sonst den Zug (1.6.90 `pinchClosed || analogClosed`).
     static func pinchHoldOk(hold: Bool, analogClosed: Bool, beak: Bool = false) -> Bool {
         _ = analogClosed
         return hold || beak

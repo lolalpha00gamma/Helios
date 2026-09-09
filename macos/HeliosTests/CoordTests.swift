@@ -1606,6 +1606,10 @@ enum CoordTests {
             fputs("FAIL Meter Ruhepose\n", stderr)
             fails += 1
         }
+        if !GestureMath.pinchMeterClosed(gate: false, closedness: 0.30, isFist: false, restPose: false) {
+            fputs("FAIL Meter 0,30 ohne Reach\n", stderr)
+            fails += 1
+        }
         if !GestureMath.okSign(closed: true, closedness: 0.4, middle: true, ring: true, little: false) {
             fputs("FAIL OK-Zeichen\n", stderr)
             fails += 1

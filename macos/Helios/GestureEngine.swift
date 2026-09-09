@@ -651,16 +651,11 @@ final class GestureEngine {
         if mode != .armed, !testMode {
             if idleArmSince == nil { idleArmSince = now }
             let p = primary
-            let pinch = GestureMath.pinchStartsGrab(
+            let pinch = GestureMath.pinchMeterClosed(
                 gate: p.pinchClosed,
                 closedness: p.pinchClosedness,
-                reach: p.pinchReach,
-                index: p.indexScore,
-                zSep: p.pinchZSep,
-                quality: p.quality,
-                approach: p.pinchZApproach,
-                residual: p.liftResidual,
-                palmWidth: p.palmWidth
+                isFist: p.pose == .fist,
+                restPose: p.pose == .openPalm || p.pose == .thumbsUp
             )
             let held = now - (idleArmSince ?? now)
             if pinch || (!mustRearm && held >= GestureMath.idleHandArm) {
@@ -1669,20 +1664,12 @@ final class GestureEngine {
             held: pinchHeld
         )
         let beak = beakNow(hand)
-        let releaseBlocks = GestureMath.pinchReleaseBlocks(
-            now: now, releasedAt: pinchReleasedAt, dt: sampleDt
-        )
-        let startOk = !releaseBlocks && (GestureMath.pinchStartsGrab(
-            gate: hand.pinchClosed,
+        let meter = GestureMath.pinchMeterClosed(
+            gate: hand.pinchClosed || analogClosed,
             closedness: closedSmooth,
-            reach: hand.pinchReach,
-            index: hand.indexScore,
-            zSep: hand.pinchZSep,
-            quality: hand.quality,
-            approach: hand.pinchZApproach,
-            residual: hand.liftResidual,
-            palmWidth: hand.palmWidth
-        ) || (beakGrabEnabled && beak))
+            isFist: hand.pose == .fist && !pinchBecameDrag,
+            restPose: !pinchHeld && (hand.pose == .openPalm || hand.pose == .thumbsUp)
+        )
         let holdGrab = GestureMath.pinchHoldsGrab(
             gate: hand.pinchClosed || analogClosed,
             closedness: closedSmooth,
@@ -1695,11 +1682,12 @@ final class GestureEngine {
             residual: hand.liftResidual,
             palmWidth: hand.palmWidth
         )
+        let startOk = meter || (beakGrabEnabled && beak)
         let holdOk = GestureMath.pinchHoldOk(
             hold: holdGrab,
             analogClosed: analogClosed,
             beak: beakGrabEnabled && pinchFromBeak && beak
-        )
+        ) || meter
         let closedWanted = pinchHeld ? holdOk : startOk
         let advanced = GestureMath.pinchHoldAdvance(
             phase: pinchHoldPhase,
@@ -1810,14 +1798,6 @@ final class GestureEngine {
             let wasOK = pinchWasOK
             let origin = pinchOriginCursor
             let trail = pinchTrail
-            let closedTrail = pinchClosedTrail
-            let heldFor = now - pinchBeganAt
-            let movedHW = pinchPalmMoved
-            let peakClosed = pinchPeakClosed
-            let cursorPx: CGFloat = {
-                guard let a = origin, let b = cursor else { return 0 }
-                return hypot(a.x - b.x, a.y - b.y)
-            }()
             dropPinchHold()
             pinchBecameDrag = false
             pinchFromBeak = false
@@ -1852,25 +1832,11 @@ final class GestureEngine {
                     chromeHot = ""
                     chromeHotKnob = nil
                     chromeDwell = 0
-                } else if chromeHotKnob != nil {
-                    lastAction = chromeHot.isEmpty ? "Ampel" : chromeHot
+                } else {
                     chromeHot = ""
                     chromeHotKnob = nil
                     chromeDwell = 0
-                } else if GestureMath.isClick(
-                    held: heldFor,
-                    palmMovedHW: movedHW,
-                    cursorMovedPx: cursorPx,
-                    dt: sampleDt,
-                    closedness: peakClosed
-                ), GestureMath.pinchTapWouldClick(
-                    closedness: closedTrail + [hand.pinchClosedness],
-                    dt: sampleDt
-                ) {
                     fireTapClick(at: origin ?? cursor)
-                } else {
-                    lastAction = "Loslassen"
-                    onLog?("Loslassen — kein Klick", .info, Int(hand.poseProb * 100))
                 }
             } else {
                 pinchTrail = trail
@@ -1900,11 +1866,6 @@ final class GestureEngine {
         if testMode {
             lastAction = "Test: Klick"
             onLog?("Klick — Testmodus, System unberührt", .blocked, 100)
-            return
-        }
-        if GestureMath.clickHitchFromFreeze(freezeEnded: freezeEndedAt, now: lastTickNow, dt: sampleDt) {
-            lastAction = "Freeze"
-            onLog?("Klick — Freeze-Hitch", .info, 100)
             return
         }
         if let point { system.moveCursor(to: point) }

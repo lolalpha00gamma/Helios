@@ -1231,6 +1231,20 @@ final class GestureEngine {
         if let prevAbs, let prevOut {
             var dx = q.x - prevAbs.x
             var dy = q.y - prevAbs.y
+            if isActor {
+                let a = GestureMath.palmHighpassAlpha(dt: sampleDt)
+                if let slow = palmSlow {
+                    let lp = CGPoint(
+                        x: slow.x + a * (dx - slow.x),
+                        y: slow.y + a * (dy - slow.y)
+                    )
+                    palmSlow = lp
+                    dx -= lp.x
+                    dy -= lp.y
+                } else {
+                    palmSlow = .zero
+                }
+            }
             if clutch || (corner && hypot(dx, dy) < 12) {
                 dx = 0
                 dy = 0
@@ -1993,7 +2007,16 @@ final class GestureEngine {
             guard spaceMap?.isReady == true, let c = cursor else { return nil }
             return ScreenGeometry.unitInUnion(quartz: c)
         }()
-        let kind = GestureMath.flingVelFromTail(
+        let kindTail = GestureMath.flingVelFromTail(
+            pinchTrail,
+            palmWidth: palmWidth,
+            aspect: space.aspect,
+            afterDrag: afterDrag,
+            screenUV: screenUV,
+            windowSec: GestureMath.flingWindowLen(medianDt: sampleDt),
+            screenHeight: ScreenGeometry.screenContaining(quartz: cursor ?? .zero)?.frame.height ?? 0
+        )
+        let kind = kindTail != .none ? kindTail : GestureMath.flingFromTrail(
             pinchTrail,
             palmWidth: palmWidth,
             aspect: space.aspect,

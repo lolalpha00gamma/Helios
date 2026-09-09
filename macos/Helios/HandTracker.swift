@@ -402,7 +402,7 @@ final class HandTracker: @unchecked Sendable {
                 if (feat2D.extensions[f.rawValue] ?? 0) > 0.52 { ext.insert(f.rawValue) }
             }
 
-            slot.chirality = obs.chirality
+            slot.chirality = chiralityLocked(prev: slot.chirality, live: obs.chirality, now: now, lastSeen: slot.lastSeen, dt: dt)
             if slot.lastNow > 0 {
                 let t = CGFloat(dt)
                 if t > 1e-4 {
@@ -550,6 +550,32 @@ final class HandTracker: @unchecked Sendable {
             disagree: disagree
         ) else { return nil }
         return voted
+    }
+
+    /// 0 unknown, 1 left, 2 right. Dropout-Flicker hält die letzte Seite.
+    private func chiralityLocked(
+        prev: VNChirality,
+        live: VNChirality,
+        now: TimeInterval,
+        lastSeen: TimeInterval,
+        dt: TimeInterval
+    ) -> VNChirality {
+        func code(_ c: VNChirality) -> Int {
+            switch c {
+            case .left: return 1
+            case .right: return 2
+            default: return 0
+            }
+        }
+        func from(_ n: Int) -> VNChirality {
+            switch n {
+            case 1: return .left
+            case 2: return .right
+            default: return .unknown
+            }
+        }
+        let dropped = lastSeen > 0 && now - lastSeen > GestureMath.trackDropoutNeed(dt: dt)
+        return from(GestureMath.chiralityLock(prev: code(prev), live: code(live), dropped: dropped))
     }
 }
 

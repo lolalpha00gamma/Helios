@@ -287,14 +287,26 @@ final class OverlayController {
         let snap = next.freeze || !GestureMath.hudCoastAllowed(
             reduceMotion: NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
         )
+        let span = next.at - prev.at
         for i in cursors.indices {
             let id = cursors[i].id
             if let old = prev.cursors.first(where: { $0.id == id }) {
-                cursors[i].point = GestureMath.hudLerpPoint(
+                var p = GestureMath.hudLerpPoint(
                     prev: old.point,
                     next: cursors[i].point,
                     t: snap ? 1 : t
                 )
+                if !snap, t >= 1, span > 1e-6 {
+                    let extra = now - next.at - span
+                    if extra > 0 {
+                        let vel = GestureMath.hudCoastVel(prev: old.point, next: cursors[i].point, dt: span)
+                        let cap = GestureMath.hudCoastCapScaled(
+                            scale: ScreenGeometry.backingScale(quartz: p)
+                        )
+                        p = GestureMath.hudCoastPoint(sample: p, vel: vel, elapsed: extra, cap: cap)
+                    }
+                }
+                cursors[i].point = p
             }
         }
         paint(

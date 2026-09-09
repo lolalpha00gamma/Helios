@@ -1,4 +1,4 @@
-# Helios **1.6.87**
+# Helios **1.6.88**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -6,6 +6,16 @@ Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HU
 Privates Repo. Keine Open-Source-Lizenzdatei.
 
 Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Neu in 1.6.88
+
+Warum der Cursor bei Continuity 8 Hz zuckte, das HUD nach jedem Sample **stand** und Würfe nach langem Halten starben: `palmHighpassAlpha`, `hudCoastPoint`, `flingFromTrail`, `chiralityLock` lagen in CoordMath mit Tests — **keine Call-Site**. `palmSlow` wurde nur auf nil gesetzt.
+
+- **palmHighpassAlpha vor Gain.** `palmSlow` ist der Tiefpass der Screen-Deltas. 8-Hz-Bias tot.
+- **hudCoastPoint** nach HUD t=1. Velocity prev→next, Cap scaled. HUD/Cursor coasten statt Freeze.
+- **flingFromTrail Fallback.** Tail zuerst, sonst first→last. 8-Hz-Wurf nach langem Halten kommt durch.
+- **chiralityLock** am TrackSlot. Dropout kein Links/Rechts-Tausch.
+- Tests + MARKETING_VERSION 1.6.88 (Build 121).
 
 ## Neu in 1.6.87
 

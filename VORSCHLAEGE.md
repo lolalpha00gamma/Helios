@@ -1,5 +1,54 @@
 # Helios — Vorschlagsliste
 
+Stand: **1.6.88**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
+
+## In 1.6.88 erledigt
+
+1.6.87 pinchHoldOk. palmHighpass / hudCoast / flingFromTrail / chiralityLock tot trotz Tests. palmSlow nie gelesen.
+
+1. **palmHighpassAlpha vor Gain.** palmSlow = LP der Screen-Deltas.
+2. **hudCoastPoint** nach HUD t=1. Cap scaled.
+3. **flingFromTrail Fallback** nach Vel-Tail.
+4. **chiralityLock** am TrackSlot bei Dropout.
+5. Tests + MARKETING_VERSION 1.6.88 (Build 121).
+
+## Erweiterung (neu, 1.6.88)
+
+1. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+2. **HeliosAegisKit** SPM: Mutex-Protokoll einmal.
+3. **VNTrackObjectRequest** echte Hand-Observation statt IoU-Box.
+4. **VNImageRequestHandler(cvPixelBuffer:)** — 420f nicht über CGImage.
+5. **Per-Finger-Kontakt** statt Skalar-Closedness.
+6. **analogClosed Start härter.** analog 0,58 + pinchLooksLikePinch startet ohne Vision-Gate.
+7. **Ampel-Ring Overlay** 80 ms vor fireChrome.
+8. **Rechtsklick-HUD** während 0,32 s Ring-Halt.
+9. **Tap-Cancel** offene Palme 200 ms bricht pending Hold.
+10. **Click-Ring Overlay** 80 ms vor Fire.
+11. **CGEventSource-State** OS-Maus-Steal schneller als Clutch-Radius.
+12. **Continuity Desk-View Crop-Kompensation.**
+13. **IOHIDEventSystemClient** Pointer statt CGEvent.
+14. **Watch Double-Tap** destruktive Klicks.
+15. **MediaPipe Hands Fallback** wenn Vision 8 Hz stirbt.
+16. **Overlay CAMetalLayer.**
+17. **DepthCapture an Continuity-LiDAR.**
+18. **Continuity 15-fps Probe** gemessen.
+19. **Mission-Control Zwei-Palm-Spread.**
+20. **Aegis-Gaze Pinch-Confirm.**
+21. **Per-Display pointerGain Pref.**
+22. **Bezel-Hop Homographie Blend** 200 ms.
+23. **Gesture-Macro** 2-Schritt.
+24. **Chrome-Dwell nur auf focused AX.**
+25. **SpaceMap nur als Start, nicht als Delta-Quelle.**
+26. **CGEvent tapHold** statt move+click.
+27. **axHitCacheFresh** AX nicht jedes Tick.
+28. **emptyHandsRecover** als extra Cap neben recoverLive.
+29. **HUD-Coast Vel EMA** statt raw prev→next.
+30. **ChiralityLock + Palm-UV** wenn uniqueID und Chirality gleichzeitig kippen.
+
+P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
+# Helios — Vorschlagsliste
+
 Stand: **1.6.87**. Die Punkte unten sind Erweiterungen, kein Backlog der schon gelandeten Fixes. Nur `main`. `bugfix` ist Altlast — nicht anlegen, nicht mergen.
 
 ## In 1.6.87 erledigt

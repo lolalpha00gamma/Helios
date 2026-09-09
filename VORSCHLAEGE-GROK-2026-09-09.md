@@ -1,45 +1,45 @@
-# Helios Vorschläge — 2026-09-09 (Pass 36, 1.6.87)
+# Helios Vorschläge — 2026-09-09 (Pass 37, 1.6.88)
 
-Stand 1.6.87. analogClosed ist Gate, nicht Hold. Faust analog ≥ 0,58 gibt Zug frei.
+Stand 1.6.88. palmHighpass / HUD-Coast / flingFromTrail / chiralityLock live.
 
-## Gelandet in 1.6.87
+## Gelandet in 1.6.88
 
-- pinchHoldOk: analogClosed ignoriert, Hold oder Schnabel
-- driveGrab Hold = pinchHoldOk (analogClosed bleibt Gate in pinchStartsGrab/pinchHoldsGrab)
+- palmHighpassAlpha vor Gain (palmSlow LP der Screen-Deltas)
+- hudCoastPoint nach t=1 (Cap scaled)
+- flingFromTrail Fallback nach Vel-Tail
+- chiralityLock am TrackSlot bei Dropout
 
 ## Erweiterung (neu)
 
-507. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
-508. **HeliosAegisKit** SPM, Mutex einmal.
-509. **VNTrackObjectRequest.** P1.
-510. **VNImageRequestHandler(cvPixelBuffer:).**
-511. **Per-Finger-Kontakt** statt Skalar.
-512. **analogClosed Start härter.** analog 0,58 + pinchLooksLikePinch startet ohne Vision-Gate.
-513. **Ampel-Ring Overlay** vor fireChrome.
-514. **Rechtsklick-HUD** 0,32 s.
-515. **Tap-Cancel** offene Palme 200 ms.
-516. **Click-Ring Overlay** 80 ms vor Fire.
-517. **Hand-ID über uniqueID-Flicker.**
-518. **CGEventSource-State** Steal.
-519. **Desk-View Crop-Kompensation.**
-520. **IOHIDEventSystemClient** Pointer.
-521. **Watch Double-Tap.**
-522. **MediaPipe Hands Fallback.**
-523. **Overlay CAMetalLayer.**
-524. **LiDAR DepthCapture.**
-525. **Continuity 15-fps Probe.**
-526. **Mission-Control Spread.**
-527. **Aegis-Gaze Pinch-Confirm.**
-528. **Palm-UV Highpass** vor Gain.
-529. **HUD-Coast** bei Sample-Dropout.
-530. **flingFromTrail** statt nur Vel-Tail.
-531. **ChiralityLock** bei ID-Flicker.
-532. **Gesture-Macro** 2-Schritt.
-533. **Chrome-Dwell nur focused AX.**
-534. **SpaceMap nur als Start, nicht als Delta-Quelle.**
-535. **CGEvent tapHold** statt move+click.
-536. **emptyHandsRecover** nach Dropout.
-537. **pinch3DVeto** Depth vor 2D.
-538. **axHitCacheFresh** AX nicht jedes Tick.
+539. **CameraBroker XPC + IOSurface** mit Aegis. Eine TCC. P0.
+540. **HeliosAegisKit** SPM, Mutex einmal.
+541. **VNTrackObjectRequest.** P1.
+542. **VNImageRequestHandler(cvPixelBuffer:).**
+543. **Per-Finger-Kontakt** statt Skalar.
+544. **analogClosed Start härter.** analog 0,58 + pinchLooksLikePinch.
+545. **Ampel-Ring Overlay** vor fireChrome.
+546. **Rechtsklick-HUD** 0,32 s.
+547. **Tap-Cancel** offene Palme 200 ms.
+548. **Click-Ring Overlay** 80 ms vor Fire.
+549. **CGEventSource-State** Steal.
+550. **Desk-View Crop-Kompensation.**
+551. **IOHIDEventSystemClient** Pointer.
+552. **Watch Double-Tap.**
+553. **MediaPipe Hands Fallback.**
+554. **Overlay CAMetalLayer.**
+555. **LiDAR DepthCapture.**
+556. **Continuity 15-fps Probe.**
+557. **Mission-Control Spread.**
+558. **Aegis-Gaze Pinch-Confirm.**
+559. **Gesture-Macro** 2-Schritt.
+560. **Chrome-Dwell nur focused AX.**
+561. **SpaceMap nur als Start.**
+562. **CGEvent tapHold** statt move+click.
+563. **axHitCacheFresh** AX nicht jedes Tick.
+564. **emptyHandsRecover** extra Cap.
+565. **HUD-Coast Vel EMA.**
+566. **ChiralityLock + Palm-UV** bei doppeltem Flicker.
+567. **Bezel-Hop Homographie Blend** 200 ms.
+568. **Per-Display pointerGain Pref.**
 
 P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.

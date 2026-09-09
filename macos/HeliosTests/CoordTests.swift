@@ -3249,6 +3249,28 @@ enum CoordTests {
             fputs("FAIL 24 fps Body-Skip tot\n", stderr)
             fails += 1
         }
+        let dead8 = GestureMath.palmDeadZone(dt: 0.125)
+        if !GestureMath.palmDeadmanStill(delta: 0.010, dead: dead8) {
+            fputs("FAIL Deadman 8 Hz Landmark 0,01 clutch\n", stderr)
+            fails += 1
+        }
+        if GestureMath.palmDeadmanStill(delta: 0.040, dead: dead8) {
+            fputs("FAIL Deadman 8 Hz 0,04 Motion tot\n", stderr)
+            fails += 1
+        }
+        let knob = CGPoint(x: 110, y: 104)
+        let magDwell = GestureMath.magnet(
+            cursor: CGPoint(x: 140, y: 104),
+            targets: [knob]
+        )
+        if magDwell == nil || GestureMath.chromeDwellMoved(from: magDwell!, to: magDwell!) {
+            fputs("FAIL Magnet-Dwell Jitter tot\n", stderr)
+            fails += 1
+        }
+        if GestureMath.chromeDwellMoved(from: knob, to: CGPoint(x: 140, y: 104), need: 18) == false {
+            fputs("FAIL roh 30 px Dwell-Reset ohne Magnet\n", stderr)
+            fails += 1
+        }
 
         if fails > 0 {
             fputs("\(fails) Tests fehlgeschlagen\n", stderr)

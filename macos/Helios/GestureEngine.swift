@@ -1203,7 +1203,7 @@ final class GestureEngine {
             let jump = hypot(palm.x - prevPalm.x, palm.y - prevPalm.y)
             palmJitter.append(jump)
             if palmJitter.count > 8 { palmJitter.removeFirst() }
-            if GestureMath.palmDeadmanStill(delta: jump, dead: 0.004) {
+            if GestureMath.palmDeadmanStill(delta: jump, dead: GestureMath.palmDeadZone(dt: sampleDt)) {
                 palmStillFor += sampleDt
             } else {
                 palmStillFor = 0
@@ -1569,17 +1569,18 @@ final class GestureEngine {
         }
         chromeHot = hot.labelDE
         chromeHotKnob = hot
+        let snapped = GestureMath.magnet(cursor: c, targets: knobs.map(\.center)) ?? c
         if chromeDwellKind != hot.kind {
             chromeDwellKind = hot.kind
             chromeDwellSince = now
-            chromeDwellAt = c
+            chromeDwellAt = snapped
         } else if let origin = chromeDwellAt, GestureMath.chromeDwellMoved(
             from: origin,
-            to: c,
+            to: snapped,
             need: GestureMath.chromeDwellStillNeed(dt: sampleDt, screenMin: chromeScreenMin)
         ) {
             chromeDwellSince = now
-            chromeDwellAt = c
+            chromeDwellAt = snapped
             chromeDwell = 0
             return
         }
@@ -1673,7 +1674,7 @@ final class GestureEngine {
         )
         let startOk = !releaseBlocks && (GestureMath.pinchStartsGrab(
             gate: hand.pinchClosed,
-            closedness: hand.pinchClosedness,
+            closedness: closedSmooth,
             reach: hand.pinchReach,
             index: hand.indexScore,
             zSep: hand.pinchZSep,
@@ -1684,7 +1685,7 @@ final class GestureEngine {
         ) || (beakGrabEnabled && beak))
         let holdGrab = GestureMath.pinchHoldsGrab(
             gate: hand.pinchClosed || analogClosed,
-            closedness: hand.pinchClosedness,
+            closedness: closedSmooth,
             reach: hand.pinchReach,
             index: hand.indexScore,
             allowFist: pinchBecameDrag || pinchFromBeak,

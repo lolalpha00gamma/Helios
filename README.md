@@ -1,4 +1,4 @@
-# Helios **1.6.101**
+# Helios **1.6.102**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -6,6 +6,15 @@ Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HU
 Privates Repo. Keine Open-Source-Lizenzdatei.
 
 Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Neu in 1.6.102
+
+Warum analog nach 1.6.101 weiter den Zug verlor, Deadman nie clutchte und Ampel-Dwell bei 8 Hz resetete: `pinchStartsGrab`/`pinchHoldsGrab` nahmen roh `pinchClosedness` nach Closedness-EMA. `palmDeadmanStill` hart 0,004 — Landmark-Rauschen 0,01–0,03 UV. `magnet()` tot, `chromeDwellAt` roh.
+
+- **palmDeadmanStill × palmDeadZone(dt).** 8 Hz ×1,55. Landmark 0,01 clutcht, Motion 0,04 nicht. GestureEngine mappedPoint.
+- **pinchStartsGrab / pinchHoldsGrab closedSmooth.** driveGrab analog+Start+Hold dieselbe EMA. 8-Hz-Drop öffnet den Zug nicht.
+- **magnet() Ampel-Dwell.** chromeDwellAt snapped. 40-px-Jitter resetet nicht. Default chromeMagnet 48.
+- Tests + MARKETING_VERSION 1.6.102 (Build 135).
 
 ## Neu in 1.6.101
 

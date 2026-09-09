@@ -1,3 +1,42 @@
+# Helios Vorschläge — 2026-09-09 (Pass 51, 1.6.102)
+
+Stand 1.6.102. Deadman × palmDeadZone. Start/Hold closedSmooth. magnet Ampel-Dwell.
+
+## Gelandet in 1.6.102
+
+- palmDeadmanStill × palmDeadZone(dt): 8 Hz Landmark 0,01 clutcht. GestureEngine mappedPoint.
+- pinchStartsGrab / pinchHoldsGrab closedSmooth: analog+Start+Hold dieselbe EMA.
+- magnet() Ampel-Dwell: chromeDwellAt snapped, 40-px-Jitter kein Reset.
+
+## Erweiterung (neu)
+
+971. **CameraBroker XPC + IOSurface** mit Aegis. P0. Spec `docs/CameraBroker.md`.
+972. **Wrist-Vel Pinch-Veto.** Palme fliegt, analog 0,58 — kein Grab.
+973. **Per-Finger 4-Tip-Gate.** Kontakt je Finger, nicht Skalar.
+974. **Pinch-Release aus Kontakt-Fall** (dK/dt).
+975. **Hover-Dwell Click.** Cursor still 0,45 s → Click ohne Pinch.
+976. **Body-Chirality EMA.** lastBodyPts roh nach Dropout L/R-Flip.
+977. **Cover+Continuity Stereo-z.** zSep ohne LiDAR.
+978. **One-Euro cutoff aus palmWidth.** Fern weicher, Nah spitzer.
+979. **DisplayLink Pause bei Freeze.** HUD-Coast ohne Extra-VSync.
+980. **VNTrackObjectRequest.** ROI sitzt — Track lohnt.
+981. **MediaPipe Hands Fallback.** Vision uniqueID-Flicker.
+982. **Overlay CAMetalLayer.**
+983. **Mission-Control Spread.**
+984. **Gesture-Sequenzen Pinch+Flick.**
+985. **HeliosAegisKit.** Mutex einmal.
+986. **Desk-View Crop-Kompensation.**
+987. **Watch Double-Tap** als Confirm.
+988. **CGEvent tapHold** statt move+click.
+989. **Ampel-Ring Overlay** vor fireChrome.
+990. **Bezel-Hop Homographie Blend** 200 ms.
+991. **magnet() HUD-Cursor.** Dwell sitzt, Cursor selbst jittert 40 px um den Knopf.
+992. **pinchStartsGrab idle-Arm closedSmooth.** driveGrab sitzt, Idle-Arm nimmt roh pinchClosedness.
+993. **Continuity 15-fps Probe** nach Wake, nicht nur Cold-Start.
+994. **palmDeadmanClutch analog-Freeze.** Clutch stoppt Cursor, analogClosed kann noch starten.
+
+P0: CameraBroker. Kein neues *Need(dt). Predict nicht wieder an. Branch `bugfix` nicht mergen.
+
 # Helios Vorschläge — 2026-09-09 (Pass 50, 1.6.101)
 
 Stand 1.6.101. Closedness held freeze. ROI Scale lerp. formatPromoted 720→1080@≥12. ROI every aus dt.

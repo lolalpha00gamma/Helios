@@ -1,3 +1,51 @@
+# Analyse Helios 1.6.102 + Aegis 2.1.249 — 2026-09-09 (Pass 51)
+
+Kein Merge von `bugfix`. Predict bleibt 0. Kein neues *Need(dt). Kein neues leftover*-Flag.
+
+## Helios — warum Gesten schlecht wirken
+
+1. Continuity ~8 Hz. HUD-Lerp + palmWidth + Body/8 + Closedness-held sitzen. Predict bleibt 0.
+2. analogClosed Mix + held freeze (Pass 50). Pass 51: Start/Hold Grab dieselbe `closedSmooth` — roh pinchClosedness leak't nicht mehr unter Hold 0,48.
+3. Deadman hart 0,004 (Pass 50 tot). Pass 51: `palmDeadZone(dt)` 8 Hz ×1,55. Landmark 0,01 clutcht.
+4. Ampel-Dwell roh 40 px @ 8 Hz. Pass 51: `magnet()` snapped.
+5. Zwei Apps, eine Kamera. Mutex sample-fresh. Ohne CameraBroker zwei Vision, zwei TCC.
+6. `bugfix` (~85 Versionen hinter main) — Merge wäre ein Wipe.
+
+## Aegis — warum Identitäten schlecht wirken
+
+1. leftoverPick twinPair nil ohne Live-Paar (2.1.247). Ada+Bob ohne Prints leftover darf.
+2. leftoverGhostAspectLock hypot-Aspect (2.1.248). Trail-Hash live. roiEvery aus dt.
+3. leftoverCaptureHistByHash war Burst-Kopie. Pass 51: Cap 8 Put, leftoverPick Lookup.
+4. leftoverHoldsTrack yawAbs: nil bewusst. leftoverPrintBudgetYawDelta **Of je UUID**.
+5. leftoverCaptureHistOf Box-first (≥3) bewusst — Gast erbt Annas Median nicht. Flash nach 3 Frames bleibt ein Loch.
+6. LiveCapture `@MainActor`. Gallery linear. CameraBroker fehlt. CGImage-Kopie.
+
+## Ineffizienzen (beide)
+
+- Aegis: CGImage-Kopie statt `VNImageRequestHandler(cvPixelBuffer:)`. Helios sitzt auf PixelBuffer.
+- SwiftUI Overlay-Rows statt Metal.
+- Mutex-Datei statt XPC/IOSurface.
+- Aegis Gallery linear leftoverHoldXMatch, skaliert nicht über Haushalts-Größe.
+
+## Bugfix-Protokoll (Pass 51)
+
+Pass 1 — Helios Deadman nie clutcht. Fix: palmDeadmanStill × palmDeadZone(dt).
+
+Pass 2 — analog held freeze, Start/Hold roh. Fix: pinchStartsGrab/pinchHoldsGrab closedSmooth.
+
+Pass 3 — Ampel-Dwell 40 px Reset. Fix: magnet() chromeDwellAt.
+
+Pass 4 — Capture-Hist Burst pollutet Median. Fix: leftoverCaptureHistPut Cap 8 + leftoverPick Lookup.
+
+## Nächster sinnvoller Code-Pass
+
+1. CameraBroker XPC + IOSurface (Spec `docs/CameraBroker.md`). P0.
+2. VNImageRequestHandler(cvPixelBuffer:) Aegis LiveCapture.
+3. leftoverCaptureHistOf leftover wenn länger als Burst.
+4. magnet() HUD-Cursor (Dwell sitzt).
+5. Wrist-Vel Pinch-Veto / Per-Finger 4-Tip-Gate.
+6. Overlay CAMetalLayer.
+
 # Analyse Helios 1.6.101 + Aegis 2.1.248 — 2026-09-09 (Pass 50)
 
 Kein Merge von `bugfix`. Predict bleibt 0. Kein neues *Need(dt). Kein neues leftover*-Flag.

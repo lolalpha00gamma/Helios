@@ -1,4 +1,4 @@
-# Helios **1.6.110**
+# Helios **1.6.111**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -6,6 +6,10 @@ Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HU
 Privates Repo. Keine Open-Source-Lizenzdatei.
 
 Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
+
+## Neu in 1.6.111
+
+Pinch-Klick/Zug nutzen dieselbe Schwelle wie die Distanz-Linie (roh ≥ 0,24). Datei-Overlay: Schließen-Kreis + Button in der Konsole.
 
 ## Neu in 1.6.110
 

@@ -487,7 +487,7 @@ struct HUDView: View {
                             .fill(hot ? HeliosTheme.amber.opacity(0.92) : HeliosTheme.void.opacity(0.72))
                             .overlay(Circle().stroke(hot ? HeliosTheme.amber : HeliosTheme.cyan, lineWidth: hot ? 4 : 2))
                             .frame(width: hot ? 92 : 80, height: hot ? 92 : 80)
-                        Image(systemName: orb.id == "up" ? "arrow.uturn.backward" : "folder.fill")
+                        Image(systemName: orb.id == "close" ? "xmark" : (orb.id == "up" ? "arrow.uturn.backward" : "folder.fill"))
                             .font(.system(size: 22, weight: .bold))
                             .foregroundStyle(hot ? HeliosTheme.void : HeliosTheme.cyan)
                     }

@@ -1616,11 +1616,10 @@ final class GestureEngine {
             held: pinchHeld
         )
         let beak = beakNow(hand)
+        let lineClosed = max(hand.pinchClosedness, closedSmooth)
         let meter = GestureMath.pinchMeterClosed(
-            gate: hand.pinchClosed || analogClosed,
-            closedness: closedSmooth,
-            isFist: hand.pose == .fist && !pinchBecameDrag,
-            restPose: !pinchHeld && (hand.pose == .openPalm || hand.pose == .thumbsUp)
+            gate: hand.pinchClosed,
+            closedness: lineClosed
         )
         let holdGrab = GestureMath.pinchHoldsGrab(
             gate: hand.pinchClosed || analogClosed,
@@ -1866,6 +1865,12 @@ final class GestureEngine {
             orbs: folderOrbs.map { ($0.id, $0.quartz) }
         ), let orb = folderOrbs.first(where: { $0.id == id })
         {
+            if orb.id == "close" {
+                hideFolders()
+                lastAction = "Overlay zu"
+                onLog?("Datei-Overlay geschlossen", .executed, 100)
+                return true
+            }
             return openFolderPath(orb.path, title: orb.title)
         }
         guard wasOK else { return false }
@@ -1905,15 +1910,17 @@ final class GestureEngine {
     private func layoutFolderOrbs(at url: URL, around point: CGPoint?) {
         let fm = FileManager.default
         let home = fm.homeDirectoryForCurrentUser
-        var items: [(id: String, title: String, path: String)] = []
+        var items: [(id: String, title: String, path: String)] = [
+            ("close", "Schließen", "")
+        ]
         if url.standardizedFileURL.path == home.standardizedFileURL.path {
-            items = [
+            items.append(contentsOf: [
                 ("home", "Privat", home.path),
                 ("desk", "Schreibtisch", home.appendingPathComponent("Desktop").path),
                 ("docs", "Dokumente", home.appendingPathComponent("Documents").path),
                 ("down", "Downloads", home.appendingPathComponent("Downloads").path),
                 ("apps", "Programme", "/Applications")
-            ]
+            ])
         } else {
             let parent = url.deletingLastPathComponent()
             if parent.path != url.path, parent.path != "/" {

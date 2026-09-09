@@ -418,6 +418,12 @@ final class AppState: ObservableObject {
         log.record(on ? "Dwell-Klick an" : "Dwell-Klick aus", kind: .info)
     }
 
+    func closeFolderOverlay() {
+        engine.hideFolders()
+        folderOrbs = []
+        log.record("Datei-Overlay geschlossen", kind: .info)
+    }
+
     private func loadPrefs() {
         leftHanded = Prefs.leftHanded
         faceRecognition = Prefs.faceRecognition

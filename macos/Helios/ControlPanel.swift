@@ -92,6 +92,16 @@ struct ControlPanel: View {
             }
             .toggleStyle(.switch)
 
+            if !state.folderOrbs.isEmpty {
+                Button(action: { state.closeFolderOverlay() }) {
+                    Text("Datei-Overlay schließen")
+                        .font(.system(size: 13, weight: .semibold))
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(HeliosTheme.amber)
+            }
+
             Toggle(isOn: Binding(
                 get: { state.dwellEnabled },
                 set: { state.setDwellEnabled($0) }

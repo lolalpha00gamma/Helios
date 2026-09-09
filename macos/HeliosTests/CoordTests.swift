@@ -1594,8 +1594,8 @@ enum CoordTests {
             fputs("FAIL Leiter-Bias 720 vor 1080\n", stderr)
             fails += 1
         }
-        if !GestureMath.pinchMeterClosed(gate: false, closedness: 0.30) {
-            fputs("FAIL Meter 0,30 zu\n", stderr)
+        if !GestureMath.pinchMeterClosed(gate: false, closedness: 0.24) {
+            fputs("FAIL HUD-Linie 0,24 ist Klick-Tor\n", stderr)
             fails += 1
         }
         if GestureMath.pinchMeterClosed(gate: false, closedness: 0.10) {

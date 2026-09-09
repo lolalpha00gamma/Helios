@@ -154,14 +154,30 @@ final class SystemControl {
         let loc = ScreenGeometry.clampQuartz(point ?? lastPosted ?? NSEvent.mouseLocation.screenFlipped)
         lastPosted = loc
         lastPostAt = now
-        _ = postMouse(.mouseMoved, at: loc)
-        if axPress(at: loc) {
+        if buttonDown {
+            guard postMouse(.leftMouseUp, at: loc) else { return .fail("CGEvent Up") }
+            buttonDown = false
+            pointerDrag = false
             return .ok("Klick")
         }
+        _ = postMouse(.mouseMoved, at: loc)
         guard postMouse(.leftMouseDown, at: loc), postMouse(.leftMouseUp, at: loc) else {
             return .fail("CGEvent Klick")
         }
         return .ok("Klick")
+    }
+
+    @discardableResult
+    func press(at point: CGPoint, force: Bool = true) -> ActionResult {
+        if !force, !allowsInjection { return .fail("Maus hat Vorrang") }
+        if buttonDown { return .ok("Halten") }
+        let loc = ScreenGeometry.clampQuartz(point)
+        lastPosted = loc
+        lastPostAt = CACurrentMediaTime()
+        _ = postMouse(.mouseMoved, at: loc)
+        guard postMouse(.leftMouseDown, at: loc) else { return .fail("CGEvent Down") }
+        buttonDown = true
+        return .ok("Halten")
     }
 
     @discardableResult
@@ -260,40 +276,47 @@ final class SystemControl {
     }
 
     private var pointerDrag = false
+    private var buttonDown = false
 
     @discardableResult
     func beginWindowDrag(at quartz: CGPoint? = nil, force: Bool = false) -> ActionResult {
         if !force, !allowsInjection { return .fail("Maus hat Vorrang — Steuerung pausiert") }
         let loc = quartz ?? lastPosted ?? NSEvent.mouseLocation.screenFlipped
         lastPosted = loc
-        guard postMouse(.leftMouseDown, at: loc) else { return .fail("CGEvent Down") }
+        if !buttonDown {
+            _ = postMouse(.mouseMoved, at: loc)
+            guard postMouse(.leftMouseDown, at: loc) else { return .fail("CGEvent Down") }
+            buttonDown = true
+        }
         pointerDrag = true
         return .ok("Ziehen")
     }
 
     func updateWindowDrag(to quartz: CGPoint? = nil) {
-        if !allowsInjection, !pointerDrag {
+        if !buttonDown, !pointerDrag { return }
+        if !allowsInjection, !buttonDown {
             endWindowDrag()
             return
         }
-        guard pointerDrag else { return }
         let loc = quartz ?? lastPosted ?? NSEvent.mouseLocation.screenFlipped
         lastPosted = loc
         _ = postMouse(.leftMouseDragged, at: loc)
     }
 
     func endWindowDrag() {
-        if pointerDrag {
+        if buttonDown || pointerDrag {
             let loc = lastPosted ?? NSEvent.mouseLocation.screenFlipped
             _ = postMouse(.leftMouseUp, at: loc)
-            pointerDrag = false
         }
+        buttonDown = false
+        pointerDrag = false
         dragElement = nil
         dragDest = nil
         dragInFlight = false
     }
 
     var isDragging: Bool { pointerDrag }
+    var isPressed: Bool { buttonDown }
 
     @discardableResult
     func resizeFocused(scale: CGFloat) -> ActionResult {
@@ -504,17 +527,6 @@ final class SystemControl {
         e.setIntegerValueField(.mouseEventClickState, value: 1)
         e.post(tap: .cghidEventTap)
         return true
-    }
-
-    /// Button/Feld unter dem Punkt. CGEvent allein trifft oft das Overlay-Fenster.
-    private func axPress(at loc: CGPoint) -> Bool {
-        guard AXIsProcessTrusted() else { return false }
-        let sys = AXUIElementCreateSystemWide()
-        var ref: AXUIElement?
-        let err = AXUIElementCopyElementAtPosition(sys, Float(loc.x), Float(loc.y), &ref)
-        guard err == .success, let el = ref else { return false }
-        if pid(of: el) == TargetProbe.selfPID { return false }
-        return AXUIElementPerformAction(el, kAXPressAction as CFString) == .success
     }
 
     private func targetWindow(at point: CGPoint? = nil) -> AXUIElement? {

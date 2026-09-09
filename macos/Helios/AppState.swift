@@ -424,6 +424,15 @@ final class AppState: ObservableObject {
         log.record("Datei-Overlay geschlossen", kind: .info)
     }
 
+    func openGestureGuide() {
+        if let url = Bundle.main.url(forResource: "gesten", withExtension: "html") {
+            NSWorkspace.shared.open(url)
+            log.record("Gesten-Test geöffnet", kind: .info)
+            return
+        }
+        log.record("Gesten-Test nicht im Bundle", kind: .failed)
+    }
+
     private func loadPrefs() {
         leftHanded = Prefs.leftHanded
         faceRecognition = Prefs.faceRecognition

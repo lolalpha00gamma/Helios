@@ -42,6 +42,7 @@
 		AA0000000000000000000078 /* AirKeyboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000088 /* AirKeyboard.swift */; };
 		AA0000000000000000000079 /* ActionDrill.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000089 /* ActionDrill.swift */; };
 		AA000000000000000000003E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = AA000000000000000000004E /* Assets.xcassets */; };
+		AA0000000000000000000091 /* gesten.html in Resources */ = {isa = PBXBuildFile; fileRef = AA0000000000000000000090 /* gesten.html */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -61,6 +62,7 @@
 		AA000000000000000000004C /* AuditLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuditLog.swift; sourceTree = "<group>"; };
 		AA000000000000000000004D /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		AA000000000000000000004E /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AA0000000000000000000090 /* gesten.html */ = {isa = PBXFileReference; lastKnownFileType = text.html; path = gesten.html; sourceTree = "<group>"; };
 		AA000000000000000000004F /* Helios.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Helios.entitlements; sourceTree = "<group>"; };
 		AA0000000000000000000050 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA0000000000000000000051 /* TrackingOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackingOverlay.swift; sourceTree = "<group>"; };
@@ -155,6 +157,7 @@
 				AA000000000000000000004C /* AuditLog.swift */,
 				AA000000000000000000004D /* Theme.swift */,
 				AA000000000000000000004E /* Assets.xcassets */,
+				AA0000000000000000000090 /* gesten.html */,
 				AA0000000000000000000050 /* Info.plist */,
 			);
 			path = Helios;
@@ -220,6 +223,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AA000000000000000000003E /* Assets.xcassets in Resources */,
+				AA0000000000000000000091 /* gesten.html in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -314,7 +318,7 @@
 				CODE_SIGN_ENTITLEMENTS = Helios.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 144;
+				CURRENT_PROJECT_VERSION = 145;
 				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -326,7 +330,7 @@
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.6.111;
+				MARKETING_VERSION = 1.6.112;
 				PRODUCT_BUNDLE_IDENTIFIER = app.helios.control;
 				PRODUCT_NAME = Helios;
 				SDKROOT = macosx;
@@ -346,7 +350,7 @@
 				CODE_SIGN_ENTITLEMENTS = Helios.entitlements;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
-				CURRENT_PROJECT_VERSION = 144;
+				CURRENT_PROJECT_VERSION = 145;
 				DEAD_CODE_STRIPPING = YES;
 				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
@@ -359,7 +363,7 @@
 				INFOPLIST_KEY_NSPrincipalClass = NSApplication;
 				LD_RUNPATH_SEARCH_PATHS = "@executable_path/../Frameworks";
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 1.6.111;
+				MARKETING_VERSION = 1.6.112;
 				ONLY_ACTIVE_ARCH = NO;
 				PRODUCT_BUNDLE_IDENTIFIER = app.helios.control;
 				PRODUCT_NAME = Helios;

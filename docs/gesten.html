@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Helios · Gesten bewerten</title>
+<style>
+  :root {
+    --void: #07090d;
+    --panel: #10141c;
+    --cyan: #3fe0ff;
+    --amber: #ffb84a;
+    --ok: #3ee08a;
+    --bad: #ff5b6e;
+    --ink: #e8eef6;
+    --dim: #8b97a8;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; background: var(--void); color: var(--ink);
+    font: 15px/1.45 "SF Pro Text", "Segoe UI", system-ui, sans-serif;
+  }
+  header {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; gap: 16px; align-items: center; flex-wrap: wrap;
+    padding: 14px 22px; background: #0b0f16ee;
+    border-bottom: 1px solid #1c2736;
+  }
+  h1 { font: 700 18px/1 "SF Mono", ui-monospace, monospace; color: var(--cyan); margin: 0; letter-spacing: .08em; }
+  .sum { color: var(--dim); font-size: 13px; }
+  main { max-width: 1280px; margin: 0 auto; padding: 22px; }
+  h2 { font: 700 13px/1 "SF Mono", ui-monospace, monospace; color: var(--amber); letter-spacing: .14em; text-transform: uppercase; }
+  .bench {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 14px; margin: 12px 0 28px;
+  }
+  .card {
+    background: var(--panel); border: 1px solid #243044; border-radius: 12px; padding: 16px;
+  }
+  button.hit, .drag, a.hit, label.hit {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-height: 52px; min-width: 120px; padding: 10px 16px; margin: 6px 6px 0 0;
+    border-radius: 10px; border: 2px solid var(--cyan); background: #0e1822;
+    color: var(--cyan); font-weight: 700; cursor: pointer; user-select: none;
+  }
+  button.hit.ok { border-color: var(--ok); color: var(--ok); background: #0d2418; }
+  .drag { width: 160px; height: 88px; background: #1a1408; border-color: var(--amber); color: var(--amber); }
+  .count { font: 700 28px/1 "SF Mono", ui-monospace, monospace; color: var(--amber); }
+  .scroll {
+    height: 120px; overflow: auto; border: 1px solid #243044; padding: 8px; color: var(--dim);
+  }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+  article {
+    background: var(--panel); border: 1px solid #243044; border-radius: 14px; padding: 14px 14px 12px;
+    display: grid; grid-template-columns: 92px 1fr; gap: 12px; align-items: start;
+  }
+  article h3 { margin: 0 0 4px; font-size: 16px; }
+  article p { margin: 0 0 8px; color: var(--dim); font-size: 13px; }
+  .do { color: var(--cyan); font-size: 13px; }
+  .expect { color: var(--amber); font-size: 13px; }
+  svg.hand { width: 88px; height: 88px; }
+  .rate { display: flex; gap: 4px; margin-top: 8px; }
+  .rate button {
+    width: 28px; height: 28px; border-radius: 6px; border: 1px solid #334155;
+    background: #0e141c; color: var(--dim); cursor: pointer; font-weight: 700;
+  }
+  .rate button.on { background: var(--amber); color: #111; border-color: var(--amber); }
+  .hud { font: 12px/1.4 "SF Mono", ui-monospace, monospace; color: var(--dim); }
+  input[type=text] {
+    width: 100%; margin-top: 8px; padding: 10px; border-radius: 8px;
+    border: 1px solid #334155; background: #0a1018; color: var(--ink);
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>HELIOS · GESTEN</h1>
+  <div class="sum" id="sum">Bewerte jede Geste 1–5. Testfeld zuerst: dort muss Klick und Zug ankommen.</div>
+</header>
+<main>
+  <h2>1 · Testfeld — hier Pinch-Klick und Ziehen prüfen</h2>
+  <p class="hud">Leiste muss SCHARF und 1.6.112 zeigen. Zeiger auf den Knopf, Daumen+Zeigefinger zu (Linie gelb) → auf. HUD: HALTEN, dann KLICK.</p>
+  <div class="bench">
+    <div class="card">
+      <div>Klick-Zähler</div>
+      <div class="count" id="n">0</div>
+      <button class="hit" id="b1">Klick mich</button>
+      <button class="hit" id="b2">Noch einer</button>
+      <button class="hit" id="b3">Dritter</button>
+    </div>
+    <div class="card">
+      <div>Ziehen</div>
+      <div class="drag" id="drag" draggable="true">Zieh mich</div>
+      <div class="hud" id="draglog">noch nicht bewegt</div>
+    </div>
+    <div class="card">
+      <div>Felder</div>
+      <label class="hit"><input type="checkbox" id="cb"> Checkbox</label>
+      <input type="text" id="tf" placeholder="Hier Luft-Tastatur oder Pinch-Klick">
+    </div>
+    <div class="card">
+      <div>Scroll / Link</div>
+      <div class="scroll" id="sc">
+        <p>Zeile 1 — offene Hand hoch/runter</p><p>Zeile 2</p><p>Zeile 3</p><p>Zeile 4</p>
+        <p>Zeile 5</p><p>Zeile 6</p><p>Zeile 7</p><p>Zeile 8</p>
+      </div>
+      <a class="hit" href="#gesten">Link-Klick</a>
+    </div>
+  </div>
+
+  <h2 id="gesten">2 · Alle Gesten — tun, HUD, bewerten</h2>
+  <div class="grid" id="gestures"></div>
+</main>
+<script>
+const G = [
+  {id:"klick", t:"Pinzette · Klick", do:"Daumen + Zeigefinger zusammen, Linie gelb, kurz halten, aufmachen.", ex:"HUD HALTEN → KLICK. Testfeld-Zähler +1.", svg:"pinch"},
+  {id:"zug", t:"Pinzette · Ziehen", do:"Pinzette zu, Linie gelb, Hand bewegen, dann auf.", ex:"HUD HALTEN → ZIEHEN. Karte folgt.", svg:"drag"},
+  {id:"rechts", t:"Pinzette + Ring", do:"Pinzette, Ringfinger raus, Mittel nicht, 0,3 s halten.", ex:"HUD Rechtsklick.", svg:"right"},
+  {id:"scale", t:"Zwei Pinzetten", do:"Beide Hände kneifen, Abstand ändern.", ex:"Fenster skaliert.", svg:"two"},
+  {id:"scharf", t:"Faust halten", do:"Faust ~0,6 s, wenn Idle.", ex:"HUD SCHARF, gelbe Pille.", svg:"fist"},
+  {id:"klatsch", t:"2× Klatschen", do:"Zwei offene Hände, zweimal zusammenschlagen.", ex:"HUD nach vorn, SCHARF. Kein Schwarzbild.", svg:"clap"},
+  {id:"desk", t:"Offene Hand wischen", do:"Eine offene Hand schnell seitlich.", ex:"Schreibtisch wechselt.", svg:"swipe"},
+  {id:"scroll", t:"Hand hoch/runter", do:"Eine offene Hand vertikal, nicht zwei.", ex:"Seite scrollt. Testfeld-Box bewegt sich.", svg:"scroll"},
+  {id:"keys", t:"Zeigen → Tastatur", do:"Zeigefinger ~0,85 s halten.", ex:"Luft-Tastatur. Faust schließt sie.", svg:"point"},
+  {id:"type", t:"Taste verweilen", do:"Finger auf einer Taste kurz halten. Kein Pinzetten.", ex:"Buchstabe erscheint im Feld.", svg:"type"},
+  {id:"ok", t:"OK-Zeichen", do:"Daumen+Zeigefinger-Kreis, andere Finger raus, kurz.", ex:"Finder + Ordner-Kreise. X schließt.", svg:"ok"},
+  {id:"peace", t:"Peace / Victory", do:"Nur Zeige+Mittel, ~1 s, allein.", ex:"Aufnahme / Screenshot.", svg:"peace"},
+  {id:"thumb", t:"Daumen hoch", do:"Faust, Daumen raus, ~1 s, Zeiger über einem Fenster.", ex:"HUD Hervorholen, Fenster nach vorn.", svg:"thumb"},
+  {id:"fling", t:"Werfen / Ruck", do:"Nach dem Ziehen schnell in eine Richtung aufmachen.", ex:"Dock / Mini / Papierkorb, nicht jeder Zug.", svg:"fling"},
+  {id:"kill", t:"Beide Hände offen", do:"Zwei offene Handflächen still.", ex:"Not-Aus, Idle.", svg:"open"},
+  {id:"close", t:"Overlay zu", do:"Faust ODER X-Kreis ODER Button in der Konsole.", ex:"Ordner-Kreise weg.", svg:"x"}
+];
+
+function icon(kind){
+  const c = {pinch:"#ffb84a", drag:"#ffb84a", fist:"#3fe0ff", open:"#3fe0ff"}[kind] || "#3fe0ff";
+  return `<svg class="hand" viewBox="0 0 88 88" aria-hidden="true">
+    <rect x="1" y="1" width="86" height="86" rx="14" fill="#0b121b" stroke="#243044"/>
+    <circle cx="44" cy="58" r="14" fill="none" stroke="${c}" stroke-width="3"/>
+    <path d="M32 50 L28 22 M40 46 L40 16 M48 46 L52 18 M56 50 L62 26 M24 54 L18 40"
+      fill="none" stroke="${c}" stroke-width="3" stroke-linecap="round"
+      opacity="${kind==="fist"?"0.25":"1"}"/>
+    ${kind==="pinch"?`<line x1="18" y1="40" x2="28" y2="22" stroke="#ffb84a" stroke-width="4" stroke-linecap="round"/>`:""}
+    ${kind==="ok"?`<circle cx="22" cy="32" r="8" fill="none" stroke="#ffb84a" stroke-width="3"/>`:""}
+    <text x="44" y="82" text-anchor="middle" fill="#8b97a8" font-size="8" font-family="ui-monospace">${kind}</text>
+  </svg>`;
+}
+
+const box = document.getElementById("gestures");
+const saved = JSON.parse(localStorage.getItem("helios-rate") || "{}");
+function render(){
+  box.innerHTML = G.map(g => `
+    <article>
+      ${icon(g.svg)}
+      <div>
+        <h3>${g.t}</h3>
+        <p class="do">Tun: ${g.do}</p>
+        <p class="expect">Soll: ${g.ex}</p>
+        <div class="rate" data-id="${g.id}">
+          ${[1,2,3,4,5].map(n => `<button data-n="${n}" class="${saved[g.id]===n?"on":""}">${n}</button>`).join("")}
+        </div>
+      </div>
+    </article>`).join("");
+  sum();
+}
+function sum(){
+  const vals = G.map(g => saved[g.id]).filter(Boolean);
+  const avg = vals.length ? (vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1) : "–";
+  document.getElementById("sum").textContent =
+    `${vals.length}/${G.length} bewertet · Schnitt ${avg} · Testfeld-Klicks ${n}`;
+}
+render();
+box.addEventListener("click", e => {
+  const b = e.target.closest("button[data-n]");
+  if (!b) return;
+  const id = b.parentElement.dataset.id;
+  saved[id] = +b.dataset.n;
+  localStorage.setItem("helios-rate", JSON.stringify(saved));
+  render();
+});
+
+let n = 0;
+function hit(){ n++; document.getElementById("n").textContent = n; this.classList.add("ok"); sum(); }
+["b1","b2","b3"].forEach(id => document.getElementById(id).addEventListener("click", hit));
+const drag = document.getElementById("drag");
+drag.addEventListener("dragstart", e => e.dataTransfer.setData("text", "helios"));
+drag.addEventListener("pointerdown", () => document.getElementById("draglog").textContent = "gedrückt");
+drag.addEventListener("pointermove", ev => {
+  if (!ev.buttons) return;
+  document.getElementById("draglog").textContent = `zieht ${Math.round(ev.clientX)},${Math.round(ev.clientY)}`;
+});
+</script>
+</body>
+</html>

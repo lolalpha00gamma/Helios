@@ -92,6 +92,14 @@ struct ControlPanel: View {
             }
             .toggleStyle(.switch)
 
+            Button(action: { state.openGestureGuide() }) {
+                Text("Gesten-Test öffnen")
+                    .font(.system(size: 13, weight: .semibold))
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .tint(HeliosTheme.cyan)
+
             if !state.folderOrbs.isEmpty {
                 Button(action: { state.closeFolderOverlay() }) {
                     Text("Datei-Overlay schließen")

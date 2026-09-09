@@ -706,7 +706,9 @@ final class GestureEngine {
         }
         if cooling {
             placeCursors(hands, actor: primary)
-            if !system.isDragging, let p = cursor {
+            if pinchHeld, system.isPressed, let p = cursor {
+                system.updateWindowDrag(to: p)
+            } else if !system.isDragging, let p = cursor {
                 postSampleCursor(p)
             }
             let actor = pinchActor(hands, primary: primary)
@@ -721,7 +723,9 @@ final class GestureEngine {
         lastFusionEntropy = actor.fusion?.entropy ?? lastFusionEntropy
         let freezePointer = !hands.contains(where: { $0.id == actor.id })
         placeCursors(hands, actor: actor)
-        if !freezePointer, !system.isDragging, let p = cursor {
+        if pinchHeld, system.isPressed, let p = cursor {
+            system.updateWindowDrag(to: p)
+        } else if !freezePointer, !system.isDragging, let p = cursor {
             postSampleCursor(p)
         }
         magnetChrome(now: now)
@@ -1673,6 +1677,9 @@ final class GestureEngine {
             pinchSpanW = hand.palmWidth
             grabLogged = false
             lastAction = pinchFromBeak ? "Schnabel" : (pinchWasOK ? "OK" : (testMode ? "Test: Halten" : "Halten"))
+            if fire, !testMode, !pinchWasOK, !pinchFromBeak, let p = cursor ?? pinchOriginCursor {
+                _ = system.press(at: p, force: true)
+            }
         } else if isGrab && pinchHeld {
             pinchPeakClosed = max(pinchPeakClosed, hand.pinchClosedness)
             pinchTrail.append((now, hand.palm.x, hand.palm.y))
@@ -1766,6 +1773,7 @@ final class GestureEngine {
             pinchSpanW = nil
             grabLogged = false
             trashHot = false
+            let hadPress = !testMode && system.isPressed
             if !testMode { system.endWindowDrag() }
             swipeMuteUntil = now + GestureMath.swipeMuteAfterPinch
             if !fire {
@@ -1783,6 +1791,9 @@ final class GestureEngine {
                     chromeHot = ""
                     chromeHotKnob = nil
                     chromeDwell = 0
+                } else if hadPress {
+                    lastAction = "Klick"
+                    onLog?("Klick · Loslassen", .executed, 100)
                 } else {
                     chromeHot = ""
                     chromeHotKnob = nil

@@ -1,0 +1,75 @@
+name: Helios Windows
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "windows/**"
+      - ".github/workflows/release-win.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: helios-win-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  package:
+    runs-on: windows-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Tests
+        run: |
+          python windows/tests/test_classifier.py
+
+      - name: Dependencies
+        run: |
+          python -m pip install -U pip
+          pip install -r windows/requirements.txt pyinstaller
+
+      - name: Hand model
+        run: |
+          New-Item -ItemType Directory -Force -Path windows/helios/models | Out-Null
+          $out = "windows/helios/models/hand_landmarker.task"
+          Invoke-WebRequest -Uri "https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/latest/hand_landmarker.task" -OutFile $out
+          (Get-Item $out).Length
+
+      - name: PyInstaller
+        run: |
+          cd windows
+          pyinstaller --noconfirm Helios.spec
+
+      - name: Zip
+        run: |
+          New-Item -ItemType Directory -Force -Path dist-win | Out-Null
+          Copy-Item windows/dist/Helios.exe dist-win/Helios.exe
+          Copy-Item windows/README.md dist-win/README.txt
+          Compress-Archive -Path dist-win/* -DestinationPath Helios-windows.zip -Force
+
+      - name: Read version
+        id: ver
+        shell: bash
+        run: |
+          MARKETING=$(awk -F' = ' '/MARKETING_VERSION/{gsub(/;/, "", $2); print $2; exit}' macos/Helios.xcodeproj/project.pbxproj)
+          echo "tag=v${MARKETING}" >> "$GITHUB_OUTPUT"
+          echo "title=Helios ${MARKETING}" >> "$GITHUB_OUTPUT"
+
+      - name: Upload to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          TAG="${{ steps.ver.outputs.tag }}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" Helios-windows.zip --clobber
+          else
+            gh release create "$TAG" Helios-windows.zip --title "${{ steps.ver.outputs.title }}" --notes "Windows 11 Build ${TAG}"
+          fi

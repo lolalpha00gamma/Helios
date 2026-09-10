@@ -7,6 +7,8 @@ Privates Repo. Keine Open-Source-Lizenzdatei.
 
 Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 
+Windows 11 (x64): [`windows/`](windows/) — MediaPipe, Overlay, dieselben Gesten. Release-Asset `Helios-windows.zip`.
+
 ## Neu in 1.6.113
 
 Review-Fix: Spiegel-Chirality, Zeigen≠Faust, Pinch nur mit Reach, Rechtsklick vor Grab, Stuck-Button, Idle ohne Injektion, Tastatur-Kupplung, Mutex/Preview entlastet.

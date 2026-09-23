@@ -8,6 +8,7 @@ from .coord import (
     clamp,
     dist,
     extension_score,
+    ok_boosts_pinch,
     palm_center,
     palm_scale,
     pinch_closedness,
@@ -59,6 +60,10 @@ def classify(j: dict) -> dict:
         - closed * 1.4,
         "unknown": -1.8,
     }
+    others_up = sum(1 for s in (middle, ring, little) if s > 0.55)
+    if ok_boosts_pinch(closed, others_up):
+        logits["pinch"] += 1.8
+        logits["openPalm"] -= 0.8
     keys = list(POSE)
     sm = softmax([logits.get(k, -2.0) for k in keys], 0.72)
     probs = {k: sm[i] for i, k in enumerate(keys)}

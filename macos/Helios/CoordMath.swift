@@ -273,6 +273,56 @@ enum GestureMath {
         return openPalms == 1
     }
 
+    /// HMM darf unter 0,70 bleiben: flache Fusion oder die Vorpose hält noch.
+    static let scrollPoseProb: Double = 0.45
+    /// Ein unknown-Tick bei 8 fps darf den Anker nicht löschen.
+    static let scrollPoseGrace: TimeInterval = 0.18
+
+    /// Offene Hand oder unknown mit drei Fingern. Pinzette, Faust, Zeigen, Peace, Daumen nicht.
+    static func scrollPoseReady(pose: String, prob: Double, openScore: Int) -> Bool {
+        switch pose {
+        case "pinch", "fist", "point", "thumbsUp", "peace":
+            return false
+        case "openPalm":
+            return prob >= scrollPoseProb || openScore >= 3
+        default:
+            return openScore >= 3
+        }
+    }
+
+    /// Klar offene Hand darf die Entropie-Schwelle nicht als „unsicher“ schlucken.
+    static func scrollConfidence(prob: Double, openScore: Int) -> Double {
+        openScore >= 3 ? max(prob, 0.72) : prob
+    }
+
+    /// Wischen: dieselbe offene Hand, nicht erst ab 80 %.
+    static func swipePoseReady(pose: String, prob: Double, openScore: Int) -> Bool {
+        switch pose {
+        case "pinch", "fist", "point", "thumbsUp", "peace":
+            return false
+        case "openPalm":
+            return prob >= scrollPoseProb || openScore >= swipeOpenNeed
+        default:
+            return openScore >= swipeOpenNeed
+        }
+    }
+
+    /// Peace bleibt bei einem verrauschten dritten Finger (openScore 3). Vier Finger sind offen.
+    static func peaceReady(pose: String, prob: Double, openScore: Int, otherOpen: Bool) -> Bool {
+        if otherOpen { return false }
+        if pose != "peace" || prob < scrollPoseProb { return false }
+        return openScore <= 3
+    }
+
+    static func thumbsReady(pose: String, prob: Double, openScore: Int) -> Bool {
+        pose == "thumbsUp" && prob >= 0.62 && thumbsUpAllowed(openScore: openScore)
+    }
+
+    /// OK-Kreis: Daumen+Zeigefinger zu, mindestens zwei andere Finger oben. Sonst gewinnt die offene Hand.
+    static func okBoostsPinch(closedness: Double, othersUp: Int) -> Bool {
+        closedness >= 0.45 && othersUp >= 2
+    }
+
     static func pinchReleaseBlocks(now: TimeInterval, releasedAt: TimeInterval?) -> Bool {
         pinchReleaseBlocks(now: now, releasedAt: releasedAt, dt: 0.016)
     }
@@ -1061,6 +1111,43 @@ enum GestureMath {
     /// 8 fps = 125 ms. 0,12 s Fenster seizes die eigene Hand.
     static func clutchOwnNeed(dt: TimeInterval) -> TimeInterval {
         max(clutchOwnWindow, min(0.90, max(0.008, dt) * 4))
+    }
+
+    /// Bewegung in Punkten, ab der eine fremde Maus die Gesten übernimmt.
+    static let clutchMoveNeed: CGFloat = 3.5
+    /// Echo nur direkt nach dem Post und nur am geschriebenen Punkt.
+    static let clutchOwnEcho: TimeInterval = 0.05
+    static let clutchOwnEchoRadius: CGFloat = 8
+
+    /// Tag oder synchroner Post. Move-Echo nur am letzten Punkt — nicht das ganze clutchOwnWindow.
+    static func clutchIsOwn(
+        tagged: Bool,
+        posting: Bool,
+        kind: String,
+        dist: CGFloat,
+        sincePost: TimeInterval
+    ) -> Bool {
+        if tagged || posting { return true }
+        if kind == "move", sincePost >= 0, sincePost < clutchOwnEcho, dist < clutchOwnEchoRadius {
+            return true
+        }
+        return false
+    }
+
+    /// Physische Taste, Klick, Scroll oder Weg der Maus. Eigene Events nie.
+    static func hardwareClutch(own: Bool, kind: String, delta: CGFloat, scale: CGFloat = 1) -> Bool {
+        if own { return false }
+        switch kind {
+        case "key", "button":
+            return true
+        case "scroll":
+            return delta >= 0.4
+        case "move":
+            if clutchIgnores(delta: delta, scale: scale) { return false }
+            return delta > clutchMoveNeed
+        default:
+            return false
+        }
     }
 
     /// Ampel-Ring: 8 fps dicker, sonst 4 Frames unsichtbar.

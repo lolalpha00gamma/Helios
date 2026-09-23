@@ -825,6 +825,94 @@ enum CoordTests {
             fputs("FAIL Zwei-Pinzette blockt Scroll\n", stderr)
             fails += 1
         }
+        if !GestureMath.scrollPoseReady(pose: "openPalm", prob: 0.50, openScore: 2) {
+            fputs("FAIL offene Hand unter 0,70 scrollt\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.scrollPoseReady(pose: "unknown", prob: 0.2, openScore: 3) {
+            fputs("FAIL unknown mit drei Fingern scrollt\n", stderr)
+            fails += 1
+        }
+        if GestureMath.scrollPoseReady(pose: "peace", prob: 0.9, openScore: 2) {
+            fputs("FAIL Peace ist kein Scroll\n", stderr)
+            fails += 1
+        }
+        if GestureMath.scrollPoseReady(pose: "point", prob: 0.9, openScore: 1) {
+            fputs("FAIL Zeigen ist kein Scroll\n", stderr)
+            fails += 1
+        }
+        if GestureMath.scrollConfidence(prob: 0.5, openScore: 4) < 0.72 {
+            fputs("FAIL klare offene Hand bleibt unter der Entropie-Schwelle\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.swipePoseReady(pose: "openPalm", prob: 0.5, openScore: 3) {
+            fputs("FAIL Wischen unter 80 %\n", stderr)
+            fails += 1
+        }
+        if GestureMath.swipePoseReady(pose: "fist", prob: 0.9, openScore: 0) {
+            fputs("FAIL Faust wischt nicht\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.peaceReady(pose: "peace", prob: 0.5, openScore: 3, otherOpen: false) {
+            fputs("FAIL Peace mit einem Rauschfinger\n", stderr)
+            fails += 1
+        }
+        if GestureMath.peaceReady(pose: "peace", prob: 0.9, openScore: 4, otherOpen: false) {
+            fputs("FAIL vier Finger sind keine Peace\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.thumbsReady(pose: "thumbsUp", prob: 0.62, openScore: 0) {
+            fputs("FAIL Daumen hoch ab 0,62\n", stderr)
+            fails += 1
+        }
+        if GestureMath.thumbsReady(pose: "thumbsUp", prob: 0.9, openScore: 3) {
+            fputs("FAIL offene Hand ist kein Daumen\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.okBoostsPinch(closedness: 0.5, othersUp: 2) {
+            fputs("FAIL OK hebt Pinzette\n", stderr)
+            fails += 1
+        }
+        if GestureMath.okBoostsPinch(closedness: 0.2, othersUp: 3) {
+            fputs("FAIL offene Hand ist kein OK\n", stderr)
+            fails += 1
+        }
+        if GestureMath.hardwareClutch(own: true, kind: "move", delta: 40) {
+            fputs("FAIL eigenes Event übernimmt nicht\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.hardwareClutch(own: false, kind: "button", delta: 0) {
+            fputs("FAIL Mausklick hat Vorrang\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.hardwareClutch(own: false, kind: "move", delta: 8) {
+            fputs("FAIL Mausbewegung hat Vorrang\n", stderr)
+            fails += 1
+        }
+        if GestureMath.hardwareClutch(own: false, kind: "move", delta: 1) {
+            fputs("FAIL Jitter ist kein Maus-Vorrang\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.hardwareClutch(own: false, kind: "scroll", delta: 2) {
+            fputs("FAIL Trackpad-Scroll hat Vorrang\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.clutchIsOwn(tagged: true, posting: false, kind: "scroll", dist: 400, sincePost: 1) {
+            fputs("FAIL markierter Scroll ist eigen\n", stderr)
+            fails += 1
+        }
+        if GestureMath.clutchIsOwn(tagged: false, posting: false, kind: "button", dist: 0, sincePost: 0.01) {
+            fputs("FAIL Klick am Zeiger bleibt echter Mausklick\n", stderr)
+            fails += 1
+        }
+        if !GestureMath.clutchIsOwn(tagged: false, posting: false, kind: "move", dist: 2, sincePost: 0.01) {
+            fputs("FAIL Move-Echo am letzten Punkt\n", stderr)
+            fails += 1
+        }
+        if GestureMath.clutchIsOwn(tagged: false, posting: false, kind: "move", dist: 80, sincePost: 0.01) {
+            fputs("FAIL Maus weg vom Zeiger ist kein Echo\n", stderr)
+            fails += 1
+        }
         if !GestureMath.scrollMuteAfterTwoPinch(now: 1.10, endedAt: 1.0) {
             fputs("FAIL Scroll-Mute 100 ms nach Zoom\n", stderr)
             fails += 1

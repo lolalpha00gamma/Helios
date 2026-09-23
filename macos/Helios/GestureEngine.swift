@@ -2059,7 +2059,11 @@ final class GestureEngine {
         let open = hands.filter { $0.pose == .openPalm || $0.openScore >= GestureMath.swipeOpenNeed }
         let hand = open.first(where: { $0.id == preferred.id })
             ?? open.max(by: { $0.poseProb < $1.poseProb })
-        guard let hand, hand.pose == .openPalm, hand.poseProb >= 0.80 else {
+        guard let hand, GestureMath.swipePoseReady(
+            pose: hand.pose.rawValue,
+            prob: hand.poseProb,
+            openScore: hand.openScore
+        ) else {
             if now < swipeGraceUntil, let id = swipeHandID,
                let same = hands.first(where: { $0.id == id }),
                same.pose != .fist
@@ -2105,12 +2109,13 @@ final class GestureEngine {
         onLog?("Wischen erkannt", .recognized, Int(hand.poseProb * 100))
         let two = open.count >= 2
         let forward = dx < 0
+        let conf = Float(GestureMath.scrollConfidence(prob: hand.poseProb, openScore: max(hand.openScore, 3)))
         if two {
             let name = forward ? "Nächster Schreibtisch" : "Vorheriger Schreibtisch"
-            perform(name, need: .input, confidence: Float(hand.poseProb)) { system.switchDesktop(forward: forward) }
+            perform(name, need: .input, confidence: conf) { system.switchDesktop(forward: forward) }
         } else {
             let name = forward ? "Nächste App" : "Vorherige App"
-            perform(name, need: .input, confidence: Float(hand.poseProb)) { system.switchApp(forward: forward) }
+            perform(name, need: .input, confidence: conf) { system.switchApp(forward: forward) }
         }
         lastSwipeDx = dx
         lastSwipeAt = now
@@ -2123,7 +2128,12 @@ final class GestureEngine {
         let hand = preferred
         let otherOpen = hands.contains { $0.id != hand.id && $0.openScore >= 3 }
         // Öffnen geht durch Zwei-Finger. Peace nur allein, nicht beim Aufmachen.
-        if otherOpen || hand.openScore >= 3 || hand.pose != .peace || hand.poseProb < 0.50 {
+        if !GestureMath.peaceReady(
+            pose: hand.pose.rawValue,
+            prob: hand.poseProb,
+            openScore: hand.openScore,
+            otherOpen: otherOpen
+        ) {
             peaceSince = nil
             peaceProgress = 0
             return
@@ -2133,7 +2143,7 @@ final class GestureEngine {
         peaceProgress = CGFloat(min(1, held / GestureMath.peaceHold))
         if held > GestureMath.peaceHold {
             let target = focused
-            perform("Aufnahme", need: .capture, confidence: Float(hand.poseProb)) {
+            perform("Aufnahme", need: .capture, confidence: Float(max(hand.poseProb, 0.72))) {
                 if let t = target, t.quartzBounds.width > 8 {
                     return system.screenshotFocused(windowID: t.windowID, bounds: t.quartzBounds)
                 }
@@ -2147,16 +2157,18 @@ final class GestureEngine {
     }
 
     private func driveThumbs(_ hand: TrackedHand, now: TimeInterval) {
-        let ok = hand.pose == .thumbsUp
-            && hand.poseProb >= 0.88
-            && GestureMath.thumbsUpAllowed(openScore: hand.openScore)
+        let ok = GestureMath.thumbsReady(
+            pose: hand.pose.rawValue,
+            prob: hand.poseProb,
+            openScore: hand.openScore
+        )
         if ok {
             if thumbsSince == nil { thumbsSince = now }
             if now - (thumbsSince ?? now) > GestureMath.thumbsHold {
                 let r = system.unhideFront(at: cursor)
                 if r.ok {
                     lastAction = "Hervorholen"
-                    onLog?("Hervorholen · \(r.detail)", .executed, Int(hand.poseProb * 100))
+                    onLog?("Hervorholen · \(r.detail)", .executed, Int(max(hand.poseProb, 0.72) * 100))
                     cooldownUntil = now + 3
                 } else {
                     lastAction = "Hervorholen — kein Ziel"
@@ -2171,12 +2183,20 @@ final class GestureEngine {
 
     /// Eine offene Steuerhand vertikal. Zwei offene Palmen gehören dem Not-Aus.
     private func driveScroll(hands: [TrackedHand], preferred: TrackedHand, now: TimeInterval) {
-        let open = hands.filter { $0.openScore >= 3 }
-        if !GestureMath.scrollAllowed(
+        let open = hands.filter {
+            GestureMath.scrollPoseReady(pose: $0.pose.rawValue, prob: $0.poseProb, openScore: $0.openScore)
+        }
+        let muted = GestureMath.scrollMuteAfterTwoPinch(now: now, endedAt: twoPinchEndedAt)
+        let allowed = GestureMath.scrollAllowed(
             openPalms: open.count,
             pinchHeld: pinchHeld,
             twoPinch: twoPinchSince != nil
-        ) || GestureMath.scrollMuteAfterTwoPinch(now: now, endedAt: twoPinchEndedAt) {
+        )
+        if !allowed || muted {
+            let flicker = open.isEmpty && !pinchHeld && twoPinchSince == nil && !muted
+            if flicker, let a = scrollAnchor, now - a.t < GestureMath.scrollPoseGrace {
+                return
+            }
             if GestureMath.scrollCoastBreaks(pinchHeld: pinchHeld, twoPinch: twoPinchSince != nil) {
                 scrollCoast = nil
                 scrollAnchor = nil
@@ -2185,7 +2205,7 @@ final class GestureEngine {
             if let coast = scrollCoast, now < coast.until {
                 let ticks = GestureMath.scrollCoastTicks(velHW: coast.vel, remain: coast.until - now)
                 if ticks != 0 {
-                    perform("Scroll", need: .input, confidence: 0.55) { system.scroll(ticks: ticks) }
+                    perform("Scroll", need: .input, confidence: 0.72) { system.scroll(ticks: ticks) }
                 }
             } else {
                 scrollCoast = nil
@@ -2194,10 +2214,6 @@ final class GestureEngine {
             return
         }
         let hand = open.first(where: { $0.id == preferred.id }) ?? open[0]
-        guard hand.pose == .openPalm, hand.poseProb >= 0.70 else {
-            scrollAnchor = nil
-            return
-        }
         let y = hand.palm.y
         let unit = max(0.04, hand.palmWidth)
         guard let a = scrollAnchor else {
@@ -2209,7 +2225,8 @@ final class GestureEngine {
         guard dt >= 0.05, abs(dy) > GestureMath.scrollDeadHW else { return }
         let ticks = Int32(max(-24, min(24, -dy * 18)))
         guard ticks != 0 else { return }
-        perform("Scroll", need: .input, confidence: Float(hand.poseProb)) { system.scroll(ticks: ticks) }
+        let conf = Float(GestureMath.scrollConfidence(prob: hand.poseProb, openScore: hand.openScore))
+        perform("Scroll", need: .input, confidence: conf) { system.scroll(ticks: ticks) }
         scrollAnchor = (now, y)
         scrollCoast = (now + GestureMath.scrollInertia, dy / CGFloat(max(0.05, dt)))
     }

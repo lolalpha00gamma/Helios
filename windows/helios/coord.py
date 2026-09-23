@@ -38,6 +38,44 @@ def dist(a: Sequence[float], b: Sequence[float]) -> float:
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
+SCROLL_POSE_PROB = 0.45
+_BLOCK_SCROLL = {"pinch", "fist", "point", "thumbsUp", "peace"}
+
+
+def scroll_pose_ready(pose: str, prob: float, open_score: int) -> bool:
+    if pose in _BLOCK_SCROLL:
+        return False
+    if pose == "openPalm":
+        return prob >= SCROLL_POSE_PROB or open_score >= 3
+    return open_score >= 3
+
+
+def scroll_confidence(prob: float, open_score: int) -> float:
+    return max(prob, 0.72) if open_score >= 3 else prob
+
+
+def swipe_pose_ready(pose: str, prob: float, open_score: int) -> bool:
+    if pose in _BLOCK_SCROLL:
+        return False
+    if pose == "openPalm":
+        return prob >= SCROLL_POSE_PROB or open_score >= 3
+    return open_score >= 3
+
+
+def peace_ready(pose: str, prob: float, open_score: int, other_open: bool) -> bool:
+    if other_open or pose != "peace" or prob < SCROLL_POSE_PROB:
+        return False
+    return open_score <= 3
+
+
+def thumbs_ready(pose: str, prob: float, open_score: int) -> bool:
+    return pose == "thumbsUp" and prob >= 0.62 and open_score <= 1
+
+
+def ok_boosts_pinch(closedness: float, others_up: int) -> bool:
+    return closedness >= 0.45 and others_up >= 2
+
+
 def clamp(v: float, lo: float = 0.0, hi: float = 1.0) -> float:
     return lo if v < lo else hi if v > hi else v
 

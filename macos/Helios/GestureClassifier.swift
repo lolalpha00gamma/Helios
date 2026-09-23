@@ -216,6 +216,11 @@ enum GestureClassifier {
             - Double([index, middle, ring, little].filter { $0.score > 0.55 }.count) * 1.8
             - Double(closedness) * 1.4
         logits[.unknown] = -1.8
+        let othersUp = [middle, ring, little].filter { $0.score > 0.55 }.count
+        if GestureMath.okBoostsPinch(closedness: Double(closedness), othersUp: othersUp) {
+            logits[.pinch] = (logits[.pinch] ?? 0) + 1.8
+            logits[.openPalm] = (logits[.openPalm] ?? 0) - 0.8
+        }
 
         let keys = HandPose.allCases
         let sm = JointGeom.softmax(keys.map { logits[$0] ?? 0 }, temperature: 0.72)
@@ -358,10 +363,17 @@ enum GestureClassifier {
         f.extensions = ["thumb": thumb, "index": index, "middle": middle, "ring": ring, "little": little]
         f.pinchClosedness = Double(closedness)
         f.pinchRatio = pinch
+        var pinchLogit = Double(closedness) * 4.0 - Double(1 - index) * 1.2
+        var openLogit = Double(index + middle + ring + little)
+        let othersUp = [middle, ring, little].filter { $0 > 0.55 }.count
+        if GestureMath.okBoostsPinch(closedness: Double(closedness), othersUp: othersUp) {
+            pinchLogit += 1.8
+            openLogit -= 0.8
+        }
         let logits: [HandPose: Double] = [
             .fist: Double((1 - index) + (1 - middle) + (1 - ring) + (1 - little)),
-            .openPalm: Double(index + middle + ring + little),
-            .pinch: Double(closedness) * 4.0 - Double(1 - index) * 1.2,
+            .openPalm: openLogit,
+            .pinch: pinchLogit,
             .point: Double(index) * 3 - Double(middle + ring) * 1.4,
             .peace: Double(index + middle) * 2 - Double(ring + little) * 2,
             .thumbsUp: Double(thumb) * 2.5 - Double(index + middle + ring + little) * 1.6,

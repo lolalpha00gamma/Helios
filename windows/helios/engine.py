@@ -2,7 +2,17 @@ from __future__ import annotations
 
 import time
 
-from .coord import hold_advance, linear_map, looks_like_pinch, pinch_meter, pinch_starts
+from .coord import (
+    hold_advance,
+    linear_map,
+    looks_like_pinch,
+    peace_ready,
+    pinch_meter,
+    pinch_starts,
+    scroll_pose_ready,
+    swipe_pose_ready,
+    thumbs_ready,
+)
 from .inject import Injector, primary_screen, virtual_screen
 
 
@@ -277,7 +287,11 @@ class Engine:
         if self.pinch_held or now < self.cooldown:
             self.swipe = []
             return
-        open_h = [h for h in hands if h.get("pose") == "openPalm" and h.get("prob", 0) >= 0.8]
+        open_h = [
+            h
+            for h in hands
+            if swipe_pose_ready(h.get("pose", ""), h.get("prob", 0), h.get("open_score", 0))
+        ]
         if not open_h:
             self.swipe = []
             return
@@ -314,14 +328,15 @@ class Engine:
         if self.pinch_held or self.two_pinch:
             self.scroll_y = None
             return
-        open_h = [h for h in hands if h.get("open_score", 0) >= 3]
+        open_h = [
+            h
+            for h in hands
+            if scroll_pose_ready(h.get("pose", ""), h.get("prob", 0), h.get("open_score", 0))
+        ]
         if len(open_h) != 1:
             self.scroll_y = None
             return
         hand = open_h[0]
-        if hand.get("pose") != "openPalm" or hand.get("prob", 0) < 0.7:
-            self.scroll_y = None
-            return
         y = hand["palm"][1]
         if self.scroll_y is None:
             self.scroll_y = y
@@ -351,7 +366,7 @@ class Engine:
 
     def _peace(self, hand, hands, now):
         other = any(h["id"] != hand["id"] and h.get("open_score", 0) >= 3 for h in hands)
-        if other or hand.get("pose") != "peace" or hand.get("prob", 0) < 0.5:
+        if not peace_ready(hand.get("pose", ""), hand.get("prob", 0), hand.get("open_score", 0), other):
             self.peace_since = None
             return
         if self.peace_since is None:
@@ -364,7 +379,7 @@ class Engine:
             self.cooldown = now + 3
 
     def _thumbs(self, hand, now):
-        ok = hand.get("pose") == "thumbsUp" and hand.get("prob", 0) >= 0.75 and hand.get("open_score", 0) <= 1
+        ok = thumbs_ready(hand.get("pose", ""), hand.get("prob", 0), hand.get("open_score", 0))
         if not ok:
             self.thumbs_since = None
             return

@@ -8,7 +8,14 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from helios.classifier import classify
-from helios.coord import pinch_meter, pinch_starts, vision_u
+from helios.coord import (
+    ok_boosts_pinch,
+    peace_ready,
+    pinch_meter,
+    pinch_starts,
+    scroll_pose_ready,
+    vision_u,
+)
 
 
 def hand(tips_y: float, index_y: float | None = None, thumb_up: bool = False) -> dict:
@@ -66,6 +73,13 @@ def main() -> int:
     ok(not pinch_meter(True, 0.9, is_fist=True), "Meter Faust")
     ok(pinch_starts(True, 0.7, 1.3, 0.8), "pinchStarts Pinzette")
     ok(not pinch_starts(True, 0.9, 0.2, 0.1), "pinchStarts Faust")
+    ok(scroll_pose_ready("openPalm", 0.5, 2), "Scroll unter 0.70")
+    ok(scroll_pose_ready("unknown", 0.2, 3), "Scroll unknown drei Finger")
+    ok(not scroll_pose_ready("peace", 0.9, 2), "Peace kein Scroll")
+    ok(peace_ready("peace", 0.5, 3, False), "Peace mit Rauschfinger")
+    ok(not peace_ready("peace", 0.9, 4, False), "vier Finger keine Peace")
+    ok(ok_boosts_pinch(0.5, 2), "OK hebt Pinzette")
+    ok(not ok_boosts_pinch(0.2, 3), "offene Hand kein OK")
 
     if fails:
         print(fails, "fehlgeschlagen")

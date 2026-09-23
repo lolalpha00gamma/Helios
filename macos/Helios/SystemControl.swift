@@ -40,6 +40,63 @@ struct ActionResult {
     static func skip(_ detail: String) -> ActionResult { ActionResult(ok: true, detail: detail, skipped: true) }
 }
 
+/// Hält den Event-Tap. Der C-Callback darf SystemControl nicht direkt anfassen.
+private let heliosOwnTag: Int64 = 0x48454C494F53
+
+private final class ClutchTap {
+    weak var owner: SystemControl?
+    var port: CFMachPort?
+    var source: CFRunLoopSource?
+}
+
+private func heliosClutchCallback(
+    _: CGEventTapProxy,
+    type: CGEventType,
+    event: CGEvent,
+    userInfo: UnsafeMutableRawPointer?
+) -> Unmanaged<CGEvent>? {
+    guard let userInfo else { return Unmanaged.passUnretained(event) }
+    let box = Unmanaged<ClutchTap>.fromOpaque(userInfo).takeUnretainedValue()
+    if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+        if let port = box.port { CGEvent.tapEnable(tap: port, enable: true) }
+        return Unmanaged.passUnretained(event)
+    }
+    let tagged = event.getIntegerValueField(.eventSourceUserData) == heliosOwnTag
+    if tagged { return Unmanaged.passUnretained(event) }
+    let loc = event.location
+    let kind: String
+    let delta: CGFloat
+    switch type {
+    case .keyDown:
+        kind = "key"
+        delta = 0
+    case .scrollWheel:
+        var d = abs(CGFloat(event.getDoubleValueField(.scrollWheelEventPointDeltaAxis1)))
+            + abs(CGFloat(event.getDoubleValueField(.scrollWheelEventPointDeltaAxis2)))
+        if d < 0.1 {
+            d = abs(CGFloat(event.getIntegerValueField(.scrollWheelEventDeltaAxis1)))
+                + abs(CGFloat(event.getIntegerValueField(.scrollWheelEventDeltaAxis2)))
+        }
+        kind = "scroll"
+        delta = d
+    case .leftMouseDown, .rightMouseDown, .otherMouseDown:
+        kind = "button"
+        delta = 0
+    case .mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged:
+        let dx = CGFloat(event.getIntegerValueField(.mouseEventDeltaX))
+        let dy = CGFloat(event.getIntegerValueField(.mouseEventDeltaY))
+        kind = "move"
+        delta = hypot(dx, dy)
+    default:
+        return Unmanaged.passUnretained(event)
+    }
+    let owner = box.owner
+    Task { @MainActor in
+        owner?.noteClutch(kind: kind, tagged: tagged, delta: delta, loc: loc)
+    }
+    return Unmanaged.passUnretained(event)
+}
+
 @MainActor
 final class SystemControl {
     private var dragElement: AXUIElement?
@@ -52,7 +109,12 @@ final class SystemControl {
     private var lastPostAt: TimeInterval = 0
     private var pauseUntil: TimeInterval = 0
     private var monitors: [Any] = []
+    private let clutchTap = ClutchTap()
     private(set) var mouseHasControl = false
+    /// Markiert injizierte Events, damit die Kupplung sie nicht als echte Maus liest.
+    private static let ownTag: Int64 = heliosOwnTag
+    private var ownSource: CGEventSource?
+    private var postingDepth = 0
     private let axQ = DispatchQueue(label: "helios.ax", qos: .userInteractive)
     private var chromeCache: (at: TimeInterval, point: CGPoint, knobs: [ChromeKnob])?
     private var axHitAt: TimeInterval = 0
@@ -76,55 +138,143 @@ final class SystemControl {
     }
 
     func startClutch() {
-        guard monitors.isEmpty else { return }
-        let mask: NSEvent.EventTypeMask = [
-            .leftMouseDragged, .leftMouseDown, .rightMouseDown, .scrollWheel, .keyDown
-        ]
-        let note: (NSEvent) -> Void = { [weak self] e in
-            Task { @MainActor in self?.noteHardware(e) }
+        guard clutchTap.port == nil, monitors.isEmpty else { return }
+        clutchTap.owner = self
+        let ptr = Unmanaged.passUnretained(clutchTap).toOpaque()
+        if let port = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .listenOnly,
+            eventsOfInterest: Self.clutchEventMask,
+            callback: heliosClutchCallback,
+            userInfo: ptr
+        ) {
+            clutchTap.port = port
+            let src = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, port, 0)
+            clutchTap.source = src
+            CFRunLoopAddSource(CFRunLoopGetMain(), src, .commonModes)
+            CGEvent.tapEnable(tap: port, enable: true)
+            return
         }
-        if let g = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: note) {
-            monitors.append(g)
-        }
+        installMonitorFallback()
     }
 
     func stopClutch() {
+        if let port = clutchTap.port {
+            CGEvent.tapEnable(tap: port, enable: false)
+            CFMachPortInvalidate(port)
+        }
+        if let source = clutchTap.source {
+            CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes)
+        }
+        clutchTap.port = nil
+        clutchTap.source = nil
+        clutchTap.owner = nil
         for m in monitors { NSEvent.removeMonitor(m) }
         monitors.removeAll()
     }
 
-    private func noteHardware(_ e: NSEvent) {
+    private static var clutchEventMask: CGEventMask {
+        let types: [CGEventType] = [
+            .mouseMoved,
+            .leftMouseDown, .leftMouseDragged,
+            .rightMouseDown, .rightMouseDragged,
+            .otherMouseDown, .otherMouseDragged,
+            .scrollWheel,
+            .keyDown
+        ]
+        return types.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
+    }
+
+    /// Wenn der Event-Tap fehlt: lokale und globale Monitore, sonst gewinnt die Maus nur außerhalb der App.
+    private func installMonitorFallback() {
+        let mask: NSEvent.EventTypeMask = [
+            .mouseMoved,
+            .leftMouseDown, .leftMouseDragged,
+            .rightMouseDown, .rightMouseDragged,
+            .otherMouseDown, .otherMouseDragged,
+            .scrollWheel,
+            .keyDown
+        ]
+        let note: (NSEvent) -> Void = { [weak self] e in
+            let tagged = e.cgEvent?.getIntegerValueField(.eventSourceUserData) == Self.ownTag
+            let kind: String
+            let delta: CGFloat
+            switch e.type {
+            case .keyDown:
+                kind = "key"
+                delta = 0
+            case .scrollWheel:
+                kind = "scroll"
+                delta = abs(e.scrollingDeltaY) + abs(e.scrollingDeltaX)
+            case .leftMouseDown, .rightMouseDown, .otherMouseDown:
+                kind = "button"
+                delta = 0
+            default:
+                kind = "move"
+                delta = hypot(e.deltaX, e.deltaY)
+            }
+            let loc = e.cgEvent?.location ?? NSEvent.mouseLocation.screenFlipped
+            Task { @MainActor in
+                self?.noteClutch(kind: kind, tagged: tagged, delta: delta, loc: loc)
+            }
+        }
+        if let g = NSEvent.addGlobalMonitorForEvents(matching: mask, handler: note) {
+            monitors.append(g)
+        }
+        if let local = NSEvent.addLocalMonitorForEvents(matching: mask, handler: { e in
+            note(e)
+            return e
+        }) {
+            monitors.append(local)
+        }
+    }
+
+    fileprivate func noteClutch(kind: String, tagged: Bool, delta: CGFloat, loc: CGPoint) {
         let now = CACurrentMediaTime()
         if GestureMath.clutchIgnoresFreeze(freezeLive: freezeLive) { return }
-        if e.type == .keyDown {
-            seize(now, hold: GestureMath.clutchKeyHold)
+        let dist: CGFloat = {
+            guard let posted = lastPosted else { return 10_000 }
+            return hypot(loc.x - posted.x, loc.y - posted.y)
+        }()
+        let since = lastPostAt > 0 ? now - lastPostAt : -1
+        if GestureMath.clutchIsOwn(
+            tagged: tagged,
+            posting: postingDepth > 0,
+            kind: kind,
+            dist: dist,
+            sincePost: since
+        ) {
             return
         }
-        if e.type == .scrollWheel {
-            seize(now, hold: GestureMath.clutchScrollHold)
-            return
-        }
-        if e.type == .leftMouseDown || e.type == .rightMouseDown {
-            if lastPostAt > 0, now - lastPostAt < GestureMath.clutchOwnNeed(dt: sampleDt) { return }
-            seize(now, hold: GestureMath.clutchKeyHold)
-            return
-        }
-        if lastPostAt > 0, now - lastPostAt < GestureMath.clutchOwnNeed(dt: sampleDt) { return }
-        guard e.type == .leftMouseDragged || e.type == .mouseMoved else { return }
-        let d = hypot(e.deltaX, e.deltaY)
-        let nowLoc = NSEvent.mouseLocation.screenFlipped
-        let scale = ScreenGeometry.backingScale(quartz: nowLoc)
-        if GestureMath.clutchIgnores(delta: d, scale: scale) { return }
-        if let posted = lastPosted {
-            if hypot(nowLoc.x - posted.x, nowLoc.y - posted.y) < GestureMath.clutchOwnRadiusScaled(scale: scale) { return }
-        }
-        guard d > 3.5 else { return }
-        seize(now)
+        let scale = ScreenGeometry.backingScale(quartz: loc)
+        guard GestureMath.hardwareClutch(own: false, kind: kind, delta: delta, scale: scale) else { return }
+        let hold = (kind == "scroll") ? GestureMath.clutchScrollHold : GestureMath.clutchKeyHold
+        seize(now, hold: hold)
     }
 
     private func seize(_ now: TimeInterval, hold: TimeInterval = 0.85) {
         pauseUntil = now + hold
         mouseHasControl = true
+        if buttonDown || pointerDrag {
+            endWindowDrag()
+        }
+    }
+
+    private func eventSource() -> CGEventSource? {
+        if ownSource == nil {
+            let src = CGEventSource(stateID: .hidSystemState)
+            src?.userData = Self.ownTag
+            ownSource = src
+        }
+        return ownSource
+    }
+
+    private func postEvent(_ event: CGEvent) {
+        event.setIntegerValueField(.eventSourceUserData, value: Self.ownTag)
+        postingDepth += 1
+        event.post(tap: .cghidEventTap)
+        postingDepth -= 1
     }
 
     func moveCursor(to point: CGPoint) {
@@ -139,9 +289,9 @@ final class SystemControl {
         }
         lastPosted = p
         lastPostAt = now
-        let src = CGEventSource(stateID: .hidSystemState)
-        let e = CGEvent(mouseEventSource: src, mouseType: .mouseMoved, mouseCursorPosition: p, mouseButton: .left)
-        e?.post(tap: .cghidEventTap)
+        if let e = CGEvent(mouseEventSource: eventSource(), mouseType: .mouseMoved, mouseCursorPosition: p, mouseButton: .left) {
+            postEvent(e)
+        }
     }
 
     @discardableResult
@@ -208,9 +358,8 @@ final class SystemControl {
     func scroll(ticks: Int32) -> ActionResult {
         guard allowsInjection else { return .fail("Maus hat Vorrang") }
         guard ticks != 0 else { return .ok("0") }
-        let src = CGEventSource(stateID: .hidSystemState)
         guard let e = CGEvent(
-            scrollWheelEvent2Source: src,
+            scrollWheelEvent2Source: eventSource(),
             units: .pixel,
             wheelCount: 1,
             wheel1: ticks,
@@ -219,7 +368,7 @@ final class SystemControl {
         ) else {
             return .fail("CGEvent Scroll")
         }
-        e.post(tap: .cghidEventTap)
+        postEvent(e)
         return .ok(String(format: "%+d", ticks))
     }
 
@@ -486,16 +635,15 @@ final class SystemControl {
         guard now - lastKey > 0.08 else { return .skip("Taste-Pause") }
         lastKey = now
         guard allowsInjection else { return .fail("Maus hat Vorrang") }
-        let src = CGEventSource(stateID: .hidSystemState)
-        guard let down = CGEvent(keyboardEventSource: src, virtualKey: code, keyDown: true),
-              let up = CGEvent(keyboardEventSource: src, virtualKey: code, keyDown: false)
+        guard let down = CGEvent(keyboardEventSource: eventSource(), virtualKey: code, keyDown: true),
+              let up = CGEvent(keyboardEventSource: eventSource(), virtualKey: code, keyDown: false)
         else {
             return .fail("CGEvent Taste")
         }
         down.flags = flags
         up.flags = flags
-        down.post(tap: .cghidEventTap)
-        up.post(tap: .cghidEventTap)
+        postEvent(down)
+        postEvent(up)
         return .ok("\(code)")
     }
 
@@ -504,29 +652,27 @@ final class SystemControl {
         let now = CACurrentMediaTime()
         guard now - lastKey > 0.28 else { return false }
         lastKey = now
-        let src = CGEventSource(stateID: .hidSystemState)
-        guard let down = CGEvent(keyboardEventSource: src, virtualKey: key, keyDown: true),
-              let up = CGEvent(keyboardEventSource: src, virtualKey: key, keyDown: false)
+        guard let down = CGEvent(keyboardEventSource: eventSource(), virtualKey: key, keyDown: true),
+              let up = CGEvent(keyboardEventSource: eventSource(), virtualKey: key, keyDown: false)
         else { return false }
         down.flags = flags
         up.flags = flags
-        down.post(tap: .cghidEventTap)
-        up.post(tap: .cghidEventTap)
+        postEvent(down)
+        postEvent(up)
         return true
     }
 
     @discardableResult
     private func postMouse(_ type: CGEventType, at point: CGPoint, button: CGMouseButton = .left) -> Bool {
-        let src = CGEventSource(stateID: .hidSystemState)
         let loc = ScreenGeometry.clampQuartz(point)
         guard let e = CGEvent(
-            mouseEventSource: src,
+            mouseEventSource: eventSource(),
             mouseType: type,
             mouseCursorPosition: loc,
             mouseButton: button
         ) else { return false }
         e.setIntegerValueField(.mouseEventClickState, value: 1)
-        e.post(tap: .cghidEventTap)
+        postEvent(e)
         return true
     }
 

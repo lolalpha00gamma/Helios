@@ -43,4 +43,4 @@ Tasten im Kamerafenster: **S** Scharf, **Esc** Idle, **Q** Ende, **C** nächste 
 - Windows 11, x64. Webcam oder Continuity/Phone-Link-Kamera.
 - Overlay liegt über allen Fenstern, klickt aber durch.
 - Log: `%LOCALAPPDATA%\Helios\helios.log`
-- Version entspricht der macOS-Linie (`1.6.113`).
+- Version entspricht der macOS-Linie (`1.6.114`).

@@ -1,4 +1,4 @@
-# Helios **1.6.113**
+# Helios **1.6.114**
 
 
 Native macOS-App: Gestensteuerung über den Kamera-Livestream, holografisches HUD, Fenster- und Cursorsteuerung.
@@ -8,6 +8,10 @@ Privates Repo. Keine Open-Source-Lizenzdatei.
 Ziel: **macOS 26+** (Golden Gate / 27), **Apple Silicon**, **arm64**.
 
 Windows 11 (x64): [`windows/`](windows/) — MediaPipe, Overlay, dieselben Gesten. Release-Asset `Helios-windows.zip`.
+
+## Neu in 1.6.114
+
+Maus, Trackpad und Tastatur übernehmen sofort: Bewegung, Klick und Scroll pausieren die Gesten. Eigene Klicks und Scrolls sind markiert und lösen die Pause nicht mehr aus. Scroll, Wischen, Peace und Daumen-hoch zählen auch unter der alten 70-%-Pose. OK (Kreis plus gestreckte Finger) gewinnt gegen die offene Hand.
 
 ## Neu in 1.6.113
 

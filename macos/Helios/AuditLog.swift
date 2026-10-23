@@ -39,7 +39,7 @@ final class AuditLog: ObservableObject {
         if entries.count > limit {
             entries.removeFirst(entries.count - limit)
         }
-        heliosLog.info("\(kind.rawValue, privacy: .public) \(text, privacy: .public)")
+        heliosLog.info("\(kind.rawValue, privacy: .public) \(text, privacy: .private)")
     }
 
     func clear() { entries.removeAll() }

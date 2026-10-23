@@ -158,7 +158,7 @@ enum AppInstall {
     private static func stripQuarantine(_ url: URL) {
         let proc = Process()
         proc.executableURL = URL(fileURLWithPath: "/usr/bin/xattr")
-        proc.arguments = ["-cr", url.path]
+        proc.arguments = ["-dr", "com.apple.quarantine", url.path]
         proc.standardOutput = FileHandle.nullDevice
         proc.standardError = FileHandle.nullDevice
         do {

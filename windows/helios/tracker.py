@@ -1,33 +1,13 @@
 from __future__ import annotations
 
 import time
-import urllib.request
-from pathlib import Path
 
 import numpy as np
 
 from .classifier import classify
 from .coord import MP
 
-MODEL_URL = (
-    "https://storage.googleapis.com/mediapipe-models/hand_landmarker/"
-    "hand_landmarker/float16/latest/hand_landmarker.task"
-)
-
-
-def model_path() -> Path:
-    here = Path(__file__).resolve().parent
-    bundled = here / "models" / "hand_landmarker.task"
-    if bundled.exists():
-        return bundled
-    cache = Path.home() / "AppData" / "Local" / "Helios" / "hand_landmarker.task"
-    if cache.exists() and cache.stat().st_size > 1_000_000:
-        return cache
-    cache.parent.mkdir(parents=True, exist_ok=True)
-    tmp = cache.with_suffix(".part")
-    urllib.request.urlretrieve(MODEL_URL, tmp)
-    tmp.replace(cache)
-    return cache
+from .model_asset import model_path
 
 
 class HandTracker:

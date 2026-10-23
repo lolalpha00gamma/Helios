@@ -201,6 +201,8 @@ enum GestureClassifier {
             return max(0, min(1, (dy - 0.35) / 0.7)) * thumb.score
         }()
 
+        let othersUp = [middle, ring, little].filter { $0.score > 0.55 }.count
+        let openScore = othersUp + (index.score > 0.55 ? 1 : 0)
         var logits: [HandPose: Double] = [:]
         logits[.fist] = Double((1 - index.score) + (1 - middle.score) + (1 - ring.score) + (1 - little.score)) * 1.1
             - Double(closedness) * 0.4
@@ -213,10 +215,9 @@ enum GestureClassifier {
         logits[.peace] = Double(index.score + middle.score) * 2.1 - Double(ring.score + little.score) * 2.2
         logits[.thumbsUp] = Double(thumbUp) * 4.2
             + Double((1 - index.score) + (1 - middle.score) + (1 - ring.score) + (1 - little.score)) * 1.1
-            - Double([index, middle, ring, little].filter { $0.score > 0.55 }.count) * 1.8
+            - Double(openScore) * 1.8
             - Double(closedness) * 1.4
         logits[.unknown] = -1.8
-        let othersUp = [middle, ring, little].filter { $0.score > 0.55 }.count
         if GestureMath.okBoostsPinch(closedness: Double(closedness), othersUp: othersUp) {
             logits[.pinch] = (logits[.pinch] ?? 0) + 1.8
             logits[.openPalm] = (logits[.openPalm] ?? 0) - 0.8
@@ -226,7 +227,7 @@ enum GestureClassifier {
         let sm = JointGeom.softmax(keys.map { logits[$0] ?? 0 }, temperature: 0.72)
         var probs: [HandPose: Double] = [:]
         for (i, k) in keys.enumerated() { probs[k] = sm[i] }
-        if [index, middle, ring, little].filter({ $0.score > 0.55 }).count >= 2 {
+        if openScore >= 2 {
             probs[.thumbsUp] = min(probs[.thumbsUp] ?? 0, 0.06)
         }
 
@@ -242,7 +243,6 @@ enum GestureClassifier {
             csum += c * c
         }
         let quality = wsum > 0 ? min(1, csum / max(0.01, wsum)) : 0.4
-        let openScore = [index, middle, ring, little].filter { $0.score > 0.55 }.count
 
         return PoseFeatures(
             probs: probs,
@@ -383,7 +383,7 @@ enum GestureClassifier {
         let sm = JointGeom.softmax(keys.map { logits[$0] ?? 0 }, temperature: 0.7)
         var probs: [HandPose: Double] = [:]
         for (i, k) in keys.enumerated() { probs[k] = sm[i] }
-        if [index, middle, ring, little].filter({ $0 > 0.55 }).count >= 2 {
+        if othersUp + (index > 0.55 ? 1 : 0) >= 2 {
             probs[.thumbsUp] = min(probs[.thumbsUp] ?? 0, 0.06)
         }
         f.probs = probs

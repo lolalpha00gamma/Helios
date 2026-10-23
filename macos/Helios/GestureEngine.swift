@@ -2399,7 +2399,7 @@ final class GestureEngine {
             tipDwell[k] = nil
         }
         keyboardHots = hots
-        keyboardHover = hots.sorted().first ?? ""
+        keyboardHover = hots.min() ?? ""
         keyboardDwell = bestHold
         if hots.isEmpty {
             lastAction = "Tastatur — Finger auf Tasten"

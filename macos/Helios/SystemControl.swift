@@ -687,11 +687,6 @@ final class SystemControl {
         return axWindow(pid: t.pid, bounds: t.quartzBounds)
     }
 
-    private func frontWindow() -> AXUIElement? {
-        guard let t = TargetProbe.frontmost(skipSelf: true) else { return nil }
-        return axWindow(pid: t.pid, bounds: t.quartzBounds)
-    }
-
     private func pid(of el: AXUIElement) -> pid_t {
         var pid: pid_t = 0
         AXUIElementGetPid(el, &pid)
@@ -818,15 +813,6 @@ final class SystemControl {
         var size = s
         guard let val = AXValueCreate(.cgSize, &size) else { return false }
         return AXUIElementSetAttributeValue(el, "AXSize" as CFString, val) == .success
-    }
-
-    @discardableResult
-    private func pressButton(_ win: AXUIElement, _ attr: CFString) -> ActionResult {
-        var btn: CFTypeRef?
-        let copy = AXUIElementCopyAttributeValue(win, attr, &btn)
-        guard copy == .success, let el = Self.asElement(btn) else { return .fail("Kein Knopf \(attr)") }
-        let act = AXUIElementPerformAction(el, "AXPress" as CFString)
-        return act == .success ? .ok(attr as String) : .fail("AXPress \(act.rawValue)")
     }
 
     nonisolated private static func asElement(_ ref: CFTypeRef?) -> AXUIElement? {

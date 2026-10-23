@@ -69,3 +69,7 @@ Audit-Änderungen werden getrennt von bereits vorhandenen Änderungen auf main g
 ## Modellherkunft
 
 Gepinnte Datei: [MediaPipe hand_landmarker Version 1](https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task), am Audittag aus der offiziellen Quelle gelesen. Größe: 7.819.105 Bytes. SHA-256: `fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1`. Dies pinnt den Inhalt; es ist keine unabhängige Sicherheitsbewertung des Modells.
+
+## Nachtrag: Effizienz und toter Code
+
+Wiederholte Fingerzählungen zusammengefasst, lexikografisches Minimum ohne Sortierung ermittelt und zwei unreferenzierte private AX-Helfer entfernt. Swift-Gestentests, Python-Klassifikatorvergleich und macOS-Build erfolgreich. Details: [Effizienzbericht](docs/EFFICIENCY-2026-10-23.md). UI nicht verändert; Begriffsvorschläge stehen im übergeordneten Nachtrag.

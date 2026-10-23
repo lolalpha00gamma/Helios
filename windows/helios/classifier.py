@@ -46,6 +46,7 @@ def classify(j: dict) -> dict:
         dy = (w[1] - tip[1]) / max(0.03, scale)  # up in image = smaller y
         thumb_up = clamp((dy - 0.35) / 0.7) * thumb
 
+    open_score = sum(1 for s in (index, middle, ring, little) if s > 0.55)
     logits = {
         "fist": ((1 - index) + (1 - middle) + (1 - ring) + (1 - little)) * 1.1
         - closed * 0.4
@@ -56,7 +57,7 @@ def classify(j: dict) -> dict:
         "peace": (index + middle) * 2.1 - (ring + little) * 2.2,
         "thumbsUp": thumb_up * 4.2
         + ((1 - index) + (1 - middle) + (1 - ring) + (1 - little)) * 1.1
-        - sum(1 for s in (index, middle, ring, little) if s > 0.55) * 1.8
+        - open_score * 1.8
         - closed * 1.4,
         "unknown": -1.8,
     }
@@ -67,11 +68,10 @@ def classify(j: dict) -> dict:
     keys = list(POSE)
     sm = softmax([logits.get(k, -2.0) for k in keys], 0.72)
     probs = {k: sm[i] for i, k in enumerate(keys)}
-    if sum(1 for s in (index, middle, ring, little) if s > 0.55) >= 2:
+    if open_score >= 2:
         probs["thumbsUp"] = min(probs["thumbsUp"], 0.06)
     pose = max(probs, key=probs.get)
     ext = {"thumb": thumb, "index": index, "middle": middle, "ring": ring, "little": little}
-    open_score = sum(1 for s in (index, middle, ring, little) if s > 0.55)
     return {
         "pose": pose,
         "pose_de": POSE_DE[pose],
